@@ -26,3 +26,6 @@ __pycache__/
 *.gguf
 *.pt
 *.ckpt
+
+# Claude Code agent worktrees (temporary copies of this repo)
+.claude/worktrees/
