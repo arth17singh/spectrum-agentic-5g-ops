@@ -72,7 +72,7 @@ class Engine:
     def build(self, warm: bool = True, hold: bool = False) -> None:
         self.clock = Clock()
         self.bus = Bus(self.clock)
-        self.keys = KeyRing(self.seed)
+        self.keys = KeyRing()
         self.sched = Scheduler(self.clock)
         self.ledger = Ledger(self.clock, self.bus, self.keys)
         self.trust = Trust(self.clock, self.bus, self.keys)

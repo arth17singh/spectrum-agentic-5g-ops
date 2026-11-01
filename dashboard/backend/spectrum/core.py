@@ -5,8 +5,10 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import heapq
+import hmac
 import itertools
 import json
+import os
 from collections import deque
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
@@ -50,21 +52,30 @@ def sha256_hex(data: str | bytes) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Keys (mock KMS). Deterministic Ed25519 keys derived from the seed, so every
-# reset produces identical signatures. AWS mode swaps this for KMS Sign/Verify.
+# Keys (mock KMS). Each Ed25519 private key is HMAC-SHA256(_KEY_SECRET, key_id).
+# The simulation seed must not be used for this: it is public (GET /api/config, the
+# Settings screen), and keys derived from it would let anyone forge ledger records,
+# human approvals, A2A messages and AI-BOM signatures.
+# _KEY_SECRET is the bytes of SPECTRUM_KEY_SECRET if set and non-empty, else 32
+# random bytes. It is made once at import and is module-level, not per KeyRing, so
+# the new KeyRing that every Engine.reset() builds derives the same keys, and resets
+# keep producing identical signatures for the whole server run. Set
+# SPECTRUM_KEY_SECRET to keep the same keys across restarts.
+# AWS mode swaps this for KMS Sign/Verify.
 # ---------------------------------------------------------------------------
+
+_KEY_SECRET: bytes = os.environ.get("SPECTRUM_KEY_SECRET", "").encode() or os.urandom(32)
 
 
 class KeyRing:
-    def __init__(self, seed: int):
-        self.seed = seed
+    def __init__(self) -> None:
         self._keys: dict[str, Ed25519PrivateKey] = {}
         self.revoked: dict[str, str] = {}  # key_id -> iso time
 
     def _key(self, key_id: str) -> Ed25519PrivateKey:
         k = self._keys.get(key_id)
         if k is None:
-            raw = hashlib.sha256(f"{self.seed}:{key_id}".encode()).digest()
+            raw = hmac.digest(_KEY_SECRET, key_id.encode(), "sha256")
             k = Ed25519PrivateKey.from_private_bytes(raw)
             self._keys[key_id] = k
         return k
