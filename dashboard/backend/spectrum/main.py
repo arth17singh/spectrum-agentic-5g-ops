@@ -383,11 +383,26 @@ async def ws(socket: WebSocket):
 
 # --------------------------------------------------------------------------- built frontend (demo day: one process)
 
-DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-if DIST.exists():
-    app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
+def serve_frontend(app: FastAPI, dist: Path) -> None:
+    """Serve the built UI: /assets as static files, any other GET as the file it names in `dist`,
+    else index.html so client-side routes such as /federation load the app."""
+    app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+    root = dist.resolve()
+    index = root / "index.html"
 
     @app.get("/{path:path}")
-    def spa(path: str):
-        f = DIST / path
-        return FileResponse(f if f.is_file() else DIST / "index.html")
+    def spa(path: str):  # sync on purpose: the filesystem calls run in the thread pool, off the loop
+        # `path` comes from the URL: `..`, an absolute path (//etc/hosts) or a symlink in dist could
+        # otherwise reach any file the server can read. Serve only regular files that resolve inside.
+        try:
+            f = (root / path).resolve()
+            if f.is_relative_to(root) and f.is_file():
+                return FileResponse(f)
+        except (OSError, ValueError, RuntimeError):  # name too long, NUL byte, symlink loop
+            pass
+        return FileResponse(index)
+
+
+DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if DIST.exists():
+    serve_frontend(app, DIST)
