@@ -229,7 +229,7 @@ async def agent_action(aid: str, action: str):
 # --------------------------------------------------------------------------- oversight
 
 class DecisionBody(BaseModel):
-    by: str = "a.rivera"
+    by: str  # required: the decision is signed as this approver, so a missing one must not default to anybody
     device: str = "console"
     reason: str = ""
     changes: dict | None = None
@@ -237,10 +237,15 @@ class DecisionBody(BaseModel):
 
 @app.post("/api/approvals/{aid}/{decision}")
 async def approval(aid: str, decision: str, body: DecisionBody):
+    from .engines.oversight import HUMANS
     if aid not in engine.oversight.items:
         raise HTTPException(404)
     mapping = {"approve": "approved", "approve_with_changes": "approved_with_changes", "reject": "rejected",
                "escalate": "escalated"}
+    if decision not in mapping:
+        raise HTTPException(400, f"unknown decision {decision!r}; allowed: {', '.join(mapping)}")
+    if body.by not in HUMANS:
+        raise HTTPException(400, f"unknown approver {body.by!r}; known approvers: {', '.join(HUMANS)}")
     item = engine.oversight.decide(aid, mapping[decision], body.by, body.device, body.reason, body.changes)
     if item["status"] == "approved" and item["plan"]["id"].startswith("restore-"):
         engine.swarm.release(item["plan"]["id"][len("restore-"):])

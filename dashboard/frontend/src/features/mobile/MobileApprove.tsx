@@ -29,7 +29,9 @@ export default function MobileApprove() {
   const conn = useLive((s) => s.conn)
   const items: Approval[] = useLive((s) => s.oversight.items ?? EMPTY)
   const humans: Rec = useLive((s) => s.oversight.humans ?? NO_HUMANS)
-  const [by, setBy] = useState(() => localStorage.getItem('spectrum.mobile.by') ?? 'j.okafor')
+  const [picked, setPicked] = useState(() => localStorage.getItem('spectrum.mobile.by') ?? 'j.okafor')
+  // The saved id may be stale or hand-edited, and the server refuses unknown approvers: fall back to a known one.
+  const by = Object.hasOwn(humans, picked) ? picked : Object.hasOwn(humans, 'j.okafor') ? 'j.okafor' : Object.keys(humans)[0] ?? picked
   const pending = items.filter((i) => i.status === 'pending')
   const recent = items.filter((i) => i.status !== 'pending' && i.approvals.some((a) => a.device === 'mobile')).slice(0, 3)
 
@@ -52,7 +54,7 @@ export default function MobileApprove() {
       </header>
       <label className="mb-5 flex items-center gap-2 rounded-[10px] border border-line bg-s1 px-3 py-2.5 text-body">
         <span className="text-ink-3">Signing as</span>
-        <select value={by} onChange={(e) => { setBy(e.target.value); localStorage.setItem('spectrum.mobile.by', e.target.value) }}
+        <select value={by} onChange={(e) => { setPicked(e.target.value); localStorage.setItem('spectrum.mobile.by', e.target.value) }}
           className="ml-auto bg-transparent text-right font-medium text-ink-1">
           {Object.values(humans).map((h: Rec) => <option key={h.id} value={h.id}>{h.name}, {h.level}</option>)}
         </select>

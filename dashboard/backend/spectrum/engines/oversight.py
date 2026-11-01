@@ -66,10 +66,15 @@ class Oversight:
 
     def decide(self, aid: str, decision: str, by: str = "a.rivera", device: str = "console",
                reason: str = "", changes: dict | None = None) -> dict:
+        # Every decision is ledgered and signed under `by`'s key: refuse an unknown id rather than sign as somebody else.
+        if by not in HUMANS:
+            raise ValueError(f"unknown approver {by!r}")
+        if decision not in ("approved", "approved_with_changes", "rejected", "escalated"):
+            raise ValueError(f"unknown decision {decision!r}")
         item = self.items[aid]
         if item["status"] not in ("pending",):
             return item
-        human = HUMANS.get(by, HUMANS["a.rivera"])
+        human = HUMANS[by]
         if decision in ("approved", "approved_with_changes"):
             if any(a["by"] == human["id"] for a in item["approvals"]):
                 return item  # same person cannot approve twice (four-eyes)
