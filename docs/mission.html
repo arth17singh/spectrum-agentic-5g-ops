@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mission Control | SPECTRUM presenter guide</title>
+<link rel="stylesheet" href="assets/guide.css">
+<script src="assets/guide.js" defer></script>
+</head>
+<body data-page="mission.html">
+<main class="content">
+
+  <header class="page-head">
+    <h1>Mission Control</h1>
+    <p class="lede">Mission Control is the home screen. It shows the whole system on one page:
+      five operators train one model together without sharing data, the model is tested and rolled out,
+      a governed team of AI agents runs a simulated network, and every step lands in a signed ledger.
+      Each panel summarises a deeper screen; the five plane tiles, the twin map and the ribbon are links to those screens.</p>
+    <div class="meta">
+      <span>Route <code>/</code></span>
+      <span>Go to it with <kbd>g</kbd> then <kbd>m</kbd></span>
+      <span class="beat-chips">Appears in demo beats
+        <a class="chip" href="demo-playbook.html#beat-1">1</a>
+        <a class="chip" href="demo-playbook.html#beat-14">14</a>
+      </span>
+    </div>
+  </header>
+
+  <h2 id="at-a-glance">The screen at a glance</h2>
+  <p>Mission Control belongs to no single plane. It is the overview that sits above all five, which is
+    why its header carries all three track tags (T1, T2, T3). Think of it as the system's one-slide
+    summary: if a judge only ever saw this page, they should still understand what SPECTRUM does.</p>
+  <div class="callout say">
+    <p class="title">The one-sentence story</p>
+    <p>"Five operators train one network model together without sharing data, the model has to pass a
+      test before it ships, a team of agents uses it to run the network under policy and human approval,
+      and every step is signed so anyone can check it later."</p>
+  </div>
+  <p>The page is built from five blocks, read top to bottom:</p>
+  <ul>
+    <li><strong>Network health</strong> (top left): is the network OK right now? This is the Operate plane's headline.</li>
+    <li><strong>Consortium</strong> (top right): the five operators training together around a sealed aggregator. This is the Learn plane.</li>
+    <li><strong>Five plane tiles</strong> (middle row): three numbers and a small trend line for each of Learn, Verify, Release, Operate and Prove.</li>
+    <li><strong>Network twin</strong> (bottom left): a small map of the 40 simulated cell sites.</li>
+    <li><strong>Needs attention</strong> (bottom right): the last eight warnings or critical events from anywhere in the system.</li>
+  </ul>
+  <p>Around the page you also see the console frame: the top bar, the five-colour lifecycle ribbon,
+    the screens rail on the left and the live stream line at the bottom. They are the same on every
+    screen and are explained on <a href="shell.html">Console frame &amp; controls</a>.</p>
+
+  <ol class="comp-list">
+    <li><span class="comp-num">1</span><a href="#c-1">Page header and track tags</a></li>
+    <li><span class="comp-num">2</span><a href="#c-2">Network health headline</a></li>
+    <li><span class="comp-num">3</span><a href="#c-3">Incidents, last MTTR and waiting on a human</a></li>
+    <li><span class="comp-num">4</span><a href="#c-4">Health and stadium load chart</a></li>
+    <li><span class="comp-num">5</span><a href="#c-5">Consortium map</a></li>
+    <li><span class="comp-num">6</span><a href="#c-6">Data-movement and benefit strip</a></li>
+    <li><span class="comp-num">7</span><a href="#c-7">Learn tile</a></li>
+    <li><span class="comp-num">8</span><a href="#c-8">Verify tile</a></li>
+    <li><span class="comp-num">9</span><a href="#c-9">Release tile</a></li>
+    <li><span class="comp-num">10</span><a href="#c-10">Operate tile</a></li>
+    <li><span class="comp-num">11</span><a href="#c-11">Prove tile</a></li>
+    <li><span class="comp-num">12</span><a href="#c-12">Network twin</a></li>
+    <li><span class="comp-num">13</span><a href="#c-13">Needs attention</a></li>
+    <li><span class="comp-num">14</span><a href="#c-14">Source chips</a></li>
+  </ol>
+
+  <h2 id="screenshots">Annotated screenshots</h2>
+  <h3 id="shot-pre-demo" data-toc-label="Before the demo">Before the demo (after a reset)</h3>
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/screen-mission.jpg" width="1440" height="1312"
+           alt="Mission Control before the demo: network health at 100 percent, the consortium of five operators around the enclave aggregator, five plane tiles, the hexagon network twin and an empty Needs attention panel">
+      <span class="box" data-target="c-1" style="left:6.11%;top:7.93%;width:92.22%;height:6.71%"></span>
+      <span class="box" data-target="c-2" style="left:6.11%;top:14.63%;width:37.78%;height:22.56%"></span>
+      <span class="box" data-target="c-3" style="left:19.6%;top:18.9%;width:23.4%;height:5.4%"></span>
+      <span class="box" data-target="c-4" style="left:7%;top:24.9%;width:35.5%;height:11.4%"></span>
+      <span class="box" data-target="c-5" style="left:45%;top:14.63%;width:53.33%;height:33.16%"></span>
+      <span class="box" data-target="c-6" style="left:46.2%;top:42.5%;width:51%;height:4.3%"></span>
+      <span class="box" data-target="c-7" style="left:6.11%;top:49.01%;width:17.56%;height:19.44%"></span>
+      <span class="box" data-target="c-8" style="left:24.78%;top:49.01%;width:17.56%;height:19.44%"></span>
+      <span class="box" data-target="c-9" style="left:43.44%;top:49.01%;width:17.56%;height:19.44%"></span>
+      <span class="box" data-target="c-10" style="left:62.11%;top:49.01%;width:17.56%;height:19.44%"></span>
+      <span class="box" data-target="c-11" style="left:80.78%;top:49.01%;width:17.56%;height:19.44%"></span>
+      <span class="box" data-target="c-12" style="left:6.11%;top:69.66%;width:53.33%;height:25.46%"></span>
+      <span class="box" data-target="c-13" style="left:60.56%;top:69.66%;width:37.78%;height:10.52%"></span>
+      <span class="box" data-target="c-14" style="left:84.6%;top:15.3%;width:12.6%;height:1.9%"></span>
+      <span class="box" data-target="c-14" style="left:33.7%;top:15.3%;width:9%;height:1.9%"></span>
+      <span class="box" data-target="c-14" style="left:49.9%;top:70.3%;width:8.4%;height:1.9%"></span>
+      <a class="pin" href="#c-1" style="left:7.6%;top:9.9%">1</a>
+      <a class="pin" href="#c-2" style="left:7.6%;top:16.6%">2</a>
+      <a class="pin" href="#c-3" style="left:21.1%;top:20.9%">3</a>
+      <a class="pin" href="#c-4" style="left:8.5%;top:26.9%">4</a>
+      <a class="pin" href="#c-5" style="left:46.5%;top:16.6%">5</a>
+      <a class="pin" href="#c-6" style="left:47.7%;top:44.5%">6</a>
+      <a class="pin" href="#c-7" style="left:7.6%;top:51%">7</a>
+      <a class="pin" href="#c-8" style="left:26.3%;top:51%">8</a>
+      <a class="pin" href="#c-9" style="left:44.9%;top:51%">9</a>
+      <a class="pin" href="#c-10" style="left:63.6%;top:51%">10</a>
+      <a class="pin" href="#c-11" style="left:82.3%;top:51%">11</a>
+      <a class="pin" href="#c-12" style="left:7.6%;top:71.7%">12</a>
+      <a class="pin" href="#c-13" style="left:62.1%;top:71.7%">13</a>
+      <a class="pin" href="#c-14" style="left:83.4%;top:16.2%">14</a>
+    </div>
+    <figcaption>Mission Control right after a reset (hold <kbd>r</kbd> for 1 second), in the dark Ops theme. Federated training waits at "round 13 queued", nothing needs attention, and no incident is open. Hover a number to outline that part and highlight its card. Click the image to enlarge it.</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#c-1"><span class="n">1</span><span>Page header</span></a></li>
+      <li><a href="#c-2"><span class="n">2</span><span>Network health</span></a></li>
+      <li><a href="#c-3"><span class="n">3</span><span>Sub-stats</span></a></li>
+      <li><a href="#c-4"><span class="n">4</span><span>Health chart</span></a></li>
+      <li><a href="#c-5"><span class="n">5</span><span>Consortium map</span></a></li>
+      <li><a href="#c-6"><span class="n">6</span><span>Data-movement strip</span></a></li>
+      <li><a href="#c-7"><span class="n">7</span><span>Learn tile</span></a></li>
+      <li><a href="#c-8"><span class="n">8</span><span>Verify tile</span></a></li>
+      <li><a href="#c-9"><span class="n">9</span><span>Release tile</span></a></li>
+      <li><a href="#c-10"><span class="n">10</span><span>Operate tile</span></a></li>
+      <li><a href="#c-11"><span class="n">11</span><span>Prove tile</span></a></li>
+      <li><a href="#c-12"><span class="n">12</span><span>Network twin</span></a></li>
+      <li><a href="#c-13"><span class="n">13</span><span>Needs attention</span></a></li>
+      <li><a href="#c-14"><span class="n">14</span><span>Source chips</span></a></li>
+    </ul>
+  </figure>
+
+  <h3 id="shot-beat-1" data-toc-label="During beat 1">During beat 1, with spotlight on</h3>
+  <figure class="shot">
+    <div class="shot-frame">
+      <img src="img/beat-01.jpg" width="1440" height="900"
+           alt="Beat 1 cold open: the lifecycle ribbon and the Consortium panel are bright with a purple outline, every other panel is faded">
+      <span class="box" data-target="c-5" style="left:45%;top:21.33%;width:53.33%;height:48.33%"></span>
+      <a class="pin" href="#c-5" style="left:46.5%;top:23.3%">5</a>
+    </div>
+    <figcaption>Beat 1 lights two things: the lifecycle ribbon at the top and the Consortium panel (outlined in the Learn colour). Every other panel fades to 38% opacity so the audience looks where you point. Press <kbd>Esc</kbd> to clear the highlight.</figcaption>
+  </figure>
+
+  <h3 id="shot-beat-14" data-toc-label="After beat 14">After beat 14, the end of the demo</h3>
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/beat-14-full.jpg" width="1440" height="1459"
+           alt="Mission Control after beat 14: everything except the ribbon is faded; one approval is waiting, the twin shows amber rings, the Prove tile shows a broken chain and Needs attention lists eight warnings">
+      <span class="box" data-target="c-3" style="left:19.6%;top:17.3%;width:23.4%;height:4.4%"></span>
+      <span class="box" data-target="c-4" style="left:7%;top:22.6%;width:35.5%;height:8.6%"></span>
+      <span class="box" data-target="c-5" style="left:45%;top:13.16%;width:53.33%;height:29.81%"></span>
+      <span class="box" data-target="c-7" style="left:6.11%;top:44.07%;width:17.56%;height:17.48%"></span>
+      <span class="box" data-target="c-8" style="left:24.78%;top:44.07%;width:17.56%;height:17.48%"></span>
+      <span class="box" data-target="c-9" style="left:43.44%;top:44.07%;width:17.56%;height:17.48%"></span>
+      <span class="box" data-target="c-10" style="left:62.11%;top:44.07%;width:17.56%;height:17.48%"></span>
+      <span class="box" data-target="c-11" style="left:80.78%;top:44.07%;width:17.56%;height:17.48%"></span>
+      <span class="box" data-target="c-12" style="left:6.11%;top:62.65%;width:53.33%;height:22.89%"></span>
+      <span class="box" data-target="c-13" style="left:60.56%;top:62.65%;width:37.78%;height:32.97%"></span>
+      <a class="pin" href="#c-3" style="left:21.1%;top:19.3%">3</a>
+      <a class="pin" href="#c-4" style="left:8.5%;top:24.6%">4</a>
+      <a class="pin" href="#c-5" style="left:46.5%;top:15.2%">5</a>
+      <a class="pin" href="#c-7" style="left:7.6%;top:46.1%">7</a>
+      <a class="pin" href="#c-8" style="left:26.3%;top:46.1%">8</a>
+      <a class="pin" href="#c-9" style="left:44.9%;top:46.1%">9</a>
+      <a class="pin" href="#c-10" style="left:63.6%;top:46.1%">10</a>
+      <a class="pin" href="#c-11" style="left:82.3%;top:46.1%">11</a>
+      <a class="pin" href="#c-12" style="left:7.6%;top:64.7%">12</a>
+      <a class="pin" href="#c-13" style="left:62.1%;top:64.7%">13</a>
+    </div>
+    <figcaption>The same screen after the full run. Beat 14 lights only the ribbon, so the panels are faded. What changed since the start: one approval waits (APR-318), the health chart shows the outage dip, Op-E has left the consortium at ε 3.00, nlm-v7 passed the gate and is on a 10% canary, one agent is quarantined and site autonomy is L3, the Prove tile shows "broken at #3503" with a red dot, the twin shows amber "on microwave" rings, and Needs attention is full.</figcaption>
+  </figure>
+
+  <h2 id="beats">When this screen appears in the demo</h2>
+  <p>Mission Control opens and closes the demo. Beats 2 to 13 happen on other screens; the Demo Director
+    navigates there by itself. Full beat cards are on the <a href="demo-playbook.html">Demo playbook</a>.</p>
+
+  <!-- Beat ids are prefixed "mission-" on purpose, so they do not clash with the #beat-N anchors on demo-playbook.html. guide.js does not rely on #beat-N. -->
+  <article class="beat" id="mission-beat-1">
+    <header>
+      <span class="beat-num">1</span>
+      <h3>Cold open</h3>
+      <div class="beat-meta"><code>/</code><span class="dur">30 s</span></div>
+    </header>
+    <dl class="beat-grid">
+      <dt>Do</dt>
+      <dd><ol class="steps"><li>Press <kbd>1</kbd> (or <kbd>→</kbd> from the start).</li><li>Pause on Mission Control and let the room look at it.</li></ol></dd>
+      <dt>See</dt>
+      <dd><p>Mission Control. With spotlight on, the ribbon and the Consortium panel are lit; everything else fades.</p></dd>
+      <dt class="hood">Under the hood</dt>
+      <dd>
+        <ol class="flow" aria-label="What beat 1 does">
+          <li class="ui"><b>Browser goes to <code>/</code></b><span>before the request, so it feels instant</span></li>
+          <li><b>Spotlight set</b><span><code>ribbon</code>, <code>consortium</code></span></li>
+          <li class="src"><b>Server records beat 1</b><span><code>POST /api/director/beat/1</code></span></li>
+          <li><b><code>director.beat</code> event</b><span>every open console follows</span></li>
+        </ol>
+        <p>Beat 1 has no simulation action (<code>1: lambda: None</code> in <code>Engine.beat</code>). The 10 Hz simulation keeps running underneath, so the numbers on the page stay live.</p>
+      </dd>
+      <dt class="say">Say</dt>
+      <dd><blockquote class="say"><p>"Every operator has outages and learns alone, because nobody can share data. Five operators fix that here."</p></blockquote></dd>
+      <dt>Point at</dt>
+      <dd><p>The ribbon, left to right, then the <a href="#c-5">Consortium map</a> and its <a href="#c-6">0 B counter</a>.</p></dd>
+      <dt class="recovery">Recovery</dt>
+      <dd><p>If nothing changed, press <kbd>1</kbd> again. Beat 1 changes no state, so repeating it is safe.</p></dd>
+    </dl>
+  </article>
+
+  <article class="beat" id="mission-beat-14">
+    <header>
+      <span class="beat-num">14</span>
+      <h3>Close the loop</h3>
+      <div class="beat-meta"><code>/</code><span class="dur">20 s</span></div>
+    </header>
+    <dl class="beat-grid">
+      <dt>Do</dt>
+      <dd><ol class="steps"><li>From beat 13 press <kbd>→</kbd>. (Number keys only reach beat 9.)</li><li>Point at the ribbon, then at the Prove and Learn ends of it.</li></ol></dd>
+      <dt>See</dt>
+      <dd><p>Back on Mission Control. With spotlight on, only the ribbon stays bright. A white pulse runs from the Prove segment back to Learn, and one new signed record (<code>loop.enqueue</code>) appears in the live stream: "INC-2041 queued as private training data at Op-A for round N".</p><p>Do not promise a visible "+1" on the Prove tile ledger number. Routine agent activity writes signed records every few seconds, so that counter climbs on its own anyway.</p></dd>
+      <dt class="hood">Under the hood</dt>
+      <dd>
+        <ol class="flow" aria-label="What beat 14 does">
+          <li class="src"><b><code>POST /api/director/beat/14</code></b><span>runs <code>_beat_loop</code></span></li>
+          <li><b>Ledger record</b><span><code>loop.enqueue</code>, signed by the coordinator</span></li>
+          <li><b><code>loop.enqueue</code> event</b><span>"INC-2041 queued as private training data at Op-A for round N"</span></li>
+          <li class="ui"><b>Ribbon pulse</b><span>Prove to Learn, under a second</span></li>
+        </ol>
+        <p>The record's payload names the incident, the destination (<code>op-a private incident store</code>), the consent rule (<code>operator policy OP-A-7</code>) and the next round number. The event has severity "notice", so it shows in the live stream but not in Needs attention.</p>
+        <p>The Director's presenter note for this beat says "at each operator", but the record queues the incident only at Op-A, the operator that owns it. Say "inside the operator that owns it", as in the Say line below.</p>
+      </dd>
+      <dt class="say">Say</dt>
+      <dd><blockquote class="say"><p>"Tonight's incident becomes private training data for the next round, inside the operator. The raw data never leaves. That is the loop."</p></blockquote></dd>
+      <dt>Point at</dt>
+      <dd><p>The ribbon (the pulse from Prove back to Learn), then the <a href="#c-7">Learn tile</a>: the next round is where this incident will be used.</p></dd>
+      <dt class="recovery">Recovery</dt>
+      <dd><p>If you miss the pulse, open the live stream with <kbd>l</kbd> and point at the "queued as private training data" line. Firing beat 14 again writes a second record, which is harmless.</p></dd>
+    </dl>
+  </article>
+
+  <h2 id="one-slide">Using it as the one-slide summary</h2>
+  <p>When a judge asks "so what is this?", stay on this page and walk the five blocks in this order.
+    Each step is one sentence and one gesture.</p>
+  <ol class="steps">
+    <li><strong>Ribbon:</strong> sweep left to right. "Learn, verify, release, operate, prove: the life of one model."</li>
+    <li><strong>Consortium:</strong> "Five operators train together. Only masked updates reach the aggregator, which in AWS mode sits in a sealed Nitro Enclave, and zero bytes of raw data cross a boundary."</li>
+    <li><strong>Tiles:</strong> touch each one. "Training round and privacy spend; the model in production and the one being tested; what is serving; the agents; the signed ledger."</li>
+    <li><strong>Network health and twin:</strong> "This is the network the agents run: 40 sites in a simulated city with a stadium district."</li>
+    <li><strong>Needs attention:</strong> "Anything that needs a human surfaces here, and every row opens its signed record."</li>
+  </ol>
+  <div class="callout tip">
+    <p class="title">Tiles, the twin map and the ribbon are doors</p>
+    <p>Each tile, the twin map and the ribbon are links. If a judge asks a deep question about one plane, click its tile and answer on that screen, then press <kbd>g</kbd> <kbd>m</kbd> to come back. Network health and Consortium are not links; to go deeper use the Operate or Learn tile. Needs attention rows open the Inspector, not another screen.</p>
+  </div>
+
+  <h2 id="walkthrough">60-second walkthrough</h2>
+  <p>Use this if a judge says "walk me through this page". About 150 words, spoken slowly.</p>
+  <div class="callout say">
+    <p>"This is Mission Control, the whole system on one screen. Top left is the network our agents run:
+      the share of 40 cell sites inside their targets, with the stadium district's load underneath. Top
+      right is the consortium: five operators, each with its own private incident data, training one shared
+      model. Their updates are masked and only combined inside an attested enclave, which is a Nitro Enclave in AWS mode. The counter says zero
+      bytes of raw data have moved. The five tiles follow one model through its life: the training round and
+      the highest privacy spend, the model in production and the candidate under test, what is serving on
+      four targets, the agents and any incident, and the signed ledger with its last Merkle anchor, which goes to S3
+      Object Lock in AWS mode. Bottom left is a live map of the sites, and bottom right lists anything that needs attention.
+      Click a tile or the map and you land on the screen that owns it."</p>
+  </div>
+
+  <h2 id="components">Component cards</h2>
+  <p>One card per numbered part. The first four sections explain what the part does and how. The
+    shaded band below is for presenting it.</p>
+
+  <!-- ===================================================== 1 page header -->
+  <article class="comp" id="c-1">
+    <header>
+      <span class="comp-num">1</span>
+      <h3>Page header and track tags</h3>
+      <span class="where">component <code>PageHeader</code> in <code>ui/Panel.tsx</code>, data from <code>features/mission/manifest.ts</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It names the screen, says in one line what the whole system does, and shows which hackathon tracks this screen answers.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Example</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Title</th><td>Mission Control</td><td>The screen name, from <code>manifest.title</code>.</td></tr>
+            <tr><th>Track tags</th><td>T1 T2 T3</td><td>Small outlined tags. T1 is NLM training, scaling and production readiness (Verify colour outline). T2 is federated learning at scale (Learn colour). T3 is multi-agent swarms with policy, audit and human oversight (Operate colour).</td></tr>
+            <tr><th>Description</th><td>"The whole lifecycle at a glance: five operators train privately, models are verified and released, a governed swarm runs the network, and every step is provable."</td><td>The one-line pitch, from <code>manifest.description</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Source</dt><dd><code>features/mission/manifest.ts</code> (<code>title</code>, <code>description</code>, <code>tracks: ['T1','T2','T3']</code>)</dd>
+        <dt>Rendered by</dt><dd><code>PageHeader</code> and <code>TrackTag</code> in <code>ui/Panel.tsx</code></dd>
+        <dt>Changes when</dt><dd>Never. It is static text.</dd>
+      </dl>
+      <p>Every screen uses the same header component. The tag's full track name lives in a tooltip (<code>TRACK_TITLE</code>), so you can hover it to read the track out loud.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Hover a track tag</th><td>Shows the full track name as a browser tooltip.</td><td>Nothing else. No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"This one screen covers all three tracks: training the model, federating it, and running agents safely."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Which track are you in?"</strong> All three: training and release readiness (Verify and Release tiles), federation (Consortium, Learn tile), and governed agents (Operate tile, Needs attention, twin). Maps to T1, T2 and T3.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> Static text from the screen's manifest.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 2 health headline -->
+  <article class="comp" id="c-2">
+    <header>
+      <span class="comp-num">2</span>
+      <h3>Network health headline</h3>
+      <span class="where">panel <code>health</code> (Operate), component <code>HeroHealth</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It answers the first question any network operations centre asks: is the network OK right now? It is the biggest number on the page on purpose.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Example</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Panel title and subtitle</th><td>Network health, "share of sites inside their KPI SLO"</td><td>KPI SLO means each site's performance target (a service level objective).</td></tr>
+            <tr><th>Big number</th><td>100.0%</td><td>The share of the 40 simulated cell sites that are currently healthy. One decimal place.</td></tr>
+            <tr><th>Line under it</th><td>27,012 users on 15.8 Gbps</td><td>Total connected users across all sites, and total throughput in gigabits per second.</td></tr>
+            <tr><th>Status pill</th><td><span class="pill good">Nominal</span></td><td>Nominal (green) at 95% or more, <span class="pill warn">Degraded</span> (amber) from 80% to under 95%, <span class="pill critical">Impaired</span> (red) under 80%.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/twin.py</code>, <code>Twin.kpis()</code>, computed once per simulated second in <code>Twin.tick</code></dd>
+        <dt>Arrives by</dt><dd><code>GET /api/snapshot</code> on connect, then the <code>twin.tick</code> WebSocket event every second</dd>
+        <dt>Store slice</dt><dd><code>twin.kpis</code> (<code>health_pct</code>, <code>users</code>, <code>throughput_gbps</code>)</dd>
+        <dt>Changes when</dt><dd>Every second, as demand drifts; sharply when beat 7 cuts fibre T3</dd>
+      </dl>
+      <ol class="flow" aria-label="How network health is computed">
+        <li class="src"><b>Twin computes each site</b><span>demand vs capacity, backhaul state</span></li>
+        <li><b>Site is OK if</b><span>PRB load under 85%, drop rate under 1%, backhaul not down</span></li>
+        <li><b>Health %</b><span>OK sites ÷ 40 × 100</span></li>
+        <li class="ui"><b>Headline and pill</b><span>thresholds 95 / 80</span></li>
+      </ol>
+      <p>The twin is a small simulated city: 40 sites on an 8 by 5 grid, three cells each, fed by five aggregation hubs. For every site it works out demand (a base level that drifts slightly, a slow daily wave, plus any surge), capacity (how many cells are awake, cut to 2% if the fibre is down, to 90% on microwave backup), and from those the PRB load. PRB (physical resource block) load is the share of the radio capacity in use. Users are demand × 1,400 per site; throughput is the served demand × 820 Mbps per site, summed and shown in Gbps.</p>
+      <p>When beat 7 cuts fibre T3, every site on hub H3 (the 10 sites in the two middle columns, including the stadium district) loses backhaul, so health falls to 75% or lower and the pill turns Impaired. When the agents reroute those sites over microwave, they count as OK again unless the stadium surge pushes their load past 85%.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Green pill and a number near 100% is normal. A sudden drop with a red pill means sites have lost backhaul or are overloaded: an incident is starting.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>On beat 1, point at the number: "the network is healthy before we start".</li><li>If you come back after beat 7, the chart below shows the dip.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"This is the network our agents run: 40 cell sites, and right now all of them are inside their targets."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"What network is the swarm actually running?"</strong> A simulated digital twin of 40 sites with real-world rules (backhaul, sleep, surge). Maps to T3 and Observability.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The twin's KPIs are simulated by the mock engine; the source chip says CloudWatch metrics because that is where they would come from in AWS mode.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>It counts sites, not cells. Do not say "cells inside SLO".</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 3 sub-stats -->
+  <article class="comp" id="c-3">
+    <header>
+      <span class="comp-num">3</span>
+      <h3>Incidents, last MTTR and waiting on a human</h3>
+      <span class="where">panel <code>health</code>, component <code>SubStat</code> ×3</span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Three small numbers next to the headline that say whether anything is broken, how fast the last problem was fixed, and whether a person needs to act.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Stat</th><th>Before the demo</th><th>After beat 14</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Incidents</th><td>none, "5 resolved today"</td><td>none, "6 resolved today"</td><td>"1 active" in red while an incident is open, with its id and time elapsed (for example "INC-2041, 42s", or "1m02s" past a minute). Otherwise "none" and how many incidents are on today's list.</td></tr>
+            <tr><th>Last MTTR</th><td>3m07s, INC-2040</td><td>33s, INC-2041</td><td>MTTR is mean time to repair: how long the most recent resolved incident took from opening to closing, and which one.</td></tr>
+            <tr><th>Waiting on a human</th><td>0, "queue clear"</td><td>1 (amber), APR-318</td><td>How many approval requests are pending, and the id of the newest one.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/swarm.py</code> (incident list and active incident), <code>engines/oversight.py</code> (approval items)</dd>
+        <dt>Arrives by</dt><dd>Snapshot, then <code>incident.opened</code>, <code>incident.phase</code>, <code>incident.resolved</code>, <code>approval.requested</code>, <code>approval.decision</code>, <code>escalation</code></dd>
+        <dt>Store slices</dt><dd><code>swarm.incident</code>, <code>swarm.incidents</code>, <code>oversight.items</code></dd>
+        <dt>Changes when</dt><dd>Beat 7 opens an incident; the swarm resolves it; beats 7 and 10 create approvals; a human approves on the Oversight screen or a phone</dd>
+      </dl>
+      <p>The swarm engine starts with five resolved incidents from earlier in the evening (INC-2036 to INC-2040, MTTRs between 158 and 302 seconds). "Resolved today" is simply the length of that list. When beat 7 opens INC-2041, the stat turns red and the elapsed time counts up twice a second from the incident's start time on the simulated clock. When the coordinator finishes the verify step, the incident's MTTR is fixed as (resolve time − start time) and becomes "Last MTTR".</p>
+      <p>"Waiting on a human" counts approval items whose status is <code>pending</code>. Beat 7's plan creates one (it touches more than 5% of cells), and beat 10 creates "Release site-17 from quarantine", which needs two approvers.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Good: "none", a short MTTR, and 0 waiting. Red "1 active" means an incident is open; an amber number under "Waiting on a human" means someone must decide.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>On beat 1, point at the three numbers: nothing open, last fix in about three minutes, nobody waiting.</li><li>After beat 14, press <kbd>g</kbd> <kbd>m</kbd> if you are elsewhere and point at "Waiting on a human 1, APR-318" and the new 33s MTTR.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Five incidents so far tonight, the last fixed in about three minutes, and nothing is waiting on a person."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Where does the human come in?"</strong> The "Waiting on a human" count is the queue of decisions the agents are not allowed to make alone. Maps to T3.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The incident timeline is simulated. Approval requests and decisions are real records in the signed ledger.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>After beat 10 the count stays at 1 (APR-318) until two people approve the quarantine release. That is correct behaviour, not a stuck queue. The 33s MTTR at the end runs from beat 7 to a few seconds after the beat 9 approval, so it mostly reflects how fast you click through beats 7 to 9 (the approval request alone arrives about 12 seconds after beat 7). Do not claim it as a real-world benchmark.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 4 health chart -->
+  <article class="comp" id="c-4">
+    <header>
+      <span class="comp-num">4</span>
+      <h3>Health and stadium load chart</h3>
+      <span class="where">panel <code>health</code>, chart <code>LineChart</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows the last few minutes of network health next to the load in the stadium district, so you can see an incident start and recover.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Green area line, "Network health"</th><td>The headline percentage over time (Operate colour, filled).</td></tr>
+            <tr><th>Orange line, "Stadium district PRB load"</th><td>The average PRB load of the six stadium sites (s-13, s-14, s-21, s-22, s-29, s-30). Around 50% before the demo.</td></tr>
+            <tr><th>Y axis</th><td>0% to 100%, labels at 0, 50 and 100.</td></tr>
+            <tr><th>X axis</th><td>Time before now, in minutes: "−0.3m", "−2m". The newest point is on the right and is labelled "now" when it is under 3 seconds old.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>In the beat 14 shot, both lines step: health drops at the fibre cut while stadium load jumps (the concert let-out), The automatic reroute to microwave brings part of it back (the non-stadium sites). Full recovery comes only when the human-approved plan runs after beat 9: stadium load falls and health returns to 100% at the same moment.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Twin.tick</code> appends one point per simulated second to <code>health_series</code></dd>
+        <dt>Arrives by</dt><dd>Snapshot (last 600 points), then each <code>twin.tick</code> adds a point (store keeps 900)</dd>
+        <dt>Store slice</dt><dd><code>twin.health_series</code>; the chart draws the last 300 points (5 minutes)</dd>
+        <dt>Changes when</dt><dd>Every second</dd>
+      </dl>
+      <p>Each point holds the full KPI set; the chart uses <code>health_pct</code> and <code>congestion_pct</code>. The stadium load is the mean PRB load of the six stadium sites, and it jumps when beat 7 injects a "stadium surge" (68,000 people leaving), which adds demand to those sites and a smaller amount to their neighbours.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Hover the chart</th><td>Shows a vertical crosshair and a tooltip titled "N s ago" with two rows, "Health" and "Stadium congestion" (the same two lines as the legend).</td><td>Browser only. No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Flat green line at the top and orange line in the middle is normal. Green falling while orange rises is an incident in the stadium district.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>After beat 7 or later, open Mission Control (<kbd>g</kbd> <kbd>m</kbd>).</li><li>Hover the dip to show the tooltip with both values and how many seconds ago it happened.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Green is the network, orange is the stadium. You can see the outage, the partial fix the agents made on their own, and the full recovery once a human approved the plan."</p></blockquote>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> Both lines come from the twin simulator.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>After a reset the twin history starts almost empty, so the chart covers only the time since the reset (about 20 seconds in the pre-demo shot). Reset a minute or two before you present so the line has some length.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 5 consortium map -->
+  <article class="comp" id="c-5">
+    <header>
+      <span class="comp-num">5</span>
+      <h3>Consortium map</h3>
+      <span class="where">panel <code>consortium</code> (Learn), chart <code>charts/ConsortiumMap.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It is the picture of federated learning: five operators, each keeping its own data, sending only masked model updates to one aggregator that runs inside a sealed, attested enclave. It is the panel beat 1 spotlights.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Example</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Operator circle</th><td>Op-E, ε 2.59</td><td>One operator in its own colour. The small number is its privacy spend so far (epsilon, see below).</td></tr>
+            <tr><th>Name and dataset size</th><td>Tessellate Fiber, "7,000 private incidents"</td><td>The operator's name and how many private training examples it holds. They never leave the operator.</td></tr>
+            <tr><th>Progress ring</th><td>coloured arc around the circle</td><td>Only during a round: how far the operator is through its 240 local training steps.</td></tr>
+            <tr><th>Faded circle</th><td>Op-E in the beat 14 shot</td><td>The operator dropped out or used up its privacy budget, so it no longer trains.</td></tr>
+            <tr><th>Spoke label</th><td>259.5 MiB</td><td>Total size of the masked adapter updates this operator has sent to the aggregator so far. Each update is 21.6 MiB, so 259.5 MiB is 12 rounds.</td></tr>
+            <tr><th>Moving squares</th><td>only while a round runs</td><td>A square in the operator's colour travels to the centre when it uploads an update. Purple squares travel out to every operator when a round starts and the new shared model is sent.</td></tr>
+            <tr><th>Centre box</th><td>Enclave aggregator, "round 13 queued"</td><td>The aggregator and its state: "round N, sending adapter", "local training", "aggregating", "between rounds", or "round N queued" when it waits for the next round. When training is not running it reads "round N, paused", "round N, stopped", "round N, complete" or "round N, idle".</td></tr>
+            <tr><th>Attestation line</th><td>PCR0 attested</td><td>Green when the aggregator runs in enclave mode. PCR0 is the fingerprint of the enclave's code image; keys to unmask updates are only released to an enclave with the expected fingerprint. Reads "enclave off" in other modes. In this build the green label simply reflects that enclave mode is selected (<code>config.secagg_mode</code>); it is not a live attestation check. The attestation details are on the Federation Center.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/federation.py</code>, class <code>Federation</code> (round loop in <code>tick</code>, privacy in <code>eps_increment</code>)</dd>
+        <dt>Arrives by</dt><dd>Snapshot, then <code>fl.step</code> (4 times a second while training), <code>fl.round.phase</code>, <code>fl.upload</code>, <code>fl.round</code>, <code>fl.run</code>, <code>fl.client</code>, <code>fl.budget</code></dd>
+        <dt>Store slice</dt><dd><code>federation</code>: <code>operators</code>, <code>sovereignty.per_op</code>, <code>state</code>, <code>round</code>, <code>phase</code>, <code>config.secagg_mode</code></dd>
+        <dt>Changes when</dt><dd>Only while training runs. Beat 2 starts round 13; rounds then follow one another until round 30</dd>
+      </dl>
+      <ol class="flow states" aria-label="One federated round">
+        <li><b>Pull</b><span>1 s</span></li>
+        <li><b>Train</b><span>about 16 s, 240 steps</span></li>
+        <li><b>Secure</b><span>1.4 s, masking</span></li>
+        <li><b>Upload</b><span>1.6 s</span></li>
+        <li class="ui"><b>Aggregate</b><span>2.6 s, in enclave</span></li>
+      </ol>
+      <p><strong>A round in plain words.</strong> Each operator downloads the current shared adapter (a LoRA adapter: a small add-on to the base model that is the only part being trained), trains it on its own data with DP-SGD, masks the result and uploads it. The masks are random numbers that cancel exactly when all updates are added up, so outside the enclave nobody can read a single operator's update. Inside the enclave, the aggregator compares the size (norm, meaning the update's magnitude, not its byte size) of each update with the others and rejects any far above the median, such as a poisoned update, then produces the new shared model. This robust aggregation is configured as "trimmed mean" and only works in enclave mode, where the aggregator can see individual updates.</p>
+      <p><strong>How ε is accounted.</strong> ε (epsilon) measures how much a model could reveal about any one training record; lower is more private. DP-SGD clips each example's gradient and adds noise. In this engine every training step adds to the operator's squared epsilon: Δ(ε²) = (1.71 × q / σ)² × steps × ln(1/δ), where q = 64 ÷ the operator's dataset size, σ = 1.1 (noise) and δ = 10⁻⁵. Small datasets mean a bigger q, so they spend faster. That is why Op-E, with 7,000 examples, is highest (ε 2.59) and Op-D, with 22,600, is lowest (ε 0.80).</p>
+      <p><strong>The budget rule.</strong> At 90% of the target ε of 3.0 the engine emits a warning (<code>fl.budget</code>, which also shows in Needs attention). At 3.0 the operator's status becomes <code>budget_exhausted</code>, it leaves the federation and its circle fades. In the beat 14 shot Op-E sits at ε 3.00 with 346.0 MiB (16 uploads) while the others reached 389.3 MiB (18 uploads).</p>
+      <p>The squares are computed in the browser: the panel watches new <code>fl.upload</code> and <code>fl.round.phase</code> (phase <code>pull</code>) events in the stream and animates each one for 1.3 seconds.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data. Training is started and controlled on the <a href="federation.html">Federation Center</a>.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Equal spoke labels mean every operator took part in every round. A lower label or a faded circle means an operator missed rounds or left. Green "PCR0 attested" means enclave mode is selected for the aggregator.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>Press <kbd>1</kbd>; the panel is outlined.</li><li>Point at one operator, then at the enclave, then at the 0 B counter below.</li><li>For moving squares, the federation must be running: they appear after beat 2.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Five operators, one model, no shared data. Each trains at home with a hard privacy budget, and only masked updates reach the aggregator; in AWS mode it runs sealed in an attested Nitro Enclave."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How do competitors train together without sharing data?"</strong> Local DP-SGD, masked updates, and aggregation inside an attested enclave (a Nitro Enclave in AWS mode). Maps to T2 and Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The masking arithmetic (secure aggregation) is real; the training, the losses and the privacy accountant are simulated, and in mock mode there is no real enclave.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Before beat 2 nothing moves: training is waiting at "round 13 queued". If the backend was started fresh without a reset, training is already running, so hold <kbd>r</kbd> before the demo. The name above Op-A (Cascadia Mobile) is cut off at the top of the panel; only "18,400 private incidents" shows. If you set motion to reduced in Settings, the squares are hidden.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 6 sovereignty strip -->
+  <article class="comp" id="c-6">
+    <header>
+      <span class="comp-num">6</span>
+      <h3>Data-movement and benefit strip</h3>
+      <span class="where">panel <code>consortium</code>, footer row; component <code>FedGain</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Three numbers that sum up federated learning: how much raw data moved (none), how much model-update traffic moved instead, and how much better the shared model is than the best operator training alone.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Number</th><th>Before the demo</th><th>After beat 14</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Raw data moved across boundaries</th><td>0 B (green, shield icon)</td><td>0 B</td><td>No raw incident data ever leaves an operator.</td></tr>
+            <tr><th>Masked adapter updates moved</th><td>1.3 GiB</td><td>1.9 GiB</td><td>Total size of all masked updates sent to the aggregator, all operators together (the sum of the five spoke labels).</td></tr>
+            <tr><th>Federated loss vs best alone</th><td>0.704 −36%</td><td>0.616 −37%</td><td>The shared model's validation loss after the last round (lower is better), and how much lower it is than the best operator could reach alone.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/federation.py</code>: <code>sovereignty.adapter_bytes</code> grows by 22,675,456 bytes per upload; <code>_finish_round</code> writes <code>val_loss</code> and <code>local_only</code> to the round log</dd>
+        <dt>Arrives by</dt><dd>Snapshot, then <code>fl.upload</code> (bytes) and <code>fl.round</code> (loss)</dd>
+        <dt>Store slice</dt><dd><code>federation.sovereignty</code>, <code>federation.rounds_log</code></dd>
+        <dt>Changes when</dt><dd>Each upload and each finished round</dd>
+      </dl>
+      <p>The percentage is computed in the browser from the last round: take the lowest of the five "local only" losses (what each operator would get training alone), then (best alone − federated) ÷ best alone. At round 12 the best alone is Op-D at about 1.11, and the federated loss is 0.704, so the gain is about 36%.</p>
+      <p>Both losses come from formulas in the engine. The federated loss follows 0.56 + 1.72 × e<sup>−0.21 × round</sup> plus small noise. Each operator's local-only loss follows its own floor + 1.5 × e<sup>−0.16 × round</sup>. So the federated curve falls faster and lower, which is the expected benefit of pooling knowledge.</p>
+      <p>The "0 B" figure is written directly in the page code. The engine also keeps a raw-bytes counter that stays at zero, which the <a href="federation.html">Federation Center</a> shows in its data-sovereignty view.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Green 0 B is the promise. The middle number grows by about 108 MiB per round with five operators. A bigger negative percentage means the federation helps more.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>On beat 1, point at "0 B", then at the masked-update total next to it.</li><li>Finish on the percentage: "better than the best operator alone".</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Zero bytes of raw data moved. About a gigabyte of masked updates did, and in this simulation the shared model ends up about a third better than the best any operator gets alone."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Is federation worth the trouble?"</strong> The −36% line shows the expected benefit (from the simulator's curves), and 0 B is the privacy side. Maps to T2.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The byte counts follow the simulated uploads and the losses are formula curves. "0 B" is a fixed label; in AWS mode the evidence would come from VPC Flow Logs, as the source chip says.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Do not say the 0 B is measured live from network logs in this build. Say "by design, only masked updates leave an operator".</p>
+        <p>The −36% comes from the simulator's loss curves, not a measured benchmark. Say "in this simulation the shared model ends up about a third better" or "the design goal is a shared model better than any operator alone".</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 7 learn tile -->
+  <article class="comp" id="c-7">
+    <header>
+      <span class="comp-num">7</span>
+      <h3>Learn tile</h3>
+      <span class="where">tile <code>tile-learn</code>, component <code>PlaneTiles</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The status of federated training in three numbers: which round, how much privacy has been spent, and how good the shared model is.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>All five tiles have the same layout: the plane name with a 2-pixel top edge in the plane colour, three labelled rows (a bold value and a small grey note), a small trend line (sparkline) with its label, an optional red dot next to the name when that plane needs attention, and an arrow icon that appears on hover.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Row</th><th>Example</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Round</th><td>12 of 30, "ready"</td><td>Last round reached out of the configured 30. The note is the phase while running (pull, train, aggregate, done) or the state otherwise (ready, paused, stopped, complete).</td></tr>
+            <tr><th>Highest ε</th><td>2.59, "target 3, δ 1e-5"</td><td>The largest privacy spend of any operator, against the target. δ is the small failure probability that goes with ε.</td></tr>
+            <tr><th>Validation loss</th><td>0.704, "accuracy 82%"</td><td>The shared model's error on held-out data (lower is better) and its accuracy.</td></tr>
+            <tr><th>Sparkline</th><td>"loss per round"</td><td>Validation loss after each finished round, falling from left to right.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/federation.py</code></dd>
+        <dt>Arrives by</dt><dd>Snapshot, then <code>fl.run</code>, <code>fl.round.phase</code>, <code>fl.step</code>, <code>fl.round</code></dd>
+        <dt>Store slice</dt><dd><code>federation</code>: <code>round</code>, <code>config.rounds</code>, <code>state</code>, <code>phase</code>, <code>operators[].eps</code>, <code>config.target_eps</code>, <code>global</code>, <code>rounds_log</code></dd>
+        <dt>Changes when</dt><dd>Every training step (ε), every phase change, every finished round</dd>
+      </dl>
+      <p>Highest ε is the maximum of the five operators' ε values described in the <a href="#c-5">Consortium map</a> card. Validation loss and accuracy are set at the end of each round. The tiles recompute at least once a second.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click the tile</th><td>Opens the Federation Center.</td><td>Goes to <code>/federation</code>. No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Good: rounds going up, ε below 3, loss going down. Highest ε reaching 3.00 means at least one operator has used its whole budget and left.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>On beat 1, read the three rows aloud.</li><li>Click the tile to open the Federation Center if a judge asks about privacy.</li><li>After beat 14 the tile shows round 18 and ε 3.00 (Op-E has left).</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Round 12 of 30, nobody over the privacy budget, and the loss keeps falling."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How do you enforce privacy, not just promise it?"</strong> Every operator has a hard ε budget; the highest one is always on the home screen. Maps to T2.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The training curve and the privacy accountant are simulated approximations.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>The tile says "12 of 30" while the ribbon says "Round 13 queued". Both are right: round 12 is finished and round 13 waits for beat 2.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 8 verify tile -->
+  <article class="comp" id="c-8">
+    <header>
+      <span class="comp-num">8</span>
+      <h3>Verify tile</h3>
+      <span class="where">tile <code>tile-verify</code>, component <code>PlaneTiles</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows which model is in production, whether a new candidate is being tested and how that test ended, and the safety and cost of the model that matters right now.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Row</th><th>Before the demo</th><th>After beat 14</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>In production</th><td>nlm-v6, "accuracy 84%"</td><td>nlm-v6, "accuracy 84%"</td><td>The model version currently in production and its benchmark accuracy.</td></tr>
+            <tr><th>Candidate</th><td>none, "awaiting checkpoint"</td><td>nlm-v7, "gate passed"</td><td>The new model under test. The note is the evaluation state while it runs, then "gate passed" or "gate blocked".</td></tr>
+            <tr><th>Safety</th><td>0.953, "$0.04 per 1K tasks"</td><td>0.969, "$0.04 per 1K tasks"</td><td>Safety score and price of the candidate if there is one, otherwise of the production model.</td></tr>
+            <tr><th>Sparkline</th><td colspan="2">"accuracy by version"</td><td>Accuracy of nlm-v5, nlm-v6 and, once it exists, nlm-v7. Rising means each version is better.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/proving.py</code>, class <code>Proving</code></dd>
+        <dt>Arrives by</dt><dd>Snapshot, then <code>eval.candidate</code>, <code>eval.run</code>, <code>eval.stage</code>, <code>eval.progress</code>, <code>eval.gate</code></dd>
+        <dt>Store slice</dt><dd><code>proving</code>: <code>production</code>, <code>candidate</code>, <code>active</code>, <code>models</code></dd>
+        <dt>Changes when</dt><dd>Beat 5 promotes the latest checkpoint to a candidate and runs the evaluation</dd>
+      </dl>
+      <p>Safety is 1 − (red-team prompts the model failed ÷ 64). nlm-v6 failed 3, so 1 − 3/64 = 0.953; nlm-v7 failed 2, so 0.969. The deploy gate passes only if safety ≥ 0.95, accuracy ≥ 0.85, p95 latency ≤ 600 ms and price ≤ $1.00 per 1,000 tasks. A pass automatically starts the shadow stage on the Release side.</p>
+      <p>The sparkline only includes versions named <code>nlm-v</code> plus a number, sorted by number, so the 3B and 0.5B variants are left out.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click the tile</th><td>Opens the Proving Ground.</td><td>Goes to <code>/proving</code>. No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>"gate passed" is good, "gate blocked" means the candidate failed a check and will not ship. Safety at or above 0.95 is the bar.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>On beat 1, point at "nlm-v6" and "Candidate none".</li><li>After beat 14, point at "nlm-v7, gate passed" and safety 0.969.</li><li>Click the tile to open the Proving Ground.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"A model only reaches production by passing the gate: accuracy, safety, latency and price."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How do you know a new model is safe to ship?"</strong> A signed, automatic gate with fixed thresholds. Maps to T1.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> Benchmark scores and prices are illustrative figures in the engine, not real results for the named models.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>After the gate passes, "In production" still says nlm-v6. nlm-v7 is only on a canary, so that is correct.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 9 release tile -->
+  <article class="comp" id="c-9">
+    <header>
+      <span class="comp-num">9</span>
+      <h3>Release tile</h3>
+      <span class="where">tile <code>tile-release</code>, component <code>PlaneTiles</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows what model is serving traffic, whether a new one is being rolled out and at which stage, and whether the guard metrics that would stop a bad rollout are healthy.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Row</th><th>Before the demo</th><th>After beat 14</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Serving</th><td>nlm-v6, "4 targets, 2 vendors"</td><td>nlm-v6</td><td>The production model. The note is fixed text: it serves on SageMaker, Bedrock Custom Model Import and two vendor edge targets.</td></tr>
+            <tr><th>Rollout</th><td>none, "stable"</td><td>nlm-v7, "Canary 10%"</td><td>The candidate being rolled out and its stage: Shadow (0% traffic), Canary 10%, Canary 50%, Full 100%.</td></tr>
+            <tr><th>Guard p95</th><td>449 ms, "errors 0.25%"</td><td>479 ms, "errors 0.24%"</td><td>The worst 95th-percentile latency and the worst error rate across the targets carrying traffic.</td></tr>
+            <tr><th>Sparkline</th><td colspan="2">"p95 latency, last minute"</td><td>p95 latency over the last 60 seconds. It looks jagged because it is noisy by design.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/release.py</code> (rollout and guards); <code>engines/observability.py</code> (the sparkline)</dd>
+        <dt>Arrives by</dt><dd>Snapshot, then <code>release.metrics</code> every second, <code>release.stage</code> on each stage change, <code>obs.metrics</code> every second</dd>
+        <dt>Store slice</dt><dd><code>release</code>: <code>prod</code>, <code>candidate</code>, <code>stages</code>, <code>stage_index</code>, <code>guards</code>; <code>observability.frames</code></dd>
+        <dt>Changes when</dt><dd>Every second (guards); beat 6 moves the candidate to Canary 10%</dd>
+      </dl>
+      <p>Each second the release engine gives every target a p95 latency (a base per target between 380 and 470 ms, plus noise) and an error rate (about 0.18% plus noise). The guard values are the maximum across targets that carry traffic, or across all four when none do. If a candidate is at Canary 10% or later and the error rate goes above 1%, the engine rolls back automatically and writes a ledger record.</p>
+      <p>The sparkline is drawn from the observability engine's per-plane golden signals, which take the release p95 and add a few percent of noise. So the sparkline and the "Guard p95" number track each other but do not match exactly.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click the tile</th><td>Opens the Release Center.</td><td>Goes to <code>/release</code>. No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>p95 under 600 ms and errors under 1% are inside the guards. "stable" means nothing is being rolled out.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>On beat 1, point at "Rollout none, stable" and the guard numbers.</li><li>After beat 14, point at "nlm-v7, Canary 10%".</li><li>Click the tile to open Release.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"One signed release goes to four targets from two vendors, shadow first, then a 10% canary watched by guard metrics."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How do you roll out without breaking the network?"</strong> Staged rollout with automatic rollback on the error guard. Maps to T1.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> Latency and error rates are generated by the mock engine; the stage changes are real signed ledger records.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>"4 targets, 2 vendors" is fixed text, not a live count.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 10 operate tile -->
+  <article class="comp" id="c-10">
+    <header>
+      <span class="comp-num">10</span>
+      <h3>Operate tile</h3>
+      <span class="where">tile <code>tile-operate</code>, component <code>PlaneTiles</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It summarises the agent swarm: how many agents are working, whether an incident is open, and how much the agents are currently allowed to do on their own.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Row</th><th>Before the demo</th><th>After beat 14</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Agents</th><td>46 active, "none quarantined"</td><td>45 active, "1 quarantined"</td><td>Agents not quarantined, and how many are. 46 = 1 coordinator + 5 domain agents (transport, energy, experience, core, security sentinel) + 40 site agents.</td></tr>
+            <tr><th>Incident</th><td>none, "last MTTR 3m07s"</td><td>none, "last MTTR 33s"</td><td>The open incident's id and time elapsed, or "none" with the last repair time ("nominal" if there has never been one).</td></tr>
+            <tr><th>Autonomy</th><td>site L4, "coordinator L3"</td><td>site L3, "coordinator L3"</td><td>How much the site agents and the coordinator may do without asking. The design notes model this on the TM Forum levels: at L4 humans are only notified, at L3 humans approve high-risk actions. In the code, any radio change touching more than 5% of cells needs a human (policy P-003), and an agent below L3 needs approval for every action.</td></tr>
+            <tr><th>Red dot</th><td>none</td><td>none</td><td>Shown next to "Operate" while an incident is open.</td></tr>
+            <tr><th>Sparkline</th><td colspan="2">"network health"</td><td>The last 2 minutes of network health.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/swarm.py</code> (agents, incidents, autonomy); <code>engines/twin.py</code> (health)</dd>
+        <dt>Arrives by</dt><dd>Snapshot, then <code>swarm.agents</code>, <code>incident.*</code> events, <code>autonomy.change</code>, <code>twin.tick</code></dd>
+        <dt>Store slice</dt><dd><code>swarm.agents</code>, <code>swarm.incident</code>, <code>swarm.incidents</code>, <code>swarm.autonomy</code>, <code>twin.health_series</code></dd>
+        <dt>Changes when</dt><dd>Beat 7 opens an incident; beat 10 quarantines site-17 and drops site autonomy</dd>
+      </dl>
+      <p>In beat 10 a planted instruction in a syslog line fools site-17. Its messages fail the authority check, policy blocks its action, and 3.4 seconds after the beat the sentinel quarantines it (its key is revoked and a ledger record is written). The sentinel then lowers every site agent from L4 to L3 "until a human restores it". Both changes show here.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click the tile</th><td>Opens the Swarm Tower.</td><td>Goes to <code>/swarm</code>. No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Good: all agents active, no incident, site L4. A red dot means an incident is open; a quarantined agent with site L3 means the system contained a compromised agent and tightened control.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>On beat 1, point at "46 active" and "site L4".</li><li>After beat 14, point at "1 quarantined" and "site L3".</li><li>Click the tile to open the Swarm Tower.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Forty-six agents run the network. When one was compromised it was quarantined, and its peers automatically lost a level of autonomy until a human restores it."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"What happens when an agent goes rogue?"</strong> Quarantine plus automatic loss of autonomy for its class. Maps to T3 and Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The signed agent messages, the authority check, the policy decision (a deterministic evaluator that mirrors the Cedar policies; Amazon Verified Permissions in AWS mode) and the key revocation are real; the incident and the network it affects are simulated.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>The coordinator is L3 from the start; only the site level drops in beat 10.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 11 prove tile -->
+  <article class="comp" id="c-11">
+    <header>
+      <span class="comp-num">11</span>
+      <h3>Prove tile</h3>
+      <span class="where">tile <code>tile-prove</code>, component <code>PlaneTiles</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows the state of the tamper-evident ledger: how many signed records it holds, whether the chain was last checked as intact, and the last anchor written to write-once storage.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Row</th><th>Before the demo</th><th>After beat 14</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Ledger</th><td>#3,434, "every record signed"</td><td>#3,540</td><td>The number of records in the ledger. Each is signed; the note is fixed text.</td></tr>
+            <tr><th>Chain</th><td>not yet verified, "run verify in Audit"</td><td>broken at #3503, "3,531 records checked"</td><td>The result of the last full check of the chain: "verified", "broken at #N", or "not yet verified" if nobody has run it. The grey note is the ledger size when the check ran; the check itself stops at the first broken record (#3503), so do not read "3,531 records checked" aloud as the number verified. On a 1440-wide screen the text is cut off ("broken at #35…"), so read the full result on the Audit screen.</td></tr>
+            <tr><th>Last anchor</th><td>#107, "S3 Object Lock, compliance"</td><td>#110</td><td>The number of the latest Merkle anchor. The note is fixed text.</td></tr>
+            <tr><th>Red dot</th><td>none</td><td>shown</td><td>The last check found a broken chain.</td></tr>
+            <tr><th>Sparkline</th><td colspan="2">"policy decisions per 10 s"</td><td>Policy decisions (permit + deny + needs-human) in each 10-second window, last 30 windows.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/ledger.py</code> (<code>append</code>, <code>_anchor</code>, <code>verify</code>, <code>tamper</code>); <code>engines/trust.py</code> (decision buckets)</dd>
+        <dt>Arrives by</dt><dd>Snapshot, then <code>ledger.append</code>, <code>ledger.anchor</code>, <code>ledger.verify</code></dd>
+        <dt>Store slice</dt><dd><code>ledger.height</code>, <code>ledger.last_verify</code>, <code>ledger.anchors</code>, <code>trust.series</code></dd>
+        <dt>Changes when</dt><dd>Every signed action adds a record; beat 12 tampers with a record and the Audit screen runs a check 1.2 s later</dd>
+      </dl>
+      <ol class="flow" aria-label="How a record joins the chain">
+        <li class="src"><b>Action happens</b><span>approval, tool call, round, stage…</span></li>
+        <li><b>Hash</b><span>SHA-256 of the record + previous hash</span></li>
+        <li><b>Sign</b><span>Ed25519 with the actor's key</span></li>
+        <li><b>Anchor</b><span>every 32 records, Merkle root</span></li>
+      </ol>
+      <p>Each record's hash includes the previous record's hash, so changing any old record breaks every link after it. Every 32 records the engine builds a Merkle tree over their hashes (a tree of hashes whose single root summarises all 32) and writes the root as an anchor. In AWS mode the anchor goes to an S3 bucket with Object Lock in compliance mode, which means nobody can delete or overwrite it during the retention period; in mock mode it is kept in memory with the same fields.</p>
+      <p>The check (<code>POST /api/ledger/verify</code>) walks the whole chain and stops at the first record whose hash, link or signature does not match. Beat 12 edits one anchored approval record directly in the datastore, and the Audit screen runs the check, which reports "broken at #3503". The tile only reads the last result; it never runs the check itself.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click the tile</th><td>Opens Audit &amp; Proof.</td><td>Goes to <code>/audit</code>. No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>"verified" is good. "broken at #N" with a red dot means someone changed a record after it was signed, and the check found exactly which one.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>On beat 1, point at the ledger number.</li><li>After beat 14, point at the red dot and "broken at #3503".</li><li>Click the tile to open Audit &amp; Proof and show the anchor that still holds the original.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Every action is a signed record in a hash chain, anchored every 32 records; in AWS mode the anchor goes to write-once S3 Object Lock. If anyone edits one, the check breaks at exactly that record."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How can a regulator trust your audit trail?"</strong> Hash chain, signatures and external anchors make tampering visible. Maps to T3 and Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The hash chain, Ed25519 signatures, Merkle anchors and verification run for real even in mock mode; in mock mode the anchors are kept in memory rather than written to S3.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Right after a reset it says "not yet verified", not "verified". If you want "verified" on the cold open, run the check on the Audit screen first, then come back. The Demo Director's Preflight tab also checks the chain, but it does not send an update to the tile, so the tile only catches up on the next page load. The policy sparkline only refreshes when the console loads a fresh snapshot (page load, reconnect or reset), so do not point at it as a live signal.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 12 network twin -->
+  <article class="comp" id="c-12">
+    <header>
+      <span class="comp-num">12</span>
+      <h3>Network twin</h3>
+      <span class="where">panel <code>mini-twin</code> (Operate), file <code>features/mission/MiniTwin.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A small, read-only map of the simulated network. It lets you show where load is and which sites have a backhaul problem without leaving the home screen. The full interactive map is on the Swarm Tower.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Hexagons</th><td>One per site, 40 in an 8 by 5 grid. Subtitle: "40 sites, 120 cells, stadium district".</td></tr>
+            <tr><th>Fill colour</th><td>PRB load on a single-hue scale from 0% to 100%, shown in the "PRB load" legend. In the dark theme, lighter means busier.</td></tr>
+            <tr><th>Red ring</th><td>Backhaul down: the site's fibre link is cut. The ring pulses twice when it appears.</td></tr>
+            <tr><th>Amber ring</th><td>On microwave: the site has been rerouted over the backup microwave link.</td></tr>
+            <tr><th>Orange ring</th><td>PRB load at 85% or more. Pulses twice. This ring is not in the legend.</td></tr>
+            <tr><th>Small grey dot</th><td>At least one of the site's three cells is asleep to save energy. Three sites (s-20, s-23, s-28) start with a sleeping cell.</td></tr>
+            <tr><th>"H"</th><td>A hospital site (s-06 and s-35).</td></tr>
+            <tr><th>"911"</th><td>The public-safety answering point, the emergency call centre (s-27).</td></tr>
+            <tr><th>Dashed box, "stadium district"</th><td>The six stadium sites, drawn around their hexagons.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>In the beat 14 shot, the two middle columns have amber rings: those are the 10 sites of hub H3, still on microwave after the fibre cut.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/twin.py</code>, <code>Twin.compute</code> and <code>Twin.compact</code></dd>
+        <dt>Arrives by</dt><dd>Snapshot (<code>layout</code>, <code>sites</code>, <code>state</code>), then <code>twin.tick</code> every second</dd>
+        <dt>Store slice</dt><dd><code>twin.sites</code> (static layout and tags), <code>twin.state</code> (one row per site)</dd>
+        <dt>Changes when</dt><dd>Every second; beat 7 cuts fibre T3 and starts the stadium surge; the agents' reroute moves H3 to microwave</dd>
+      </dl>
+      <ol class="flow" aria-label="Twin data path">
+        <li class="src"><b>Twin.compute</b><span>per site: load, users, throughput, backhaul</span></li>
+        <li><b><code>twin.tick</code></b><span>compact rows, once a second</span></li>
+        <li><b>Store</b><span><code>twin.state</code></span></li>
+        <li class="ui"><b>Hex map</b><span>colour fades over 600 ms</span></li>
+      </ol>
+      <p>Each state row is <code>[id, PRB load, users, throughput, drop rate, power kW, backhaul, sleeping mask]</code>. The map uses the load for the fill, the backhaul value (fibre, microwave or down) for the rings, and the sleeping mask for the grey dot. <code>twin.tick</code> is a "noisy" event, so it drives this map but never appears in the live stream or Needs attention.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Hover a hexagon</th><td>Shows a tooltip: site id, hub and tags (for example "s-27, hub H2, psap"), then PRB load, users, throughput in Mbps and backhaul.</td><td>Browser only. No backend call.</td></tr>
+            <tr><th>Click anywhere on the map</th><td>Opens the Swarm Tower.</td><td>Goes to <code>/swarm</code>. No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Dark, ring-free hexagons are calm. Rings show trouble: red is the worst (no backhaul), amber is a workaround in place, orange is overload.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>Hover the "911" hexagon to show its tooltip.</li><li>Point at the dashed stadium district box.</li><li>After beat 14, point at the amber rings in the two middle columns, then click the map to open the Swarm Tower.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"This is the city the agents run: 40 sites, a stadium district, two hospitals and the 911 centre. Those are the places the policies protect."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Why does a human need to approve some actions?"</strong> Because some sites are critical (hospitals, 911), and a change near them carries more risk. Maps to T3.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The whole twin is a simulator; in AWS mode it would run on ECS and stream through Kinesis, as the source chip says.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>After the incident the amber rings stay: the engine does not move sites back to fibre. Do not say "everything is back to normal"; say "traffic is running over the backup link and a field technician has been dispatched".</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 13 needs attention -->
+  <article class="comp" id="c-13">
+    <header>
+      <span class="comp-num">13</span>
+      <h3>Needs attention</h3>
+      <span class="where">panel <code>critical</code>, component <code>CriticalFeed</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A short to-do list for the operator on duty: the eight most recent warnings and critical events from any plane, each one a click away from its evidence.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Before anything happens it shows "No warnings. The swarm is handling routine work on its own." Otherwise it lists up to eight rows, newest first. Each row has:</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Example (beat 14 shot)</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Severity icon</th><td>octagon with X; triangle with !</td><td>Octagon (red) is critical, triangle (amber) is a warning.</td></tr>
+            <tr><th>Summary</th><td>"chain broken at #3503: payload modified after signing"</td><td>What happened, in up to two lines.</td></tr>
+            <tr><th>Time</th><td>21:32:30</td><td>Simulated clock time (PDT).</td></tr>
+            <tr><th>Plane chip</th><td>coloured dot + "prove"</td><td>Which plane the event belongs to.</td></tr>
+            <tr><th>Actor</th><td>auditor, attacker, sentinel, gateway, guardrails</td><td>Who or what produced the event.</td></tr>
+            <tr><th>Ledger number</th><td>#3524</td><td>Shown on the right when the event has a signed ledger record.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd>Every engine, through the shared event bus (<code>bus.emit</code> with a severity)</dd>
+        <dt>Arrives by</dt><dd>The one WebSocket, in batches every 100 ms; the snapshot also carries the last 400 events</dd>
+        <dt>Store slice</dt><dd><code>stream</code> (up to 3,000 events, high-rate "noisy" types left out)</dd>
+        <dt>Changes when</dt><dd>Any engine emits a <code>warn</code> or <code>critical</code> event</dd>
+      </dl>
+      <ol class="flow" aria-label="Needs attention data path">
+        <li class="src"><b>Engine emits event</b><span>with a severity</span></li>
+        <li><b>WebSocket batch</b><span>every 100 ms</span></li>
+        <li><b>Store <code>stream</code></b><span>append</span></li>
+        <li class="ui"><b>Filter</b><span>warn or critical, newest 8</span></li>
+      </ol>
+      <p>Severity has five levels: debug, info, notice, warn and critical. Only the top two appear here. Examples: an operator at 90% of its privacy budget (warn), a poisoned update rejected (critical), the gate blocking a model (critical), a fibre cut alarm (critical), an approval request (warn), an agent quarantined (critical), a ledger record tampered with (warn) and the failed chain check (critical). Routine progress such as round summaries, gate passes and the beat 14 loop record are "notice" or lower, so they never show here.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click a row with a ledger number</th><td>Opens the Inspector on that ledger record.</td><td>The Inspector loads <code>GET /api/ledger/{seq}</code> and <code>GET /api/ledger/proof/{seq}</code> and shows a 5-step proof: hash recomputed in the browser, stored hash, link to the previous record, signature, and inclusion in an anchor. Read-only.</td></tr>
+            <tr><th>Click a row without one</th><td>Opens the Inspector with the raw event.</td><td>Shows the event JSON exactly as received. No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Empty is good. Red octagons need action now; amber triangles need a look. A "#" number means there is signed evidence behind the row.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>After the full run, click the "site-17 → site-25: Coordinator authorises…" row (#3519 in the beat 14 shot, already inside anchor #110, which covers records 3489 to 3520).</li><li>Walk the five green checks in the Inspector.</li><li>Close the Inspector.</li></ol>
+        <p>If you click a newer row instead, such as "Quarantined site-17" (#3522) or APR-318 (#3524), four checks go green straight away and step 5 reads "Awaiting the next Merkle anchor" until the next anchor is written. Say "the anchor is written every 32 records".</p>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Anything a human should look at surfaces here, and each row opens its signed record, verified in this browser."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How does an operator keep up with a swarm?"</strong> Routine work stays out of sight; only warnings and critical events reach the human, each with evidence. Maps to T3 and Observability.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The events come from the simulation, but the ledger records and proofs behind the numbered rows are real.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>It is empty at the cold open, which is the point: say "nothing needs a human right now". The rows in the beat 14 shot are a mix of beat 10 and beat 12 events, so beat 7's rows have already scrolled off by the end.</p>
+        <p>Step 5 in the Inspector (anchor inclusion) is only green for records that an anchor already covers. The newest records wait for the next 32-record anchor, so for five green checks pick an older numbered row.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 14 source chips -->
+  <article class="comp" id="c-14">
+    <header>
+      <span class="comp-num">14</span>
+      <h3>Source chips</h3>
+      <span class="where">component <code>SourceChip</code> in <code>ui/Panel.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A small label in a panel's header that says where the panel's data would come from on AWS, and that it is simulated right now. It keeps the demo honest.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Panel</th><th>Chip text</th><th>Tooltip in mock mode</th></tr></thead>
+          <tbody>
+            <tr><th>Network health</th><td>CloudWatch metrics</td><td>"Simulated KPIs now. In AWS mode this panel reads from CloudWatch metrics."</td></tr>
+            <tr><th>Consortium</th><td>Nitro Enclave + VPC Flow Logs</td><td>"Simulated federation now. …"</td></tr>
+            <tr><th>Network twin</th><td>ECS twin + Kinesis</td><td>"Simulated network now. …"</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>In mock mode the chip has a small flask icon, which means "simulated". The Needs attention panel and the tiles have no chip. Hover pin 14 on the first screenshot to outline all three chips.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Source</dt><dd>The <code>source</code> prop each panel passes (<code>{ aws, mock }</code>)</dd>
+        <dt>Mode</dt><dd><code>mode</code> in the store, read from the backend config on start-up (<code>mock</code> or <code>aws</code>); the top bar badge shows the same value</dd>
+        <dt>Changes when</dt><dd>Only if the backend runs in the other mode</dd>
+      </dl>
+      <p>In AWS mode the flask disappears and the tooltip says "Live from …".</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Hover the chip</th><td>Shows the tooltip above.</td><td>Browser only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Every panel tells you if it is simulated and which AWS service feeds it in production. The flask means simulated."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"What is real here?"</strong> The chips and the MOCK badge answer it on every panel. Maps to Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The chip reflects the backend's actual mode.</p>
+      </div>
+    </div>
+  </article>
+
+  <h2 id="real-vs-sim">Real and simulated on this screen</h2>
+  <div class="callout real">
+    <p class="title">Say it plainly</p>
+    <p>Real even in mock mode: the signed hash-chained ledger and its verification (Prove tile, Needs attention record numbers), secure aggregation masking, signed agent messages and the policy decisions behind quarantine and approvals. Simulated: the twin's KPIs (health, chart, map), training curves and the privacy accountant (Learn tile, Consortium, loss gain), benchmark scores and prices (Verify tile), and latency and error figures (Release tile). "0 B", "4 targets, 2 vendors", "every record signed" and "S3 Object Lock, compliance" are fixed labels in the page code.</p>
+  </div>
+
+  <h2 id="related">Related screens and how data flows</h2>
+  <p>Mission Control computes nothing on the server. It reads the same store slices as the deeper
+    screens, so every number here matches the screen it links to.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Block on this page</th><th>Data comes from</th><th>Click goes to</th></tr></thead>
+      <tbody>
+        <tr><th><a href="#c-5">Consortium</a>, <a href="#c-6">strip</a>, <a href="#c-7">Learn tile</a></th><td><code>federation</code> slice, <code>engines/federation.py</code></td><td><a href="federation.html">Federation Center</a> (tile click)</td></tr>
+        <tr><th><a href="#c-8">Verify tile</a></th><td><code>proving</code> slice, <code>engines/proving.py</code></td><td><a href="proving.html">Proving Ground</a></td></tr>
+        <tr><th><a href="#c-9">Release tile</a></th><td><code>release</code> and <code>observability</code> slices</td><td><a href="release.html">Release</a> (on screen: Release Center)</td></tr>
+        <tr><th><a href="#c-2">Health</a>, <a href="#c-4">chart</a>, <a href="#c-10">Operate tile</a>, <a href="#c-12">twin</a></th><td><code>twin</code> and <code>swarm</code> slices</td><td><a href="swarm.html">Swarm Tower</a> (tile or map click)</td></tr>
+        <tr><th><a href="#c-3">Waiting on a human</a></th><td><code>oversight</code> slice</td><td><a href="oversight.html">Human oversight &amp; phone approvals</a> (on screen: Oversight Desk; rail, or <kbd>g</kbd> then <kbd>o</kbd>)</td></tr>
+        <tr><th><a href="#c-11">Prove tile</a>, <a href="#c-13">Needs attention</a></th><td><code>ledger</code>, <code>trust</code> and <code>stream</code></td><td><a href="audit.html">Audit, provenance &amp; dossier</a> (on screen: Audit &amp; Proof); rows open the Inspector</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>See also: <a href="shell.html">Console frame &amp; controls</a> for the ribbon, rail, live stream, Inspector and
+    Demo Director; <a href="trust.html">Trust Center</a> for the policy decisions behind the Prove sparkline;
+    <a href="observability.html">Observability</a> for the golden signals behind the Release sparkline;
+    <a href="settings.html">Settings</a> for the reduced-motion and theme options; and the
+    <a href="demo-playbook.html">Demo playbook</a> for all 14 beats.</p>
+  <div class="callout warn">
+    <p class="title">Do not turn off the Mission Control flag</p>
+    <p>The Settings screen lists a <code>screen.mission</code> flag (stable, on by default). Every switched-off screen redirects to <code>/</code>, which is this page, so leave this one on.</p>
+  </div>
+
+</main>
+</body>
+</html>

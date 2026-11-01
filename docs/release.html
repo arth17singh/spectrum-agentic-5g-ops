@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Release | SPECTRUM presenter guide</title>
+<link rel="stylesheet" href="assets/guide.css">
+<script src="assets/guide.js" defer></script>
+</head>
+<body data-page="release.html">
+<main class="content">
+
+  <header class="page-head">
+    <span class="plane-tag" data-plane="release">Release plane</span>
+    <h1>Release Center</h1>
+    <p class="lede">This screen ships a new model version to production safely. A model that passed the
+      Proving Ground is first run in "shadow" (it sees live work but its answers are only compared, never
+      used), then given 10%, 50% and finally 100% of live traffic. Four deployment targets from two
+      vendors are driven from one signed manifest, guard metrics watch every stage, and a bad canary is
+      rolled back automatically, with every step written to the signed ledger.</p>
+    <div class="meta">
+      <span>Route <code>/release</code></span>
+      <span>Go to it with <kbd>g</kbd> then <kbd>r</kbd></span>
+      <span class="beat-chips">Appears in demo beats <a class="chip" href="demo-playbook.html#beat-6">6</a></span>
+    </div>
+  </header>
+
+  <h2 id="intro">What this screen is for</h2>
+  <p>The one-sentence story: <strong>"The model the five operators trained does not go straight into the
+    network. It earns traffic step by step, and if it misbehaves it is pulled back automatically, with a
+    signed record of why."</strong></p>
+  <p>Release is the third of the five planes (Learn, Verify, Release, Operate, Prove). It sits between the
+    <a href="proving.html">Proving Ground</a>, which decides whether a model is good enough, and the
+    <a href="swarm.html">Swarm Tower</a>, where the agents actually use the model. The screen answers three
+    questions a careful network operator would ask before trusting a new model:</p>
+  <ul>
+    <li>Where is the new version running, and how much real traffic does it get? (Rollout, Deployment targets)</li>
+    <li>Does it make the same decisions as the version we trust, and when it differs, is it better or worse? (Shadow agreement, Where they disagree)</li>
+    <li>Can we prove exactly what was deployed, and every promotion and rollback? (Version history, Deployment manifest)</li>
+  </ul>
+  <p>The page header carries the track tag <code>T1</code>, which the console defines as "Track 1: NLM
+    training, scaling &amp; production readiness". Release is the production-readiness part of that track.</p>
+
+  <div class="ribbon-mini labelled wide" role="img" aria-label="The five planes, with Release in the middle: Learn, Verify, Release, Operate, Prove">
+    <span data-p="learn">Learn</span><span data-p="verify">Verify</span><span data-p="release">Release</span><span data-p="operate">Operate</span><span data-p="prove">Prove</span>
+  </div>
+
+  <h3 id="words">Words you need first</h3>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Word</th><th>Plain meaning</th><th>On this screen</th></tr></thead>
+      <tbody>
+        <tr><th>Production (prod)</th><td>The model version the network trusts and uses today.</td><td><code>nlm-v6</code> before the demo.</td></tr>
+        <tr><th>Candidate</th><td>The new version trying to replace production.</td><td><code>nlm-v7</code> after beat 5 passes the gate.</td></tr>
+        <tr><th>Shadow</th><td>The candidate gets a copy of the live work and makes its own decision, but only the production decision is used. The two are compared.</td><td>Stage 1, "0% of live traffic, decisions compared only".</td></tr>
+        <tr><th>Canary</th><td>The candidate's decisions are really used for a small share of traffic, so a problem hurts only that share. Named after the canary miners took underground as an early warning.</td><td>Stages 2 and 3, 10% and 50%.</td></tr>
+        <tr><th>Guard</th><td>A metric with a limit. If the candidate crosses the limit, the rollout should stop.</td><td>Error rate, p95 latency, safety incidents, shadow agreement.</td></tr>
+        <tr><th>Rollback</th><td>Removing the candidate and sending all traffic back to production.</td><td>The Roll back button, or automatic when the error-rate guard is breached.</td></tr>
+        <tr><th>Manifest</th><td>A small document that says exactly what to deploy: which image, which adapter weights, which infrastructure stack. It is signed so nobody can change it unnoticed.</td><td>Deployment manifest panel and the Manifest and Signature columns.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>More background terms are in <a href="concepts.html">Concepts explained simply</a>.</p>
+
+  <h3 id="stage-machine">The rollout in one picture</h3>
+  <figure class="diagram wide">
+    <div class="diagram-frame">
+      <svg viewBox="0 0 860 250" role="img" aria-labelledby="rl-dg-t">
+        <title id="rl-dg-t">Rollout state machine: Proving Ground gate pass starts Shadow; Advance moves to Canary 10%, Canary 50%, Full 100%; Roll back from any stage returns to production; error rate above 1% during a canary rolls back automatically</title>
+        <defs><marker id="rl-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-arrow" d="M0 0L10 5L0 10z"/></marker></defs>
+        <rect class="d-node verify" x="10" y="40" width="120" height="64" rx="6"/>
+        <text class="d-label" x="70" y="68" text-anchor="middle">Gate pass</text>
+        <text class="d-sub" x="70" y="86" text-anchor="middle">Proving Ground</text>
+        <rect class="d-group" x="150" y="20" width="560" height="104" rx="8"/>
+        <text class="d-group-label" x="162" y="36">Candidate in rollout (Advance moves one stage)</text>
+        <rect class="d-node release" x="165" y="48" width="118" height="60" rx="6"/>
+        <text class="d-label" x="224" y="74" text-anchor="middle">Shadow</text>
+        <text class="d-sub" x="224" y="92" text-anchor="middle">0%, compared only</text>
+        <rect class="d-node release" x="303" y="48" width="118" height="60" rx="6"/>
+        <text class="d-label" x="362" y="74" text-anchor="middle">Canary 10%</text>
+        <text class="d-sub" x="362" y="92" text-anchor="middle">guards armed</text>
+        <rect class="d-node release" x="441" y="48" width="118" height="60" rx="6"/>
+        <text class="d-label" x="500" y="74" text-anchor="middle">Canary 50%</text>
+        <text class="d-sub" x="500" y="92" text-anchor="middle">guards armed</text>
+        <rect class="d-node release" x="579" y="48" width="118" height="60" rx="6"/>
+        <text class="d-label" x="638" y="74" text-anchor="middle">Full 100%</text>
+        <text class="d-sub" x="638" y="92" text-anchor="middle">becomes production</text>
+        <rect class="d-node" x="730" y="40" width="120" height="64" rx="6"/>
+        <text class="d-label" x="790" y="68" text-anchor="middle">Stable</text>
+        <text class="d-sub" x="790" y="86" text-anchor="middle">new prod serving</text>
+        <path class="d-edge strong" d="M130 72H163" marker-end="url(#rl-arr)"/>
+        <path class="d-edge" d="M283 78H301" marker-end="url(#rl-arr)"/>
+        <path class="d-edge" d="M421 78H439" marker-end="url(#rl-arr)"/>
+        <path class="d-edge" d="M559 78H577" marker-end="url(#rl-arr)"/>
+        <path class="d-edge strong" d="M697 72H728" marker-end="url(#rl-arr)"/>
+        <rect class="d-node prove" x="300" y="178" width="260" height="56" rx="6"/>
+        <text class="d-label" x="430" y="202" text-anchor="middle">Rolled back: old prod keeps 100%</text>
+        <text class="d-sub" x="430" y="220" text-anchor="middle">signed ledger record with the reason</text>
+        <path class="d-edge dashed" d="M224 108V206H298" marker-end="url(#rl-arr)"/>
+        <path class="d-edge dashed" d="M362 108V176" marker-end="url(#rl-arr)"/>
+        <path class="d-edge dashed" d="M500 108V176" marker-end="url(#rl-arr)"/>
+        <text class="d-sub" x="232" y="160">manual only</text>
+        <text class="d-sub" x="370" y="150">manual, or automatic</text>
+        <text class="d-sub" x="370" y="164">if error rate &gt; 1%</text>
+        <text class="d-sub" x="508" y="150">manual, or automatic</text>
+        <text class="d-sub" x="508" y="164">if error rate &gt; 1%</text>
+      </svg>
+    </div>
+    <figcaption>Every stage change (shadow, each advance, each rollback) writes one <code>release.stage</code> record to the ledger. Stages move only when someone clicks Advance (or fires beat 6); there is no timer. Automatic rollback is armed only in the two canary stages.</figcaption>
+  </figure>
+
+  <h2 id="screens">Annotated screenshots</h2>
+  <p>Two captures of the same screen. The first is the quiet state before the demo: no candidate, so most
+    panels show an empty state. The second is right after beat 6: <code>nlm-v7</code> has finished shadow
+    and is in a 10% canary. Numbers match the cards below.</p>
+
+  <h3 id="shot-pre" data-toc-label="Before the demo">Before the demo (no candidate)</h3>
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/screen-release.jpg" width="1440" height="1567"
+           alt="Release Center before the demo: nlm-v6 serving on all four targets at 0% candidate traffic, Rollout panel empty with a Stable pill, shadow panels empty, version history with four past events, the SageMaker manifest and the vendor dialect check">
+      <span class="box" data-target="c-1" style="left:6.11%;top:6.64%;width:92.22%;height:5.62%"></span>
+      <span class="box" data-target="c-2" style="left:6.11%;top:12.25%;width:92.22%;height:13.91%"></span>
+      <span class="box" data-target="c-3" style="left:6.11%;top:27.19%;width:92.22%;height:18.32%"></span>
+      <span class="box" data-target="c-4" style="left:6.11%;top:46.52%;width:53.33%;height:12.38%"></span>
+      <span class="box" data-target="c-5" style="left:60.56%;top:46.52%;width:37.78%;height:11.68%"></span>
+      <span class="box" data-target="c-6" style="left:6.11%;top:59.92%;width:37.78%;height:15.95%"></span>
+      <span class="box" data-target="c-7" style="left:45%;top:59.92%;width:53.33%;height:19.66%"></span>
+      <span class="box" data-target="c-8" style="left:6.11%;top:80.6%;width:92.22%;height:15.32%"></span>
+      <a class="pin" href="#c-1" style="left:7.6%;top:8.6%">1</a>
+      <a class="pin" href="#c-2" style="left:7.6%;top:14.25%">2</a>
+      <a class="pin" href="#c-3" style="left:7.6%;top:29.2%">3</a>
+      <a class="pin" href="#c-4" style="left:7.6%;top:48.5%">4</a>
+      <a class="pin" href="#c-5" style="left:62.1%;top:48.5%">5</a>
+      <a class="pin" href="#c-6" style="left:7.6%;top:61.9%">6</a>
+      <a class="pin" href="#c-7" style="left:46.5%;top:61.9%">7</a>
+      <a class="pin" href="#c-8" style="left:7.6%;top:82.6%">8</a>
+    </div>
+    <figcaption>Pre-demo, full height, dark Ops theme. The Advance, Pause, Roll back and Inject regression buttons are greyed out because there is no candidate. Hover a number to outline that panel; click it to jump to its card.</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#c-1"><span class="n">1</span><span>Header and rollout buttons</span></a></li>
+      <li><a href="#c-2"><span class="n">2</span><span>Rollout</span></a></li>
+      <li><a href="#c-3"><span class="n">3</span><span>Deployment targets</span></a></li>
+      <li><a href="#c-4"><span class="n">4</span><span>Shadow agreement</span></a></li>
+      <li><a href="#c-5"><span class="n">5</span><span>Where they disagree</span></a></li>
+      <li><a href="#c-6"><span class="n">6</span><span>Version history</span></a></li>
+      <li><a href="#c-7"><span class="n">7</span><span>Deployment manifest</span></a></li>
+      <li><a href="#c-8"><span class="n">8</span><span>Vendor dialect check</span></a></li>
+    </ul>
+  </figure>
+
+  <h3 id="shot-beat6" data-toc-label="After beat 6">After beat 6 (nlm-v7 in a 10% canary)</h3>
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/beat-06-full.jpg" width="1440" height="1685"
+           alt="Release Center after beat 6: Rollout and Deployment targets spotlit, nlm-v7 replacing nlm-v6 at Canary 10% on all four targets, guards at 0.22% error and 475 ms p95, shadow agreement 71.4% below the 90% minimum, two disagreements where the candidate was better">
+      <span class="box" data-target="c-1" style="left:6.11%;top:6.17%;width:92.22%;height:5.22%"></span>
+      <span class="box" data-target="c-2" style="left:6.11%;top:11.39%;width:92.22%;height:10.8%"></span>
+      <span class="box" data-target="c-3" style="left:6.11%;top:23.15%;width:92.22%;height:17.03%"></span>
+      <span class="box" data-target="c-4" style="left:6.11%;top:41.13%;width:53.33%;height:18.87%"></span>
+      <span class="box" data-target="c-5" style="left:60.56%;top:41.13%;width:37.78%;height:13.41%"></span>
+      <span class="box" data-target="c-6" style="left:6.11%;top:60.95%;width:37.78%;height:20.06%"></span>
+      <span class="box" data-target="c-7" style="left:45%;top:60.95%;width:53.33%;height:18.28%"></span>
+      <span class="box" data-target="c-8" style="left:6.11%;top:81.96%;width:92.22%;height:14.24%"></span>
+      <a class="pin" href="#c-1" style="left:7.6%;top:8.2%">1</a>
+      <a class="pin" href="#c-2" style="left:7.6%;top:13.4%">2</a>
+      <a class="pin" href="#c-3" style="left:7.6%;top:25.15%">3</a>
+      <a class="pin" href="#c-4" style="left:7.6%;top:43.1%">4</a>
+      <a class="pin" href="#c-5" style="left:62.1%;top:43.1%">5</a>
+      <a class="pin" href="#c-6" style="left:7.6%;top:62.95%">6</a>
+      <a class="pin" href="#c-7" style="left:46.5%;top:62.95%">7</a>
+      <a class="pin" href="#c-8" style="left:7.6%;top:83.96%">8</a>
+    </div>
+    <figcaption>After beat 6 with spotlight on: Rollout and Deployment targets are lit, the other panels are dimmed. The primary button now reads "Advance to Canary 50%". The ribbon's Release segment reads "nlm-v7 canary 10%, agreement 71%".</figcaption>
+  </figure>
+
+  <p>The parts outside the page body (top bar, lifecycle ribbon, screens rail on the left, live stream
+    drawer at the bottom) are the same on every screen and are explained in
+    <a href="shell.html">Console frame &amp; controls</a>. On this screen the ribbon's Release segment is
+    highlighted, and clicking it from anywhere brings you here.</p>
+
+  <ol class="comp-list">
+    <li><span class="comp-num">1</span><a href="#c-1">Page header and rollout buttons</a></li>
+    <li><span class="comp-num">2</span><a href="#c-2">Rollout</a></li>
+    <li><span class="comp-num">3</span><a href="#c-3">Deployment targets</a></li>
+    <li><span class="comp-num">4</span><a href="#c-4">Shadow agreement</a></li>
+    <li><span class="comp-num">5</span><a href="#c-5">Where they disagree</a></li>
+    <li><span class="comp-num">6</span><a href="#c-6">Version history</a></li>
+    <li><span class="comp-num">7</span><a href="#c-7">Deployment manifest</a></li>
+    <li><span class="comp-num">8</span><a href="#c-8">Vendor dialect check</a></li>
+  </ol>
+
+  <h2 id="data-path">Where the data comes from (all panels)</h2>
+  <p>Every panel on this screen reads one store slice, <code>release</code>, which mirrors the
+    <code>Release</code> class in <code>backend/spectrum/engines/release.py</code>.</p>
+  <ol class="flow" aria-label="Release data path">
+    <li class="src"><b>Release engine</b><span><code>tick()</code> at 10 Hz, button actions</span></li>
+    <li><b>Events</b><span><code>release.metrics</code> once per sim second, <code>release.stage</code> on every stage change</span></li>
+    <li><b>WebSocket batch</b><span>every 100 ms</span></li>
+    <li><b>Store slice</b><span><code>release</code></span></li>
+    <li class="ui"><b>Panels re-render</b><span>all eight read the same slice</span></li>
+  </ol>
+  <dl class="facts">
+    <dt>On connect</dt><dd><code>GET /api/snapshot</code> returns <code>Release.snapshot()</code>: the state, the full agreement series, disagreements, the last 30 history rows and the static vendor dialect example.</dd>
+    <dt>Every sim second</dt><dd><code>release.metrics</code> carries <code>Release.view()</code>: production and candidate names, stage, per-target numbers, guards, limits, tally, paused flag. While a candidate exists it also carries the last 150 agreement points and the 15 newest disagreements. The store merges it into the slice.</dd>
+    <dt>On a stage change</dt><dd><code>release.stage</code> is emitted with a ledger reference. The store merges the state and adds a history row. The lifecycle ribbon plays a pulse from Release to Operate.</dd>
+    <dt>Commands</dt><dd><code>POST /api/release/advance</code>, <code>/pause</code>, <code>/rollback</code>, <code>/regression</code>, and <code>/shadow</code> (used by the Proving Ground's "Promote to Release" button, not by a button on this screen).</dd>
+  </dl>
+  <p>Each panel header ends with a small source chip, for example "SageMaker + Bedrock CMI + ECS" with a
+    flask icon. The flask means "simulated now". Hover the chip: in mock mode the tooltip says what simulates
+    it (for example "Simulated rollout controller") and which AWS service the panel is meant to read in AWS
+    mode. In AWS mode the chip drops the flask and its tooltip says "Live from SageMaker + Bedrock CMI + ECS",
+    but there is no AWS adapter for the release plane in <code>backend/spectrum/adapters/</code>, so the
+    numbers still come from the Python engine. If you demo in AWS mode, do not point at this chip as proof
+    that the rollout is live on AWS.</p>
+
+  <h2 id="components">Component cards</h2>
+
+  <!-- ===================================================== 1 header -->
+  <article class="comp" id="c-1">
+    <header>
+      <span class="comp-num">1</span>
+      <h3>Page header and rollout buttons</h3>
+      <span class="where">file <code>features/release/ReleasePage.tsx</code>, <code>PageHeader</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The title area names the screen and states its promise in one line. The four buttons on the right
+        are the controls for the whole rollout: move the candidate forward, pause, pull it back, or
+        deliberately break it to show the safety net.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr><th>"Release Center"</th><td>Screen title, from <code>features/release/manifest.ts</code>.</td></tr>
+            <tr><th><code>T1</code> tag</th><td>Hackathon track this screen serves. Hover shows "Track 1: NLM training, scaling &amp; production readiness".</td></tr>
+            <tr><th>Description</th><td>"Repeatable multi-vendor deployment from one signed manifest: shadow, then canary, then full, with guard metrics and automatic rollback."</td></tr>
+            <tr><th>Advance (primary, light)</th><td>Label names the next stage, for example "Advance to Canary 50%" in the beat 6 shot. Reads just "Advance" and is greyed out when there is no candidate.</td></tr>
+            <tr><th>Pause / Resume</th><td>Pause icon and "Pause" normally; play icon and "Resume" once paused. Greyed out with no candidate.</td></tr>
+            <tr><th>Roll back (red outline)</th><td>Danger-styled button. Greyed out with no candidate.</td></tr>
+            <tr><th>Inject regression (demo)</th><td>Ghost button with a warning triangle. Tooltip: "Demo only: make the canary error-prone to show automatic rollback". Greyed out until the candidate is at least at Canary 10%. Only present while the <code>demo.attacks</code> flag ("Attack scenarios" in the Demo group of Settings) is on, and the Swarm Tower screen flag is on, because <code>demo.attacks</code> depends on it. Both are on by default.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>main.py</code> <code>release_action()</code> calls <code>Release.advance()</code>, <code>rollback()</code>, flips <code>paused</code> or sets <code>regression</code>.</dd>
+        <dt>Arrives by</dt><dd>Button state is computed in the browser from the <code>release</code> slice: <code>candidate</code>, <code>stage_index</code>, <code>stages</code>, <code>paused</code>.</dd>
+        <dt>Store slice</dt><dd><code>release</code>; the Inject button also reads the <code>demo.attacks</code> flag.</dd>
+        <dt>Changes when</dt><dd>A candidate appears (gate pass), the stage changes, or <code>paused</code> flips.</dd>
+      </dl>
+      <ol class="flow" aria-label="What clicking Advance does">
+        <li class="ui"><b>Click Advance</b><span>browser</span></li>
+        <li class="src"><b><code>POST /api/release/advance</code></b><span><code>stage_index</code> + 1</span></li>
+        <li><b>Targets updated</b><span>traffic set to the stage's %</span></li>
+        <li><b>Ledger record</b><span><code>release.stage</code>, signed by <code>kms:spectrum/release</code></span></li>
+        <li class="ui"><b>Toast + panels move</b><span>"Advanced nlm-v7 to Canary 50%"</span></li>
+      </ol>
+      <p><strong>Advance.</strong> The engine moves one step along Shadow, Canary 10%, Canary 50%, Full 100%. It
+        sets every target's traffic to that stage's share and its state to "canary" (or "serving" at 100%).
+        It also tells the swarm how many of the 40 site agents should now run the candidate
+        (<code>swarm.cohort</code> event, for example "4 of 40 site agents now run nlm-v7" at 10%). At 100% the
+        candidate becomes production, each target's manifest is regenerated and re-signed for the new version,
+        and the candidate slot empties.</p>
+      <p><strong>Roll back.</strong> Every target goes back to 0% candidate traffic and state "serving", the
+        stage resets, and the regression switch is cleared. All site agents are put back on the production
+        model. The ledger record reads "nlm-v7 rolled back: manual rollback by A. Rivera", and its event has severity warn.</p>
+      <p><strong>Pause.</strong> The server flips a <code>paused</code> flag and returns. Nothing in the engine
+        reads that flag: it does not stop the metrics, does not block Advance, and does not stop automatic
+        rollback. It writes no ledger record and emits no event of its own; the Rollout pill changes to
+        "Paused" when the next <code>release.metrics</code> tick (within about a second) carries the new flag.</p>
+      <p><strong>Inject regression.</strong> The server sets <code>regression = True</code>. On the next
+        once-per-second tick every target with candidate traffic gets +260 ms p95 and +1.6 percentage points of
+        error rate. Error rate jumps from about 0.2% to about 1.8%, which is above the 1% limit, so the same tick
+        rolls the candidate back automatically (see <a href="#c-2">Rollout</a>).</p>
+      <p>The toasts after each click are written by the browser when the request succeeds. If the request
+        fails, a red toast shows the error message.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Advance to …</th><td>Moves the candidate one stage forward.</td><td><code>POST /api/release/advance</code>. Stage box, traffic bars, Version history and the ribbon move. One <code>release.stage</code> ledger record, a <code>swarm.cohort</code> event, toast "Advanced nlm-v7 to …".</td></tr>
+            <tr><th>Pause / Resume</th><td>Toggles a paused flag.</td><td><code>POST /api/release/pause</code>. Rollout pill shows "Paused" (amber clock) or the stage again. Toast "Rollout paused" or "Rollout resumed". No ledger record. No effect on the simulation.</td></tr>
+            <tr><th>Roll back</th><td>Removes the candidate.</td><td><code>POST /api/release/rollback</code>. Rollout returns to "No candidate in rollout", all traffic bars to 0%, red dot in Version history. One <code>release.stage</code> ledger record; the matching event has severity warn. Toast "nlm-v7 rolled back (ledgered)".</td></tr>
+            <tr><th>Inject regression (demo)</th><td>Makes the canary error-prone.</td><td><code>POST /api/release/regression</code>. Toast "Regression injected into the canary; guards will trip". Within about one sim second: automatic rollback, one <code>release.stage</code> ledger record, and an event at severity critical.</td></tr>
+            <tr><th>Command palette (<kbd>Cmd</kbd> <kbd>K</kbd>)</th><td>"Advance rollout to the next stage" and "Roll back the candidate" are also palette commands.</td><td>Same endpoints as the buttons.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Greyed-out buttons mean "no candidate in rollout". A bright Advance button with a stage name means a
+          candidate is waiting for a human to promote it.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>After beat 6, point at the label "Advance to Canary 50%": promotion is a deliberate human step.</li>
+          <li>Only if you have time and a judge asks about rollback: say what will happen, then click "Inject regression (demo)".</li>
+          <li>Watch the Rollout panel return to "No candidate in rollout" and a red row appear in Version history.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Promotion is one deliberate click per stage, and every click is a signed ledger record. If I break the canary on purpose, the controller pulls it back by itself within a second."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Who decides when the new model gets more traffic, and can you undo it?"</strong> A human advances each stage; rollback is one click or automatic, and both are ledgered. Track T1 (production readiness), Trust (signed records).</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The stage logic and the signed ledger records are real code; no model is actually deployed, and the metrics the regression changes are simulated.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <ul>
+          <li>Pause only changes the label. Do not claim it freezes the rollout. The key <kbd>p</kbd> is different: it pauses the whole simulation.</li>
+          <li>Inject regression rolls back within about a second. Narrate first, then click.</li>
+          <li>If the whole simulation is paused (<kbd>p</kbd>), Inject regression and the Paused pill take effect only after you press <kbd>p</kbd> again.</li>
+          <li>The paused flag survives rollbacks and promotions. If the pill says "Paused" when a new candidate arrives, click Resume once.</li>
+          <li>To recover after a rollback, press <kbd>6</kbd> again. The Proving Ground keeps <code>nlm-v7</code> as its pending candidate, so beat 6 redeploys it in shadow and moves it straight to Canary 10%. The shadow panels restart from zero and Version history gains two new rows.</li>
+          <li>Advancing past 10% puts more site agents on <code>nlm-v7</code> (20 of 40 at 50%, all 40 at 100%). At 100% <code>nlm-v7</code> becomes production, Rollout goes back to the empty state and the ribbon reads "nlm-v7 serving", so the later screens no longer match the script. Stay at Canary 10%.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 2 rollout -->
+  <article class="comp" id="c-2">
+    <header>
+      <span class="comp-num">2</span>
+      <h3>Rollout</h3>
+      <span class="where">panel <code>rollout</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>This is the heart of the screen: where the candidate is in its journey to production, and whether it is
+        healthy enough to keep going. It is one of the two panels lit in beat 6.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p><strong>Header.</strong> Title "Rollout" and a subtitle: "nlm-v7 replacing nlm-v6" during a rollout, or
+        "nlm-v6 serving on every target" when idle. On the right, a status pill and the source chip.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Header pill</th><th>When</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill good">Stable</span></td><td>No candidate. Production serves everything.</td></tr>
+            <tr><td><span class="pill neutral">Canary 10%</span> (clock icon on a blue tint)</td><td>A candidate is in rollout; the pill names the current stage.</td></tr>
+            <tr><td><span class="pill warn">Paused</span> (amber clock icon)</td><td>Someone clicked Pause (label only, see card 1).</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>Empty state</strong> (no candidate): "No candidate in rollout. A model that passes the Proving
+        Ground gate is deployed here in shadow automatically." and an "Open the Proving Ground" button.</p>
+      <p><strong>Stage track</strong> (left, during a rollout): four boxes joined by arrows.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Part of a stage box</th><th>Meaning</th><th>Beat 6 example</th></tr></thead>
+          <tbody>
+            <tr><th>Number 1 to 4</th><td>Order of the stage.</td><td>2</td></tr>
+            <tr><th>Icon after the number</th><td>Green circled check: stage done. Pulsing blue dot: current stage. Dashed circle: not reached.</td><td>Shadow has the check, Canary 10% the blue dot.</td></tr>
+            <tr><th>Label</th><td>Shadow, Canary 10%, Canary 50%, Full 100%. Greyed for stages not reached.</td><td>Canary 10%</td></tr>
+            <tr><th>Traffic line</th><td>"N% of live traffic". Shadow adds ", decisions compared only".</td><td>"10% of live traffic"</td></tr>
+            <tr><th>Thin bar</th><td>Full green: done. Full blue: current. Empty: not reached. It is a status bar, not a timer.</td><td>Shadow green, Canary 10% blue</td></tr>
+            <tr><th>Box border</th><td>The current stage has a Release-blue border.</td><td>Canary 10%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>Guard meters</strong> (right): four bars with a label on the left and "value of limit" on the right.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Meter</th><th>Limit</th><th>Bar colour</th><th>Beat 6 value</th><th>Can trigger rollback?</th></tr></thead>
+          <tbody>
+            <tr><th>Error rate</th><td>1% max</td><td>Blue below 0.7%, amber from 0.7%, red from 1%. A small tick marks 0.7%.</td><td>"0.22% of 1%"</td><td>Yes, during a canary</td></tr>
+            <tr><th>p95 latency</th><td>600 ms max</td><td>Blue below 510 ms, amber from 510 ms, red from 600 ms. Tick at 510 ms.</td><td>"475 ms of 600 ms"</td><td>No (display only)</td></tr>
+            <tr><th>Safety incidents</th><td>0 max</td><td>Green; red from 1.</td><td>"0 (max 0)"</td><td>No (never changes)</td></tr>
+            <tr><th>Shadow agreement</th><td>90% min</td><td>Green at 90% or above, amber below.</td><td>"71.4% (min 90%)", amber</td><td>No (display only)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Under the meters: "Breaching the error or latency guard during a canary rolls the candidate back
+        automatically and writes the reason to the ledger."</p>
+      <p><em>p95 latency</em> means 95% of requests finished faster than this; it captures the slow tail that an
+        average would hide.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/release.py</code>: <code>STAGES</code>, <code>GUARDS</code>, <code>Release.tick()</code>, <code>advance()</code>, <code>rollback()</code>.</dd>
+        <dt>Arrives by</dt><dd>Snapshot, then <code>release.metrics</code> (every sim second) and <code>release.stage</code>.</dd>
+        <dt>Store slice</dt><dd><code>release</code>: <code>candidate</code>, <code>prod</code>, <code>stages</code>, <code>stage_index</code>, <code>guards</code>, <code>guard_limits</code>, <code>paused</code>.</dd>
+        <dt>Changes when</dt><dd>Gate pass (shadow starts), beat 6 or Advance, Roll back, automatic rollback; meters move every sim second.</dd>
+      </dl>
+      <p><strong>Where the guard numbers come from.</strong> Once per simulated second the engine gives each
+        target a new p95 and error rate (see <a href="#c-3">Deployment targets</a>). The Error rate and p95
+        meters show the <em>worst</em> (maximum) value across the targets that carry candidate traffic. In shadow
+        no target carries candidate traffic, so the maximum is taken over all four. Safety incidents is set to 0
+        when the engine starts and nothing changes it. Shadow agreement is the share of compared decisions that
+        were identical (see <a href="#c-4">Shadow agreement</a>).</p>
+      <p><strong>The automatic rollback rule</strong>, exactly as coded in <code>tick()</code>:</p>
+      <ol class="flow" aria-label="Automatic rollback check, once per sim second">
+        <li class="src"><b>Candidate exists</b></li>
+        <li><b>Stage is a canary or later</b><span><code>stage_index &gt;= 1</code></span></li>
+        <li><b>Error rate &gt; 1.0%</b><span>worst active target</span></li>
+        <li class="ui"><b>Roll back</b><span>"guard breached: error rate 1.8…% &gt; 1%", ledgered, critical event</span></li>
+      </ol>
+      <p>Only the error-rate guard is enforced. The p95, safety and agreement guards are shown with their limits
+        but no code acts on them. The footnote's "error or latency" overstates this. Because shadow is
+        <code>stage_index</code> 0, nothing rolls back in shadow, which matches the idea that shadow decisions
+        are never used.</p>
+      <p><strong>States.</strong> No candidate (empty state, Stable) → Shadow (gate pass, or beat 6 if no
+        candidate yet) → Canary 10% → Canary 50% → Full 100% (candidate becomes production, panel goes back to
+        the empty state with the new name in the subtitle). From any stage, Roll back returns to the empty state.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Open the Proving Ground (empty state only)</th><td>Goes to <code>/proving</code>.</td><td>Browser navigation only. No backend call.</td></tr>
+            <tr><th>Source chip (hover)</th><td>Shows a tooltip.</td><td>"Simulated rollout controller now. In AWS mode this panel reads from SageMaker + Bedrock CMI + ECS." No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The stage boxes and meters are not clickable. Rollout actions are the header buttons (card 1).</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Read left to right: green checks are stages already passed, the blue dot is where we are now. On the
+          right, good is blue or green bars well left of the tick. Amber means close to a limit, red means over it.
+          In beat 6 the agreement bar is amber because only a handful of decisions have been compared so far.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Press <kbd>6</kbd> (or <kbd>→</kbd> after beat 5). The console opens <code>/release</code> and lights this panel and the targets table.</li>
+          <li>Trace the stage track with your hand: Shadow done, Canary 10% live.</li>
+          <li>Point at the error rate and p95 meters and their limits.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"nlm-v7 has finished shadow and now takes ten percent of live traffic. These four guards watch it. If the error rate goes over one percent during a canary, it is rolled back automatically and the reason is signed into the ledger."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How do you put a fine-tuned model into a live network without risking an outage?"</strong> Staged exposure (0, 10, 50, 100%) with guard metrics and automatic rollback. Track T1.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The stage machine and the rollback rule are real code that writes real signed ledger records; the error rate, latency and agreement numbers it reacts to are simulated.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <ul>
+          <li>Do not say latency or safety triggers rollback. In the code only the error rate does. If asked, say the other guards are monitored and shown, and error rate is the enforced one.</li>
+          <li>Agreement below 90% (amber) right after beat 6 is normal: one disagreement out of a few comparisons drags the percentage down. See card 4.</li>
+          <li>There is no countdown or auto-advance. Stages move only by click or beat.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 3 targets -->
+  <article class="comp" id="c-3">
+    <header>
+      <span class="comp-num">3</span>
+      <h3>Deployment targets</h3>
+      <span class="where">panel <code>targets</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It proves the "multi-vendor" claim: the same model version is rolled out at the same pace on two managed
+        AWS targets and two vendor edge targets, each with its own health, all from one signed manifest. Subtitle:
+        "one signed manifest, four targets, two vendors". Lit in beat 6.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>One row per target, eleven columns. The four targets are fixed in <code>TARGETS</code>:</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Target (name, detail line)</th><th>Kind</th><th>Stack</th><th class="num">Typical p95</th></tr></thead>
+          <tbody>
+            <tr><th>SageMaker endpoint<br><span class="muted">us-west-2, ml.g6.xlarge x2</span></th><td>Managed (AWS)</td><td><code>SpectrumNlmEndpoint-usw2</code></td><td class="num">about 405 ms</td></tr>
+            <tr><th>Bedrock Custom Model Import<br><span class="muted">us-west-2, on-demand</span></th><td>Managed (AWS)</td><td><code>SpectrumBedrockImport-usw2</code></td><td class="num">about 470 ms</td></tr>
+            <tr><th>Vendor A EMS edge<br><span class="muted">ECS on Outposts-style rack, JSON dialect</span></th><td>Edge (vendor)</td><td><code>SpectrumEdgeVendorA</code></td><td class="num">about 380 ms</td></tr>
+            <tr><th>Vendor B EMS edge<br><span class="muted">ECS, CLI dialect</span></th><td>Edge (vendor)</td><td><code>SpectrumEdgeVendorB</code></td><td class="num">about 395 ms</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>EMS means element management system: the vendor's own tool for configuring its network equipment.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Column</th><th>What it means</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><th>Target</th><td>Name and location or hardware.</td><td>SageMaker endpoint, us-west-2, ml.g6.xlarge x2</td></tr>
+            <tr><th>Serving</th><td>The version that serves this target's main traffic (production).</td><td><code>nlm-v6</code></td></tr>
+            <tr><th>Candidate</th><td>The version being rolled out here; "—" when none.</td><td>"—" pre-demo, <code>nlm-v7</code> after beat 6</td></tr>
+            <tr><th>Traffic</th><td>Share of live traffic the candidate gets, as a small blue bar and a number.</td><td>0% pre-demo, 10% after beat 6</td></tr>
+            <tr><th>State</th><td>Pill: "serving" (grey check, no rollout), "shadow" (amber clock), "canary" (clock icon, blue tint).</td><td>"canary"</td></tr>
+            <tr><th>p95</th><td>95th-percentile response time. Turns red above 600 ms.</td><td>414 ms pre-demo, 388 ms after beat 6</td></tr>
+            <tr><th>Error rate</th><td>Share of requests that fail. Turns red above 1%.</td><td>0.1% to 0.2%</td></tr>
+            <tr><th>Health</th><td>Pill: "healthy" (green check) or "degraded" (orange, when error rate is above 1%).</td><td>"healthy"</td></tr>
+            <tr><th>Stack</th><td>Name of the AWS CDK infrastructure stack for this target.</td><td><code>SpectrumEdgeVendorA</code></td></tr>
+            <tr><th>Manifest</th><td>Short form (first 6 and last 4 characters) of the manifest's <code>iac_hash</code>, a fingerprint of the infrastructure code.</td><td><code>a4135e…23c0</code></td></tr>
+            <tr><th>Signature</th><td>Green shield: this target's manifest is signed. Hover: "Signed, Ed25519, kms:spectrum/release".</td><td>Green shield on all four</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/release.py</code>: <code>TARGETS</code>, <code>Release.tick()</code>, <code>Release._manifest()</code>.</dd>
+        <dt>Arrives by</dt><dd>Snapshot, then <code>release.metrics</code> every sim second (the <code>targets</code> array).</dd>
+        <dt>Store slice</dt><dd><code>release.targets</code></dd>
+        <dt>Changes when</dt><dd>Numbers every sim second; Candidate, Traffic and State on each stage change; Serving and Manifest only on promotion to 100%.</dd>
+      </dl>
+      <p><strong>Numbers.</strong> Once per simulated second each target gets p95 = its fixed base (405, 470, 380
+        or 395 ms) plus random noise (standard deviation 14 ms), and error rate = 0.18% plus noise (standard
+        deviation 0.05). If the regression switch is on, targets with candidate traffic get +260 ms and +1.6
+        points. Health is "degraded" whenever error rate is above 1%, otherwise "healthy". The worst values feed
+        the Rollout meters.</p>
+      <p><strong>Rollout columns.</strong> All four targets move together. Shadow sets state "shadow" and 0%
+        traffic; each Advance sets the stage's traffic and state "canary"; Full 100% sets Serving to the
+        candidate, clears Candidate, sets state "serving" and regenerates the manifest. Roll back sets 0%,
+        "serving" and clears Candidate.</p>
+      <p><strong>Signature column.</strong> The engine really signs each manifest with Ed25519 (see card 7). The
+        shield icon in this column, though, is drawn in a fixed "signed" state for every row; the browser does
+        not re-check the signature here.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click a Manifest hash</th><td>Copies the full <code>iac_hash</code> to the clipboard.</td><td>A small check appears for one second. Hover shows the full hash. No backend call.</td></tr>
+            <tr><th>Hover the Signature shield</th><td>Tooltip with algorithm and key.</td><td>"Signed / Ed25519 / kms:spectrum/release". Clicking it does nothing on this screen.</td></tr>
+            <tr><th>Hover a row</th><td>Row background tints.</td><td>Visual only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Good: every row healthy, p95 under 600 ms, error rate under 1%, all four at the same Traffic. Bad: a red
+          p95 or error rate, or a "degraded" pill. Read the Serving and Candidate columns as "old" and "new".</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>After beat 6, sweep down the Traffic column: 10% on all four.</li>
+          <li>Point at the two vendor rows and their Stack names.</li>
+          <li>Point at the Signature column, then go to card 7 if a judge wants to see the manifest.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Same version, same pace, four targets: SageMaker, Bedrock Custom Model Import, and two vendors' edge systems. Each one is deployed from a signed manifest, so we know exactly what runs where."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Is the deployment repeatable across vendors, or a one-off?"</strong> One manifest format, four targets, two vendors, same stage machine. Track T1; Trust for the signatures.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The per-target latency, error rate and health are simulated numbers; the manifest signature behind the shield is a real Ed25519 signature, though the shield itself is not re-verified.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <ul>
+          <li>Nothing is actually deployed to SageMaker, Bedrock or ECS. Say "maps to" rather than "is running on".</li>
+          <li>The numbers are for the whole target, not split between old and new version.</li>
+          <li>All four targets always move together; there is no per-target rollout.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 4 agreement -->
+  <article class="comp" id="c-4">
+    <header>
+      <span class="comp-num">4</span>
+      <h3>Shadow agreement</h3>
+      <span class="where">panel <code>agreement</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows, over time, how often the candidate would have made the same decision as production on the same
+        live incident. This is the main evidence that the new model behaves like the trusted one before it is
+        given real traffic.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Subtitle during a rollout: "nlm-v7 decisions compared with nlm-v6 on live incidents"; when idle: "starts
+        when a candidate enters shadow". With fewer than two points: "No shadow traffic yet. Every live decision is
+        replayed through the candidate; agreement appears here within seconds of shadow starting."</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Meaning</th><th>Beat 6 example</th></tr></thead>
+          <tbody>
+            <tr><th>Blue line, "Identical decision"</th><td>Percentage of compared decisions where both models chose the same action.</td><td>Starts at 100%, dips, recovers to about 71%.</td></tr>
+            <tr><th>Green line, "Same or better (twin-judged)"</th><td>Percentage where the candidate's decision was identical or scored better. If this stays high while the blue line dips, the candidate differs but is not worse.</td><td>Flat at 100%.</td></tr>
+            <tr><th>Amber line, "guard 90%"</th><td>The shadow agreement minimum from the guards.</td><td>Horizontal at 90%.</td></tr>
+            <tr><th>Y axis</th><td>60% to 100%. Values below 60% are cut off at the bottom.</td><td>The blue dip leaves the chart between about 5 s and 7 s.</td></tr>
+            <tr><th>X axis</th><td>Seconds since the first point on the chart (simulated time).</td><td>1 s to 11 s</td></tr>
+            <tr><th>Table icon (header)</th><td>Switches to a table of the same data.</td><td>Columns: Sim time, Identical, Same or better.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Release.tick()</code>, the shadow comparison block (every 2 sim seconds while a candidate exists).</dd>
+        <dt>Arrives by</dt><dd>Snapshot (<code>agreement</code>, up to 300 points), then <code>release.metrics</code> carrying the last 150 points.</dd>
+        <dt>Store slice</dt><dd><code>release.agreement</code>, <code>release.guard_limits.agreement_min</code></dd>
+        <dt>Changes when</dt><dd>Every 2 sim seconds during shadow and canary. Cleared on the server when a new shadow starts.</dd>
+      </dl>
+      <ol class="flow" aria-label="One shadow comparison">
+        <li class="src"><b>Every 2 sim s</b><span>one comparison</span></li>
+        <li><b>94%: identical</b><span>tie + 1</span></li>
+        <li><b>6%: different</b><span>85% candidate better, 15% worse</span></li>
+        <li><b>Recompute</b><span>identical = tie / total; same or better = (tie + better) / total</span></li>
+        <li class="ui"><b>New point</b><span>both lines move</span></li>
+      </ol>
+      <p>Both lines are cumulative percentages since shadow started, computed from the running tally in card 5.
+        That is why the beginning is jumpy: after 5 identical and 2 better decisions, identical is 5 of 7 =
+        71.4%, which is exactly the beat 6 shot, while same-or-better is 7 of 7 = 100%. Over a few minutes the
+        identical line settles near 94% (by design about 94% identical; about 85% of the differences favour the candidate). The same identical value
+        is the "Shadow agreement" meter in card 2 and the "agreement N%" on the ribbon.</p>
+      <p>The chart's hover tooltip says "N s into shadow" and lists both values. The table view shows the newest
+        60 points first.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Table icon in the header</th><td>Toggles chart and table.</td><td>The panel body swaps to a table (Sim time, Identical, Same or better). Browser only.</td></tr>
+            <tr><th>Hover the chart</th><td>Crosshair tooltip.</td><td>"N s into shadow" with both percentages. Browser only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Good: green line near 100% and blue line climbing toward and above the 90% guard. Worrying: the green
+          line falling, because that means the candidate's differing decisions are scoring worse.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>It is dimmed in beat 6 with spotlight on. Press <kbd>Esc</kbd> to clear the spotlight if you want to point at it.</li>
+          <li>Point at the green line first ("same or better"), then the blue line ("not always identical").</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Every live decision is also given to the new model. Blue is how often it agrees exactly. Green is how often it is the same or better, as judged by replaying both in the twin. It differs sometimes, and so far it has been better far more often than worse."</p></blockquote>
+        <p>Check the red "Candidate worse" counter in card 5 first. Right after beat 6 it is usually 0, and only
+          then can you say "so far never for the worse". By design 15% of differences go against the candidate,
+          so after a few minutes the counter rises above 0 and the green line drops below 100%.</p>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How do you know the new model is not worse before it touches traffic?"</strong> Shadow comparison on live decisions, with a 90% agreement guard. Track T1.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> Each comparison is a random draw in <code>tick()</code> (94% identical); no second model is actually run.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <ul>
+          <li>If a judge sees 71% under a 90% guard, explain small samples: a handful of comparisons, one or two differences, and (if the red counter in card 5 is still 0) every difference so far was better. Also be honest that the agreement guard is not enforced in code.</li>
+          <li>After a rollback or promotion to 100%, the server keeps the old comparison data. The chart (and card 5) keeps showing it, even after a page reload, until a new shadow starts. Meanwhile the subtitle says "starts when a candidate enters shadow".</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 5 disagreements -->
+  <article class="comp" id="c-5">
+    <header>
+      <span class="comp-num">5</span>
+      <h3>Where they disagree</h3>
+      <span class="where">panel <code>disagreements</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The agreement chart tells you how often the models differ; this panel shows each difference: what each
+        model wanted to do, and which turned out better. Subtitle: "the twin replays both decisions and scores
+        the outcome".</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p><strong>Three counters</strong> along the top:</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Counter</th><th>Meaning</th><th class="num">Beat 6</th></tr></thead>
+          <tbody>
+            <tr><th>Candidate better (green)</th><td>Differences where the candidate's decision scored better.</td><td class="num">2</td></tr>
+            <tr><th>Candidate worse (red)</th><td>Differences where production's decision scored better.</td><td class="num">0</td></tr>
+            <tr><th>Identical (plain)</th><td>Comparisons where both chose the same action.</td><td class="num">5</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>Rows</strong>, newest first, scrolling after about four rows. Each row:</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Part</th><th>Meaning</th><th>Beat 6 example</th></tr></thead>
+          <tbody>
+            <tr><th>Time</th><td>Simulated clock time of the comparison.</td><td>21:31:16</td></tr>
+            <tr><th>Site</th><td>Cell site where the incident was, <code>s-01</code> to <code>s-40</code>.</td><td><code>s-09</code></td></tr>
+            <tr><th>Winner pill</th><td>Green "candidate better: −x% congestion", or orange "production better: +x% congestion". The percentage is the change in congestion if the candidate's action were used; negative is good.</td><td>"candidate better: -5.7% congestion"</td></tr>
+            <tr><th>Production line</th><td>What production decided.</td><td>"nlm-v6: handover offset +1 dB"</td></tr>
+            <tr><th>Candidate line</th><td>What the candidate decided.</td><td>"nlm-v7: load_balance 2 neighbours"</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Before any rollout: all counters 0 and "No disagreements yet."</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Release.tick()</code>, same 2-second comparison as card 4.</dd>
+        <dt>Arrives by</dt><dd>Snapshot (up to 30 rows), then <code>release.metrics</code> with <code>tally</code> and the 15 newest rows while a candidate exists.</dd>
+        <dt>Store slice</dt><dd><code>release.tally</code>, <code>release.disagreements</code></dd>
+        <dt>Changes when</dt><dd>Every 2 sim seconds while a candidate exists. Reset on the server when a new shadow starts.</dd>
+      </dl>
+      <p>When a comparison comes out "different", the engine picks a site at random and writes one of two fixed
+        pairs. Candidate better: production "handover offset +1 dB", candidate "load_balance 2 neighbours",
+        congestion −3 to −11%. Candidate worse: production "wake 1 cell", candidate "handover offset +2 dB",
+        congestion +3 to +11%. The congestion figure is a random number in that range; the twin does not
+        actually replay the decisions. The tally adds one to Identical, Candidate better or Candidate worse for
+        every comparison.</p>
+      <p>In plain words: a handover offset changes when phones switch to a neighbouring cell; load balancing moves
+        some users to neighbouring cells; waking a cell turns on a sleeping cell to add capacity.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data. The row list scrolls if it is longer than the panel.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Good: a big green number and a small red number, with green winner pills. Concern: red counts rising,
+          or orange "production better" pills piling up.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Clear the spotlight with <kbd>Esc</kbd> if it is dimmed.</li>
+          <li>Read one row aloud: site, the two decisions, the congestion change.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"When they disagree, we do not guess. At site s-09 the old model nudged a handover offset; the new one load-balanced two neighbours, and that cut congestion by almost six percent."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"When the models disagree, who is right?"</strong> Each difference is scored on the network twin and counted as better or worse. Track T1.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The differences, their actions and the congestion deltas are generated by the engine (random choice from two fixed pairs), not by replaying both models in the twin.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <ul>
+          <li>The same two action pairs repeat; do not dwell on many rows. Say "scored on the twin" as the design, and if pressed, say the scores are simulated in this demo.</li>
+          <li>After a rollback or promotion the counters and rows stay until the next shadow starts. After promotion, old rows carry the new production name on the left and "candidate" on the right. Avoid showing this panel at that point, or say it shows the previous rollout.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 6 history -->
+  <article class="comp" id="c-6">
+    <header>
+      <span class="comp-num">6</span>
+      <h3>Version history</h3>
+      <span class="where">panel <code>timeline</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A timeline of every promotion and rollback, newest at the top, each linked to its signed ledger record.
+        Subtitle: "every promotion and rollback is signed". It is the audit trail for "which model was serving
+        when".</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Meaning</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><th>Dot colour</th><td>Red: a rollback (the text contains "roll"). Green: reached full traffic ("100%" or "promoted"). Blue: any other stage (shadow, canary).</td><td>Green for "nlm-v6 promoted to 100%", blue for "nlm-v7 canary 10%".</td></tr>
+            <tr><th>Version and event</th><td>Model version in monospace, then what happened.</td><td>"nlm-v7 deployed in shadow on all targets"</td></tr>
+            <tr><th>Date and time</th><td>When it happened (simulated clock).</td><td>2026-10-31 21:31:10</td></tr>
+            <tr><th>Ledger number (right)</th><td>Sequence number of the signed ledger record for this event.</td><td>#3,459 and #3,465 in the beat 6 shot</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Before the demo it shows four seeded rows: nlm-v5 promoted to 100% (2026-10-29), then nlm-v6 shadow,
+        canary 10% and promoted to 100% (2026-10-30). These have no ledger number.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Release._record()</code>, called by <code>start_shadow()</code>, <code>advance()</code> and <code>rollback()</code>.</dd>
+        <dt>Arrives by</dt><dd>Snapshot (last 30 rows), then each <code>release.stage</code> event adds a row in the browser (kept to 40).</dd>
+        <dt>Store slice</dt><dd><code>release.history</code></dd>
+        <dt>Changes when</dt><dd>Shadow starts, each Advance, each rollback (manual or automatic).</dd>
+      </dl>
+      <ol class="flow" aria-label="How one history row is made">
+        <li class="src"><b>Stage change</b><span>e.g. Advance</span></li>
+        <li><b>Ledger append</b><span>type <code>release.stage</code>, actor <code>release-controller</code>, key <code>kms:spectrum/release</code></span></li>
+        <li><b><code>release.stage</code> event</b><span>carries the record's seq and hash</span></li>
+        <li class="ui"><b>New row</b><span>with <code>#seq</code> link</span></li>
+      </ol>
+      <p>The ledger record holds the candidate, production, stage index and the event text, is hash-chained to
+        the record before it and signed with Ed25519 (see <a href="audit.html">Audit, provenance &amp;
+        dossier</a>). The <code>release.stage</code> event carries a severity: notice for normal stages, warn for a manual
+        rollback, critical for an automatic one (this colours the line in the live stream). The ledger record
+        itself has no severity field.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click <code>#3,465</code></th><td>Opens that ledger record in the Inspector drawer.</td><td>The drawer has Proof, Payload and Raw tabs; the Proof tab recomputes the record's SHA-256 in the browser and compares it. No record is written.</td></tr>
+            <tr><th>Scroll</th><td>The list scrolls after about six rows.</td><td>Visual only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Top row is the latest. A green dot means a version reached 100%; a red dot means something was pulled
+          back. Rows with a <code>#</code> number are backed by a signed ledger record you can open.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>After beat 6, point at the two new rows at the top.</li>
+          <li>Click <code>#3,465</code> (your number will differ) to open the signed record in the Inspector.</li>
+          <li>Press <kbd>Esc</kbd> or click the close button to shut the drawer.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Every promotion is a signed record in the same ledger as everything else. Click the number and you see the record itself."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Can you prove which model version was live at a given time?"</strong> Yes: each stage change is a hash-chained, signed ledger record. Trust, Track T1.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> Rows created during the demo are real signed ledger records; the four seeded rows from before the demo are fixed text with no ledger record.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <ul>
+          <li>Do not click the old seeded rows expecting a record: they have no number.</li>
+          <li>A rollback row is labelled with the production version, then the event, so it can read "nlm-v6 nlm-v7 rolled back: manual rollback by A. Rivera". That is expected, not a bug in the rollback.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 7 manifest -->
+  <article class="comp" id="c-7">
+    <header>
+      <span class="comp-num">7</span>
+      <h3>Deployment manifest</h3>
+      <span class="where">panel <code>manifest</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows the actual document that tells a target what to deploy, and its signature. Subtitle: "the same
+        artefact deploys everywhere; only the target changes". It is how you show that the model image and
+        adapter are identical on every target and cannot be swapped silently.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Field or element</th><th>Meaning</th><th>Example (SageMaker)</th></tr></thead>
+          <tbody>
+            <tr><th>Target selector (header)</th><td>Pick which target's manifest to view. Default: SageMaker endpoint.</td><td>SageMaker endpoint</td></tr>
+            <tr><th><code>target</code></th><td>Target id.</td><td><code>"sagemaker"</code></td></tr>
+            <tr><th><code>version</code></th><td>Model version this manifest deploys.</td><td><code>"nlm-v6"</code></td></tr>
+            <tr><th><code>region</code></th><td>AWS region.</td><td><code>"us-west-2"</code></td></tr>
+            <tr><th><code>image</code></th><td>Container image, pinned by its digest (a hash), so it cannot change under the same name.</td><td><code>…spectrum-nlm@sha256:08192fa4…</code></td></tr>
+            <tr><th><code>adapter_hash</code></th><td>A placeholder fingerprint for the adapter of this version (SHA-256 of a fixed string). In this demo it is not linked to the federation checkpoint's adapter hash.</td><td><code>"6e04cdcc…"</code></td></tr>
+            <tr><th><code>stack</code></th><td>CDK infrastructure stack.</td><td><code>"SpectrumNlmEndpoint-usw2"</code></td></tr>
+            <tr><th><code>dialect</code></th><td>Management dialect: <code>json/v3</code> for Vendor A, <code>cli/v2</code> for Vendor B, <code>n/a</code> for AWS targets.</td><td><code>"n/a"</code></td></tr>
+            <tr><th><code>iac_hash</code></th><td>Fingerprint of the infrastructure code for this target and version. Same value as the Manifest column in card 3.</td><td><code>"a4135e40…"</code></td></tr>
+            <tr><th>"Signed release" badge</th><td>Green shield, "Signed", key alias <code>release</code>.</td><td>Signed release</td></tr>
+            <tr><th>signature</th><td>Short form of the Ed25519 signature (first 12, last 6 characters).</td><td><code>af86ea09d150…003f02</code></td></tr>
+            <tr><th>IaC</th><td>Short form of <code>iac_hash</code> again.</td><td><code>a4135e…23c0</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Release._manifest(target, version)</code></dd>
+        <dt>Arrives by</dt><dd>Inside each target in <code>release.targets</code> (snapshot and <code>release.metrics</code>).</dd>
+        <dt>Store slice</dt><dd><code>release.targets[].manifest</code></dd>
+        <dt>Changes when</dt><dd>Only when a candidate is promoted to Full 100%: each target's manifest is rebuilt for the new version and signed again.</dd>
+      </dl>
+      <ol class="flow" aria-label="How a manifest is signed">
+        <li class="src"><b>Build fields</b><span>target, version, image, adapter, stack, dialect, IaC hash</span></li>
+        <li><b>SHA-256</b><span>of the sorted fields</span></li>
+        <li><b>Ed25519 sign</b><span>key <code>kms:spectrum/release</code></span></li>
+        <li class="ui"><b>Shown here</b><span>body as JSON, signature below</span></li>
+      </ol>
+      <p>The signature is created with a real Ed25519 private key held by the engine's key ring. The image
+        digest, adapter hash and IaC hash are SHA-256 fingerprints of fixed strings built from the version and
+        stack name, so they look real and are stable, but they do not point at a real image or real weights.
+        The browser removes the <code>signature</code> field from the JSON and shows it under the code block
+        instead. The badge shows a fixed "signed" state; the browser does not re-verify the signature.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Target selector</th><td>Switches which target's manifest is shown.</td><td>The JSON and hashes change: <code>target</code>, <code>stack</code>, <code>dialect</code>, <code>iac_hash</code> and the signature differ; <code>image</code> and <code>adapter_hash</code> stay the same. Browser only.</td></tr>
+            <tr><th>Click the signature or IaC hash</th><td>Copies the full value.</td><td>A check appears for one second. Hover shows the full value.</td></tr>
+            <tr><th>Scroll the code block</th><td>The JSON scrolls sideways and down (long image line).</td><td>Visual only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Switch between targets and compare: the <code>image</code> and <code>adapter_hash</code> lines must be
+          identical everywhere; only target-specific lines change. Green "Signed" means the manifest carries a
+          release-key signature.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Clear the spotlight with <kbd>Esc</kbd>.</li>
+          <li>Open the selector and pick "Vendor B EMS edge".</li>
+          <li>Point out that <code>image</code> and <code>adapter_hash</code> did not change, while <code>dialect</code> is now <code>cli/v2</code>.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"This is the one artefact. Same image, same adapter on every target; only the target, stack and dialect change. It is signed with the release key, so nobody can swap the model underneath us."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How do you know what exactly is deployed on each target?"</strong> A signed manifest pins the image digest, adapter hash and infrastructure hash. Track T1 (repeatable deployment), Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> Hover the panel's source chip ("AWS CDK + KMS"): its mock-mode tooltip says "Simulated manifest, real signature now".</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>During shadow and canary the manifest still says <code>"version": "nlm-v6"</code>: it describes what is
+          serving, and is only rewritten when the candidate reaches 100%. If a judge spots it, that is the
+          explanation.</p>
+        <p>Do not invite a comparison with the AI-BOM adapter hash on the <a href="proving.html">Proving
+          Ground</a>: the two values are generated separately and will not match. The checkpoint-to-model link
+          is shown in the AI-BOM and the provenance graph, not here.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 8 dialects -->
+  <article class="comp" id="c-8">
+    <header>
+      <span class="comp-num">8</span>
+      <h3>Vendor dialect check</h3>
+      <span class="where">panel <code>dialects</code>, flag <code>release.dialects</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It illustrates the multi-vendor problem at the configuration level: one network intent has to be
+        written differently for each vendor's management interface. Subtitle: "one intent, compiled to each
+        vendor's management interface".</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>What it says</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Intent</th><td>"increase tx power on cell s-14-1 by 2 dB"</td><td>The goal in plain words: raise transmit power on cell 1 of site 14.</td></tr>
+            <tr><th>Vendor A (JSON over REST)</th><td><code>{"op": "SET", "mo": "NRCellDU=s-14-1", "attr": {"configuredMaxTxPower": "+2dB"}}</code></td><td>A structured API call setting a managed object's attribute.</td></tr>
+            <tr><th>Vendor B (CLI over SSH)</th><td><code>configure cell s-14-1 / tx-power offset +2.0 / commit confirmed 300</code></td><td>Command-line text. "commit confirmed 300" applies the change but reverts it after 300 seconds unless confirmed.</td></tr>
+            <tr><th>"Schema valid" pills</th><td>Green shield next to each vendor.</td><td>Each output is marked as valid for its vendor. "Invalid" (red) would show otherwise.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Release.snapshot()</code>, the <code>dialects</code> entry.</dd>
+        <dt>Arrives by</dt><dd>Snapshot only. It is not in <code>release.metrics</code> or <code>release.stage</code>.</dd>
+        <dt>Store slice</dt><dd><code>release.dialects</code></dd>
+        <dt>Changes when</dt><dd>Never. The intent, both outputs and both "valid" flags are fixed text in the engine.</dd>
+      </dl>
+      <p>The panel is wrapped in a feature-flag gate: if <code>release.dialects</code> ("Vendor dialect check",
+        stage beta, on by default) is switched off in <a href="settings.html">Settings, feature flags &amp;
+        presenter view</a>, the panel disappears. No compiler or schema validator runs in the code; the panel is
+        a worked example of what the vendor adapters would produce.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Read the intent, then the two outputs side by side: same meaning, completely different syntax.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Scroll down to the bottom of the screen.</li>
+          <li>Read the intent, then point at the JSON and the CLI.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Multi-vendor is not only where the model runs. The same intent has to become JSON for one vendor and CLI for the other. This shows the shape of that translation."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How would this work with different equipment vendors?"</strong> Each vendor gets its own adapter dialect; the manifest records which (<code>json/v3</code>, <code>cli/v2</code>). Track T1.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> Both outputs and the "Schema valid" results are static examples written into the engine; nothing is compiled or validated live.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Do not say "we compile and validate live". Say "this is the shape of what the vendor adapters produce".</p>
+      </div>
+    </div>
+  </article>
+
+  <h2 id="in-the-demo">When this screen appears in the demo</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Moment</th><th>What happens on this screen</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><th>Before the demo</th><td>No candidate. <code>nlm-v6</code> serves on all four targets. Empty Rollout, empty shadow panels, four seeded history rows.</td><td>Pre-demo state after reset (screenshot 1).</td></tr>
+        <tr><th><a href="demo-playbook.html#beat-5">Beat 5</a>, Proving Ground gate (on <code>/proving</code>)</th><td>When the gate passes, <code>nlm-v7</code> is deployed in shadow on all targets automatically. The comparison starts counting even though you are still on the Proving Ground.</td><td>The gate result calls <code>Release.start_shadow()</code> through <code>Engine._on_gate</code>. History gets "nlm-v7 deployed in shadow on all targets".</td></tr>
+        <tr><th><a href="demo-playbook.html#beat-6">Beat 6</a>, "Shadow, then canary" (25 s)</th><td>The console opens <code>/release</code>, lights Rollout and Deployment targets (with spotlight on), and the server advances to Canary 10%. Traffic bars go to 10%, Advance reads "Advance to Canary 50%", the ribbon reads "nlm-v7 canary 10%".</td><td><code>Engine._beat_canary</code>: start shadow only if there is no candidate yet, then advance if the stage is Shadow.</td></tr>
+        <tr><th>Beats 7 to 11 (other screens)</th><td>Nothing changes here unless someone clicks. 4 of the 40 site agents run <code>nlm-v7</code>.</td><td>The canary cohort is what the <a href="audit.html">provenance graph</a> in beat 11 traces back to: "site-NN (canary cohort)", model <code>nlm-v7</code>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="beat-6-hood" data-toc-label="Beat 6 under the hood">Beat 6 under the hood</h3>
+  <ol class="flow" aria-label="What beat 6 does">
+    <li class="ui"><b>Browser goes to <code>/release</code></b><span>before the request</span></li>
+    <li><b>Spotlight set</b><span><code>rollout</code>, <code>targets</code> (if spotlight is on)</span></li>
+    <li class="src"><b><code>POST /api/director/beat/6</code></b><span>runs <code>_beat_canary</code></span></li>
+    <li><b>Advance to Canary 10%</b><span><code>release.stage</code> record, <code>swarm.cohort</code></span></li>
+    <li><b><code>director.beat</code> event</b><span>every open console follows</span></li>
+  </ol>
+  <p>Presenter note from the beat list: "It ships to four targets across two vendors from one signed manifest,
+    shadow first, then 10% canary with guard metrics." Pressing <kbd>6</kbd> again is safe: once the stage is
+    past Shadow, beat 6 does nothing more. Do not press <kbd>6</kbd> until the Proving Ground gate shows a
+    result: beat 6 skips the gate, so pressing it early puts the model into a 10% canary before the gate has
+    decided.</p>
+  <div class="callout warn">
+    <p class="title">If beat 6 shows "No candidate in rollout"</p>
+    <p>Beat 6 deploys whatever model the Proving Ground has registered as its candidate. It does not check the
+      gate. Rollout stays empty only if no candidate was ever registered (beat 5 never ran), or if that
+      candidate was already promoted to Full 100% and is now production. In the first case, press <kbd>5</kbd>
+      (or go to the Proving Ground with <kbd>g</kbd> then <kbd>p</kbd> and run the evaluation), wait for the
+      gate result, then press <kbd>6</kbd> again. A passing gate deploys the model in shadow by itself, so the
+      Proving Ground button then reads "Open in Release Center" instead of "Promote to Release". Hold
+      <kbd>r</kbd> for one second only if you are allowed to reset the whole scenario.</p>
+  </div>
+
+  <h2 id="walkthrough">60-second walkthrough</h2>
+  <p>Use this if a judge says "walk me through this page". Point as you go; numbers are the card numbers.</p>
+  <div class="callout say">
+    <p class="title">Say this (about 60 seconds)</p>
+    <p>"This is where a new model earns its way into production. At the top (1) are the controls: every
+      promotion is one deliberate click, and each one is signed into the ledger. (2) The rollout track: nlm-v7
+      ran in shadow first, seeing live work without acting, and now takes ten percent of traffic. These four
+      guards watch it; if the error rate passes one percent during a canary, it rolls back automatically.
+      (3) It runs on four targets, SageMaker, Bedrock and two vendors' edge systems, at the same pace, each from
+      a signed manifest. (4) In shadow we compare every decision with the current model: blue is exact
+      agreement, green is same or better. (5) Where they differ, each case is scored, and so far the new model
+      has been better far more often than worse. (6) Every promotion and rollback is a ledger record you can open. (7) This is the
+      manifest itself: same image and adapter everywhere, signed with the release key. (8) And this is the
+      multi-vendor problem in one example: one intent, two very different vendor syntaxes."</p>
+  </div>
+  <div class="callout real">
+    <p class="title">Be honest if asked</p>
+    <p>Real: the stage logic, the automatic rollback rule, the Ed25519 signatures on manifests and the signed,
+      hash-chained ledger records. Simulated: per-target latency and error rates, the shadow comparisons and
+      their twin scores, the vendor dialect example, and the deployments themselves (nothing is pushed to AWS
+      or a vendor). This is true in AWS mode too: the chips there say "Live from …", but the release plane
+      has no AWS adapter, so the Python engine still drives it.</p>
+  </div>
+
+  <h2 id="related">Related screens and how data flows</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Screen</th><th>Direction</th><th>What passes and how</th></tr></thead>
+      <tbody>
+        <tr><th><a href="proving.html">Proving Ground</a></th><td>Into Release</td><td>A gate pass (<code>eval.gate</code>) starts shadow automatically. The deploy gate panel there also has a "Promote to Release" button (<code>POST /api/release/shadow</code>) that turns into "Open in Release Center" once the model is here.</td></tr>
+        <tr><th><a href="swarm.html">Swarm Tower</a></th><td>Out of Release</td><td>Each stage change sets how many site agents run the candidate (<code>swarm.cohort</code>): 4 of 40 at 10%, 20 at 50%, all at 100%. A rollback puts all of them back on production.</td></tr>
+        <tr><th><a href="audit.html">Audit, provenance &amp; dossier</a></th><td>Out of Release</td><td>Every stage change is a <code>release.stage</code> ledger record signed with <code>kms:spectrum/release</code>. The provenance graph links an executed action to the canary-cohort agent and its model.</td></tr>
+        <tr><th><a href="mission.html">Mission Control</a></th><td>Reads Release</td><td>The Release tile shows Serving, Rollout (candidate and stage, or "none, stable") and "Guard p95" with errors, from the same <code>release</code> slice.</td></tr>
+        <tr><th><a href="observability.html">Observability</a></th><td>Reads Release</td><td>The release plane's error-rate and p95 golden signals are built from this engine's guard values, with a little added noise.</td></tr>
+        <tr><th><a href="shell.html">Console frame &amp; controls</a></th><td>Everywhere</td><td>The ribbon's Release segment shows the candidate and stage with "agreement N%", or "nlm-v6 serving" and "4 targets, 2 vendors".</td></tr>
+        <tr><th><a href="settings.html">Settings, feature flags &amp; presenter view</a></th><td>Controls Release</td><td>Flags <code>release.dialects</code> (hides card 8) and <code>demo.attacks</code>, labelled "Attack scenarios" (also controls the Swarm prompt-injection trigger; hides the Inject regression button when off).</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="gotchas">Quick gotchas before you present</h2>
+  <ul>
+    <li>Tap <kbd>g</kbd> then <kbd>r</kbd> to come here. Do not hold <kbd>r</kbd> on its own: holding it for one second resets the scenario.</li>
+    <li>The Pause button changes only the label. <kbd>p</kbd> pauses the whole simulation, which is different.</li>
+    <li>Only the error-rate guard triggers automatic rollback, and only in a canary stage.</li>
+    <li>Automatic rollback shows no pop-up. You see it as the Rollout panel returning to "No candidate in rollout", a red dot in Version history, and a critical line in the live stream (<kbd>l</kbd>).</li>
+    <li>Agreement around 70% right after beat 6 is small-sample noise; the green "same or better" line is the one to point at.</li>
+    <li>Stay at Canary 10% during the scripted run so the later screens match the script.</li>
+    <li>Do not press <kbd>6</kbd> until the Proving Ground gate shows a result. Beat 6 skips the gate, so pressing it early ships the model before the gate has decided.</li>
+  </ul>
+
+</main>
+</body>
+</html>

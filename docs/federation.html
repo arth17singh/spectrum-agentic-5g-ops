@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Federation Center | SPECTRUM presenter guide</title>
+<link rel="stylesheet" href="assets/guide.css">
+<script src="assets/guide.js" defer></script>
+</head>
+<body data-page="federation.html">
+<main class="content">
+
+  <header class="page-head">
+    <span class="plane-tag" data-plane="learn">Learn plane</span>
+    <h1>Federation Center</h1>
+    <p class="lede">This is where five telecom operators train one shared network model together without
+      showing each other their data. Each operator trains on its own private incidents. Only a small,
+      masked model update leaves each operator, and a sealed aggregator combines the updates. The screen shows the
+      training running, the privacy each operator has spent, what the server can and cannot see, and what
+      happens when one operator turns hostile.</p>
+    <div class="meta">
+      <span>Route <code>/federation</code></span>
+      <span>Go to it with <kbd>g</kbd> then <kbd>f</kbd></span>
+      <span class="beat-chips">Appears in demo beats
+        <a class="chip" href="demo-playbook.html#beat-2">2</a>
+        <a class="chip" href="demo-playbook.html#beat-3">3</a>
+        <a class="chip" href="demo-playbook.html#beat-4">4</a>
+      </span>
+    </div>
+  </header>
+
+  <!-- ===================================================================== intro -->
+  <h2 id="intro">The screen in one minute</h2>
+  <p><strong>The one-sentence story:</strong> five operators improve one model together, nobody's raw data
+    moves, the server only ever sees noise from any single operator, and a poisoned update gets thrown out.</p>
+  <p>The on-screen title is "Federated fine-tuning". The rail calls it "Federation Center". It belongs to the
+    Learn plane, the first of the five planes in the lifecycle ribbon. The model it produces is promoted to the
+    <a href="proving.html">Proving Ground</a> (Verify plane), which tests it before release.</p>
+  <ul>
+    <li><strong>Federated learning</strong> means the model travels to the data, not the data to the model.
+      Each operator trains a copy locally and sends back only the change it made.</li>
+    <li><strong>Fine-tuning with LoRA</strong> means the big base model (<code>llama-3.2-1b-instruct</code>)
+      stays frozen. Each operator trains a small add-on (an "adapter", 21.6 MiB per update), so updates are
+      small and cheap to move.</li>
+    <li><strong>DP-SGD</strong> (differentially private training) limits how much any one record can change the
+      model, and adds random noise, so the model cannot memorise a single incident. The privacy cost is counted as
+      ε (epsilon). Lower is more private.</li>
+    <li><strong>Secure aggregation</strong> means each update is scrambled with random masks. The masks cancel
+      out only when all updates are added together, so the server learns the total and nothing else.</li>
+    <li><strong>The enclave</strong> is a sealed compartment on the aggregation server. The masks can be removed
+      only inside it, and only if it proves it runs the expected code. That lets it check individual updates for
+      poisoning without anyone else seeing them.</li>
+  </ul>
+  <p>See <a href="concepts.html">Concepts explained simply</a> for longer explanations of these terms.</p>
+
+  <h3 id="round-lifecycle">What happens in one training round</h3>
+  <p>Every panel on this screen is a different view of the same repeating cycle. One round takes about
+    25 seconds at normal simulation speed. When it ends, the next round starts on its own.</p>
+  <ol class="flow states wide" aria-label="Phases of one federated round">
+    <li class="src"><b>Pull</b><span>1.0 s</span></li>
+    <li><b>Local DP-SGD</b><span>15 to 19 s</span></li>
+    <li><b>Mask</b><span>1.4 s</span></li>
+    <li><b>Upload</b><span>1.6 s</span></li>
+    <li class="ui"><b>Aggregate</b><span>2.6 s, in enclave</span></li>
+  </ol>
+  <p>Pull fetches the latest global adapter. Local DP-SGD runs 240 private training steps. Mask adds the
+    secure-aggregation masks. Upload sends the 21.6 MiB masked update. Aggregate combines the updates inside the
+    enclave, rejects outliers and signs the round.</p>
+  <p>The timings come from <code>PHASE_TIME</code> in <code>backend/spectrum/engines/federation.py</code>.
+    Local training takes 16 s divided by each operator's speed: Op-C is fastest (about 14.8 s) and Op-D slowest
+    (about 18.6 s). Aggregation waits for the slowest operator, so Op-D sets the pace of every round.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <caption>Which panels move in each phase</caption>
+      <thead><tr><th>Phase</th><th>What changes on screen</th><th>Event that carries it</th></tr></thead>
+      <tbody>
+        <tr><th>Pull</th><td>Grey segments start on the <a href="#c-3">Round timeline</a>. The fleet table does not change yet; statuses switch to "training" and steps reset to 0 when training begins about 1 s later.</td><td><code>fl.round.phase</code></td></tr>
+        <tr><th>Local DP-SGD</th><td>Fleet steps, local loss and ε climb four times a second. <a href="#c-5">Privacy budget</a> lines grow. <a href="#c-6">DP-SGD internals</a> histograms refresh every second. Run strip shows step and throughput. GPU sparklines sit around 86% while an operator trains.</td><td><code>fl.step</code> (every 0.25 s), <code>fl.gradhist</code> (every 1 s)</td></tr>
+        <tr><th>Mask and encrypt</th><td>Fleet status "securing". The GPU sparkline drops to about 5% as soon as the operator stops training, and stays there through masking, upload, waiting and aggregation. Darker segment on the timeline.</td><td><code>fl.step</code></td></tr>
+        <tr><th>Upload</th><td>Status "uploading", then "waiting". Uploaded grows by 21.6 MiB. <a href="#c-12">Data sovereignty</a> counters grow. Log line "uploaded masked adapter update".</td><td><code>fl.upload</code></td></tr>
+        <tr><th>Aggregate starts</th><td><a href="#c-7">Secure aggregation</a> heatmaps switch to this round. Purple Enclave bar on the timeline. The <a href="#c-13">HE</a> panel does not change during a live run.</td><td><code>fl.round.phase</code>, <code>fl.secagg</code></td></tr>
+        <tr><th>Round finished</th><td>New point on <a href="#c-4">Convergence</a>. New dots on <a href="#c-8">Client update norms</a>. A signed <code>fl.round</code> ledger record. A poison alert, if one was armed. Every second round, a new <a href="#c-10">checkpoint</a>.</td><td><code>fl.round</code>, <code>fl.poison</code>, <code>fl.checkpoint</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===================================================================== beats -->
+  <h2 id="beats">When this screen appears in the demo</h2>
+  <p>Three beats run here, back to back. The browser navigates to <code>/federation</code> and lights the
+    listed panels (only if spotlight is on). Then it calls <code>POST /api/director/beat/N</code>, and the server
+    runs the beat's action from <code>Engine.beat</code> in <code>engine.py</code>.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Beat</th><th>Panels lit</th><th>What the server does</th><th>What you see here</th></tr></thead>
+      <tbody>
+        <tr><th><a href="demo-playbook.html#beat-2">2. Federated round, live</a> (40 s)</th>
+          <td><a href="#c-3">Round timeline</a>, <a href="#c-5">Privacy budget</a>, <a href="#c-4">Convergence</a></td>
+          <td>Starts training if the run is queued, paused or idle (<code>_beat_round</code>). Round 13 begins.</td>
+          <td>Buttons switch to Pause. Coloured bars grow on the timeline, ε lines climb. Round 13 finishes about 25 s in. About 2 s later an amber toast says Op-E is at 90% of its budget; it stays for 6 s.</td></tr>
+        <tr><th><a href="demo-playbook.html#beat-3">3. What the aggregator sees</a> (25 s)</th>
+          <td><a href="#c-7">Secure aggregation</a></td>
+          <td>Sets a <code>reveal</code> flag on the server. No panel reads it, so nothing changes because of it.</td>
+          <td>The page scrolls to the masked heatmaps. Click "Show true updates" yourself to reveal what the masks hide.</td></tr>
+        <tr><th><a href="demo-playbook.html#beat-4">4. Poisoned update</a> (25 s)</th>
+          <td><a href="#c-8">Client update norms</a>, <a href="#c-9">Client fleet</a></td>
+          <td>Marks Op-E as compromised: <code>fl.client("op-e", "poison")</code>. Its next update is flipped and blown up.</td>
+          <td>Nothing at first. When the current round aggregates (up to about 25 s later), a red cross appears at the top of the norms chart with "rejected", a red message box, and a red toast.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>This screen also feeds later beats. Beat 5 (<a href="proving.html">Proving Ground</a>) promotes the latest
+    <a href="#c-10">checkpoint</a> if nothing is waiting for evaluation, then runs the evaluation. Beat 14 writes a
+    <code>loop.enqueue</code> record on the Learn plane, which shows up in the <a href="#c-14">Training log</a>.</p>
+  <div class="callout warn">
+    <p class="title">Starting state depends on how the server started</p>
+    <p>After a reset (hold <kbd>r</kbd> for 1 second, or reset from the Demo Director), the engine replays 12
+      rounds and holds at "Round 13 queued". Beat 2 then starts round 13. If the backend was started and never reset,
+      training has been running since startup. After about 7.5 minutes it reaches round 30 and stops as complete;
+      Start is greyed out and beat 2 cannot start a round. Op-E will also have left the federation. Always reset
+      (hold <kbd>r</kbd>) before going on stage.</p>
+  </div>
+
+  <!-- ===================================================================== screenshot -->
+  <h2 id="screenshot">Annotated screenshot</h2>
+  <p>The full page in its pre-demo state, right after a reset: round 12 done, round 13 queued. The top bar,
+    ribbon, rail and live stream are covered on <a href="shell.html">Console frame and controls</a>.</p>
+  <ol class="comp-list">
+    <li><span class="comp-num">1</span><a href="#c-1">Page header and training controls</a></li>
+    <li><span class="comp-num">2</span><a href="#c-2">Run strip</a></li>
+    <li><span class="comp-num">3</span><a href="#c-3">Round timeline</a></li>
+    <li><span class="comp-num">4</span><a href="#c-4">Convergence</a></li>
+    <li><span class="comp-num">5</span><a href="#c-5">Privacy budget</a></li>
+    <li><span class="comp-num">6</span><a href="#c-6">DP-SGD internals</a></li>
+    <li><span class="comp-num">7</span><a href="#c-7">Secure aggregation</a></li>
+    <li><span class="comp-num">8</span><a href="#c-8">Client update norms</a></li>
+    <li><span class="comp-num">9</span><a href="#c-9">Client fleet</a></li>
+    <li><span class="comp-num">10</span><a href="#c-10">Checkpoints</a></li>
+    <li><span class="comp-num">11</span><a href="#c-11">Enclave attestation</a></li>
+    <li><span class="comp-num">12</span><a href="#c-12">Data sovereignty</a></li>
+    <li><span class="comp-num">13</span><a href="#c-13">Homomorphic encryption</a></li>
+    <li><span class="comp-num">14</span><a href="#c-14">Training log</a></li>
+    <li><span class="comp-num">15</span><a href="#c-15">Training settings drawer</a></li>
+    <li><span class="comp-num">16</span><a href="#c-16">Federation alerts (toasts)</a></li>
+  </ol>
+
+  <figure class="shot boxes-quiet" id="shot-pre">
+    <div class="shot-frame">
+      <img src="img/screen-federation.jpg" width="1440" height="2847"
+           alt="Full Federation Center page before the demo: header with Start round 13 button, run strip, round timeline, convergence chart, privacy budget, DP-SGD ridgeline, secure aggregation heatmaps, update norms scatter, client fleet table, checkpoints, enclave attestation, data sovereignty flow, homomorphic encryption statistics and an empty training log">
+      <span class="box" data-target="c-1" style="left:6.11%;top:3.65%;width:92.22%;height:3.09%"></span>
+      <span class="box" data-target="c-2" style="left:6.11%;top:6.74%;width:92.22%;height:4.99%"></span>
+      <span class="box" data-target="c-3" style="left:6.11%;top:12.29%;width:53.33%;height:9.27%"></span>
+      <span class="box" data-target="c-4" style="left:60.56%;top:12.29%;width:37.78%;height:15.88%"></span>
+      <span class="box" data-target="c-5" style="left:6.11%;top:28.73%;width:37.78%;height:12.36%"></span>
+      <span class="box" data-target="c-6" style="left:45%;top:28.73%;width:53.33%;height:15.45%"></span>
+      <span class="box" data-target="c-7" style="left:6.11%;top:44.75%;width:53.33%;height:13.91%"></span>
+      <span class="box" data-target="c-8" style="left:60.56%;top:44.75%;width:37.78%;height:11.17%"></span>
+      <span class="box" data-target="c-9" style="left:6.11%;top:59.22%;width:92.22%;height:10.12%"></span>
+      <span class="box" data-target="c-10" style="left:6.11%;top:69.9%;width:53.33%;height:11.54%"></span>
+      <span class="box" data-target="c-11" style="left:60.56%;top:69.9%;width:37.78%;height:9.13%"></span>
+      <span class="box" data-target="c-12" style="left:6.11%;top:82%;width:53.33%;height:11.52%"></span>
+      <span class="box" data-target="c-13" style="left:60.56%;top:82%;width:37.78%;height:13.14%"></span>
+      <span class="box" data-target="c-14" style="left:6.11%;top:95.7%;width:92.22%;height:2.04%"></span>
+      <a class="pin" href="#c-1" style="left:5.71%;top:4.35%">1</a>
+      <a class="pin" href="#c-2" style="left:5.71%;top:7.44%">2</a>
+      <a class="pin" href="#c-3" style="left:5.71%;top:12.99%">3</a>
+      <a class="pin" href="#c-4" style="left:60.16%;top:12.99%">4</a>
+      <a class="pin" href="#c-5" style="left:5.71%;top:29.43%">5</a>
+      <a class="pin" href="#c-6" style="left:44.60%;top:29.43%">6</a>
+      <a class="pin" href="#c-7" style="left:5.71%;top:45.45%">7</a>
+      <a class="pin" href="#c-8" style="left:60.16%;top:45.45%">8</a>
+      <a class="pin" href="#c-9" style="left:5.71%;top:59.92%">9</a>
+      <a class="pin" href="#c-10" style="left:5.71%;top:70.60%">10</a>
+      <a class="pin" href="#c-11" style="left:60.16%;top:70.60%">11</a>
+      <a class="pin" href="#c-12" style="left:5.71%;top:82.70%">12</a>
+      <a class="pin" href="#c-13" style="left:60.16%;top:82.70%">13</a>
+      <a class="pin" href="#c-14" style="left:5.71%;top:96.40%">14</a>
+    </div>
+    <figcaption>Pre-demo state after a reset. Hover a number to outline that panel and highlight its card. Click a number to jump to the card. Click the image to enlarge it. The training settings drawer (15) and the alerts (16) are not open in this shot: see the beat 4 shot below for the alerts.</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#c-1"><span class="n">1</span><span>Header and controls</span></a></li>
+      <li><a href="#c-2"><span class="n">2</span><span>Run strip</span></a></li>
+      <li><a href="#c-3"><span class="n">3</span><span>Round timeline</span></a></li>
+      <li><a href="#c-4"><span class="n">4</span><span>Convergence</span></a></li>
+      <li><a href="#c-5"><span class="n">5</span><span>Privacy budget</span></a></li>
+      <li><a href="#c-6"><span class="n">6</span><span>DP-SGD internals</span></a></li>
+      <li><a href="#c-7"><span class="n">7</span><span>Secure aggregation</span></a></li>
+      <li><a href="#c-8"><span class="n">8</span><span>Client update norms</span></a></li>
+      <li><a href="#c-9"><span class="n">9</span><span>Client fleet</span></a></li>
+      <li><a href="#c-10"><span class="n">10</span><span>Checkpoints</span></a></li>
+      <li><a href="#c-11"><span class="n">11</span><span>Enclave attestation</span></a></li>
+      <li><a href="#c-12"><span class="n">12</span><span>Data sovereignty</span></a></li>
+      <li><a href="#c-13"><span class="n">13</span><span>Homomorphic encryption</span></a></li>
+      <li><a href="#c-14"><span class="n">14</span><span>Training log</span></a></li>
+    </ul>
+  </figure>
+
+  <h3 id="shots-beats">How the screen changes during beats 2, 3 and 4</h3>
+  <figure class="shot boxes-quiet" id="shot-beat-2">
+    <div class="shot-frame">
+      <img src="img/beat-02.jpg" width="1440" height="900"
+           alt="After beat 2: Pause button active, run strip shows round 13 of 30 at step 116 of 240 and 2.5M tok/s; round timeline, convergence and privacy budget outlined by the spotlight">
+      <span class="box" data-target="c-1" style="left:6.11%;top:10.78%;width:92.22%;height:9.78%"></span>
+      <span class="box" data-target="c-2" style="left:6.11%;top:20.56%;width:92.22%;height:15.78%"></span>
+      <span class="box" data-target="c-3" style="left:6.11%;top:38.11%;width:53.33%;height:29.33%"></span>
+      <span class="box" data-target="c-4" style="left:60.56%;top:38.11%;width:37.78%;height:50.22%"></span>
+      <span class="box" data-target="c-5" style="left:6.11%;top:90.11%;width:37.78%;height:9.89%"></span>
+      <a class="pin" href="#c-1" style="left:5.71%;top:12.98%">1</a>
+      <a class="pin" href="#c-2" style="left:5.71%;top:22.76%">2</a>
+      <a class="pin" href="#c-3" style="left:5.71%;top:40.31%">3</a>
+      <a class="pin" href="#c-4" style="left:60.16%;top:40.31%">4</a>
+      <a class="pin" href="#c-5" style="left:5.71%;top:92.31%">5</a>
+    </div>
+    <figcaption>Beat 2, about 10 seconds in. Round 13 is training: the timeline shows the round 13 bars growing toward the white "now" cursor, and the unlit panels are dimmed by the spotlight.</figcaption>
+  </figure>
+
+  <figure class="shot boxes-quiet" id="shot-beat-3">
+    <div class="shot-frame">
+      <img src="img/beat-03.jpg" width="1440" height="900"
+           alt="After beat 3: the secure aggregation panel is lit, showing five noisy masked heatmaps, a smooth aggregate heatmap and the line max |Σ masked − Σ true| = 0.000000">
+      <span class="box" data-target="c-7" style="left:6.11%;top:30.78%;width:53.33%;height:44%"></span>
+      <span class="box" data-target="c-8" style="left:60.56%;top:30.78%;width:37.78%;height:35.33%"></span>
+      <span class="box" data-target="c-9" style="left:6.11%;top:76.56%;width:92.22%;height:23.44%"></span>
+      <a class="pin" href="#c-7" style="left:5.71%;top:32.98%">7</a>
+      <a class="pin" href="#c-8" style="left:60.16%;top:32.98%">8</a>
+      <a class="pin" href="#c-9" style="left:5.71%;top:78.76%">9</a>
+    </div>
+    <figcaption>Beat 3. Only Secure aggregation is lit. The subtitle still says round 12 because round 13 has not aggregated yet in this capture. In a live run with normal beat timing, round 13 has usually finished by now.</figcaption>
+  </figure>
+
+  <figure class="shot boxes-quiet" id="shot-beat-4-armed">
+    <div class="shot-frame">
+      <img src="img/beat-04-armed.jpg" width="1440" height="900"
+           alt="Right after beat 4: update norms and client fleet are lit, but no outlier is shown yet; Op-A status reads waiting">
+      <span class="box" data-target="c-8" style="left:60.56%;top:35.11%;width:37.78%;height:35.33%"></span>
+      <span class="box" data-target="c-9" style="left:6.11%;top:80.89%;width:92.22%;height:19.11%"></span>
+      <a class="pin" href="#c-8" style="left:60.16%;top:37.31%">8</a>
+      <a class="pin" href="#c-9" style="left:5.71%;top:83.09%">9</a>
+    </div>
+    <figcaption>Beat 4, first seconds. Op-E is marked compromised but its poisoned update has not been aggregated yet, so the chart looks normal. This pause is expected: keep talking.</figcaption>
+  </figure>
+
+  <figure class="shot boxes-quiet" id="shot-beat-4">
+    <div class="shot-frame">
+      <img src="img/beat-04.jpg" width="1440" height="900"
+           alt="After beat 4: a red cross at the top of the update norms chart labelled Op-E r13: 14.2× median, rejected; a red message box below; two toasts at the bottom right about the rejection and Op-E reaching 90% of its privacy budget">
+      <span class="box" data-target="c-8" style="left:60.56%;top:35.11%;width:37.78%;height:41.78%"></span>
+      <span class="box" data-target="c-9" style="left:6.11%;top:80.89%;width:92.22%;height:19.11%"></span>
+      <span class="box" data-target="c-16" style="left:72.5%;top:83.56%;width:26.39%;height:11.11%"></span>
+      <a class="pin" href="#c-8" style="left:60.16%;top:37.31%">8</a>
+      <a class="pin" href="#c-9" style="left:5.71%;top:83.09%">9</a>
+      <a class="pin" href="#c-16" style="left:72.10%;top:85.76%">16</a>
+    </div>
+    <figcaption>Beat 4, after the round aggregated. The poisoned update was 14.2 times the median size and was rejected inside the enclave. The toasts appear on any screen.</figcaption>
+  </figure>
+
+  <!-- ===================================================================== shared panel parts -->
+  <h2 id="panel-frame">Parts every panel shares</h2>
+  <p>Before the cards: a few things look the same on every panel, so learn them once.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Element</th><th>Where</th><th>What it means</th></tr></thead>
+      <tbody>
+        <tr><th>Title and grey subtitle</th><td>Panel header, left</td><td>The subtitle is live. For example, the round timeline's subtitle reads "round 13, train" or "round 13 queued".</td></tr>
+        <tr><th>Source chip (flask icon plus a service name)</th><td>Panel header, right</td><td>The AWS service that feeds this panel in AWS mode, such as "ECS tasks + Flower". The flask means the console is in mock mode. Hover it to see what this panel is doing now: for Secure aggregation it says "Real pairwise-mask maths now", for most others "Simulated … now", for example "Simulated training now. In AWS mode this panel reads from ECS tasks + Flower." In AWS mode the flask disappears.</td></tr>
+        <tr><th>Table icon</th><td>Convergence and Privacy budget headers</td><td>Switches the chart to a plain data table and back. Browser only.</td></tr>
+        <tr><th>Purple outline</th><td>Around a whole panel</td><td>The panel is lit by the current beat's spotlight. Unlit panels fade. Press <kbd>Esc</kbd> to clear it.</td></tr>
+        <tr><th>Operator colours</th><td>Everywhere</td><td>Op-A blue, Op-B orange, Op-C green, Op-D amber, Op-E pink. Purple is the Learn plane colour, used for the federated model and the enclave.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Some panels can be switched off with feature flags on <a href="settings.html">Settings</a>:
+    <code>fl.controls</code> (header buttons), <code>fl.secagg_viz</code>, <code>fl.checkpoints</code>,
+    <code>fl.attestation</code>, <code>fl.sovereignty</code> and <code>fl.he</code>. The demo-only buttons
+    are behind <code>demo.poison</code> (Poison) and <code>demo.privileged_view</code> (Show true updates). All are on by
+    default. If a panel described here is missing, check its flag first.</p>
+
+  <!-- ===================================================================== cards -->
+  <h2 id="components">Component cards</h2>
+  <p>Data for every card comes from the <code>federation</code> slice of the browser store, unless the card says
+    otherwise. The slice is loaded from <code>GET /api/snapshot</code> on connect, then updated by
+    <code>fl.*</code> events on the one WebSocket <code>/ws</code>, sent in batches every 100 ms. The backend is
+    the <code>Federation</code> class in <code>backend/spectrum/engines/federation.py</code>, ticked 10 times a
+    second. Screen code: <code>frontend/src/features/federation/</code>.</p>
+
+  <!-- ---------------------------------------------------------------- 1 -->
+  <article class="comp" id="c-1">
+    <header>
+      <span class="comp-num">1</span>
+      <h3>Page header and training controls</h3>
+      <span class="where">file <code>FederationPage.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It names the screen, shows which hackathon tracks it answers, and holds the buttons that drive the
+        training run: start, pause, skip ahead, stop, and change settings.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li><strong>Title</strong> "Federated fine-tuning" with two track tags, <strong>T1</strong> and <strong>T2</strong>. Hover them for the full names: "Track 1: NLM training, scaling &amp; production readiness" and "Track 2: Federated learning at scale".</li>
+        <li><strong>Description</strong>: "Five operators fine-tune one network model on private data with DP-SGD. Only masked adapter updates leave each operator, and an attested enclave aggregates them."</li>
+        <li><strong>Buttons</strong> on the right. Their labels and enabled state follow the run state:</li>
+      </ul>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Run state</th><th>First button</th><th>Next round now</th><th>Stop</th></tr></thead>
+          <tbody>
+            <tr><th>ready (after reset)</th><td>"Start round 13" (primary)</td><td>disabled</td><td>disabled</td></tr>
+            <tr><th>running</th><td>"Pause"</td><td>enabled</td><td>enabled</td></tr>
+            <tr><th>paused</th><td>"Resume"</td><td>disabled</td><td>enabled</td></tr>
+            <tr><th>idle or stopped</th><td>"Start"</td><td>disabled</td><td>disabled</td></tr>
+            <tr><th>complete (round 30 done)</th><td>"Start", disabled</td><td>disabled</td><td>disabled</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>"Training settings" is always available and opens the <a href="#c-15">settings drawer</a>.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Federation.start</code>, <code>pause</code>, <code>stop</code>, <code>next_round</code> in <code>engines/federation.py</code></dd>
+        <dt>Arrives by</dt><dd>Button sends <code>POST /api/fl/{start|pause|stop|next_round}</code>. Start, pause and stop make the engine emit <code>fl.run</code> (<code>state</code>, <code>round</code>, <code>phase</code>). Next round now emits nothing itself; the following tick's <code>fl.step</code> and <code>fl.round.phase</code> show the jump to aggregation.</dd>
+        <dt>Store slice</dt><dd><code>federation.state</code>, <code>federation.round</code></dd>
+        <dt>Changes when</dt><dd>You press a button, beat 2 starts training, or the run reaches its last round.</dd>
+      </dl>
+      <ol class="flow states" aria-label="Run states">
+        <li><b>ready</b><span>round queued</span></li>
+        <li class="src"><b>running</b><span>ticks at 10 Hz</span></li>
+        <li><b>paused</b><span>frozen mid-phase</span></li>
+        <li class="ui"><b>stopped or complete</b></li>
+      </ol>
+      <p>The simulation only advances training while the state is <code>running</code>.</p>
+      <ul>
+        <li><strong>Pause</strong> freezes the round exactly where it is. Resume (also <code>POST /api/fl/start</code>) carries on in the same phase.</li>
+        <li><strong>Stop</strong> ends the round and writes a signed <code>fl.stop</code> ledger record as the human user <code>a.rivera</code>. Pressing Start afterwards begins a fresh round with the next number. The interrupted round is never finished.</li>
+        <li><strong>Next round now</strong> only acts during local training. It jumps every training operator to step 240 and forces aggregation on the next tick, skipping the mask and upload phases.</li>
+        <li><strong>Ready</strong> is the hold state. The reset warm-up runs 12 rounds, then holds at "Round 13 queued".</li>
+        <li><strong>Complete</strong> comes when the round number reaches the configured rounds (30 by default).</li>
+      </ul>
+      <p>Each button also shows a small confirmation toast: "Training running", "Training paused", "Skipping to aggregation" or "Training stopped (ledgered)". The command palette (<kbd>Cmd</kbd> <kbd>K</kbd>) has the same actions: "Start or resume training", "Pause training", "Save checkpoint now".</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Start round N / Start / Resume</th><td>Starts or resumes training.</td><td><code>POST /api/fl/start</code>. Event <code>fl.run</code> "training running". Bars start moving. No ledger record.</td></tr>
+            <tr><th>Pause</th><td>Freezes training.</td><td><code>POST /api/fl/pause</code>. Event <code>fl.run</code> "training paused". No ledger record.</td></tr>
+            <tr><th>Next round now</th><td>Skips the rest of local training.</td><td><code>POST /api/fl/next_round</code>. All steps jump to 240 and aggregation starts. No ledger record.</td></tr>
+            <tr><th>Stop</th><td>Ends the run.</td><td><code>POST /api/fl/stop</code>. Signed <code>fl.stop</code> ledger record. Warning event "training stopped by operator".</td></tr>
+            <tr><th>Training settings</th><td>Opens the drawer.</td><td>Browser only until you apply. See <a href="#c-15">card 15</a>.</td></tr>
+            <tr><th>Hover T1 or T2</th><td>Shows the full track name.</td><td>Browser only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>The first button tells you the state at a glance. "Start round 13" means a reset, queued run. "Pause" means training is live right now.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Press <kbd>2</kbd>. Beat 2 starts round 13 for you, and the button changes to Pause.</li>
+          <li>If a judge asks whether it is live, press Pause, show the bars stop, then press Resume.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"This is a live run, not a recording. I can pause it, change the privacy settings, and every change is signed into the ledger."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Is this a video?"</strong> No. Pause and resume work on stage. Maps to T2 (federated learning) and T1 (production controls).</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The controls really drive the engine, and Stop really writes a signed ledger record. The training they control is simulated.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <ul>
+          <li>Do not press Stop during the demo. The interrupted round is skipped and a stop record lands in the ledger. Use Pause.</li>
+          <li>If you use Pause to stop Op-E running out of budget later in the demo, press it only after beat 4's rejection has appeared (see <a href="#c-16">card 16</a>). Pausing before the round aggregates hides the rejection.</li>
+          <li>Next round now skips steps, and the mock accountant only charges ε for steps actually run. Skipped uploads also do not count in the sovereignty bytes. Avoid it when you are talking about ε.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 2 -->
+  <article class="comp" id="c-2">
+    <header>
+      <span class="comp-num">2</span>
+      <h3>Run strip</h3>
+      <span class="where">panel <code>run</code>, titled with the run id <code>fl-2026-10-31-a</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A one-line summary of the training run: what model, what adapter, which round, how fast, how good, and
+        with what privacy settings. It is the "spec sheet" a judge can read in five seconds.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Header: the run id, a status pill ("Round 13 queued", "running", "paused", "stopped", "complete" or "idle") and the source chip "Amazon ECS (GPU) + S3". Then eight fields:</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Field</th><th>Example</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Base model</th><td>llama-3.2-1b-instruct, 58dcdd…b6cd</td><td>The frozen model everyone starts from, and a short fingerprint (hash) of its weights. Click the hash to copy it.</td></tr>
+            <tr><th>Adapter</th><td>LoRA r16, α32; q_proj, k_proj, v_proj, o_proj</td><td>The small trainable add-on: rank 16, scaling 32, attached to the four attention projections.</td></tr>
+            <tr><th>Round</th><td>12 of 30; done</td><td>Current round out of the planned total, and the phase underneath (pull, train, aggregate, done).</td></tr>
+            <tr><th>Local step</th><td>116 / 240; 5 operators training</td><td>Average training step across operators that are training now. A round is 240 steps.</td></tr>
+            <tr><th>Throughput</th><td>2.5M tok/s; across 5 private GPUs</td><td>Tokens processed per second across all operators. A dash when nobody is training.</td></tr>
+            <tr><th>Global val loss</th><td>0.704; accuracy 82.2%</td><td>Quality of the latest combined model. Lower loss is better.</td></tr>
+            <tr><th>Aggregation</th><td>trimmed mean; secure agg: enclave</td><td>How updates are combined and how they are protected.</td></tr>
+            <tr><th>Privacy</th><td>σ 1.1, C 1; target ε 3, δ 1e-5</td><td>Noise level, clipping limit, privacy budget and its failure probability. See <a href="#c-6">card 6</a>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Under the fields are five thin bars, one per operator in its colour. Each fills as that operator moves
+        through its 240 steps. Hover a bar for, for example, "Op-A: training, step 116".</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Federation.run</code>, <code>config</code>, operator records, global loss</dd>
+        <dt>Arrives by</dt><dd>Snapshot, then <code>fl.step</code> (operator step and status, every 0.25 s), <code>fl.round</code> (global loss), <code>fl.run</code> (state), <code>fl.config</code> (settings)</dd>
+        <dt>Store slice</dt><dd><code>federation.run</code>, <code>.config</code>, <code>.operators</code>, <code>.global</code></dd>
+        <dt>Changes when</dt><dd>Every training step, every round end, every settings change</dd>
+      </dl>
+      <p>Most fields are copied straight from the backend. Two are computed in the browser:</p>
+      <ul>
+        <li><strong>Local step</strong> is the average step of operators whose status is "training".</li>
+        <li><strong>Throughput</strong> is a fixed formula: training operators × 15 steps per second × 64 samples per batch × 512 tokens per sample. With 5 operators training that is 2,457,600, shown as "2.5M tok/s". It is not measured.</li>
+      </ul>
+      <p>The status pill shows a clock icon in the Release blue while running, an amber clock for paused or queued, a red octagon for stopped, a green check for complete and a grey check for idle.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click the base model hash</th><td>Copies the full hash.</td><td>A tick appears for a second. Browser only.</td></tr>
+            <tr><th>Hover an operator bar</th><td>Shows status and step.</td><td>Tooltip only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Read left to right as "what we train, where we are, how good it is, how private it is". During a round the five bars should all be moving. A bar that stays empty is an operator that is paused, dropped or out of budget.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>After <kbd>2</kbd>, point at Round "13 of 30" and the moving bars, then at the Privacy field.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"We fine-tune a small 1-billion-parameter model with a 21-megabyte LoRA adapter. That small adapter is the only thing that leaves each operator."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"What exactly are you training, and is it pretraining?"</strong> It is LoRA fine-tuning of llama-3.2-1b-instruct, not pretraining. Maps to T1 and T2.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> Loss, accuracy, steps and throughput come from the mock simulator. The base hash is a real SHA-256, but of a fixed label, not of real weights.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Do not quote throughput as a measurement. It is a formula. Global val loss only changes when a round finishes, so it does not move after a checkpoint Restore until the next round ends.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 3 -->
+  <article class="comp" id="c-3">
+    <header>
+      <span class="comp-num">3</span>
+      <h3>Round timeline</h3>
+      <span class="where">panel <code>round-timeline</code>, file <code>panels.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows who is doing what, right now, in each round. You can see each operator train on its own
+        machine, scramble and send its update, and the enclave combine them. It makes "the data never moves" visible.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>A Gantt chart (horizontal bars over time) with six rows: Op-A to Op-E and Enclave.</p>
+      <ul>
+        <li><strong>X axis:</strong> seconds since the start of the previous round, such as 10s, 20s, 30s.</li>
+        <li><strong>Dividers:</strong> labelled "Round 12" and "Round 13" where each round started.</li>
+        <li><strong>Now cursor:</strong> a white vertical line with a dot. Bars that are still running grow up to it.</li>
+        <li><strong>Subtitle:</strong> "round 13, train", "round 13 queued" or "between rounds".</li>
+      </ul>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Segment look</th><th>Legend label</th><th>What the operator is doing</th></tr></thead>
+          <tbody>
+            <tr><th>Short grey block</th><td>pull</td><td>Downloading the latest global adapter</td></tr>
+            <tr><th>Long bar, operator colour</th><td>local DP-SGD</td><td>Training on its own private data, with clipping and noise on every step</td></tr>
+            <tr><th>Short darker block</th><td>mask + encrypt</td><td>Adding the secure-aggregation masks</td></tr>
+            <tr><th>Short striped block</th><td>upload</td><td>Sending the masked update</td></tr>
+            <tr><th>Purple block on the Enclave row</th><td>aggregate in enclave</td><td>Combining updates and rejecting outliers</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Hover a segment to see its label and duration in seconds.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Federation.tick</code> moves each operator through phases and records start and end times (<code>_mark</code>)</dd>
+        <dt>Arrives by</dt><dd><code>fl.round.phase</code> carries the live round (<code>current</code>). <code>fl.round</code> carries the finished round, which is added to <code>rounds_log</code>.</dd>
+        <dt>Store slice</dt><dd><code>federation.current</code>, <code>federation.rounds_log</code></dd>
+        <dt>Changes when</dt><dd>Each phase change. The now cursor redraws 8 times a second.</dd>
+      </dl>
+      <p>The chart draws only the last finished round and the current one. Phase lengths are fixed in the engine: pull 1.0 s, train 16 s ÷ operator speed, mask 1.4 s (1.6 times longer in CKKS mode), upload 1.6 s, aggregate 2.6 s.</p>
+      <p>Operator speeds: Op-A 1.00, Op-B 0.92, Op-C 1.08, Op-D 0.86, Op-E 1.04. The enclave starts only after every participating operator has uploaded. So the slowest, Op-D, decides when aggregation starts: about 22.6 s into the round. Including aggregation, a round lasts about 25 seconds.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody><tr><th>Hover a segment</th><td>Shows phase name and duration.</td><td>Tooltip only.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Every row should show the same pattern. Long coloured bars mean private local work. Only the tiny striped block crosses the network. Use the timeline as a clock: when the bars reach the stripes, aggregation, and with it any poison rejection, is about 3 to 4 seconds away.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>Press <kbd>2</kbd>. Trace one row with your finger: pull, train, mask, upload, then the purple enclave block.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Each row is an operator training on its own GPU, on its own data. The only thing that crosses the wire is this tiny striped block: a masked update."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Where does the training actually happen?"</strong> Inside each operator's own account. Only the update moves. Maps to T2.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The phases and their timings come from the mock simulator. In AWS mode, the design is one ECS task per operator running a Flower client.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Right after a reset, the chart shows only round 12 and says "round 13 queued". That is normal until beat 2 starts the round.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 4 -->
+  <article class="comp" id="c-4">
+    <header>
+      <span class="comp-num">4</span>
+      <h3>Convergence</h3>
+      <span class="where">panel <code>convergence</code>, file <code>panels.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It answers "why bother federating?". It compares the shared model with what each operator could reach
+        training alone on its own data.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li><strong>Three numbers:</strong> Federated loss (0.704), Best operator alone (1.095) and Federation gain (−36%, in green).</li>
+        <li><strong>Top chart:</strong> validation loss per round. The Y axis runs from about 0.5 to 2.5 (lower is better). The X axis shows rounds r2, r4 and so on.
+          <ul>
+            <li>The thick purple line with a shaded area is the federated model, labelled "Federated" at its end.</li>
+            <li>The five thin dashed lines in operator colours show each operator training alone.</li>
+          </ul></li>
+        <li><strong>Diamonds</strong> on the bottom axis, each with a faint vertical line. Purple diamonds are checkpoints (ckpt-r02, ckpt-r04 and so on). Grey diamonds are settings changes. Hover one to read its label, such as "ckpt-r12" or "noise_multiplier 1.1 → 1.5".</li>
+        <li><strong>Bottom chart:</strong> "Task accuracy (root-cause exact match)", 40% to 100%: how often the model names the right root cause.</li>
+        <li><strong>Footnote</strong> explaining the dashed lines and diamonds.</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Federation._finish_round</code> computes the round's loss, accuracy and each operator's local-only loss</dd>
+        <dt>Arrives by</dt><dd><code>fl.round</code> (one point per round). Annotations arrive with <code>fl.checkpoint</code> and <code>fl.config</code>.</dd>
+        <dt>Store slice</dt><dd><code>federation.rounds_log</code>, <code>federation.annotations</code></dd>
+        <dt>Changes when</dt><dd>Once per round, when aggregation finishes</dd>
+      </dl>
+      <p>The three headline numbers are computed in the browser from the last round. Federation gain is (best alone − federated) ÷ best alone. The curves come from simple formulas in the simulator:</p>
+      <ul>
+        <li><strong>Federated loss</strong> = 0.56 + 0.09 × (σ − 1.1) + 1.72 × e<sup>−0.21 × round</sup>, plus a little noise. More privacy noise (higher σ) costs a little accuracy. If a poisoned update got in, that round's loss is 0.34 higher.</li>
+        <li><strong>Accuracy</strong> = 0.885 − 0.58 × e<sup>−0.19 × round</sup>, plus noise. It is 9 points lower in a round where poison got in.</li>
+        <li><strong>Each operator alone</strong> = its own floor + 1.5 × e<sup>−0.16 × round</sup>. The floors are 0.93 (A), 1.01 (B), 1.07 (C), 0.89 (D) and 1.16 (E). An operator alone can never get below its floor. That models the design idea: each operator sees only its own vendor dialect and fault mix, so it cannot generalise alone.</li>
+      </ul>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Table icon</th><td>Shows the data as a table.</td><td>Columns Round, Federated loss, Accuracy, then "Op-A alone" to "Op-E alone", newest round first. Browser only.</td></tr>
+            <tr><th>Hover the chart</th><td>Crosshair tooltip.</td><td>Shows "Round N" and the series values.</td></tr>
+            <tr><th>Hover a diamond</th><td>Shows its label.</td><td>Tooltip only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Good means the purple line sits clearly below every dashed line, and the gain is a large negative percentage. A sudden upward jump in the purple line marks a round where a poisoned update got in. That only happens when robust aggregation is off.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>During beat 2, point at the gap between the purple line and the dashed lines, then at "Federation gain".</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"The dashed lines are each operator alone. The purple line is all five together. Together they reach a loss about a third lower than the best operator can on its own data."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Why not let each operator train its own model?"</strong> Each one alone stalls at a higher loss. Maps to T2.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The curves are modelled with the formulas above, not measured from real training. The README lists training curves as simulated.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Say "the simulator models" or "the design expects", never "we measured a 36% gain". The exact gain changes slightly every run because of the noise.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 5 -->
+  <article class="comp" id="c-5">
+    <header>
+      <span class="comp-num">5</span>
+      <h3>Privacy budget</h3>
+      <span class="where">panel <code>privacy</code>, file <code>panels.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It tracks how much privacy each operator has spent so far against a hard limit. When an operator reaches
+        the limit, it stops training automatically.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li><strong>Headline:</strong> "ε = 2.59", then "highest, Op-E, 86% of target 3". From 90% of the target a pill appears: amber "Near budget". At 100% it turns red: "Budget spent".</li>
+        <li><strong>Chart:</strong> cumulative ε per operator, one line each with an end label. The X axis is rounds from r0. The Y axis runs from 0 to 4.0 at the default target (the code asks for 1.15 × target and rounds up to a tidy tick).</li>
+        <li><strong>Red horizontal line</strong> "target ε 3": the budget.</li>
+        <li>During training, each line extends live to a fractional round. For example, halfway through round 13 is plotted at 12.5.</li>
+        <li><strong>Footnote:</strong> "Operators with less data sample a larger share per step (higher q), so they spend budget faster. An operator that reaches its target leaves the federation automatically."</li>
+      </ul>
+      <p>Pre-demo values: Op-A 0.98, Op-B 1.50, Op-C 1.95, Op-D 0.80, Op-E 2.59.</p>
+      <p><strong>ε in plain words:</strong> a score for how much the trained model could reveal about any single
+        record in an operator's data. 0 would be perfect privacy. Smaller is safer. δ = 1e-5 is the tiny
+        probability that the guarantee does not hold.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>eps_increment</code> and <code>Federation._check_budget</code> in <code>engines/federation.py</code></dd>
+        <dt>Arrives by</dt><dd><code>fl.step</code> (live ε per operator), <code>fl.round</code> (ε at each round end), <code>fl.budget</code> (warnings)</dd>
+        <dt>Store slice</dt><dd><code>federation.operators[].eps</code>, <code>federation.rounds_log[].eps</code>, <code>federation.config.target_eps</code></dd>
+        <dt>Changes when</dt><dd>Every training step</dd>
+      </dl>
+      <ol class="flow" aria-label="How epsilon is accounted">
+        <li class="src"><b>Training step</b><span>q = 64 ÷ operator's samples</span></li>
+        <li><b>Add to ε²</b><span>(1.71 · q ÷ σ)² · steps · ln(1/δ)</span></li>
+        <li><b>ε = √ε²</b><span>per operator</span></li>
+        <li><b>Check budget</b><span>90% warn, 100% exit</span></li>
+        <li class="ui"><b>Line and table update</b></li>
+      </ol>
+      <p><strong>Why the operators differ.</strong> The sampling rate q is the share of an operator's data used in one batch of 64. Op-E has only 7,000 samples, so q = 0.00914. Op-D has 22,600, so q = 0.00283. Spending grows with q², so Op-E spends about ten times faster than Op-D.</p>
+      <p><strong>Why ε² is summed.</strong> Adding squared increments lets σ change mid-run and still compose sensibly. This is an approximation, and the code says so. In AWS mode the Opacus RDP accountant would replace it, which is what the source chip names.</p>
+      <p><strong>The two thresholds:</strong></p>
+      <ul>
+        <li>At 90% of the target, the engine emits a warning <code>fl.budget</code> event once. You get an amber toast such as "Op-E at 90% of privacy budget (ε 2.70 of 3.0)".</li>
+        <li>At 100%, the operator stops training immediately, mid-round: its status becomes "budget exhausted", its step bar jumps to full, and a critical event says it "reached its ε budget and leaves the federation". Its update for that round is still aggregated, and from the next round it is left out.</li>
+      </ul>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Table icon</th><td>Shows the data as a table.</td><td>Columns Operator, ε, of target, Sampling rate q, Status. Browser only.</td></tr>
+            <tr><th>Hover the chart</th><td>Crosshair tooltip.</td><td>Shows "Round 12.50" and each operator's ε.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>To change σ, the target or the number of rounds, use the <a href="#c-15">Training settings drawer</a>.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Lines bend flatter over time. Good: every line stays below the red line. Op-E's pink line rises fastest because it has the least data.</p>
+        <p><span class="pill warn">Near budget</span> at 90% or more of the target. <span class="pill critical">Budget spent</span> at 100%.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>During beat 2, point at the pink Op-E line and the red target line.</li>
+          <li>About 2 seconds after round 13 ends, the amber "Op-E at 90%" toast appears. Point at it within 6 seconds, before it closes.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Every operator has a hard privacy budget. Operator E has the least data, so each step costs it more privacy. When it hits its limit, it leaves automatically. Nobody has to remember to stop it."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Five clients with DP: what is your real ε?"</strong> Quote the number on screen, for example 2.59 for Op-E after 12 rounds at δ = 1e-5. Explain that record-level DP-SGD protects the subscribers in each operator's data, and secure aggregation protects operators from the server. Then add: "We built the mechanism, not a production privacy guarantee." Maps to T2.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The README lists the privacy accountant as an approximation that composes correctly when σ changes. The ε values are not from a real accountant.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>If training keeps running after beat 4, Op-E reaches ε 3.0 during round 17. At normal speed that is about 105 seconds after beat 2 starts the round, usually while you are on the Proving Ground or Release screens. A red toast appears there. See <a href="#c-16">card 16</a> for how to handle it.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 6 -->
+  <article class="comp" id="c-6">
+    <header>
+      <span class="comp-num">6</span>
+      <h3>DP-SGD internals</h3>
+      <span class="where">panel <code>dp</code>, file <code>panels.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It opens up the privacy mechanism itself. It shows how big each training example's "push" on the model
+        is, and how many pushes get cut down to a safe size.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li><strong>Ridgeline chart:</strong> one stacked curve per operator. Each curve shows how per-sample gradient sizes (L2 norms) are spread. The X axis runs from 0 to 3 × C (0.0 to 3.0).</li>
+        <li><strong>White vertical marker</strong> "clip C = 1": the size limit.</li>
+        <li><strong>Hatched area</strong> right of the marker: samples that get clipped.</li>
+        <li><strong>Right-hand label</strong> per row: share clipped, such as "12.7% clipped" for Op-A and "17.4% clipped" for Op-E.</li>
+        <li><strong>Settings column:</strong> Clip norm C 1.00, Noise multiplier σ 1.10, Noise std σ·C 1.10, Batch size 64, Sampling rate q 0.0028–0.0091 (lowest to highest operator), Steps per round 240, Learning rate 2e-4, LoRA r16, α32.</li>
+        <li><strong>Footnote</strong> explaining clipping and noise.</li>
+      </ul>
+      <p><strong>DP-SGD in plain words.</strong> In normal training, every example nudges the model. DP-SGD
+        measures each nudge. Any nudge bigger than C is shrunk to size C, so no single record can push hard.
+        Then random noise of size σ·C is added to the batch total, so you cannot tell whether any one record was there.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Federation._emit_steps</code> in <code>engines/federation.py</code></dd>
+        <dt>Arrives by</dt><dd><code>fl.gradhist</code>, once per simulated second while training. This is a high-rate event, so it is not written to the stream or ledger.</dd>
+        <dt>Store slice</dt><dd><code>live.gradhist</code>. It falls back to <code>federation.operators[].grad_hist</code> from the snapshot.</dd>
+        <dt>Changes when</dt><dd>Every second during the local training phase</dd>
+      </dl>
+      <p>Every second, for each operator that is training, the simulator draws 512 sample gradient sizes from a
+        log-normal distribution and bins them into 40 bars between 0 and 3·C. Clipped share = the fraction above C.</p>
+      <ul>
+        <li>The typical (median) size is C × (0.5 + 0.62 × e<sup>−0.13 × round</sup>) × (1 + 0.15 × (floor − 1)). Gradients shrink as training goes on, so clipping falls round by round.</li>
+        <li>Operators with a higher floor (Op-E, 1.16) have slightly bigger gradients, so they clip more.</li>
+        <li>The settings column reads the live config, so it changes when you apply new settings. Changing C also rescales the X axis and moves the marker.</li>
+      </ul>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data. Change C and σ in the <a href="#c-15">Training settings drawer</a>.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Most of each curve should sit left of the white line. A small hatched tail (10 to 20%) is healthy: clipping bites only on unusual examples. A large hatched area would mean C is too small and training is being distorted.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>Only if asked about DP mechanics. Point at the white clip line, then at the hatched tail.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Every training example's push is capped at this white line, then noise is added. That is what makes it impossible to reverse-engineer one incident from the model."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Is the DP real DP-SGD or just added noise at the end?"</strong> The design is per-sample clipping plus noise on every step, which is DP-SGD. Maps to T2.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The distributions are generated by the simulator. In AWS mode they would come from Opacus per-sample gradients.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Between rounds, or when paused, the picture freezes at the last histogram. That is expected: the subtitle says "latest step".</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 7 -->
+  <article class="comp" id="c-7">
+    <header>
+      <span class="comp-num">7</span>
+      <h3>Secure aggregation</h3>
+      <span class="where">panel <code>secagg</code>, file <code>panels2.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It proves the server is blind. It shows what the aggregation host actually receives from each operator,
+        which looks like static, and shows that the sum still comes out exactly right.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li><strong>Subtitle:</strong> "round 12, what the untrusted host sees". The number is the last round that was aggregated.</li>
+        <li><strong>Five small heatmaps</strong> (16 × 16 cells), labelled Op-A to Op-E, captioned "masked". Each looks like random noise. Red and blue are opposite signs, and dark is near zero.</li>
+        <li><strong>Σ symbol</strong>, then a larger heatmap labelled "Aggregate (mean)". It shows a smooth, meaningful pattern.</li>
+        <li><strong>Stats bar:</strong>
+          <ul>
+            <li>max |Σ masked − Σ true| 0.000000, in green: the largest difference between the masked total and the true total.</li>
+            <li>pairwise masks 10: one per pair of operators.</li>
+            <li>dropout recovery: "Shamir t=3 of 5".</li>
+            <li>arithmetic: "2^16 scale, mod 2^32".</li>
+          </ul></li>
+        <li><strong>Button</strong> "Show true updates" with an eye icon. When on, it reads "Privileged view (demo)" in amber and the captions change to "true update".</li>
+        <li>Before the first aggregation, the panel says "Waiting for the first aggregation…".</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Federation._compute_secagg</code>, run once per round when aggregation starts</dd>
+        <dt>Arrives by</dt><dd><code>fl.secagg</code>. Log line: "round 13: 10 pairwise masks cancelled, max |Σmasked − Σtrue| = 0".</dd>
+        <dt>Store slice</dt><dd><code>federation.secagg</code></dd>
+        <dt>Changes when</dt><dd>Once per round, at the start of the aggregate phase</dd>
+      </dl>
+      <ol class="flow" aria-label="Pairwise masking">
+        <li class="src"><b>True update</b><span>16×16 slice per operator</span></li>
+        <li><b>To integers</b><span>× 2^16, mod 2^32</span></li>
+        <li><b>Add masks</b><span>for each pair, one adds and one subtracts</span></li>
+        <li><b>Host sums all</b><span>masks cancel exactly</span></li>
+        <li class="ui"><b>Mean update</b><span>error = 0</span></li>
+      </ol>
+      <p>This is real code doing real arithmetic:</p>
+      <ul>
+        <li>Each operator's update is turned into whole numbers: multiply by 65,536 (2^16), then wrap around at 2^32.</li>
+        <li>For every pair of operators (5 operators give 10 pairs), the engine draws a random mask matrix. The first operator of the pair adds it, the second subtracts it.</li>
+        <li>Each masked matrix is now indistinguishable from uniform random numbers.</li>
+        <li>When the host adds all five masked matrices, every mask meets its opposite and cancels. The engine compares the masked sum with the true sum and reports the largest difference. It is always exactly 0.</li>
+        <li>The aggregate shown is the decoded sum divided by the number of operators.</li>
+      </ul>
+      <p>The "true" updates are synthetic stand-ins: a shared smooth pattern plus noise. They are not real LoRA
+        weights. "Shamir t=3 of 5" is a fixed label describing the dropout-recovery design (any 3 of 5 operators can
+        rebuild a missing operator's masks). The mock does not run Shamir recovery.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Show true updates (flag <code>demo.privileged_view</code>)</th><td>Reveals the unmasked updates, for explanation only.</td><td>The five heatmaps switch to the true updates, which look structured. The label turns amber. Browser only: no backend call, no ledger record.</td></tr>
+            <tr><th>Hover a cell</th><td>Shows the cell value.</td><td>Tooltip only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Left side noise, right side structure, error 0.000000. If the five small maps ever looked structured with the toggle off, masking would have failed. In a poison round, the privileged view shows Op-E's pattern with its colours reversed (red and blue swapped). Each map is scaled on its own, so the 9× size does not show as brighter colour; the size shows on <a href="#c-8">Client update norms</a>.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Press <kbd>3</kbd>. The page scrolls here and lights this panel.</li>
+          <li>Point at the five noisy squares, then at the Aggregate, then at the green 0.000000.</li>
+          <li>Click "Show true updates" to show what was hidden, then click it again to turn it off.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"This is what our server sees from each operator: noise. The masks cancel only in the sum, exactly, with zero error. The server learns the total and nothing about any one operator."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Can your aggregator see an operator's update?"</strong> No, only the masked version. Maps to T2 and Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The pairwise-mask maths runs for real and cancels with zero error, as the README states. The matrices it masks are synthetic, and the enclave and KMS key are simulated in mock mode.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Beat 3 does not press the toggle for you. The server sets a <code>reveal</code> flag, but no panel uses it. Call the toggle a demo-only privileged view, and turn it off afterwards.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 8 -->
+  <article class="comp" id="c-8">
+    <header>
+      <span class="comp-num">8</span>
+      <h3>Client update norms</h3>
+      <span class="where">panel <code>update-norms</code>, file <code>panels.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It is the poisoning detector. It plots how big each operator's update is, round by round, and shows the
+        enclave throwing out any update that is far bigger than the others.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li><strong>Subtitle:</strong> "robust aggregation rejects outliers inside the enclave".</li>
+        <li><strong>Header chip:</strong> the current strategy and mode, such as "trimmed mean, enclave".</li>
+        <li><strong>Scatter chart</strong> over the last 10 rounds. X is the round. Y is the update's L2 norm (its overall size), from 0.00 to about 2.00. One dot per operator per round, in operator colours.</li>
+        <li><strong>Amber line:</strong> "threshold median + 4·MAD = 0.85", the latest round's cut-off.</li>
+        <li><strong>Outliers</strong> are drawn as a red × with a ring, pinned to the top edge so they stay on the chart. They carry a label such as "Op-E r13: 14.2× median, rejected".</li>
+        <li><strong>Legend:</strong> operator dots and "× outlier (plotted at the top edge)".</li>
+        <li><strong>Red message box</strong> after an outlier, for example: "Op-E round 13: update norm 14.2× the median. Rejected by robust aggregation inside the attested enclave; the global model never saw it."</li>
+      </ul>
+      <p><strong>MAD in plain words:</strong> median absolute deviation, the typical distance of the values from
+        their middle value. Unlike an average, one huge value cannot drag the median or the MAD, so an attacker
+        cannot raise the bar by sending a giant update.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>_compute_secagg</code> sets each norm. <code>_finish_round</code> computes the threshold and decides.</dd>
+        <dt>Arrives by</dt><dd><code>fl.round</code> (norms, threshold, median, decisions), <code>fl.poison</code> (critical alert)</dd>
+        <dt>Store slice</dt><dd><code>federation.rounds_log</code> (last 10), <code>federation.config</code></dd>
+        <dt>Changes when</dt><dd>Once per round, at the end of aggregation</dd>
+      </dl>
+      <ol class="flow" aria-label="Poison decision">
+        <li class="src"><b>Norms arrive</b><span>one per operator</span></li>
+        <li><b>Median and MAD</b><span>over all norms</span></li>
+        <li><b>Threshold</b><span>median + 4 × max(MAD, 0.04)</span></li>
+        <li><b>Above it?</b><span>enclave mode and not FedAvg: reject</span></li>
+        <li class="ui"><b>Dot, box, toast</b><span>decision in <code>fl.round</code> record</span></li>
+      </ol>
+      <p><strong>Honest norms.</strong> They are about 1.0 × e<sup>−0.035 × round</sup> with small random variation, kept between 0.4 and 2.</p>
+      <p><strong>A poisoned update</strong> (armed by beat 4 or the Poison button) is the true update flipped and multiplied by 9, plus noise. Its norm is set to 14.2 × the median of the honest ones.</p>
+      <p><strong>The decision.</strong> Any update above the threshold is rejected only if both conditions hold:</p>
+      <ul>
+        <li>the secure aggregation mode is "enclave", and</li>
+        <li>the strategy is not FedAvg.</li>
+      </ul>
+      <p>Otherwise it is accepted, because the server cannot see individual updates or does not filter them. An accepted poisoned update raises that round's loss by 0.34 and cuts accuracy by 9 points (see <a href="#c-4">Convergence</a>). Either way, the engine emits a critical <code>fl.poison</code> event. The decisions, strategy, mode and <code>attestation_pcr0: verified</code> are written into the signed <code>fl.round</code> ledger record.</p>
+      <p>Each round is judged against its own threshold. The amber line shows only the latest one.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Hover a dot</th><td>Shows its numbers.</td><td>Tooltip with "update L2 norm", "robust threshold" and "decision".</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The header chip is not clickable. Change strategy and mode in the <a href="#c-15">settings drawer</a>. Arm an attack with Poison in the <a href="#c-9">fleet</a>.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Good: a tight band of coloured dots near the amber line, and no red crosses. A red cross labelled "rejected" is the defence working. A red cross labelled "accepted" means the poison got in: robust aggregation was off.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Press <kbd>4</kbd>. Op-E is marked compromised.</li>
+          <li>Keep talking about Op-E's row in the fleet while the round finishes (up to about 25 s).</li>
+          <li>When the red cross lands at the top, read the red box aloud.</li>
+        </ol>
+        <p>Optional trade-off demo, outside the scripted beats: in Training settings, choose "Masking" (or "FedAvg"), apply, press Poison on Op-E, and wait for the round. The cross reads "accepted", the box explains the server was blind, and the loss jumps. In a test run it rose from about 0.67 to 1.02, and accuracy fell from about 84% to 74%. Switch back to "Masking + enclave" afterwards.</p>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Operator E is compromised and sends a poisoned update, fourteen times bigger than normal. Inside the attested enclave, robust aggregation rejects it. The global model never sees it."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Secure aggregation breaks poisoning detection, doesn't it?"</strong> Correct, with pure masking. That is why there is an enclave mode. The masks come off only inside the attested enclave, which can then reject outliers. Maps to T2 and Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The norms and the attack are simulated. The median + 4·MAD rule is real code, but it runs on simulated numbers.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <ul>
+          <li>The rejection appears only when the current round aggregates, not at the moment you press <kbd>4</kbd>. Use the Round timeline to see how long is left.</li>
+          <li>When a poisoned update is accepted, the box always blames "pure masking mode", even if the real cause was FedAvg or CKKS mode. Rejection needs both enclave mode and a strategy other than FedAvg.</li>
+          <li>The round number in the label depends on timing. Do not promise "round 13".</li>
+          <li>The ratio on screen is usually a little under 14.2 (for example 13.9), because the label divides by the median of all five norms, poisoned one included. Say "about fourteen times".</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 9 -->
+  <article class="comp" id="c-9">
+    <header>
+      <span class="comp-num">9</span>
+      <h3>Client fleet</h3>
+      <span class="where">panel <code>fleet</code>, file <code>panels2.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>One row per operator, with everything about its client in one place. It is also the control desk for
+        operator-level actions: pause one, drop one, or compromise one for the poisoning demo.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Subtitle: "one ECS task per operator, own IAM role, own S3 bucket". That is the AWS-mode isolation design.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Column</th><th>Example (Op-A)</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Operator</th><td>Op-A Cascadia Mobile</td><td>Colour dot, short id and company name. Clickable.</td></tr>
+            <tr><th>Vendor</th><td>A</td><td>Which equipment vendor's dialect its network data uses (A or B).</td></tr>
+            <tr><th>Region</th><td>us-west-2</td><td>The AWS region where its client would run.</td></tr>
+            <tr><th>Private samples</th><td>18,400</td><td>Number of private incident records. Never leaves the operator.</td></tr>
+            <tr><th>Data commitment</th><td>6890f9…1911</td><td>A fingerprint standing for the operator's dataset. Click to copy.</td></tr>
+            <tr><th>Status</th><td>idle, training, waiting</td><td>Current phase as a pill.</td></tr>
+            <tr><th>Step</th><td>bar and 240</td><td>Progress through the round's 240 steps.</td></tr>
+            <tr><th>Local loss</th><td>0.670</td><td>The operator's training loss on its own data this round.</td></tr>
+            <tr><th>ε</th><td>0.98</td><td>Privacy spent so far. Turns amber at 90% of the target (Op-E 2.71 after beat 4).</td></tr>
+            <tr><th>Update norm</th><td>0.64</td><td>Update size as of the last page load or reset. It is not updated live, so use <a href="#c-8">Client update norms</a> (card 8) for per-round sizes and for the poisoned update.</td></tr>
+            <tr><th>GPU</th><td>sparkline</td><td>GPU use over the last 40 samples, 0 to 100%.</td></tr>
+            <tr><th>Uploaded</th><td>259.5 MiB</td><td>Total masked update bytes sent. Pre-demo that is 12 rounds × 21.6 MiB.</td></tr>
+            <tr><th>Actions</th><td>Pause, Drop, Poison</td><td>See Controls.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The five operators: Op-A Cascadia Mobile (vendor A, us-west-2, 18,400), Op-B Northwind Telecom (B,
+        ca-central-1, 12,100), Op-C Meridian Networks (A, us-east-1, 9,300), Op-D Halcyon Wireless (B, eu-west-1,
+        22,600), Op-E Tessellate Fiber (A, ap-southeast-2, 7,000).</p>
+      <p>Status pills: training, securing and uploading use the blue "running" clock ("pulling" exists too, but is effectively never seen live). "waiting" is an amber clock, "idle" a grey check, "dropped" and "budget exhausted" a red octagon. A row fades to half strength when the operator is not participating.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd>Operator records in <code>Federation.ops</code>. Actions in <code>Federation.client</code>.</dd>
+        <dt>Arrives by</dt><dd><code>fl.step</code> (step, loss, ε, status, every 0.25 s), <code>fl.upload</code> (bytes), <code>fl.client</code> (pause, drop, poison), <code>fl.budget</code> (budget exhausted)</dd>
+        <dt>Store slice</dt><dd><code>federation.operators</code>. The GPU column reads <code>observability.frames</code>.</dd>
+        <dt>Changes when</dt><dd>Continuously during training, and on any action</dd>
+      </dl>
+      <ul>
+        <li><strong>Local loss</strong> starts each round just above the global loss, falls about 11% over the round, and wobbles with noise.</li>
+        <li><strong>GPU</strong> sparklines sit around 86% while the operator trains and drop to about 5% as soon as it stops training (masking, upload, waiting, aggregation).</li>
+        <li><strong>Update norm</strong> arrives by snapshot only (page load, reconnect or reset). No live event updates it.</li>
+        <li><strong>Data commitment</strong> is a real SHA-256 of a label, not of real data. Each round's ledger record carries a per-round commitment derived from it.</li>
+        <li><strong>Pause</strong> flips the operator's participation. It applies from the next round, because participants are fixed when a round starts.</li>
+        <li><strong>Drop</strong> marks the operator "dropped". It is skipped from then on, and the round still completes.</li>
+        <li><strong>Poison</strong> sets a flag. The operator's next aggregated update is flipped and inflated (see <a href="#c-8">card 8</a>), and the flag is cleared at the end of that round.</li>
+      </ul>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click an operator name</th><td>Opens the Inspector.</td><td>Side panel "Operator" with the raw operator record. Browser only.</td></tr>
+            <tr><th>Click a commitment hash</th><td>Copies it.</td><td>Browser only.</td></tr>
+            <tr><th>Pause / Resume</th><td>Takes the operator out of, or back into, future rounds.</td><td><code>POST /api/fl/client/{op}/pause</code>. Row fades. Log line "Op-X paused participation". No ledger record.</td></tr>
+            <tr><th>Drop</th><td>Simulates the operator going offline.</td><td><code>POST /api/fl/client/{op}/drop</code>. Status "dropped". Log line "dropped out; Shamir shares let the round complete". No ledger record. Disabled once dropped.</td></tr>
+            <tr><th>Poison (red; flag <code>demo.poison</code>)</th><td>Compromises the operator's next update.</td><td><code>POST /api/fl/client/{op}/poison</code>. Toast "Op-X will send a poisoned update next round". Log line "compromised: next update will be poisoned". Result appears on <a href="#c-8">Client update norms</a>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>In a healthy round all five show the same status sequence and their steps move together. Watch two columns: an amber ε means an operator is near its budget, and a red "budget exhausted" pill means it has left.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>On beat 4, point at the Op-E row: the least data (7,000 samples) and the highest ε.</li>
+          <li>Mention that each row is a separate account with its own role and bucket.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Five operators, two equipment vendors, five regions. Each runs in its own isolated account. The raw incidents in this column never leave it."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How are the operators isolated from each other and from you?"</strong> One task, one IAM role and one bucket per operator (AWS-mode design). Only masked updates leave. Maps to T2.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> All five clients are simulated in mock mode. The operators and their sample counts are fictional.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <ul>
+          <li>Do not point at Op-E's Update norm after beat 4; it will not show the 14× value.</li>
+          <li>The Poison toast says "next round", but if training is under way, it hits the update of the round in progress.</li>
+          <li>If you press Poison during the 2.6-second aggregate phase, the flag is cleared without effect. Press it again.</li>
+          <li>Drop is one-way until a reset. Resume does not bring a dropped operator back. In the round in progress, a dropped operator's update is still counted.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 10 -->
+  <article class="comp" id="c-10">
+    <header>
+      <span class="comp-num">10</span>
+      <h3>Checkpoints</h3>
+      <span class="where">panel <code>checkpoints</code>, file <code>panels2.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It keeps signed snapshots of the trained adapter. You can see their quality and privacy cost, roll back
+        to one, or send one to the Proving Ground for testing. This is where a model leaves the Learn plane.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li><strong>A row of chips</strong> joined by a line: ckpt-r02, ckpt-r04 … ckpt-r12, each with "loss 1.674" and so on. The selected chip has a purple border (the newest by default). A promoted checkpoint shows a small arrow-in-circle icon.</li>
+        <li><strong>Details of the selected checkpoint:</strong>
+          <ul>
+            <li>Round: "12 (auto)" or "(manual)".</li>
+            <li>Validation loss: 0.7038, with the change from the previous checkpoint, such as "(−0.0921 vs ckpt-r10)". Green if lower, red if higher.</li>
+            <li>Accuracy: 82.2%.</li>
+            <li>Privacy spent: "ε max 2.59 (δ = 1e-5)", the highest operator ε at that moment.</li>
+            <li>Adapter: hash and size, 21.6 MiB.</li>
+            <li>Object: S3 path <code>s3://spectrum-fl-checkpoints/fl-2026-10-31-a/r12/adapter.safetensors</code>.</li>
+            <li>Signature: "Signed aggregator" with a shield icon.</li>
+            <li>Saved: the time.</li>
+          </ul></li>
+        <li><strong>Buttons:</strong> Save checkpoint (in the header), Promote to Proving Ground, and Restore.</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>save_checkpoint</code>, <code>restore_checkpoint</code>, <code>promote</code> in <code>engines/federation.py</code></dd>
+        <dt>Arrives by</dt><dd><code>fl.checkpoint</code> (save and restore), <code>fl.promote</code></dd>
+        <dt>Store slice</dt><dd><code>federation.checkpoints</code></dd>
+        <dt>Changes when</dt><dd>Automatically every second round (setting "Auto-checkpoint every N rounds", default 2), or on a button press</dd>
+      </dl>
+      <p><strong>Saving.</strong> The engine builds the record: id <code>ckpt-rNN</code> (a second save in the same round gets a suffix), round, loss, accuracy, ε max, adapter hash and S3 path. It then appends a <code>fl.checkpoint</code> record to the hash-chained ledger, signed with the aggregator key <code>kms:spectrum/aggregator</code>. The checkpoint keeps the ledger sequence number and signature. Each save also adds a purple diamond on <a href="#c-4">Convergence</a> and a small pulse within Learn on the ribbon.</p>
+      <p><strong>Promoting</strong> marks the checkpoint as promoted. The Proving engine then registers it as a new candidate model, "nlm-v… (federated 1B)", and the ribbon pulses from Learn to Verify. Promoting does not start the evaluation and writes no ledger record itself.</p>
+      <p><strong>Restoring</strong> sets the global loss and accuracy back to the checkpoint's values. It writes a signed <code>fl.restore</code> ledger record as the human user <code>a.rivera</code>, with a warning event "global model restored to ckpt-…".</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click a chip</th><td>Selects that checkpoint.</td><td>The details and buttons refer to it. Browser only.</td></tr>
+            <tr><th>Save checkpoint</th><td>Snapshots the latest aggregated model now.</td><td><code>POST /api/fl/checkpoint</code>. New chip "(manual)". Signed <code>fl.checkpoint</code> ledger record. Toast "Checkpoint saved, signed and ledgered".</td></tr>
+            <tr><th>Promote to Proving Ground</th><td>Sends the selected checkpoint for evaluation.</td><td><code>POST /api/fl/checkpoint/{id}/promote</code>. Events <code>fl.promote</code> and <code>eval.candidate</code>. Button reads "Promoted", chip gets the arrow icon. Toast "ckpt-… sent to the Proving Ground".</td></tr>
+            <tr><th>Restore</th><td>Rolls the global model back.</td><td><code>POST /api/fl/checkpoint/{id}/restore</code>. Signed <code>fl.restore</code> ledger record. Warning toast "Global model restored to ckpt-…". Also adds a duplicate purple diamond at that checkpoint's round on <a href="#c-4">Convergence</a> (and a ribbon pulse within Learn).</td></tr>
+            <tr><th>Click the "Signed" badge</th><td>Opens the ledger record.</td><td>Inspector shows the signed record. Browser only.</td></tr>
+            <tr><th>Click the adapter hash</th><td>Copies it.</td><td>Browser only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Loss should fall from chip to chip. A green delta means better than the previous checkpoint. Privacy spent tells you how much budget that model cost. Use it to compare checkpoints on privacy, not just accuracy.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Usually not needed: beat 5 promotes the latest checkpoint for you.</li>
+          <li>To show provenance by hand, click the "Signed" badge on ckpt-r12 to open its ledger record.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Every checkpoint is hashed, signed and written to the ledger, with the privacy it cost. That is how we can later trace a deployed model back to the exact round that trained it."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How do you know which model came from which training run?"</strong> Each checkpoint carries its adapter hash, round, ε and a ledger signature. Maps to T1 (repeatable path to deploy) and Trust (traceability).</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The SHA-256 hashes and Ed25519 signatures through the ledger are real. The S3 store and the adapter file are simulated (source chip: "Simulated store, real signatures").</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>In the mock, Restore is signed and recorded, but the next round's loss follows the simulated curve again. Do not promise a visible rollback on the chart. Promote alone does not start an evaluation: beat 5, or the Proving Ground screen, does that.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 11 -->
+  <article class="comp" id="c-11">
+    <header>
+      <span class="comp-num">11</span>
+      <h3>Enclave attestation</h3>
+      <span class="where">panel <code>attestation</code>, file <code>panels2.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows why operators can trust the aggregator. The masks can only be removed by one exact,
+        measured piece of software running in a sealed enclave, and the key policy enforces it.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li><strong>Subtitle:</strong> the enclave image name, <code>spectrum-aggregator-v0.4.2.eif</code>.</li>
+        <li><strong>Pill:</strong> green "Attested" when the secure aggregation mode is enclave. Otherwise grey "Enclave mode off", the body dims, and a "Switch to enclave mode" button appears.</li>
+        <li><strong>PCR0 image, PCR1 kernel, PCR2 application:</strong> fingerprints of the enclave image, its kernel and its application. Shown short; click to copy.</li>
+        <li><strong>KMS key:</strong> <code>arn:aws:kms:us-west-2:111122223333:key/agg-mask-seeds</code>, the key that protects the mask seeds.</li>
+        <li><strong>Key policy condition:</strong> <code>kms:RecipientAttestation:PCR0</code>. The key only answers an enclave whose PCR0 matches.</li>
+        <li><strong>Chain of trust:</strong> "AWS Nitro Enclaves Root-G1 → enclave certificate → attestation document".</li>
+        <li><strong>Footnote:</strong> "Change one byte of the aggregator image and the key stops working, for us too."</li>
+      </ul>
+      <p><strong>In plain words:</strong> an enclave is a locked room inside a server that even the server's
+        administrators cannot look into. PCRs are fingerprints of exactly what code was loaded into the room. An
+        attestation is a statement signed by AWS hardware saying "this exact code is running". The key gives the
+        mask seeds only to a room whose fingerprint matches.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd>Attestation values live in <code>engines/trust.py</code> (<code>Trust.attestation</code>). The mode comes from the federation config.</dd>
+        <dt>Arrives by</dt><dd>Snapshot (<code>trust.attestation</code>). The mode changes through <code>fl.config</code>.</dd>
+        <dt>Store slice</dt><dd><code>trust.attestation</code>, <code>federation.config.secagg_mode</code></dd>
+        <dt>Changes when</dt><dd>Only when the secure aggregation mode changes</dd>
+      </dl>
+      <p>The PCR values are fixed hashes of fixed strings, and the pill depends only on the mode. Nothing is
+        attested live in mock mode. The link to the rest of the screen is logical:</p>
+      <ul>
+        <li>Enclave mode is what allows the rejection on <a href="#c-8">Client update norms</a>.</li>
+        <li>Every round's ledger record carries <code>attestation_pcr0: "verified"</code> in enclave mode, or <code>"n/a"</code> otherwise.</li>
+      </ul>
+      <p>The same attestation data also appears on the <a href="trust.html">Trust Center</a>.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Switch to enclave mode (only when off)</th><td>Turns enclave mode back on.</td><td><code>POST /api/fl-config</code> with <code>secagg_mode: enclave</code>. Signed <code>fl.config</code> ledger record. Grey diamond on Convergence. Pill turns "Attested". No confirmation step.</td></tr>
+            <tr><th>Click a PCR hash</th><td>Copies it.</td><td>Browser only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Green "Attested" is the normal state for the demo. Grey "Enclave mode off" means poisoned updates will be accepted.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>Only if a judge asks how the enclave is trusted. Point at PCR0 and the key policy condition.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Operators release their mask seeds only to a key that checks this fingerprint. If anyone changes one byte of the aggregator, including us, the key stops working."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Why should operators trust your aggregator?"</strong> They do not have to trust us, only the measured code that AWS hardware attests. Maps to T2 and Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The attestation values are fixed placeholders. The Nitro Enclave aggregator is a stretch goal in the design.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Do not say "we just attested the enclave live". Say "this is the attestation design; in AWS mode it comes from Nitro Enclaves and KMS".</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 12 -->
+  <article class="comp" id="c-12">
+    <header>
+      <span class="comp-num">12</span>
+      <h3>Data sovereignty</h3>
+      <span class="where">panel <code>sovereignty</code>, file <code>panels2.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It accounts for every byte that crossed an organisation's boundary, and shows that none of it was raw
+        incident data.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li><strong>Three totals:</strong> Adapter updates moved (1.3 GiB), Metrics moved (360.0 KiB) and Raw data moved (0 B, in green).</li>
+        <li><strong>Flow diagram (Sankey):</strong>
+          <ul>
+            <li>Five operator boxes on the left, each labelled with its private incident count, such as "Op-A 18,400 private incidents".</li>
+            <li>Bands flow to "Enclave aggregator". Each band's width is that operator's uploaded bytes.</li>
+            <li>One band goes on to "Model registry (S3)" for signed checkpoints.</li>
+            <li>A dashed green line reads "Raw incident data across boundaries: 0 B".</li>
+          </ul></li>
+        <li>Hover a band to see its label, such as "Op-A → enclave: masked adapter updates".</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Federation.sovereignty</code> counters, updated in <code>tick</code> when an upload finishes</dd>
+        <dt>Arrives by</dt><dd><code>fl.upload</code> (per operator per round)</dd>
+        <dt>Store slice</dt><dd><code>federation.sovereignty</code>, <code>federation.checkpoints</code></dd>
+        <dt>Changes when</dt><dd>Each time an operator finishes uploading</dd>
+      </dl>
+      <p><strong>Counting.</strong> Every upload adds 22,675,456 bytes (21.6 MiB) of adapter and 6,144 bytes of metrics for that operator. After 12 rounds: 60 uploads ≈ 1.27 GiB (shown as 1.3 GiB) and 360 KiB.</p>
+      <p><strong>The registry band</strong> is computed in the browser: number of checkpoints × 21.6 MiB.</p>
+      <p><strong>Raw data.</strong> The "0 B" is printed as a constant. No code path in the federation engine moves raw data, so there is nothing to count. In AWS mode the evidence would come from VPC Flow Logs and S3 access logs, as the source chip says.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody><tr><th>Hover a band</th><td>Shows what flows and how much.</td><td>Tooltip only.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Thick bands are model updates. The green dashed line is the promise: zero bytes of raw incidents. Band widths differ only slightly, because every operator sends the same-sized adapter each round it takes part.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>Scroll down after beat 3 or 4 if time allows. Point at "Raw data moved 0 B".</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Over a gigabyte of masked model updates moved. Zero bytes of incident data crossed any operator's boundary."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Prove that no raw data left an operator."</strong> In AWS mode, by flow logs and bucket access logs. Here, by design and accounting. Maps to T2.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The counters are simulated, and "0 B" holds by construction, not from measured network logs.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Do not call the 0 B "measured" in mock mode. Rounds cut short with Next round now skip the upload phase, so their bytes are not counted.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 13 -->
+  <article class="comp" id="c-13">
+    <header>
+      <span class="comp-num">13</span>
+      <h3>Homomorphic encryption</h3>
+      <span class="where">panel <code>he</code>, file <code>panels2.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows a stretch option: adding the updates together while they stay encrypted, so not even an
+        enclave sees them in the clear. The cost is size and time.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Subtitle: "stretch: CKKS micro-demo on a 4,096-weight slice".</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Item</th><th>Value</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Scheme</th><td>CKKS</td><td>An encryption scheme that supports adding (and multiplying) approximate real numbers while encrypted.</td></tr>
+            <tr><th>Poly modulus</th><td>8,192</td><td>Size of the maths structure. Bigger is more secure and slower.</td></tr>
+            <tr><th>Coeff modulus</th><td>[60, 40, 40, 60] bits</td><td>The chain of moduli that sets how many operations fit.</td></tr>
+            <tr><th>Scale</th><td>2^40</td><td>Fixed-point precision for real numbers.</td></tr>
+            <tr><th>Security</th><td>128-bit</td><td>Standard security level.</td></tr>
+            <tr><th>Decrypt error</th><td>3.5e-7 (green)</td><td>How far the decrypted sum is from the exact sum. Tiny.</td></tr>
+            <tr><th>Ciphertext expansion</th><td>plaintext slice 16 KiB, ciphertext 512 KiB</td><td>Encrypted data is 32 times bigger.</td></tr>
+            <tr><th>Noise budget remaining (bits)</th><td>encrypt 97, add Op-A 95 … add Op-E 87, rescale 57, decrypt 57</td><td>Each operation uses up some noise budget. Decryption fails if it reaches 0. 57 bits left is comfortable.</td></tr>
+            <tr><th>Timings</th><td>encrypt 48 ms, aggregate 14 ms, decrypt 10 ms</td><td>How long each step took.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Federation.he</code>. Parameters are set in <code>__init__</code>. The noise budget, error and timings are refreshed in <code>_compute_secagg</code>.</dd>
+        <dt>Arrives by</dt><dd>Snapshot only. No event updates this object, so the panel refreshes on reconnect or reset.</dd>
+        <dt>Store slice</dt><dd><code>federation.he</code></dd>
+        <dt>Changes when</dt><dd>On the backend, every aggregation. In the browser, on the next snapshot.</dd>
+      </dl>
+      <p>The parameters are fixed. At each aggregation, the backend redraws:</p>
+      <ul>
+        <li>the decrypt error, randomly around 3 × 10<sup>−7</sup>;</li>
+        <li>the timings, randomly 41 to 49 ms, 12 to 15 ms and 9 to 11 ms;</li>
+        <li>the noise-budget list: one "add" row per participating operator, 2 bits each. The list is the same in every mode.</li>
+      </ul>
+      <p>Choosing "CKKS (HE)" in Training settings does two things in the mock. The mask-and-encrypt phase takes 1.6 times longer. And poisoned updates are accepted, because rejection requires enclave mode. The panel is behind the flag <code>fl.he</code> (marked experimental). The backend's <code>flags.json</code> also turns it on.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data. The CKKS mode itself is chosen in the <a href="#c-15">settings drawer</a>.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Watch three numbers: the 32-times size cost, the bits left at "decrypt" (above 0 means it works), and an error close to zero.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>Skip in the main run. Use it only if a judge asks about homomorphic encryption.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"As a stretch, we sketched CKKS homomorphic encryption: the sum happens on encrypted data. It works, but ciphertexts are 32 times bigger, which is why masking plus an enclave is our default."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Did you consider homomorphic encryption?"</strong> Yes, as a stretch path, with its cost shown. Maps to T2.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The statistics are simulated ("Simulated CKKS stats"). In AWS mode the design names TenSEAL or OpenFHE on ECS.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Say "stretch", never "we encrypt every update homomorphically". Do not switch to CKKS mode before beat 4: the poisoned update would be accepted.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 14 -->
+  <article class="comp" id="c-14">
+    <header>
+      <span class="comp-num">14</span>
+      <h3>Training log</h3>
+      <span class="where">panel <code>fl-log</code>, file <code>panels2.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A plain-text record of everything the Learn plane did, newest first, with links to the signed ledger
+        records. It is the place to point when someone asks "what just happened?".</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Up to 60 rows. Each row has:</p>
+      <ul>
+        <li>a severity icon: info circle, amber warning triangle, or red critical icon;</li>
+        <li>the time;</li>
+        <li>the actor: <code>aggregator</code>, an operator such as <code>op-e</code>, or <code>human:a.rivera</code>;</li>
+        <li>a one-line summary;</li>
+        <li>on the right, a <code>#3444</code>-style link when that event wrote a ledger record.</li>
+      </ul>
+      <p>Example sequence after beat 4, in time order (on screen this reads bottom to top): "Op-E compromised: next update will be poisoned", then "Op-A uploaded masked adapter update (21.6 MiB)", then "round 13: 10 pairwise masks cancelled, max |Σmasked − Σtrue| = 0", "round 13: secure aggregation in enclave", "Op-E round 13: update norm 14.2× median, rejected by robust aggregation in the enclave", "round 13 aggregated: val loss 0.686, accuracy 83.8%" with a ledger link, and "Op-E at 90% of privacy budget (ε 2.70 of 3.0)".</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd>Every <code>bus.emit</code> on the learn plane</dd>
+        <dt>Arrives by</dt><dd>The same WebSocket events as everything else. High-rate step and histogram events are kept out.</dd>
+        <dt>Store slice</dt><dd><code>stream</code> (all events), filtered to <code>plane === "learn"</code></dd>
+        <dt>Changes when</dt><dd>Any Learn-plane event</dd>
+      </dl>
+      <p>Event types you will see: <code>fl.round.phase</code>, <code>fl.upload</code>, <code>fl.secagg</code>, <code>fl.round</code>, <code>fl.checkpoint</code>, <code>fl.config</code>, <code>fl.client</code>, <code>fl.poison</code>, <code>fl.budget</code>, <code>fl.run</code>, <code>fl.promote</code>. Beat 14 also adds <code>loop.enqueue</code> ("… queued as private training data at Op-A for round N").</p>
+      <p>Ledger links appear on rows for rounds, checkpoints, settings changes, restores and the beat 14 loop record. A Stop writes a ledger record too, but its log row has no link.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click <code>#seq</code></th><td>Opens that ledger record.</td><td>Inspector shows the signed record. Browser only.</td></tr>
+            <tr><th>Scroll</th><td>Shows older rows.</td><td>The list is about 220 px tall.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Read from the top down for "most recent first". Red rows are attacks or a spent budget. Amber rows are warnings and operator actions.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>After beat 4, click the <code>#</code> link on the "round … aggregated" row to show the signed round record with its decisions.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Every round, including the rejection, is a signed record in the ledger. You can click straight into it."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Can you audit what the training did?"</strong> Yes. Each round's participants, decisions, ε and settings are signed. Maps to Trust and T2.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The ledger records behind the links are real, hash-chained and signed. The events they describe come from the simulation.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>The log is empty right after a reset, because the reset clears event history. It fills as soon as beat 2 starts the round.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 15 -->
+  <article class="comp" id="c-15">
+    <header>
+      <span class="comp-num">15</span>
+      <h3>Training settings drawer</h3>
+      <span class="where">opened by "Training settings" in the header; <code>SettingsDrawer</code> in <code>FederationPage.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It changes how training runs: privacy noise, clipping, budget, rounds, aggregation strategy and secure
+        aggregation mode. Before you commit, it shows each operator's projected privacy spend. Every applied change
+        is signed into the ledger.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>A 440 px panel opens on the right over a dimmed page. There is no screenshot of it in this guide.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Section</th><th>Control</th><th>Range</th><th>Default</th></tr></thead>
+          <tbody>
+            <tr><th rowspan="3">Differential privacy</th><td>Noise multiplier σ</td><td>0.3 to 3, step 0.05</td><td>1.10</td></tr>
+            <tr><td>Clip norm C</td><td>0.1 to 5, step 0.1</td><td>1.0</td></tr>
+            <tr><td>Target ε</td><td>0.5 to 10, step 0.1</td><td>3.0</td></tr>
+            <tr><th rowspan="3">Optimisation</th><td>Rounds</td><td>1 to 50</td><td>30</td></tr>
+            <tr><td>Learning rate</td><td>1e-5 to 1e-3, log scale</td><td>2e-4</td></tr>
+            <tr><td>Auto-checkpoint every N rounds</td><td>0 to 10 (0 = off)</td><td>2</td></tr>
+            <tr><th rowspan="3">Aggregation</th><td>Strategy</td><td>FedAvg, Trimmed mean, Krum, Norm-bounded</td><td>Trimmed mean</td></tr>
+            <tr><td>Secure aggregation mode</td><td>Masking, Masking + enclave, CKKS (HE)</td><td>Masking + enclave</td></tr>
+            <tr><td>Participation</td><td>one toggle per operator</td><td>all on</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>Projected ε box</strong> under the privacy sliders: "Projected ε at round 30 with these settings".</p>
+      <ul>
+        <li>One bar and number per operator.</li>
+        <li>A vertical tick marks the target.</li>
+        <li>Bars turn red, and the number red, when the projection reaches the target.</li>
+        <li>The note says: "The vertical tick is the target. Red operators would exhaust their budget and leave early."</li>
+      </ul>
+      <p>A short note explains the modes: "Masking alone keeps the server blind but prevents robust aggregation.
+        The enclave mode releases mask seeds only to the attested aggregator, which can then reject poisoned updates."</p>
+      <p>The footer reads "N unsaved changes; applying writes a ledger record" (or "No changes"), with Cancel and Apply changes buttons.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Federation.projected_eps</code> and <code>Federation.set_config</code></dd>
+        <dt>Arrives by</dt><dd><code>GET /api/fl/projected_eps?sigma=…&amp;rounds=…</code> while you drag. Apply sends <code>POST /api/fl-config</code>, then the <code>fl.config</code> event arrives.</dd>
+        <dt>Store slice</dt><dd><code>federation.config</code>, <code>federation.annotations</code></dd>
+        <dt>Changes when</dt><dd>Projection: 150 ms after σ or Rounds stop changing. Config: on Apply.</dd>
+      </dl>
+      <ol class="flow" aria-label="Applying a settings change">
+        <li class="ui"><b>Drag sliders</b><span>local copy only</span></li>
+        <li><b>Projection</b><span>√(ε² so far + cost of remaining steps at new σ)</span></li>
+        <li><b>Apply</b><span>only changed keys sent</span></li>
+        <li class="src"><b>Ledger <code>fl.config</code></b><span>before and after, signed</span></li>
+        <li class="ui"><b>Panels update</b><span>grey diamond on Convergence</span></li>
+      </ol>
+      <p><strong>Projection.</strong> The backend takes each operator's ε² so far and adds the cost of the remaining (rounds − current round) × 240 steps at the new σ. Only σ and Rounds change the projection. Target ε only changes which bars turn red.</p>
+      <p>Checked against the pre-demo state (after round 12):</p>
+      <ul>
+        <li>At the defaults (σ 1.10, 30 rounds), Op-E projects 4.09 and Op-C 3.08. Both turn red.</li>
+        <li>Raising σ to 2.4 brings Op-E to 2.97.</li>
+        <li>Cutting rounds to 16 brings Op-E to 2.99.</li>
+      </ul>
+      <p><strong>What each setting really changes in the mock:</strong></p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Setting</th><th>Effect in the simulation</th></tr></thead>
+          <tbody>
+            <tr><th>σ</th><td>ε spent per step falls with 1/σ². Federated loss rises by 0.09 per unit of σ above 1.1.</td></tr>
+            <tr><th>C</th><td>Moves the clip line and the histogram range in DP-SGD internals, and changes the clipped share. It does not change ε.</td></tr>
+            <tr><th>Target ε</th><td>Moves the red line, the 90% warning and the point where an operator leaves.</td></tr>
+            <tr><th>Rounds</th><td>When the run becomes "complete". Also feeds the projection.</td></tr>
+            <tr><th>Learning rate</th><td>Recorded and displayed only. It does not change the curves.</td></tr>
+            <tr><th>Auto-checkpoint</th><td>How often a checkpoint is saved after a round.</td></tr>
+            <tr><th>Strategy</th><td>FedAvg never rejects outliers. Trimmed mean, Krum and Norm-bounded all use the same median + 4·MAD rule in the mock.</td></tr>
+            <tr><th>Secure aggregation mode</th><td>"Masking + enclave": outliers can be rejected and attestation shows "Attested". "Masking": no rejection. "CKKS (HE)": mask phase 1.6 times longer, and no rejection.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>σ and Rounds sliders</th><td>Edit the draft, and refresh the projection.</td><td><code>GET /api/fl/projected_eps</code> (read-only). Projection bars move. Nothing saved.</td></tr>
+            <tr><th>Other sliders and segmented buttons</th><td>Edit the draft.</td><td>Footer counts unsaved changes. Nothing saved.</td></tr>
+            <tr><th>Participation toggle</th><td>Pauses or resumes that operator right away. This is not part of Apply.</td><td><code>POST /api/fl/client/{op}/pause</code>, the same as the fleet's Pause button. No ledger record.</td></tr>
+            <tr><th>Apply changes</th><td>Saves the changed settings.</td><td><code>POST /api/fl-config</code>. Signed <code>fl.config</code> ledger record with before and after values. Grey diamond on Convergence, labelled for example "noise_multiplier 1.1 → 1.5". Toast "Applied N changes (ledgered)". Drawer closes.</td></tr>
+            <tr><th>Cancel, ×, or click outside</th><td>Closes without saving.</td><td>Nothing changes.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>In the projection, any red bar is an operator that would run out of budget before the run ends. Coloured bars left of the tick are safe.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Click "Training settings".</li>
+          <li>Drag "Noise multiplier σ" up and watch Op-E's red bar shrink toward the tick.</li>
+          <li>Click Cancel to leave the demo state untouched. Or click Apply to show the ledgered change, if you have time.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Privacy is a dial. More noise means each operator's budget lasts longer, at a small cost in accuracy. Before anyone commits, we show who would run out. And the change itself is signed."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How do you trade privacy against accuracy?"</strong> With σ, and the projection shows the effect before you apply it. Maps to T2 and T1.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The ledger record of each change is real and signed. The projection uses the same approximate accountant as the privacy chart.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <ul>
+          <li>Participation toggles act immediately, even if you then press Cancel.</li>
+          <li>Apply writes to the ledger on the live demo backend. Do it on purpose, not by accident.</li>
+          <li>Do not claim Krum and Norm-bounded behave differently from Trimmed mean here.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- 16 -->
+  <article class="comp" id="c-16">
+    <header>
+      <span class="comp-num">16</span>
+      <h3>Federation alerts (toasts)</h3>
+      <span class="where">bottom right, on any screen; <code>core/ws.ts</code> and <code>app/Overlays.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It flags important Learn-plane events wherever you are in the console, with a button that jumps back to
+        this screen.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Toast</th><th>Look</th><th>Button</th></tr></thead>
+          <tbody>
+            <tr><td>"Op-E round 13: update norm 14.2× median, rejected by robust aggregation in the enclave"</td><td>Red border, critical icon, pulses twice</td><td>Inspect</td></tr>
+            <tr><td>"Op-E at 90% of privacy budget (ε 2.70 of 3.0)"</td><td>Amber warning icon</td><td>Open</td></tr>
+            <tr><td>"Op-E reached its ε budget and leaves the federation"</td><td>Red, critical</td><td>Open</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Each has an × to dismiss it. Each toast also disappears on its own after 6 seconds; at most three are shown, newest kept. The buttons on this screen also raise short confirmation toasts, such as "Training paused".</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>fl.poison</code> from <code>_finish_round</code>. <code>fl.budget</code> from <code>_check_budget</code>.</dd>
+        <dt>Arrives by</dt><dd>WebSocket. <code>maybeToast</code> in <code>core/ws.ts</code> decides which events become toasts.</dd>
+        <dt>Store slice</dt><dd>UI store toasts list</dd>
+        <dt>Changes when</dt><dd>A poison decision, or an operator crossing 90% or 100% of its budget</dd>
+      </dl>
+      <p>From the Learn plane, only two event types raise toasts. <code>fl.poison</code> does (it is always critical). <code>fl.budget</code> does at both its warning and critical levels. Both buttons go to <code>/federation</code>, even though the poison button is labelled "Inspect".</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Inspect / Open</th><td>Goes to this screen.</td><td>Navigates to <code>/federation</code>. No backend call.</td></tr>
+            <tr><th>×</th><td>Dismisses the toast.</td><td>Browser only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Red means an attack was handled or an operator left. Amber means an operator is close to its privacy limit.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps"><li>On beat 4, point at the red rejection toast as soon as it appears.</li></ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"That alert is Operator E reaching its privacy budget. It has just left the federation on its own. The guarantee enforces itself."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"What happens when an operator uses up its privacy budget?"</strong> It is removed automatically and everyone is told. Maps to T2.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The events behind these toasts come from the mock simulation.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>You have about 6 seconds to point at a toast. If you miss it, the same message stays in the <a href="#c-14">Training log</a> (card 14) and the live stream.</p>
+        <p>Training keeps running after beat 4. At normal speed, Op-E hits ε 3.0 about 105 s after beat 2 starts round 13, usually during beat 5 or 6 on another screen. You can either use the line above when the red toast appears, or press Pause on this screen. Pause only after the red cross and the rejection toast have appeared, and before you press <kbd>5</kbd>. If you pause earlier, the round never aggregates and the rejection never shows. Pausing freezes the Learn plane, but the later beats do not need training to run.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================================== walkthrough -->
+  <h2 id="walkthrough">60-second walkthrough</h2>
+  <p>Use this if a judge says "walk me through this page". Point as you go, top to bottom.</p>
+  <div class="callout say">
+    <p class="title">Say this (about 60 seconds)</p>
+    <p>"This is the Learn plane. Five operators fine-tune one small network model, a LoRA adapter on a
+      1-billion-parameter Llama, on their own private incident data.</p>
+    <p>The timeline shows each round: every operator trains locally with DP-SGD, masks its update and uploads
+      only that. The enclave combines them.</p>
+    <p>Convergence shows why: together they beat every operator alone. Privacy budget shows the cost. Each operator
+      has a hard ε limit and leaves automatically when it reaches it.</p>
+    <p>Secure aggregation shows what our server sees: noise from each operator, yet the sum comes out exact. Update
+      norms is the poisoning defence: the attested enclave rejects an update fourteen times too big.</p>
+    <p>Below, each checkpoint is hashed and signed into the ledger before it goes to the Proving Ground, and
+      data sovereignty shows over a gigabyte of updates moved, and zero bytes of raw data.</p>
+    <p>The curves and the accountant are simulated. The mask maths and the signatures are real."</p>
+  </div>
+
+  <!-- ===================================================================== real vs sim -->
+  <h2 id="real-vs-sim">Real and simulated on this screen</h2>
+  <div class="callout real">
+    <p class="title">Say it plainly</p>
+    <p>The README's rule: the ledger, secure aggregation maths, signed agent messages and policy are real.
+      Training curves and the privacy accountant are simulated. On this screen that means:</p>
+  </div>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Part</th><th>Status</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><th>Pairwise-mask cancellation</th><td><span class="rs real">Real</span></td><td>Integer maths mod 2^32 with exactly zero error. It masks synthetic 16×16 matrices.</td></tr>
+        <tr><th>Ledger records and signatures</th><td><span class="rs real">Real</span></td><td><code>fl.round</code>, <code>fl.checkpoint</code>, <code>fl.config</code>, <code>fl.restore</code> and <code>fl.stop</code> are hash-chained and Ed25519-signed.</td></tr>
+        <tr><th>Controls</th><td><span class="rs real">Real</span></td><td>Buttons and settings really change the engine's state.</td></tr>
+        <tr><th>Poison rule</th><td><span class="rs mixed">Partly real</span></td><td>The median + 4·MAD rule is real code. It runs on simulated norms.</td></tr>
+        <tr><th>Loss, accuracy, local-only curves</th><td><span class="rs sim">Simulated</span></td><td>Formula-driven, with noise.</td></tr>
+        <tr><th>ε accountant and projection</th><td><span class="rs sim">Simulated</span></td><td>An approximation that composes when σ changes. Opacus RDP in AWS mode.</td></tr>
+        <tr><th>Gradient histograms, GPU, throughput</th><td><span class="rs sim">Simulated</span></td><td>Generated distributions and a fixed formula.</td></tr>
+        <tr><th>Attestation, HE statistics, byte counters</th><td><span class="rs sim">Simulated</span></td><td>Fixed or generated values. "0 B raw" holds by construction.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===================================================================== related -->
+  <h2 id="related">Related screens and how data flows</h2>
+  <ol class="flow wide" aria-label="Where federation data goes">
+    <li class="src"><b>Federation Center</b><span>rounds, checkpoints</span></li>
+    <li><b>Proving Ground</b><span>promoted checkpoint becomes a candidate</span></li>
+    <li><b>Release</b><span>shadow, then canary</span></li>
+    <li><b>Swarm Tower</b><span>agents run the model</span></li>
+    <li class="ui"><b>Audit</b><span>provenance back to the round</span></li>
+  </ol>
+  <ul>
+    <li><a href="proving.html">Proving Ground</a>: the "Promote to Proving Ground" button, or beat 5, turns the latest <a href="#c-10">checkpoint</a> into a candidate model with its adapter hash, round and ε max.</li>
+    <li><a href="audit.html">Audit, provenance and dossier</a>: every <code>fl.round</code>, <code>fl.checkpoint</code> and <code>fl.config</code> record written here lives in the ledger. Provenance (beat 11) links a deployed model back to its federated round.</li>
+    <li><a href="mission.html">Mission Control</a>: the Learn segment of the ribbon shows "Round N/30" and "ε max x.xx of 3", read from this screen's data. The Consortium panel there draws the same five operators on a ring around the enclave aggregator, from the same <code>federation</code> slice (status, ε, step, bytes uploaded). Its moving packets follow the same <code>fl.upload</code> and <code>fl.round.phase</code> events that drive the panels here.</li>
+    <li><a href="trust.html">Trust Center</a>: the same enclave attestation data as <a href="#c-11">card 11</a>.</li>
+    <li><a href="observability.html">Observability</a>: the source of the GPU sparklines in the <a href="#c-9">fleet</a>.</li>
+    <li><a href="settings.html">Settings, feature flags and presenter view</a>: where the <code>fl.*</code> and <code>demo.*</code> flags for this screen are switched.</li>
+    <li><a href="shell.html">Console frame and controls</a>: the ribbon, toasts, Inspector and live stream used here.</li>
+    <li><a href="demo-playbook.html#beat-2">Demo playbook, beats 2 to 4</a>: the scripted run of this screen.</li>
+  </ul>
+
+</main>
+</body>
+</html>

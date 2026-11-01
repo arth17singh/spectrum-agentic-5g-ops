@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feature map and parallel build plan | SPECTRUM presenter guide</title>
+<link rel="stylesheet" href="assets/guide.css">
+<script src="assets/guide.js" defer></script>
+</head>
+<body data-page="feature-map.html">
+<main class="content">
+
+  <header class="page-head">
+    <h1>Feature map and parallel build plan</h1>
+    <p class="lede">Every feature in the SPECTRUM console, where it lives in the code, how the features feed each other,
+      and how a team can build or extend the whole set in parallel through small pull requests without breaking the
+      demo. Part A is the catalogue, Part B shows the relationships, Part C is the build plan. Everything here was
+      checked against the code in <code>frontend/src</code> and <code>backend/spectrum</code>.</p>
+    <div class="meta">
+      <span>Screen registry <code>frontend/src/features/index.ts</code></span>
+      <span>Flags <code>frontend/src/core/flags.tsx</code></span>
+      <span>Engine wiring <code>backend/spectrum/engine.py</code></span>
+    </div>
+  </header>
+
+  <h2 id="how-to-read">How to read this page</h2>
+  <p>Use it in two ways. When you present, use Part A and Part B to answer "where does that number come from?" and
+    "how do the parts connect?". When you build, use Part C to pick a lane, see which files you own, and see which
+    other pull requests you wait for.</p>
+  <ul>
+    <li><b>Feature</b> means one thing you can switch on or off, or one thing a team can own: a screen, a family of
+      panels, an engine capability, or a piece of the console frame.</li>
+    <li><b>Engine</b> means one Python class in <code>backend/spectrum/engines/</code>. It holds the state of one plane.
+      Most engines run a step ten times a second (the ledger acts only when called).</li>
+    <li><b>Slice</b> means one part of the browser's data store (<code>frontend/src/core/store.ts</code>). Each engine
+      has exactly one slice with the same name.</li>
+    <li><b>Flag</b> means an on/off switch defined in <code>core/flags.tsx</code>. A flag is only on if every flag it
+      depends on is also on. See <a href="settings.html">Settings, feature flags and presenter view</a>.</li>
+  </ul>
+
+  <h2 id="anatomy">Anatomy of one feature</h2>
+  <p>Every feature in the console is built from the same seven parts. Once you can find these seven parts for one
+    screen, you can find them for all of them. The path of the data is always the same:</p>
+  <ol class="flow wide" aria-label="Path of data for every feature">
+    <li class="src"><b>Engine</b><span>Python class, ticks at 10 Hz, emits events with <code>bus.emit</code></span></li>
+    <li><b>Event bus</b><span>numbers every event (<code>seq</code>), keeps the last 20,000</span></li>
+    <li><b>WebSocket <code>/ws</code></b><span>one socket, batches every 100 ms</span></li>
+    <li><b>Store handler</b><span><code>H['event.type']</code> in <code>store.ts</code> updates one slice</span></li>
+    <li class="ui"><b>Panel</b><span>reads the slice with <code>useLive(s =&gt; s.slice)</code> and re-renders</span></li>
+  </ol>
+  <p>Commands go the other way. A button calls a function in <code>core/api.ts</code>, which sends
+    <code>POST /api/…</code> to <code>backend/spectrum/main.py</code>. The route calls one engine method. The engine
+    changes its state, emits events, and often appends a signed record to the ledger. The browser never changes a
+    slice directly from a button press, with one exception listed under <a href="#c-gaps">known gaps</a>.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <caption>The seven parts and where each one lives</caption>
+      <thead><tr><th>Part</th><th>What it is</th><th>Where it lives</th></tr></thead>
+      <tbody>
+        <tr><th>Manifest</th><td>Route, menu label, plane colour, go-to letter, lazy page. The shell builds the menu, routes, palette entries and <kbd>g</kbd> hotkeys from it.</td><td><code>features/&lt;name&gt;/manifest.ts</code>, listed once in <code>features/index.ts</code></td></tr>
+        <tr><th>Flags</th><td>One screen flag (the manifest <code>id</code>) plus optional panel and demo flags, each with <code>dependsOn</code>.</td><td><code>core/flags.tsx</code> (<code>FLAGS</code> array); remote overrides in <code>backend/spectrum/flags.json</code></td></tr>
+        <tr><th>Engine</th><td>The state and the rules: what happens each tick and on each command.</td><td><code>backend/spectrum/engines/&lt;engine&gt;.py</code>, created and wired in <code>engine.py</code> <code>Engine.build</code></td></tr>
+        <tr><th>Endpoints</th><td>REST commands that call engine methods.</td><td><code>backend/spectrum/main.py</code>; browser side in <code>core/api.ts</code></td></tr>
+        <tr><th>Events</th><td>Envelopes with <code>seq, ts, sim_t, plane, type, severity, actor, summary, data</code> and an optional <code>ledger</code> link.</td><td>Emitted in the engine; typed as <code>Envelope</code> in <code>core/types.ts</code></td></tr>
+        <tr><th>Slice and handlers</th><td>The slice holds the engine's snapshot. Handlers merge each event into it.</td><td><code>core/store.ts</code> (<code>LiveState</code>, <code>H</code>, <code>applyEvents</code>, <code>loadSnapshot</code>)</td></tr>
+        <tr><th>Panels</th><td>React components wrapped in <code>&lt;Panel id=…&gt;</code>. The <code>id</code> is what the spotlight lights up and what the guide's pins point at.</td><td><code>features/&lt;name&gt;/*.tsx</code>, built from <code>ui/</code> and <code>charts/</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout tip">
+    <p class="title">How a page gets its first data</p>
+    <p>On connect, <code>core/ws.ts</code> opens the WebSocket, holds incoming events in a buffer, fetches
+      <code>GET /api/snapshot</code> (all ten slices plus the last 400 stream events), loads it with
+      <code>loadSnapshot</code>, then replays only the buffered events with a higher <code>seq</code>. That is why a
+      freshly opened tab is complete at once and never double-counts. A <code>system.reset</code> event triggers the
+      same resync.</p>
+  </div>
+
+  <!-- =================================================================== PART A -->
+  <h2 id="part-a">Part A: feature catalogue</h2>
+  <p>Seven sections. Screens first, then the optional panel families inside them, then the engines behind them, then
+    the console frame, the shared plumbing, every event type, and every endpoint. Beat numbers link to the
+    <a href="demo-playbook.html">Demo playbook</a>.</p>
+
+  <h3 id="a-screens" data-toc-label="Screens">A1. Screens</h3>
+  <p>Thirteen modules are registered in <code>features/index.ts</code>. Ten live inside the console frame and appear in
+    the left rail. Three are "bare" routes that render without the frame: the phone approval page, the presenter view
+    and the printable dossier.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <caption>Where each screen lives</caption>
+      <thead><tr><th>Screen</th><th>Plane</th><th>Flags</th><th>Files</th><th>Beats</th></tr></thead>
+      <tbody>
+        <tr><th><a href="mission.html">Mission Control</a><br><code>/</code> <kbd>g</kbd> <kbd>m</kbd></th><td>All</td><td><code>screen.mission</code></td><td><code>features/mission/</code> <code>MissionPage.tsx</code>, <code>MiniTwin.tsx</code>; <code>charts/ConsortiumMap.tsx</code></td><td><a href="demo-playbook.html#beat-1">1</a>, <a href="demo-playbook.html#beat-14">14</a></td></tr>
+        <tr><th><a href="federation.html">Federation Center</a><br><code>/federation</code> <kbd>g</kbd> <kbd>f</kbd></th><td>Learn</td><td><code>screen.federation</code>, <code>fl.controls</code>, <code>fl.secagg_viz</code>, <code>fl.checkpoints</code>, <code>fl.attestation</code>, <code>fl.sovereignty</code>, <code>fl.he</code>, <code>demo.poison</code>, <code>demo.privileged_view</code></td><td><code>features/federation/</code> <code>FederationPage.tsx</code>, <code>panels.tsx</code>, <code>panels2.tsx</code></td><td><a href="demo-playbook.html#beat-2">2</a>, <a href="demo-playbook.html#beat-3">3</a>, <a href="demo-playbook.html#beat-4">4</a></td></tr>
+        <tr><th><a href="proving.html">Proving Ground</a><br><code>/proving</code> <kbd>g</kbd> <kbd>p</kbd></th><td>Verify</td><td><code>screen.proving</code>, <code>eval.parallel</code>, <code>eval.fed_eval</code>, <code>eval.scaling</code></td><td><code>features/proving/</code> <code>ProvingPage.tsx</code>, <code>panels.tsx</code>, <code>panels2.tsx</code>, <code>model.ts</code></td><td><a href="demo-playbook.html#beat-5">5</a></td></tr>
+        <tr><th><a href="release.html">Release Center</a><br><code>/release</code> <kbd>g</kbd> <kbd>r</kbd></th><td>Release</td><td><code>screen.release</code>, <code>release.dialects</code>, <code>demo.attacks</code> (regression button)</td><td><code>features/release/ReleasePage.tsx</code></td><td><a href="demo-playbook.html#beat-6">6</a></td></tr>
+        <tr><th><a href="swarm.html">Swarm Tower</a><br><code>/swarm</code> <kbd>g</kbd> <kbd>s</kbd></th><td>Operate</td><td><code>screen.swarm</code>, <code>swarm.negotiation</code>, <code>swarm.autonomy</code>, <code>demo.attacks</code></td><td><code>features/swarm/</code> <code>SwarmPage.tsx</code>, <code>panels.tsx</code>, <code>panels2.tsx</code>; <code>charts/HexMap.tsx</code>, <code>SwarmGraph.tsx</code></td><td><a href="demo-playbook.html#beat-7">7</a>, <a href="demo-playbook.html#beat-8">8</a>, <a href="demo-playbook.html#beat-10">10</a></td></tr>
+        <tr><th><a href="oversight.html">Oversight Desk</a><br><code>/oversight</code> <kbd>g</kbd> <kbd>o</kbd></th><td>Operate</td><td><code>screen.oversight</code></td><td><code>features/oversight/</code> <code>OversightPage.tsx</code>, <code>parts.tsx</code></td><td><a href="demo-playbook.html#beat-9">9</a></td></tr>
+        <tr><th><a href="trust.html">Trust Center</a><br><code>/trust</code> <kbd>g</kbd> <kbd>t</kbd></th><td>Prove</td><td><code>screen.trust</code></td><td><code>features/trust/</code> <code>TrustPage.tsx</code>, <code>panels.tsx</code></td><td>None</td></tr>
+        <tr><th><a href="audit.html">Audit &amp; Proof</a><br><code>/audit</code> <kbd>g</kbd> <kbd>a</kbd></th><td>Prove</td><td><code>screen.audit</code>, <code>audit.provenance</code>, <code>audit.dossier</code>, <code>demo.tamper</code></td><td><code>features/audit/</code> <code>AuditPage.tsx</code>, <code>panels.tsx</code>, <code>Provenance.tsx</code>, <code>verify.ts</code>; <code>core/canonical.ts</code></td><td><a href="demo-playbook.html#beat-11">11</a>, <a href="demo-playbook.html#beat-12">12</a></td></tr>
+        <tr><th><a href="observability.html">Observability</a><br><code>/observability</code> <kbd>g</kbd> <kbd>b</kbd></th><td>All</td><td><code>screen.observability</code>, <code>obs.heatmap</code></td><td><code>features/observability/</code> <code>ObservabilityPage.tsx</code>, <code>panels.tsx</code>, <code>LogSearch.tsx</code></td><td><a href="demo-playbook.html#beat-13">13</a></td></tr>
+        <tr><th><a href="settings.html">Settings &amp; Flags</a><br><code>/settings</code> <kbd>g</kbd> <kbd>,</kbd></th><td>None</td><td><code>screen.settings</code></td><td><code>features/settings/SettingsPage.tsx</code></td><td>None</td></tr>
+        <tr><th><a href="oversight.html">Mobile approvals</a><br><code>/m/approve</code>, bare</th><td>None</td><td>Manifest id <code>oversight.mobile</code> (not enforced on bare routes, see gaps)</td><td><code>features/mobile/MobileApprove.tsx</code></td><td><a href="demo-playbook.html#beat-9">9</a></td></tr>
+        <tr><th><a href="settings.html">Presenter view</a><br><code>/presenter</code>, bare</th><td>None</td><td>Manifest id <code>demo.director</code></td><td><code>features/presenter/PresenterPage.tsx</code></td><td>All (drives them)</td></tr>
+        <tr><th><a href="audit.html">Incident dossier</a><br><code>/dossier/:incident</code>, bare</th><td>None</td><td>Manifest id <code>audit.dossier</code></td><td><code>features/audit/DossierPage.tsx</code>, <code>dossierManifest.ts</code></td><td>After <a href="demo-playbook.html#beat-12">12</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="table-wrap">
+    <table class="compact">
+      <caption>What each screen talks to</caption>
+      <thead><tr><th>Screen</th><th>Engines</th><th>Endpoints it calls</th><th>Slices it reads</th></tr></thead>
+      <tbody>
+        <tr><th><a href="mission.html">Mission Control</a></th><td>Reads all of them</td><td>None. Display only.</td><td><code>federation, proving, release, twin, swarm, trust, ledger, oversight, observability, stream</code></td></tr>
+        <tr><th><a href="federation.html">Federation Center</a></th><td><code>federation</code> (+ trust attestation)</td><td><code>POST /api/fl/{action}</code>, <code>/api/fl-config</code>, <code>/api/fl/checkpoint/{id}/{action}</code>, <code>/api/fl/client/{op}/{action}</code>; <code>GET /api/fl/projected_eps</code></td><td><code>federation</code>, <code>live.gradhist</code>, <code>federation.secagg</code>, <code>trust.attestation</code>, <code>observability.frames</code>, <code>stream</code></td></tr>
+        <tr><th><a href="proving.html">Proving Ground</a></th><td><code>proving</code></td><td><code>POST /api/eval/run</code>, <code>GET /api/eval/aibom/{model}/verify</code>, <code>POST /api/release/shadow</code></td><td><code>proving</code>, <code>release</code></td></tr>
+        <tr><th><a href="release.html">Release Center</a></th><td><code>release</code></td><td><code>POST /api/release/{action}</code> (advance, rollback, pause, regression)</td><td><code>release</code></td></tr>
+        <tr><th><a href="swarm.html">Swarm Tower</a></th><td><code>twin</code>, <code>swarm</code></td><td><code>POST /api/twin/inject</code>, <code>/api/swarm/pause</code> (freeze and resume live in the top-bar kill switch), <code>/api/autonomy</code>, <code>/api/agents/{id}/{action}</code> (quarantine, release)</td><td><code>swarm</code>, <code>twin</code>, <code>oversight</code></td></tr>
+        <tr><th><a href="oversight.html">Oversight Desk</a></th><td><code>oversight</code></td><td><code>POST /api/approvals/{id}/{decision}</code> (approve, approve_with_changes, reject, escalate) with <code>device: 'console'</code></td><td><code>oversight</code>, <code>swarm</code>, <code>trust</code></td></tr>
+        <tr><th><a href="trust.html">Trust Center</a></th><td><code>trust</code> (+ swarm identities)</td><td><code>POST /api/trust/test</code> (policy test bench, no side effects), <code>GET /api/keys/{key_id}</code></td><td><code>trust</code>, <code>swarm</code></td></tr>
+        <tr><th><a href="audit.html">Audit &amp; Proof</a></th><td><code>ledger</code> + <code>provenance.py</code></td><td><code>POST /api/ledger/{verify|tamper|restore}</code>; <code>GET /api/ledger/{seq}</code>, <code>/api/ledger/proof/{seq}</code>, <code>/api/provenance/latest</code>, <code>/api/dossier/{incident}</code></td><td><code>ledger</code>, <code>swarm</code></td></tr>
+        <tr><th><a href="observability.html">Observability</a></th><td><code>observability</code></td><td>None. Snapshot and WebSocket only.</td><td><code>observability</code>, <code>federation</code>, <code>release</code>, <code>swarm</code>, <code>stream</code>, <code>mode</code></td></tr>
+        <tr><th><a href="settings.html">Settings &amp; Flags</a></th><td>None (reads config)</td><td><code>POST /api/sim</code>; reads <code>GET /api/config</code> and <code>/api/config/flags</code> loaded at start-up</td><td><code>config</code>, <code>clock</code>, <code>conn</code>; flag store <code>useFlags</code></td></tr>
+        <tr><th><a href="oversight.html">Mobile approvals</a></th><td><code>oversight</code></td><td><code>POST /api/approvals/{id}/{decision}</code> with <code>device: 'mobile'</code></td><td><code>oversight</code>, <code>conn</code></td></tr>
+        <tr><th><a href="settings.html">Presenter view</a></th><td>Director in <code>engine.py</code></td><td><code>POST /api/director/beat/{n}</code>, <code>GET /api/director/preflight</code></td><td><code>director</code>, <code>conn</code></td></tr>
+        <tr><th><a href="audit.html">Incident dossier</a></th><td><code>provenance.py</code> <code>dossier()</code></td><td><code>GET /api/dossier/{incident}</code> (appends a <code>dossier.generated</code> ledger record)</td><td>None; fetches once</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">How the screen flag works: <code>app/Shell.tsx</code> mounts each in-frame route only if
+    <code>isOn(f.id)</code>; otherwise the route redirects to <code>/</code>. The rail and the command palette hide
+    screens that are off. Bare routes are mounted without that check.</p>
+
+  <h3 id="a-panels" data-toc-label="Panel families">A2. Optional panel and control families</h3>
+  <p>These are the flags that switch one panel or one control inside a screen. A gated-off panel is wrapped in
+    <code>&lt;Gate flag=…&gt;</code>, so its grid cell disappears and leaves no gap. The stage is shown on the
+    Settings page; <code>demo-only</code> flags are the ones the Ops preset turns off.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Flag</th><th>What it switches</th><th>How it works</th><th>File</th></tr></thead>
+      <tbody>
+        <tr><td><code>fl.controls</code><br><span class="muted">stable, needs <code>screen.federation</code></span></td><td>Header buttons: Start / Resume, Pause, Next round now, Stop, Training settings</td><td>Each button posts <code>/api/fl/{action}</code> or <code>/api/fl-config</code>; the engine changes <code>state</code> and emits <code>fl.run</code> or <code>fl.config</code>.</td><td><code>federation/FederationPage.tsx</code></td></tr>
+        <tr><td><code>fl.secagg_viz</code><br><span class="muted">beta, needs <code>screen.federation</code></span></td><td>Panel <code>secagg</code></td><td>Shows the five masked 16 x 16 updates and their exact sum, from the <code>fl.secagg</code> event computed by real mask maths in <code>federation.py</code>.</td><td><code>federation/panels2.tsx</code></td></tr>
+        <tr><td><code>demo.privileged_view</code><br><span class="muted">demo-only, needs <code>fl.secagg_viz</code></span></td><td>"Show true updates" button in <code>secagg</code></td><td>Swaps the heatmaps to the unmasked matrices already in the event (<code>sa.true</code>). Browser-only toggle.</td><td><code>federation/panels2.tsx</code></td></tr>
+        <tr><td><code>fl.checkpoints</code><br><span class="muted">stable, needs <code>screen.federation</code></span></td><td>Panel <code>checkpoints</code></td><td>Lists signed adapter snapshots; restore and promote post <code>/api/fl/checkpoint/{id}/{action}</code>.</td><td><code>federation/panels2.tsx</code></td></tr>
+        <tr><td><code>fl.attestation</code><br><span class="muted">beta, needs <code>screen.federation</code></span></td><td>Panel <code>attestation</code></td><td>Shows the enclave PCR values and KMS condition from <code>trust.attestation</code> (simulated values).</td><td><code>federation/panels2.tsx</code></td></tr>
+        <tr><td><code>fl.sovereignty</code><br><span class="muted">beta, needs <code>screen.federation</code></span></td><td>Panel <code>sovereignty</code></td><td>Counts bytes that left each operator, summed by the <code>fl.upload</code> handler in <code>store.ts</code>.</td><td><code>federation/panels2.tsx</code></td></tr>
+        <tr><td><code>fl.he</code><br><span class="muted">experimental, needs <code>screen.federation</code></span></td><td>Panel <code>he</code></td><td>CKKS statistics from <code>federation.he</code> in the snapshot (simulated). Also on in <code>flags.json</code>.</td><td><code>federation/panels2.tsx</code></td></tr>
+        <tr><td><code>demo.poison</code><br><span class="muted">demo-only, needs <code>screen.federation</code></span></td><td>"Poison" button per operator in panel <code>fleet</code></td><td>Posts <code>/api/fl/client/{op}/poison</code>; the next update from that operator is flipped and scaled (its norm becomes about 14 times the median), and robust aggregation rejects it in the default enclave + trimmed-mean setup. If Training settings switch <code>secagg_mode</code> away from enclave or the strategy to <code>fedavg</code>, the poisoned update is aggregated, and the <code>fl.poison</code> event says so.</td><td><code>federation/panels2.tsx</code></td></tr>
+        <tr><td><code>eval.parallel</code><br><span class="muted">beta, needs <code>screen.proving</code></span></td><td>Panel <code>parallel</code></td><td>Parallel-coordinates comparison of models on six axes, from <code>proving.models</code>.</td><td><code>proving/panels.tsx</code></td></tr>
+        <tr><td><code>eval.fed_eval</code><br><span class="muted">beta, needs <code>screen.proving</code></span></td><td>Panel <code>fed-eval</code></td><td>Per-operator private scores from <code>eval.federated</code>, each row signed.</td><td><code>proving/panels2.tsx</code></td></tr>
+        <tr><td><code>eval.scaling</code><br><span class="muted">beta, needs <code>screen.proving</code></span></td><td>Panel <code>scaling</code></td><td>Parameters against accuracy for the model table.</td><td><code>proving/panels2.tsx</code></td></tr>
+        <tr><td><code>release.dialects</code><br><span class="muted">beta, needs <code>screen.release</code></span></td><td>Panel <code>dialects</code></td><td>One intent shown in each vendor's syntax (JSON and CLI dialects).</td><td><code>release/ReleasePage.tsx</code></td></tr>
+        <tr><td><code>demo.attacks</code><br><span class="muted">demo-only, needs <code>screen.swarm</code></span></td><td>"Telemetry injection" on Swarm, "Inject regression (demo)" on Release, the palette attack command</td><td>Posts <code>/api/twin/inject</code> with <code>telemetry_injection</code>, or <code>/api/release/regression</code>.</td><td><code>swarm/SwarmPage.tsx</code>, <code>release/ReleasePage.tsx</code>, <code>app/Overlays.tsx</code></td></tr>
+        <tr><td><code>swarm.negotiation</code><br><span class="muted">beta, needs <code>screen.swarm</code></span></td><td>Panel <code>negotiation</code></td><td>Agent proposals and the brokered compromise, from <code>negotiation.*</code> events stored in <code>swarm.incident</code>.</td><td><code>swarm/panels.tsx</code></td></tr>
+        <tr><td><code>swarm.autonomy</code><br><span class="muted">beta, needs <code>screen.swarm</code></span></td><td>Panel <code>autonomy</code></td><td>L0–L5 level per agent class and earned trust; changes post <code>/api/autonomy</code> and are ledgered.</td><td><code>swarm/panels2.tsx</code></td></tr>
+        <tr><td><code>oversight.mobile</code><br><span class="muted">beta, needs <code>screen.oversight</code></span></td><td>Intended to switch <code>/m/approve</code> and the QR code</td><td>Defined but read by nothing today: the phone page and the Director's QR code ignore it (see <a href="#c-gaps">known gaps</a>).</td><td><code>features/mobile/manifest.ts</code></td></tr>
+        <tr><td><code>audit.provenance</code><br><span class="muted">beta, needs <code>screen.audit</code></span></td><td>Panel <code>provenance</code></td><td>Fetches <code>GET /api/provenance/latest</code>, a graph walked back from the latest human-approved action (see the provenance row in A3).</td><td><code>audit/Provenance.tsx</code></td></tr>
+        <tr><td><code>demo.tamper</code><br><span class="muted">demo-only, needs <code>screen.audit</code></span></td><td>Panel <code>tamper</code> and the palette tamper / restore commands</td><td>Posts <code>/api/ledger/tamper</code>: edits one stored record without re-signing, so verify fails there.</td><td><code>audit/panels.tsx</code>, <code>app/Overlays.tsx</code></td></tr>
+        <tr><td><code>audit.dossier</code><br><span class="muted">beta, needs <code>screen.audit</code></span></td><td>Panel <code>dossier</code> and the "Incident dossier" button</td><td>Opens <code>/dossier/:incident</code>, which fetches the signed dossier.</td><td><code>audit/AuditPage.tsx</code></td></tr>
+        <tr><td><code>obs.heatmap</code><br><span class="muted">beta, needs <code>screen.observability</code></span></td><td>Panel <code>latency</code></td><td>Time by latency-bucket heatmap from <code>observability.heat</code>, filled by <code>obs.metrics</code>.</td><td><code>observability/panels.tsx</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="a-engines" data-toc-label="Engines">A3. Backend engine capabilities</h3>
+  <p>Nine engines plus the provenance builder. The AWS target column is copied from each file's header comment. <code>Engine.build</code> in <code>engine.py</code> creates them in a fixed
+    order and passes each one the shared clock and bus, plus the key ring, ledger and other engines where needed.
+    <code>Engine.tick</code> then calls them in this order every 100 ms: scheduler, federation, proving, release, twin,
+    swarm, trust, oversight, observability.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <caption>What each engine does</caption>
+      <thead><tr><th>Engine</th><th>What it computes, and how</th><th>Uses</th><th>AWS target</th></tr></thead>
+      <tbody>
+        <tr><th><code>federation</code><br><code>engines/federation.py</code></th><td>Five operators run rounds: train, upload, secure-aggregate, aggregate. Loss curves and the privacy (ε) accountant are simulated. Pairwise masks over integers mod 2^32 are real and cancel exactly. Checkpoints get real SHA-256 hashes and signatures.</td><td>ledger; calls <code>on_promote</code></td><td>ECS Flower clients with Opacus, Nitro Enclave aggregator, S3</td></tr>
+        <tr><th><code>proving</code><br><code>engines/proving.py</code></th><td>A nine-stage pipeline (ingest, static checks, accuracy, safety red-team, performance, price, federated eval, sign AI-BOM, gate). Scores come from a fixed, illustrative model table; a new candidate's accuracy is derived from its checkpoint round; only the per-operator federated-eval scores add random noise. The gate checks four clauses: safety ≥ 0.95, accuracy ≥ 0.85, p95 ≤ 600 ms, cost ≤ $1.00 per 1k.</td><td>ledger; calls <code>on_gate</code></td><td>Step Functions, SageMaker Processing, Bedrock evaluation, KMS Sign</td></tr>
+        <tr><th><code>release</code><br><code>engines/release.py</code></th><td>One manifest per target (SageMaker, Bedrock Custom Model Import, Vendor A edge, Vendor B edge). Stages shadow, canary 10%, canary 50%, full 100%. Guard limits are shown for error rate (at most 1%), p95 (at most 600 ms), agreement (at least 90%) and safety incidents (zero). Only the error-rate guard triggers automatic rollback, and only once the candidate is in canary. The demo regression button raises the canary error rate to trip it.</td><td>ledger; calls <code>on_traffic</code></td><td>SageMaker variants, Bedrock CMI, ECS edge services, CDK</td></tr>
+        <tr><th><code>twin</code><br><code>engines/twin.py</code></th><td>40 sites with 3 cells each and 5 hubs. KPIs every sim second. Faults (<code>fiber_cut</code>, <code>stadium_surge</code>, interference, power outage), action effects, and a pre-flight that predicts a plan's impact on a copy.</td><td>Nothing</td><td>Same simulator on ECS/Fargate, Kinesis</td></tr>
+        <tr><th><code>swarm</code><br><code>engines/swarm.py</code></th><td>Coordinator, domain agents and 40 site agents. Every message is signed with the sender's key; every action goes through <code>gateway()</code>, which asks trust for a decision. Runs the scripted incident (Detect, Diagnose, Negotiate, Pre-flight, Approve, Execute, Verify) and the telemetry-injection attack.</td><td>ledger, trust, twin, oversight, observability, scheduler</td><td>Strands Agents on Bedrock AgentCore (Runtime, Gateway, Identity)</td></tr>
+        <tr><th><code>trust</code><br><code>engines/trust.py</code></th><td>Thirteen Cedar policies (P-001 to P-013) and a deterministic evaluator that mirrors them: returns permit, deny or needs_human with the deciding policy ids. Pattern-based guardrail scan. Delegation check: every hop must be allowed. Holds the enclave attestation record.</td><td>Nothing; called by swarm</td><td>Verified Permissions <code>IsAuthorized</code>, Bedrock <code>ApplyGuardrail</code></td></tr>
+        <tr><th><code>oversight</code><br><code>engines/oversight.py</code></th><td>Approval queue. Each item has an SLA from the escalation ladder (L1 120 s, L2 300 s, L3 600 s). Critical items need two different approvers (four-eyes). Each decision is signed and, when complete, calls back the requester.</td><td>ledger</td><td>Step Functions task tokens, SNS / Incident Manager, Cognito</td></tr>
+        <tr><th><code>ledger</code><br><code>engines/ledger.py</code></th><td>Real cryptography: <code>hash = SHA-256(canonical(body) + prev_hash)</code>, Ed25519 signature on each hash, a Merkle anchor over every 32 records. Verify walks the whole chain; tamper edits a stored record; restore puts the originals back.</td><td>Key ring</td><td>DynamoDB, S3 Object Lock (COMPLIANCE), KMS</td></tr>
+        <tr><th><code>observability</code><br><code>engines/observability.py</code></th><td>Per-plane golden signals, token and cost totals, latency heatmap, OpenTelemetry-shaped spans and SLOs. Fed by swarm calls (<code>record_call</code>, <code>span</code>, <code>record_tool</code>) and by <code>Engine._obs_extra</code>, which reads federation, proving and release state each tick.</td><td>Nothing; called by swarm and the engine</td><td>ADOT to X-Ray and CloudWatch</td></tr>
+        <tr><th><code>provenance</code><br><code>provenance.py</code></th><td>Not a ticking engine. <code>build()</code> walks back from the latest human-approved permitted action (falling back to the latest reroute, then the latest permitted non-read-only tool call) to its approval, agent, model, AI-BOM, gate, checkpoint, round, operators and attestation. <code>dossier()</code> packages one incident, hashes it and signs it into the ledger.</td><td>ledger, federation, proving, swarm, trust, oversight</td><td>Same</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="table-wrap">
+    <table class="compact">
+      <caption>What each engine exposes</caption>
+      <thead><tr><th>Engine</th><th>Endpoints</th><th>Events it emits</th><th>Ledger records</th></tr></thead>
+      <tbody>
+        <tr><th><code>federation</code></th><td><code>/api/fl/*</code>, <code>/api/fl-config</code></td><td><code>fl.run, fl.round.phase, fl.step, fl.gradhist, fl.upload, fl.secagg, fl.round, fl.checkpoint, fl.promote, fl.config, fl.client, fl.poison, fl.budget</code></td><td><code>fl.round, fl.checkpoint, fl.config, fl.restore, fl.stop</code></td></tr>
+        <tr><th><code>proving</code></th><td><code>/api/eval/run</code>, <code>/api/eval/aibom/{model}/verify</code></td><td><code>eval.candidate, eval.run, eval.stage, eval.progress, eval.federated, aibom.signed, eval.gate</code></td><td><code>eval.federated, aibom.signed, eval.gate</code></td></tr>
+        <tr><th><code>release</code></th><td><code>/api/release/{action}</code> (advance, rollback, pause, regression, shadow)</td><td><code>release.stage, release.metrics</code></td><td><code>release.stage</code></td></tr>
+        <tr><th><code>twin</code></th><td><code>/api/twin/inject</code></td><td><code>twin.tick, twin.alarm, twin.action</code></td><td>None</td></tr>
+        <tr><th><code>swarm</code></th><td><code>/api/swarm/*</code>, <code>/api/autonomy</code>, <code>/api/agents/{id}/*</code>; incident and attack via <code>/api/twin/inject</code></td><td><code>swarm.agents, a2a.msg, swarm.cohort, swarm.freeze, autonomy.change, incident.opened, incident.phase, incident.resolved, negotiation.round, negotiation.resolved, plan.preflight, plan.step, policy.decision, attack.denied, delegation.check, identity.revoked, identity.reissued, twin.syslog</code></td><td><code>tool.call, a2a.message, identity.revoked, identity.reissued, autonomy.change, incident.resolved, swarm.freeze, swarm.resume</code></td></tr>
+        <tr><th><code>trust</code></th><td><code>/api/trust/test</code> (evaluates without recording)</td><td><code>policy.decision, guardrail.block</code></td><td>None (the swarm records the decision inside <code>tool.call</code>)</td></tr>
+        <tr><th><code>oversight</code></th><td><code>/api/approvals/{id}/{decision}</code></td><td><code>approval.requested, approval.decision, escalation</code></td><td><code>approval.requested, approval.decision, escalation</code></td></tr>
+        <tr><th><code>ledger</code></th><td><code>/api/ledger/*</code>, <code>/api/keys/{key_id}</code></td><td><code>ledger.append, ledger.anchor, ledger.verify, ledger.tamper</code></td><td>Is the ledger</td></tr>
+        <tr><th><code>observability</code></th><td>None</td><td><code>obs.metrics, obs.span, obs.trace</code></td><td>None</td></tr>
+        <tr><th><code>provenance</code></th><td><code>/api/provenance/latest</code>, <code>/api/dossier/{incident}</code></td><td>None</td><td><code>dossier.generated</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The orchestrator itself is a feature too. <code>Engine</code> in <code>engine.py</code> holds the 14
+    <code>BEATS</code>, <code>beat(n)</code>, <code>reset()</code>, <code>warm()</code> (a deterministic
+    fast-forward to the opening state: past approvals, routine history and 12 federated rounds), the snapshot, and
+    events of its own: <code>director.beat</code>, <code>loop.enqueue</code>, <code>system.reset</code>, and
+    <code>sim.clock</code> once per sim second from <code>Engine.tick</code>. Beat 14 also appends a
+    <code>loop.enqueue</code> ledger record. <code>main.py</code> adds another <code>sim.clock</code> (from <code>POST /api/sim</code>), <code>ledger.restore</code> and a
+    second <code>autonomy.change</code>. The run loop emits <code>system.error</code> if a tick throws, so the demo
+    keeps running and the stream says what broke.</p>
+
+  <h3 id="a-shell" data-toc-label="Console frame">A4. Console frame capabilities</h3>
+  <p>These belong to no screen. They wrap every screen and are described in detail on
+    <a href="shell.html">Console frame and controls</a>.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Capability</th><th>Flag</th><th>What it does, and how</th><th>Data and calls</th><th>Files</th></tr></thead>
+      <tbody>
+        <tr><th>Top bar</th><td>None</td><td>Wordmark, operator-context dropdown ("Operator A, home NOC" / "Consortium view"; it changes nothing, see gaps), palette search button, connection rate, sim clock, pending approvals count, autonomy levels, mode badge (<code>MOCK</code> or <code>AWS</code> from <code>/api/config</code>), theme toggle and the kill switch.</td><td><code>clock</code>, <code>conn</code>, <code>msgPerSec</code>, <code>oversight</code>, <code>swarm.autonomy</code>, <code>mode</code></td><td><code>app/TopBar.tsx</code></td></tr>
+        <tr><th>Kill switch</th><td><code>shell.killswitch</code></td><td>Hold-to-confirm "Freeze swarm" in the top bar. While frozen, the gateway denies every tool call except the read-only <code>get_kpis</code> and <code>simulate_change</code>, with policy <code>kill-switch</code>. Freeze and resume are each ledgered.</td><td><code>POST /api/swarm/freeze|resume</code>; ledger <code>swarm.freeze</code> / <code>swarm.resume</code></td><td><code>app/TopBar.tsx</code>, <code>ui/controls.tsx</code> <code>HoldButton</code></td></tr>
+        <tr><th>Command palette</th><td><code>shell.palette</code> (hides only the top-bar search button; <kbd>Cmd</kbd> <kbd>K</kbd> still opens the palette)</td><td><kbd>Cmd</kbd> <kbd>K</kbd>. Lists screens that are on, <code>GLOBAL_COMMANDS</code>, each manifest's <code>commands</code>, beats and agents. Typing a number opens that ledger record. Commands with a <code>flag</code> hide when it is off.</td><td>Calls the same <code>api.*</code> functions as the buttons</td><td><code>app/Overlays.tsx</code></td></tr>
+        <tr><th>Lifecycle ribbon</th><td><code>shell.ribbon</code></td><td>Five segments with each plane's status; pulses on six event types.</td><td>Five slices plus <code>live.pulses</code></td><td><code>app/Ribbon.tsx</code></td></tr>
+        <tr><th>Left rail</th><td>None</td><td>One entry per in-frame screen that is on, sorted by <code>nav.order</code>; badges for pending approvals and an active incident.</td><td><code>features</code>, <code>oversight.items</code>, <code>swarm.incident</code></td><td><code>app/Rail.tsx</code></td></tr>
+        <tr><th>Live stream drawer</th><td><code>shell.stream</code></td><td><kbd>l</kbd>. Every event except the ten <code>NOISY</code> types, newest first. Shows up to 400 rows after filters: plane chips, minimum severity (default info, so debug is hidden), text search, and "ledgered only". The store keeps the last 3,000 events.</td><td><code>stream</code></td><td><code>app/StreamDrawer.tsx</code></td></tr>
+        <tr><th>Inspector</th><td>None</td><td>Right drawer with a back stack of up to ten items. For a ledger record it fetches the record and proof, then recomputes the hash in the browser with WebCrypto.</td><td><code>GET /api/ledger/{seq}</code>, <code>/api/ledger/proof/{seq}</code>, <code>/api/keys/{id}</code>; quarantine / release buttons</td><td><code>app/Inspector.tsx</code>, <code>core/canonical.ts</code></td></tr>
+        <tr><th>Toasts</th><td>None</td><td>Up to three, six seconds each, for ten event types (approvals, escalations, attacks, revocations, poison, failed verify, incidents, gate, guardrail blocks, budget).</td><td><code>TOAST_TYPES</code> and <code>TOAST_ROUTE</code> in <code>core/ws.ts</code></td><td><code>core/ws.ts</code>, <code>app/Overlays.tsx</code></td></tr>
+        <tr><th>Demo Director</th><td><code>demo.director</code></td><td><kbd>d</kbd>. Floating panel: beat list, next / previous, notes, spotlight, speed, hold-to-reset, preflight tab with the phone QR code.</td><td><code>POST /api/director/beat/{n}</code>, <code>/api/director/reset</code>, <code>GET /api/director/preflight</code>, <code>POST /api/sim</code></td><td><code>app/Director.tsx</code>, <code>core/director.ts</code></td></tr>
+        <tr><th>Spotlight</th><td><code>demo.spotlight</code> (defined, not read; see gaps)</td><td><kbd>s</kbd> toggles spotlight. When a beat fires with spotlight on, <code>fireBeat</code> and <code>useFollowDirector</code> set <code>lit</code> to the beat's panel ids, and CSS dims every other <code>[data-panel]</code> (the ribbon is never dimmed). Turning spotlight on mid-beat shows nothing until the next beat; <kbd>Esc</kbd> clears it.</td><td><code>useUi.lit</code>, <code>useUi.spotlight</code></td><td><code>core/ui-store.ts</code>, <code>app/Shell.tsx</code>, <code>index.css</code></td></tr>
+        <tr><th>Follow the director</th><td>None</td><td>Every open console watches <code>director.started_at</code>; when it changes it navigates to the beat's route and scrolls the first lit panel into view. That is how a presenter laptop drives the projector.</td><td><code>director</code> slice, <code>director.beat</code> event</td><td><code>app/Shell.tsx</code> <code>useFollowDirector</code></td></tr>
+        <tr><th>Keyboard map</th><td>None</td><td>Beats, <kbd>g</kbd> + letter navigation (letters from manifests), theme, pause, hold <kbd>r</kbd> to reset, help.</td><td>Calls <code>fireBeat</code>, <code>api.sim</code>, <code>api.reset</code></td><td><code>app/hotkeys.ts</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="a-platform" data-toc-label="Shared plumbing">A5. Shared plumbing</h3>
+  <p>These files are the contracts every feature depends on. In Part C they are the Wave 0 pull requests.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Module</th><th>What it provides</th><th>Who depends on it</th></tr></thead>
+      <tbody>
+        <tr><th><code>backend/spectrum/core.py</code></th><td><code>canonical()</code> JSON (sorted keys, no floats), <code>KeyRing</code> (Ed25519 keys derived from the seed), <code>Clock</code> (sim time from Saturday 31 Oct 2026, 21:30 PDT), <code>Bus</code> (event envelope, history, subscribers), <code>Scheduler</code>.</td><td>Every engine</td></tr>
+        <tr><th><code>backend/spectrum/adapters/</code></th><td>Eight protocols in <code>base.py</code> (<code>LedgerStore</code>, <code>AnchorStore</code>, <code>Signer</code>, <code>PolicyEngine</code>, <code>Guardrails</code>, <code>ApprovalBroker</code>, <code>MetricsSink</code>, <code>FlagSource</code>); <code>mock.py</code> descriptions; <code>aws.py</code> boto3 stubs; <code>load_adapters(SPECTRUM_MODE)</code>.</td><td><code>main.py</code> (<code>/api/config</code> lists them); the AWS lane</td></tr>
+        <tr><th><code>frontend/src/core/types.ts</code></th><td><code>Envelope</code>, <code>Snapshot</code>, <code>LedgerRecord</code>, and typed shapes where screens depend on them (<code>Operator</code>, <code>FlRound</code>, <code>Checkpoint</code>, <code>Agent</code>, <code>A2AMessage</code>, <code>Approval</code>). Everything else is <code>Rec</code>.</td><td>Every screen</td></tr>
+        <tr><th><code>frontend/src/core/store.ts</code></th><td><code>useLive</code>, ten slices, <code>NOISY</code>, the handler map <code>H</code>, ribbon <code>PULSE</code> map, <code>applyEvents</code> (one <code>set</code> per batch, copy-on-write), <code>loadSnapshot</code>.</td><td>Every screen and the frame</td></tr>
+        <tr><th><code>frontend/src/core/ws.ts</code></th><td>One WebSocket, buffer-then-snapshot resync, exponential backoff 0.5 s to 8 s, connection state (<code>live</code> under 2.5 s silence, else <code>lagging</code>), toasts.</td><td><code>Shell</code>, mobile and presenter pages</td></tr>
+        <tr><th><code>frontend/src/core/api.ts</code></th><td><code>get</code>, <code>post</code> and the <code>api</code> object, one function per endpoint.</td><td>Every control</td></tr>
+        <tr><th><code>frontend/src/core/flags.tsx</code></th><td><code>FLAGS</code>, resolution order (default, remote, this browser, URL <code>?ff=</code>), <code>isOn</code> with <code>dependsOn</code>, <code>useFlag</code>, <code>Gate</code>, presets Demo / Full / Minimal / Ops.</td><td>Every gated panel, the shell, Settings</td></tr>
+        <tr><th><code>frontend/src/core/features.ts</code> + <code>features/index.ts</code></th><td><code>FeatureManifest</code>, <code>defineFeature</code>, <code>Command</code>; the registry array.</td><td>Shell, rail, palette, hotkeys, Settings modules panel</td></tr>
+        <tr><th><code>frontend/src/core/director.ts</code>, <code>ui-store.ts</code></th><td><code>fireBeat</code> (navigate, set spotlight, then POST), <code>useOnBeat</code>; UI state (theme, motion, density, spotlight, Director and notes open) saved to <code>localStorage</code> <code>'spectrum.ui'</code>; the inspector stack and toasts are in memory only; <code>useSimNow</code> interpolates the clock between 1 Hz syncs.</td><td>Frame, Director, presenter, screens with hero moments</td></tr>
+        <tr><th><code>frontend/src/core/canonical.ts</code></th><td>Browser twin of <code>canonical()</code> and <code>recordHash()</code>. Not tested directly: <code>frontend/scripts/check-canonical.mjs</code> checks its own JS copy of the canonicaliser against Python, not this file.</td><td>Inspector, Audit verify</td></tr>
+        <tr><th><code>frontend/src/index.css</code>, <code>core/palette.ts</code></th><td>Design tokens for both themes (Ops dark, Projector light), plane colours, status colours, spotlight CSS.</td><td>Everything visual</td></tr>
+        <tr><th><code>frontend/src/ui/</code></th><td><code>Panel</code> (sets <code>data-panel</code>, source chip), <code>Button</code>, <code>HoldButton</code>, <code>Toggle</code>, <code>Segmented</code>, <code>StatusPill</code>, <code>Hash</code>, <code>SignatureBadge</code>, <code>LedgerLink</code>, <code>CodeBlock</code>, <code>KV</code> and more.</td><td>Every screen</td></tr>
+        <tr><th><code>frontend/src/charts/</code></th><td>21 hand-built SVG/canvas charts plus <code>common.tsx</code> (size hook, tooltip, legend, table view).</td><td>Every screen</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="a-events" data-toc-label="Event catalogue">A6. Event catalogue</h3>
+  <p>Every event type in the code, who emits it, and what the browser does with it. "Stream only" means there is no
+    store handler: the event still appears in the live stream drawer, and in Mission Control's critical events panel if its severity is warn or critical. Noisy types are
+    applied to slices but kept out of the stream.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Event</th><th>Emitted by</th><th>Store effect</th><th>Extra</th></tr></thead>
+      <tbody>
+        <tr><td><code>fl.step</code>, <code>fl.gradhist</code></td><td>federation</td><td>Operator rows and <code>step_series</code>; <code>live.gradhist</code></td><td>Noisy</td></tr>
+        <tr><td><code>fl.round.phase</code>, <code>fl.round</code>, <code>fl.run</code>, <code>fl.config</code></td><td>federation</td><td><code>federation.current</code>, <code>phase</code>, <code>round</code>, <code>rounds_log</code>, <code>state</code>, <code>config</code></td><td></td></tr>
+        <tr><td><code>fl.secagg</code></td><td>federation</td><td><code>federation.secagg</code>, <code>live.lastSecagg</code> (written but never read)</td><td></td></tr>
+        <tr><td><code>fl.checkpoint</code>, <code>fl.promote</code></td><td>federation</td><td><code>federation.checkpoints</code> upsert</td><td>Ribbon pulse (Learn, Learn to Verify)</td></tr>
+        <tr><td><code>fl.upload</code>, <code>fl.client</code>, <code>fl.budget</code></td><td>federation</td><td>Sovereignty byte counts; operator status</td><td><code>fl.budget</code> toasts</td></tr>
+        <tr><td><code>fl.poison</code></td><td>federation</td><td>Stream only</td><td>Toast if critical</td></tr>
+        <tr><td><code>eval.candidate</code>, <code>eval.run</code>, <code>eval.stage</code>, <code>eval.progress</code></td><td>proving</td><td><code>proving.candidate</code>, <code>proving.active</code></td><td><code>eval.progress</code> noisy</td></tr>
+        <tr><td><code>eval.gate</code></td><td>proving</td><td><code>proving.active</code>, <code>models</code>, <code>runs</code></td><td>Toast; ribbon pulse Verify to Release</td></tr>
+        <tr><td><code>eval.federated</code>, <code>aibom.signed</code></td><td>proving</td><td><code>proving.fed_evals</code>, <code>proving.aiboms</code></td><td></td></tr>
+        <tr><td><code>release.metrics</code>, <code>release.stage</code></td><td>release</td><td>Merged into <code>release</code>; <code>history</code></td><td><code>release.metrics</code> noisy; <code>release.stage</code> pulses Release to Operate</td></tr>
+        <tr><td><code>twin.tick</code>, <code>twin.alarm</code>, <code>twin.action</code></td><td>twin</td><td><code>twin.state</code>, <code>kpis</code>, <code>health_series</code>, <code>alarms</code>, <code>actions</code></td><td><code>twin.tick</code> noisy</td></tr>
+        <tr><td><code>twin.syslog</code></td><td>swarm (attack)</td><td>Stream only</td><td></td></tr>
+        <tr><td><code>swarm.agents</code></td><td>swarm</td><td>Agent upsert, <code>breakers</code>, <code>trust_series</code></td><td>Noisy</td></tr>
+        <tr><td><code>a2a.msg</code>, <code>swarm.freeze</code>, <code>autonomy.change</code></td><td>swarm, <code>main.py</code></td><td><code>swarm.messages</code>, <code>frozen</code>, <code>autonomy</code></td><td></td></tr>
+        <tr><td><code>incident.opened</code>, <code>incident.phase</code>, <code>incident.resolved</code>, <code>negotiation.round</code>, <code>negotiation.resolved</code>, <code>plan.preflight</code>, <code>plan.step</code></td><td>swarm</td><td><code>swarm.incident</code> (whole incident view); <code>incidents</code> list on open and resolve</td><td><code>incident.opened</code> toasts; <code>incident.resolved</code> pulses Operate to Prove</td></tr>
+        <tr><td><code>swarm.cohort</code>, <code>identity.reissued</code></td><td>swarm</td><td>Stream only (agent model and status arrive through <code>swarm.agents</code>)</td><td></td></tr>
+        <tr><td><code>attack.denied</code>, <code>identity.revoked</code></td><td>swarm</td><td>Stream only</td><td>Toast if critical</td></tr>
+        <tr><td><code>policy.decision</code></td><td>trust, swarm (when frozen)</td><td><code>trust.decisions</code>, <code>trust.stats</code></td><td></td></tr>
+        <tr><td><code>guardrail.block</code>, <code>delegation.check</code></td><td>trust, swarm</td><td><code>trust.guardrail_blocks</code>, <code>guardrail_counts</code>, <code>trust.delegations</code></td><td><code>guardrail.block</code> toasts if critical</td></tr>
+        <tr><td><code>approval.requested</code>, <code>approval.decision</code>, <code>escalation</code></td><td>oversight</td><td><code>oversight.items</code></td><td><code>approval.requested</code> always toasts; <code>escalation</code> toasts when critical; <code>approval.decision</code> does not toast. Rail badge counts pending items.</td></tr>
+        <tr><td><code>ledger.append</code>, <code>ledger.anchor</code>, <code>ledger.verify</code>, <code>ledger.tamper</code>, <code>ledger.restore</code></td><td>ledger, <code>main.py</code></td><td><code>ledger.records</code>, <code>height</code>, <code>head</code>, <code>type_counts</code>, <code>anchors</code>, <code>last_verify</code>, <code>tampered</code></td><td>Failed verify toasts</td></tr>
+        <tr><td><code>obs.metrics</code>, <code>obs.span</code>, <code>obs.trace</code></td><td>observability</td><td><code>observability.frames</code>, <code>heat</code>, <code>cost_total</code>, <code>tokens_total</code>, <code>spans</code>, <code>traces</code></td><td>All noisy</td></tr>
+        <tr><td><code>director.beat</code></td><td><code>Engine.beat</code></td><td><code>director</code> (beat, started_at)</td><td>Every console follows</td></tr>
+        <tr><td><code>loop.enqueue</code></td><td><code>Engine._beat_loop</code> (beat 14)</td><td>Stream only</td><td>Ribbon pulse Prove to Learn</td></tr>
+        <tr><td><code>sim.clock</code></td><td>engine loop (1 Hz), <code>POST /api/sim</code></td><td><code>clock</code></td><td>Noisy</td></tr>
+        <tr><td><code>system.reset</code>, <code>system.error</code></td><td><code>Engine.reset</code>, run loop</td><td><code>system.reset</code> triggers a full snapshot resync in <code>ws.ts</code> (no store handler); <code>system.error</code> is stream only</td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="a-endpoints" data-toc-label="Endpoint catalogue">A7. Endpoint catalogue</h3>
+  <p>All routes in <code>main.py</code>. Every API handler is <code>async def</code> on purpose, so it runs on the same
+    thread as the simulation loop. The comment in <code>main.py</code> explains why: thread-pool handlers would
+    interleave ledger appends and corrupt the hash chain.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Method and path</th><th>Engine call</th><th><code>api.ts</code> function</th><th>Called from</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /api/config</code></td><td>mode, seed, warm-up time, adapters, region</td><td><code>api.config</code></td><td><code>ws.ts</code> at start-up</td></tr>
+        <tr><td><code>GET /api/config/flags</code></td><td>reads <code>flags.json</code></td><td><code>api.flags</code></td><td><code>Shell.tsx</code> at start-up</td></tr>
+        <tr><td><code>GET /api/snapshot</code></td><td><code>Engine.snapshot()</code></td><td><code>api.snapshot</code></td><td><code>ws.ts</code> on every (re)connect</td></tr>
+        <tr><td><code>POST /api/sim</code></td><td>clock pause and speed (0.25 to 10)</td><td><code>api.sim</code></td><td><kbd>p</kbd>, Director, Settings</td></tr>
+        <tr><td><code>POST /api/fl/{action}</code></td><td>federation controls: start, pause, resume, stop, next_round, checkpoint</td><td><code>api.fl</code></td><td>Federation header, Checkpoints panel ("Save checkpoint"), palette</td></tr>
+        <tr><td><code>POST /api/fl-config</code>, <code>GET /api/fl/projected_eps</code></td><td><code>set_config</code>, <code>projected_eps</code></td><td><code>api.flConfig</code>, <code>api.projectedEps</code></td><td>Training settings dialog</td></tr>
+        <tr><td><code>POST /api/fl/checkpoint/{id}/{action}</code> (restore, promote)</td><td><code>restore_checkpoint</code>, <code>promote</code></td><td><code>api.checkpoint</code></td><td>Checkpoints panel</td></tr>
+        <tr><td><code>POST /api/fl/client/{op}/{action}</code> (pause, drop, poison)</td><td><code>client()</code></td><td><code>api.flClient</code></td><td>Client fleet panel</td></tr>
+        <tr><td><code>POST /api/fl/reveal</code></td><td>Unreachable: shadowed by <code>POST /api/fl/{action}</code> (declared first), so it returns 404 and never sets <code>fl.reveal</code></td><td><code>api.reveal</code></td><td>Not called by any screen</td></tr>
+        <tr><td><code>POST /api/eval/run</code></td><td>promotes the latest checkpoint if needed, then <code>proving.run</code></td><td><code>api.evalRun</code></td><td>Proving header, palette</td></tr>
+        <tr><td><code>GET /api/eval/aibom/{model}/verify</code></td><td><code>verify_aibom</code></td><td><code>api.verifyAibom</code></td><td>AI-BOM panel</td></tr>
+        <tr><td><code>POST /api/release/{action}</code></td><td>release controls: advance, rollback, pause (only flips a flag, see gaps), regression, shadow</td><td><code>api.release</code></td><td>Release header, Proving gate panel, palette</td></tr>
+        <tr><td><code>POST /api/twin/inject</code></td><td><code>incident</code> starts the swarm incident; <code>telemetry_injection</code> starts the attack; other kinds go to <code>twin.inject</code></td><td><code>api.inject</code></td><td>Swarm header, palette</td></tr>
+        <tr><td><code>POST /api/swarm/{action}</code> (freeze, resume, pause)</td><td>swarm state</td><td><code>api.swarm</code></td><td>Kill switch (freeze, resume), Swarm header (pause), palette (freeze, resume)</td></tr>
+        <tr><td><code>POST /api/autonomy</code></td><td><code>set_autonomy</code> + event</td><td><code>api.autonomy</code></td><td>Autonomy panel</td></tr>
+        <tr><td><code>POST /api/agents/{id}/{action}</code> (quarantine, release)</td><td><code>quarantine</code>, <code>release</code></td><td><code>api.agent</code></td><td>Inspector, roster</td></tr>
+        <tr><td><code>POST /api/approvals/{id}/{decision}</code></td><td><code>oversight.decide</code>; an approved <code>restore-</code> plan also releases the agent</td><td><code>api.decide</code></td><td>Oversight Desk, phone page</td></tr>
+        <tr><td><code>POST /api/trust/test</code></td><td><code>trust.authorize(…, emit=False, record=False)</code></td><td>None (direct <code>post</code>)</td><td>Trust policy test bench</td></tr>
+        <tr><td><code>POST /api/ledger/{verify|tamper|restore}</code></td><td>ledger</td><td><code>api.verifyLedger</code>, <code>api.tamper</code>, <code>api.restoreLedger</code></td><td>Audit, palette</td></tr>
+        <tr><td><code>GET /api/ledger/{seq}</code>, <code>/api/ledger/proof/{seq}</code>, <code>/api/keys/{key_id}</code></td><td>record + verification, inclusion proof, public key</td><td><code>api.record</code>, <code>api.proof</code>, <code>api.key</code></td><td>Inspector, Audit, Trust</td></tr>
+        <tr><td><code>GET /api/provenance/latest</code>, <code>/api/dossier/{incident}</code></td><td><code>provenance.build</code>, <code>provenance.dossier</code></td><td><code>api.provenance</code>, <code>api.dossier</code></td><td>Provenance panel, dossier page</td></tr>
+        <tr><td><code>POST /api/director/beat/{n}</code>, <code>/api/director/reset</code>; <code>GET /api/director/preflight</code></td><td><code>Engine.beat</code>, <code>Engine.reset</code>, health summary</td><td><code>api.beat</code>, <code>api.reset</code>, <code>api.preflight</code></td><td>Director, presenter, hotkeys</td></tr>
+        <tr><td><code>WS /ws</code></td><td>sends <code>hello</code>, then <code>{kind: 'events'}</code> batches of up to 800 every 100 ms</td><td><code>ws.ts</code></td><td>Every page</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- =================================================================== PART B -->
+  <h2 id="part-b">Part B: how features relate</h2>
+  <p>The planes are not separate demos. They are wired together by three callbacks in <code>Engine.build</code>
+    (<code>on_promote</code>, <code>on_gate</code>, <code>on_traffic</code>), by the swarm passing <code>on_decided</code>
+    to <code>oversight.create</code>, by the swarm calling trust, twin, oversight and observability directly, and by every engine writing to the one ledger.
+    The graph below shows those links. The table after it explains each one in one line and names the code that makes
+    it happen.</p>
+
+  <h3 id="b-graph" data-toc-label="Relationship graph">B1. Relationship graph</h3>
+  <figure class="diagram wide">
+    <div class="diagram-frame">
+      <svg viewBox="0 0 900 562" role="img" aria-labelledby="fm-g1-t fm-g1-d">
+        <title id="fm-g1-t">How SPECTRUM features feed each other</title>
+        <desc id="fm-g1-d">Top row from left to right: FL checkpoint, Proving candidate, AI-BOM, Deploy gate, Release manifest. The release feeds the swarm model cohort on the second row, then actions via the policy gateway, then the ledger, then provenance and the dossier, right to left. A dashed loop goes from provenance back to the FL checkpoint. Third row: Oversight, Trust and the network twin connect to the gateway and the swarm. A Director band runs across the top and an Observability band across the bottom, joined by a dashed line to the gateway box.</desc>
+        <defs>
+          <marker id="fm-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-arrow" d="M0 0L10 5L0 10z"/></marker>
+        </defs>
+        <rect class="d-node ext" x="10" y="10" width="880" height="44" rx="6"/>
+        <text class="d-label" x="24" y="29">Demo Director</text>
+        <text class="d-sub" x="24" y="45">Engine.beat(n) calls engine methods directly. The italic line in a box names the beats that touch it.</text>
+        <rect class="d-node learn" x="10" y="96" width="150" height="72" rx="6"/>
+        <text class="d-label" x="85" y="122" text-anchor="middle">FL checkpoint</text>
+        <text class="d-sub" x="85" y="140" text-anchor="middle">fl.checkpoint, signed</text>
+        <text class="d-sub" x="85" y="157" text-anchor="middle" font-style="italic">beats 2, 3, 4</text>
+        <rect class="d-node verify" x="190" y="96" width="150" height="72" rx="6"/>
+        <text class="d-label" x="265" y="122" text-anchor="middle">Proving candidate</text>
+        <text class="d-sub" x="265" y="140" text-anchor="middle">eval.candidate</text>
+        <text class="d-sub" x="265" y="157" text-anchor="middle" font-style="italic">beat 5</text>
+        <rect class="d-node verify" x="370" y="96" width="150" height="72" rx="6"/>
+        <text class="d-label" x="445" y="122" text-anchor="middle">AI-BOM</text>
+        <text class="d-sub" x="445" y="140" text-anchor="middle">aibom.signed</text>
+        <text class="d-sub" x="445" y="157" text-anchor="middle" font-style="italic">beat 5</text>
+        <rect class="d-node verify" x="550" y="96" width="150" height="72" rx="6"/>
+        <text class="d-label" x="625" y="122" text-anchor="middle">Deploy gate</text>
+        <text class="d-sub" x="625" y="140" text-anchor="middle">eval.gate, 4 clauses</text>
+        <text class="d-sub" x="625" y="157" text-anchor="middle" font-style="italic">beat 5</text>
+        <rect class="d-node release" x="730" y="96" width="150" height="72" rx="6"/>
+        <text class="d-label" x="805" y="122" text-anchor="middle">Release manifest</text>
+        <text class="d-sub" x="805" y="140" text-anchor="middle">release.stage</text>
+        <text class="d-sub" x="805" y="157" text-anchor="middle" font-style="italic">beat 6</text>
+        <path class="d-edge strong" d="M160 132H188" marker-end="url(#fm-a)"/>
+        <path class="d-edge strong" d="M340 132H368" marker-end="url(#fm-a)"/>
+        <path class="d-edge strong" d="M520 132H548" marker-end="url(#fm-a)"/>
+        <path class="d-edge strong" d="M700 132H728" marker-end="url(#fm-a)"/>
+        <text class="d-sub" x="175" y="186" text-anchor="middle">on_promote</text>
+        <text class="d-sub" x="355" y="186" text-anchor="middle">pipeline</text>
+        <text class="d-sub" x="535" y="186" text-anchor="middle">gate checks</text>
+        <text class="d-sub" x="715" y="186" text-anchor="middle">on_gate</text>
+        <path class="d-edge strong" d="M805 168V238" marker-end="url(#fm-a)"/>
+        <text class="d-sub" x="813" y="208">on_traffic</text>
+        <rect class="d-node operate" x="730" y="240" width="150" height="72" rx="6"/>
+        <text class="d-label" x="805" y="266" text-anchor="middle">Swarm model cohort</text>
+        <text class="d-sub" x="805" y="284" text-anchor="middle">swarm.cohort</text>
+        <text class="d-sub" x="805" y="301" text-anchor="middle" font-style="italic">beat 6 (canary)</text>
+        <rect class="d-node operate" x="550" y="240" width="150" height="72" rx="6"/>
+        <text class="d-label" x="625" y="266" text-anchor="middle">Actions via gateway</text>
+        <text class="d-sub" x="625" y="284" text-anchor="middle">swarm.gateway()</text>
+        <text class="d-sub" x="625" y="301" text-anchor="middle" font-style="italic">beats 7, 8, 10</text>
+        <rect class="d-node prove" x="370" y="240" width="150" height="72" rx="6"/>
+        <text class="d-label" x="445" y="266" text-anchor="middle">Ledger</text>
+        <text class="d-sub" x="445" y="284" text-anchor="middle">every engine appends</text>
+        <text class="d-sub" x="445" y="301" text-anchor="middle" font-style="italic">beats 12, 14</text>
+        <rect class="d-node prove" x="190" y="240" width="150" height="72" rx="6"/>
+        <text class="d-label" x="265" y="266" text-anchor="middle">Provenance, dossier</text>
+        <text class="d-sub" x="265" y="284" text-anchor="middle">walks the ledger back</text>
+        <text class="d-sub" x="265" y="301" text-anchor="middle" font-style="italic">beat 11</text>
+        <path class="d-edge strong" d="M730 276H702" marker-end="url(#fm-a)"/>
+        <path class="d-edge strong" d="M550 276H522" marker-end="url(#fm-a)"/>
+        <path class="d-edge strong" d="M370 276H342" marker-end="url(#fm-a)"/>
+        <text class="d-sub" x="715" y="232" text-anchor="middle">agents act</text>
+        <text class="d-sub" x="535" y="232" text-anchor="middle">tool.call</text>
+        <text class="d-sub" x="355" y="232" text-anchor="middle">records</text>
+        <path class="d-edge dashed" d="M190 276H85V170" marker-end="url(#fm-a)"/>
+        <text class="d-sub" x="93" y="202">loop.enqueue (beat 14):</text>
+        <text class="d-sub" x="93" y="216">incident becomes training data</text>
+        <rect class="d-node operate" x="370" y="380" width="150" height="72" rx="6"/>
+        <text class="d-label" x="445" y="406" text-anchor="middle">Oversight</text>
+        <text class="d-sub" x="445" y="424" text-anchor="middle">approvals, SLA, four-eyes</text>
+        <text class="d-sub" x="445" y="441" text-anchor="middle" font-style="italic">beat 9</text>
+        <rect class="d-node prove" x="550" y="380" width="150" height="72" rx="6"/>
+        <text class="d-label" x="625" y="406" text-anchor="middle">Trust</text>
+        <text class="d-sub" x="625" y="424" text-anchor="middle">Cedar mirror, guardrails</text>
+        <rect class="d-node operate" x="730" y="380" width="150" height="72" rx="6"/>
+        <text class="d-label" x="805" y="406" text-anchor="middle">Network twin</text>
+        <text class="d-sub" x="805" y="424" text-anchor="middle">40 sites, KPIs, pre-flight</text>
+        <text class="d-sub" x="805" y="441" text-anchor="middle" font-style="italic">beat 7 (fibre cut)</text>
+        <path class="d-edge" d="M625 314V378" marker-start="url(#fm-a)" marker-end="url(#fm-a)"/>
+        <text class="d-sub" x="633" y="350">authorize</text>
+        <path class="d-edge" d="M805 314V378" marker-start="url(#fm-a)" marker-end="url(#fm-a)"/>
+        <text class="d-sub" x="813" y="344">pre-flight</text>
+        <text class="d-sub" x="813" y="358">and apply</text>
+        <path class="d-edge" d="M445 378V314" marker-end="url(#fm-a)"/>
+        <text class="d-sub" x="437" y="350" text-anchor="end">signed decisions</text>
+        <path class="d-edge" d="M578 314L506 378" marker-start="url(#fm-a)" marker-end="url(#fm-a)"/>
+        <text class="d-sub" x="530" y="334" text-anchor="end">needs_human</text>
+        <text class="d-sub" x="524" y="348" text-anchor="end">and decision</text>
+        <path class="d-edge" d="M690 378L748 314" marker-end="url(#fm-a)"/>
+        <text class="d-sub" x="722" y="356">quarantine</text>
+        <rect class="d-node" x="10" y="500" width="880" height="52" rx="6"/>
+        <text class="d-label" x="24" y="521">Observability</text>
+        <text class="d-sub" x="24" y="539">Spans, token cost and golden signals. Fed by the swarm's gateway calls, and by FL, Proving and Release state via Engine._obs_extra each tick.</text>
+        <path class="d-edge dashed" d="M540 498V300H550"/>
+      </svg>
+    </div>
+    <figcaption>Solid dark arrows are the lifecycle path an artefact follows, from a trained checkpoint to an action in
+      the network and its proof. Thin arrows are calls between engines. The dashed loop is beat 14. The dashed line into the gateway shows the swarm
+      feeding Observability. Dashed box: the orchestrator, not an engine. Mission Control, not drawn, reads every slice.</figcaption>
+  </figure>
+
+  <h3 id="b-relationships" data-toc-label="Each link explained">B2. Each link explained</h3>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Link</th><th>In plain words</th><th>The code that makes it happen</th><th>What you see</th></tr></thead>
+      <tbody>
+        <tr><th>Checkpoint to candidate</th><td>Promoting a checkpoint makes it the next model to test.</td><td><code>fl.on_promote = proving.candidate_from_checkpoint</code> in <code>Engine.build</code></td><td><code>fl.promote</code>, then <code>eval.candidate</code>; ribbon pulse Learn to Verify</td></tr>
+        <tr><th>Candidate to AI-BOM</th><td>The second-to-last stage (sign) writes a signed bill of materials for the model; the final gate stage then checks the four clauses.</td><td><code>proving._aibom</code> in the <code>sign</code> stage</td><td><code>aibom.signed</code>; AI-BOM panel on <a href="proving.html">Proving Ground</a></td></tr>
+        <tr><th>AI-BOM to gate</th><td>The gate passes only if all four clauses hold.</td><td><code>proving.gate_checks</code>; record <code>eval.gate</code></td><td>Gate panel, toast</td></tr>
+        <tr><th>Gate to release</th><td>A passing gate starts shadow deployment on all four targets by itself.</td><td><code>proving.on_gate = Engine._on_gate</code>, which calls <code>release.start_shadow</code></td><td>Release Center shows the candidate in shadow</td></tr>
+        <tr><th>Release to swarm</th><td>When traffic shifts, that share of the 40 site agents switches to the new model.</td><td><code>release.on_traffic = swarm.set_model_cohort</code></td><td><code>swarm.cohort</code>; roster model column</td></tr>
+        <tr><th>Swarm to gateway to trust</th><td>No agent touches the network directly; every tool call is checked against policy first.</td><td><code>swarm.gateway</code> calls <code>trust.authorize</code>; result permit, deny or needs_human</td><td><code>policy.decision</code>; Trust Center decisions</td></tr>
+        <tr><th>Gateway to ledger</th><td>Every tool call, allowed or not, is written with its decision and policies.</td><td><code>ledger.append("tool.call", …)</code> in <code>gateway</code></td><td><code>ledger.append</code>; Audit records</td></tr>
+        <tr><th>Swarm to oversight</th><td>A plan above the 5% blast-radius rule waits for a person.</td><td><code>swarm._request_approval</code> calls <code>oversight.create(…, on_decided=swarm._on_decided)</code></td><td><code>approval.requested</code>; rail badge, toast, phone</td></tr>
+        <tr><th>Oversight to swarm</th><td>When enough people approve, the plan runs with <code>human_approved</code> set.</td><td><code>oversight.decide</code> pops the callback; <code>swarm._on_decided</code> executes the steps</td><td><code>plan.step</code>, <code>twin.action</code></td></tr>
+        <tr><th>Oversight to ledger</th><td>Each request, decision and escalation is signed with the person's key.</td><td><code>ledger.append</code> in <code>oversight.py</code></td><td>Decision history panel</td></tr>
+        <tr><th>Trust to swarm (attack)</th><td>A fooled agent is blocked, its messages rejected, then quarantined and its key revoked.</td><td><code>trust.scan</code>, <code>trust.check_delegation</code>, <code>swarm.quarantine</code></td><td><code>attack.denied</code>, <code>delegation.check</code>, <code>identity.revoked</code></td></tr>
+        <tr><th>Swarm to twin</th><td>Plans are tried on a copy of the network before anything runs.</td><td><code>twin.preflight</code>, <code>twin.apply</code></td><td>Plan panel's predicted impact; twin KPIs</td></tr>
+        <tr><th>Trust to federation</th><td>The enclave attestation record lives in trust and is shown in Learn.</td><td><code>trust.attestation</code>, read by the Federation attestation panel and by <code>provenance.build</code></td><td>Enclave attestation panel</td></tr>
+        <tr><th>Ledger to provenance</th><td>One click walks back from an action to the round that trained the model.</td><td><code>provenance.build</code> reads ledger records plus federation, proving, swarm and trust state</td><td>Provenance graph</td></tr>
+        <tr><th>Ledger to dossier</th><td>An incident's records, approvals, policies and verification are bundled, hashed and signed.</td><td><code>provenance.dossier</code>; record <code>dossier.generated</code></td><td>Dossier page</td></tr>
+        <tr><th>Everything to observability</th><td>Model calls, tool calls and plane activity become traces, cost and golden signals.</td><td><code>obs.record_call</code>, <code>obs.span</code>, <code>obs.record_tool</code> from swarm; <code>Engine._obs_extra</code></td><td>Observability screen</td></tr>
+        <tr><th>Director across engines</th><td>Each beat calls one engine method, so the story runs on the real simulation, not a recording.</td><td><code>Engine.beat</code>: 2 <code>fl.start</code>, 3 sets <code>fl.reveal</code>, 4 poisons op-e, 5 promote + run, 6 shadow + advance, 7 incident, 10 telemetry injection, 12 tamper, 14 <code>loop.enqueue</code>; 1, 8, 9, 11, 13 only navigate</td><td><code>director.beat</code>; every console follows</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="b-matrix" data-toc-label="Dependency matrix">B3. Dependency matrix</h3>
+  <p>Read across a row. <b>feeds</b>: the row's output becomes the column's input. <b>uses</b>: the row reads the
+    column's data or calls it. <b>gates</b>: the row can block the column. <b>drives</b>: the Director calls into the
+    column during a beat. A dash means no direct link. Every row also feeds Mission Control, which reads every slice, so that column is left out.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Row / column</th><th>Federation</th><th>Proving</th><th>Release</th><th>Swarm<br>+ twin</th><th>Oversight</th><th>Trust</th><th>Ledger<br>+ audit</th><th>Observ&shy;ability</th></tr></thead>
+      <tbody>
+        <tr><th>Federation</th><td class="muted">self</td><td>feeds</td><td>–</td><td>–</td><td>–</td><td>uses</td><td>feeds</td><td>feeds</td></tr>
+        <tr><th>Proving</th><td>uses</td><td class="muted">self</td><td>gates, feeds</td><td>–</td><td>–</td><td>–</td><td>feeds</td><td>feeds</td></tr>
+        <tr><th>Release</th><td>–</td><td>uses</td><td class="muted">self</td><td>feeds</td><td>–</td><td>–</td><td>feeds</td><td>feeds</td></tr>
+        <tr><th>Swarm + twin</th><td>–</td><td>–</td><td>uses</td><td class="muted">self</td><td>feeds, uses</td><td>uses</td><td>feeds</td><td>feeds</td></tr>
+        <tr><th>Oversight</th><td>–</td><td>–</td><td>–</td><td>gates, uses</td><td class="muted">self</td><td>–</td><td>feeds</td><td>–</td></tr>
+        <tr><th>Trust</th><td>feeds</td><td>–</td><td>–</td><td>gates</td><td>–</td><td class="muted">self</td><td>feeds</td><td>–</td></tr>
+        <tr><th>Ledger + audit</th><td>uses</td><td>uses</td><td>–</td><td>uses</td><td>uses</td><td>uses</td><td class="muted">self</td><td>–</td></tr>
+        <tr><th>Observability</th><td>uses</td><td>uses</td><td>uses</td><td>uses</td><td>–</td><td>–</td><td>–</td><td class="muted">self</td></tr>
+        <tr><th>Director</th><td>drives</td><td>drives</td><td>drives</td><td>drives</td><td>–</td><td>–</td><td>drives</td><td>–</td></tr>
+        <tr><th>Mission</th><td>uses</td><td>uses</td><td>uses</td><td>uses</td><td>uses</td><td>uses</td><td>uses</td><td>uses</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Two links are easy to miss. Trust feeds Ledger because the dossier includes the hash of every policy the
+    incident used. Oversight has no direct link to Observability; only the swarm's call to
+    <code>obs.note(…, "hitl")</code> counts approvals there.</p>
+  <div class="callout tip">
+    <p class="title">Why this matters for building</p>
+    <p>The matrix is also the merge order. A column you "use" must exist before your row can be finished. Ledger, Trust,
+      Twin and Observability have no upstream engine, so they start first (the ledger before anything that signs
+      records). Federation, Proving, Release and Oversight need only the ledger. Swarm needs five engines and lands
+      last. Mission Control and the Director use everything, so they finish last.</p>
+  </div>
+
+  <h3 id="b-flags" data-toc-label="Flag dependencies">B4. Flag dependencies</h3>
+  <p>A flag is effectively on only if every flag in its <code>dependsOn</code> list is on, checked recursively by
+    <code>isOn</code>. So switching off a screen also switches off everything that depends on it.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Parent flag</th><th>Children that switch off with it</th></tr></thead>
+      <tbody>
+        <tr><td><code>screen.federation</code></td><td><code>fl.controls</code>, <code>fl.secagg_viz</code> (and its child <code>demo.privileged_view</code>), <code>fl.he</code>, <code>fl.attestation</code>, <code>fl.sovereignty</code>, <code>fl.checkpoints</code>, <code>demo.poison</code></td></tr>
+        <tr><td><code>screen.proving</code></td><td><code>eval.parallel</code>, <code>eval.fed_eval</code>, <code>eval.scaling</code></td></tr>
+        <tr><td><code>screen.release</code></td><td><code>release.dialects</code></td></tr>
+        <tr><td><code>screen.swarm</code></td><td><code>swarm.negotiation</code>, <code>swarm.autonomy</code>, <code>demo.attacks</code></td></tr>
+        <tr><td><code>screen.oversight</code></td><td><code>oversight.mobile</code></td></tr>
+        <tr><td><code>screen.audit</code></td><td><code>audit.provenance</code>, <code>audit.dossier</code>, <code>demo.tamper</code></td></tr>
+        <tr><td><code>screen.observability</code></td><td><code>obs.heatmap</code></td></tr>
+        <tr><td><code>demo.director</code></td><td><code>demo.spotlight</code></td></tr>
+        <tr><td>No parent</td><td>All <code>screen.*</code>, all <code>shell.*</code>, <code>demo.director</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout warn">
+    <p class="title">One cross-screen coupling</p>
+    <p><code>demo.attacks</code> depends on <code>screen.swarm</code> but also shows the "Inject regression (demo)"
+      button on the Release screen. Turning off the Swarm screen therefore also hides that Release button.</p>
+  </div>
+
+  <!-- =================================================================== PART C -->
+  <h2 id="part-c">Part C: parallel build plan</h2>
+  <p>This plan shows how a team builds the whole feature set, or extends it, through small pull requests that run in
+    parallel. It is written as a rebuild from scratch, because that shows every dependency. Most hackathon work
+    extends today's code instead, and <a href="#c-extending">the first section</a> says which parts apply then.
+    Branch names, sizes and reviewers are proposals. File paths are real.</p>
+  <div class="callout real">
+    <p class="title">What exists today and what is proposed</p>
+    <p>The code is complete, and <code>make test</code> passes today (six backend tests, the canonical hash check and
+      the type check). A git repository has been initialised but has no commits yet, and there is no CI configuration
+      or CODEOWNERS file. The test commands (<code>make test</code>, <code>make build</code>) are real and are in the
+      <code>Makefile</code>. Splitting <code>store.ts</code>, <code>main.py</code> and <code>test_engine.py</code> into
+      one file per feature is a proposal in this plan (pull request W0-5); today each is a single file.</p>
+  </div>
+
+  <h3 id="c-extending" data-toc-label="Extending today's code">C0. If you are extending today's code</h3>
+  <p>Skip the skeleton pull requests and the engine and screen lanes: that code already exists. Do this instead.</p>
+  <ol class="steps">
+    <li><b>Baseline.</b> Commit the current tree as the first commit, so every later pull request has something to
+      diff against.</li>
+    <li><b>Wave 0 for extenders.</b> W0-4 (Makefile, CI, per-engine test fixtures), a CODEOWNERS file, and W0-5 (split
+      the hotspot files). Nothing else from Wave 0.</li>
+    <li><b>Lanes for extenders.</b> The <a href="#c-gaps">known gaps</a> (each one a small pull request), the AWS seams
+      in <a href="#lane-aws">L11</a> starting with adapter injection (L11-2), and new features through the
+      <a href="#c-recipe">recipe</a>.</li>
+  </ol>
+  <div class="table-wrap">
+    <table class="compact">
+      <caption>Which sections apply</caption>
+      <thead><tr><th>Section</th><th>Applies to</th></tr></thead>
+      <tbody>
+        <tr><th>C1 Principles, C5 Hotspots, C7 CI gates, C8 Team allocation, C9 Demo stays green, C10 Mock to AWS, C11 Known gaps, C12 Recipe</th><td>Both rebuild and extending</td></tr>
+        <tr><th>C2 Wave 0</th><td>Rebuild; W0-4 and W0-5 apply to both</td></tr>
+        <tr><th>C3 Lanes</th><td>Rebuild for the engine and screen pull requests; both for L11 and L12</td></tr>
+        <tr><th>C4 Swimlane, C6 Merge order</th><td>Rebuild</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="c-principles" data-toc-label="Principles">C1. Principles</h3>
+  <ol class="steps">
+    <li><b>Contracts first.</b> Wave 0 merges the shapes everyone shares: the event envelope, the snapshot keys, the
+      slices, the complete <code>api</code> object, the manifest, the flags, the design tokens and the engine and
+      adapter interfaces. After that, lanes rarely need to talk.</li>
+    <li><b>One lane, one engine and its screen.</b> A lane owns a vertical slice: <code>engines/x.py</code>, its routes,
+      its events, its slice handlers and <code>features/x/</code>. Most pull requests then touch only files the lane owns.</li>
+    <li><b>Shared files are append-only.</b> Registries (<code>features/index.ts</code>, <code>FLAGS</code>, the
+      <code>api</code> object, the handler map, <code>NOISY</code>, <code>PULSE</code>) only gain lines. Nobody reorders
+      or reformats them.</li>
+    <li><b>New things start off.</b> A new flag ships with <code>default: false</code> until its screen is reviewed in
+      both themes, so a half-built feature cannot appear during a demo. A pull request that registers a manifest or
+      adds a <code>&lt;Gate flag=…&gt;</code> must add the <code>FLAGS</code> entry in the same pull request: an id
+      missing from <code>FLAGS</code> resolves to on (<code>rawValue</code> falls back to <code>?? true</code>).</li>
+    <li><b>The 14 beats are the integration test.</b> <code>test_full_demo_script_runs_end_to_end</code> in
+      <code>backend/tests/test_engine.py</code> runs every beat. From wave 4 on (CP4), it must stay green on every
+      merge. Before that, each lane gates on its own per-engine tests.</li>
+  </ol>
+
+  <h3 id="c-wave0" data-toc-label="Wave 0: contracts">C2. Wave 0: contracts-first pull requests</h3>
+  <p>Five pull requests that unblock everything else. They are small in logic and large in consequence. The
+    integration lead writes W0-1, the platform owner writes W0-2, W0-3 and W0-5, the CI owner writes W0-4, and every
+    lane lead reviews. The role lines under each team table in <a href="#c-teams">C8</a> say who is who. Rows are in
+    the order to open them.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>PR, branch, size, reviewers</th><th>Files owned</th><th>Produces (interfaces)</th><th>Definition of done</th></tr></thead>
+      <tbody>
+        <tr><th>W0-4<br><code>w0/ci-and-fixtures</code><br><span class="muted">Size S (small)<br>Review: Prove lead, platform owner</span></th><td><code>Makefile</code> (<code>install</code>, <code>test</code>, <code>build</code>), CI workflow file (proposed), per-engine test fixtures that build <code>Clock</code>, <code>Bus</code>, <code>KeyRing</code> and <code>Ledger</code> directly with no <code>Engine</code> (proposed <code>backend/tests/conftest.py</code>), a smoke test, <code>tests/fixtures/canonical.json</code> generated from <code>core.canonical()</code> over a hand-made record, <code>frontend/scripts/check-canonical.mjs</code></td><td>The merge gate (<code>make test</code> and <code>make build</code>) and the fixtures every <code>test_&lt;engine&gt;.py</code> uses</td><td>Opened first; merges together with or straight after W0-1, because the fixture needs <code>core.canonical()</code>. CI then runs both targets on every pull request and blocks on failure</td></tr>
+        <tr><th>W0-1<br><code>w0/backend-core</code><br><span class="muted">Size M (medium)<br>Review: All lane leads</span></th><td><code>backend/spectrum/core.py</code>; a minimal in-memory <code>engines/ledger.py</code> with the final <code>append(type, actor, plane, payload, key_id=None, ts=None, emit=True)</code> signature; <code>engine.py</code> (skeleton: <code>build</code> with one commented line per engine and the three callback lines pre-written and commented out, <code>tick</code>, <code>run</code>, <code>snapshot</code> with all ten keys, empty <code>BEATS</code>); <code>main.py</code> (config, snapshot, sim, <code>/ws</code>, the SPA catch-all last); <code>adapters/base.py</code>, <code>adapters/mock.py</code>, <code>adapters/__init__.py</code>; <code>pyproject.toml</code> and <code>uv.lock</code> with every known dependency</td><td><code>Bus.emit(type, plane, summary, data, severity, actor, ledger, record)</code>; envelope fields; <code>canonical()</code>; <code>KeyRing.sign/verify</code>; <code>Clock</code>; <code>Scheduler.after</code>; <code>Ledger.append</code>. Engine contract: <code>clock, bus</code> first, then only what the engine needs (keys, ledger, seed, other engines); <code>tick(dt)</code>, except <code>trust.tick()</code> and <code>oversight.tick()</code> (no <code>dt</code>), <code>observability.tick(dt, extra)</code> and the ledger (no tick); <code>snapshot()</code> returns a dict. Eight adapter protocols</td><td><code>uv run uvicorn spectrum.main:app</code> serves; <code>/ws</code> sends <code>hello</code>; <code>/api/snapshot</code> returns all keys (empty); <code>pytest</code> runs</td></tr>
+        <tr><th>W0-2<br><code>w0/frontend-core</code><br><span class="muted">Size L (large)<br>Review: All lane leads</span></th><td><code>core/types.ts</code> (every slice key in <code>Snapshot</code>); <code>core/store.ts</code> with one section, or one file under <code>core/slices/</code>, per slice (federation, proving, release, twin, swarm, trust, ledger, oversight, observability, director), <code>applyEvents</code>, and <code>NOISY</code> and <code>PULSE</code> pre-filled with the full known lists (10 and 6 entries); <code>core/ws.ts</code>; <code>core/api.ts</code> with the complete <code>api</code> object (all 29 functions); <code>core/director.ts</code> (<code>fireBeat</code>, <code>nextBeat</code>, <code>prevBeat</code>, <code>useOnBeat</code>); <code>core/canonical.ts</code>; <code>core/features.ts</code>; <code>features/index.ts</code> (empty array); <code>core/flags.tsx</code> (types, resolution, <code>Gate</code>, presets, and every known <code>screen.*</code>, <code>shell.*</code> and <code>demo.*</code> flag); <code>core/ui-store.ts</code>; <code>app/Shell.tsx</code> with the final layout and every mount (top bar, rail, ribbon, stream drawer, inspector, palette, help, toasts, Director, hotkeys, <code>useFollowDirector</code>) as stubs exported from <code>app/*.tsx</code>; <code>main.tsx</code>; <code>frontend/index.html</code>, <code>vite.config.ts</code>, <code>tsconfig*.json</code>; <code>package.json</code> and <code>package-lock.json</code> with every known dependency (<code>d3-sankey</code>, <code>d3-force</code>, <code>qrcode</code>, <code>@fontsource/*</code>)</td><td><code>Envelope</code>, <code>Snapshot</code>, <code>SliceKey</code>, handler signature <code>(e, d, draft, cur)</code>, <code>FeatureManifest</code>, <code>FlagDef</code>, <code>useFlag</code>, <code>isOn</code>, every <code>api.*</code> function, <code>useOnBeat</code></td><td>Shell shows "Connecting", then an empty frame once live; <code>tsc</code> passes</td></tr>
+        <tr><th>W0-3<br><code>w0/design-tokens</code><br><span class="muted">Size S (small)<br>Review: Shell lead, Charts lead</span></th><td>Stacked on W0-2, or folded into it: <code>main.tsx</code> imports <code>./index.css</code> and <code>ui/Panel.tsx</code> imports <code>useUi</code>. <code>src/index.css</code> (both themes, plane and status colours, spotlight rules), <code>core/palette.ts</code>, <code>core/format.ts</code>, <code>ui/Panel.tsx</code>, <code>ui/index.ts</code> (exports only <code>./Panel</code> until L10-1 appends its two lines), <code>charts/common.tsx</code></td><td>CSS variables; <code>Panel</code> props (<code>id</code> sets <code>data-panel</code>, <code>source</code> chip, <code>plane</code>), <code>PageHeader</code>; <code>planeColor</code>, <code>OPERATOR_COLOR</code>; chart size hook, tooltip, legend, table view</td><td>A sample panel renders in Ops and Projector themes; spotlight dims an unlit panel</td></tr>
+        <tr><th>W0-5<br><code>w0/split-hotspots</code><br><span class="muted">Size M (medium)<br>Review: Integration lead, platform owner</span></th><td>For today's code only; in a rebuild, W0-1 and W0-2 create these files directly. <code>core/slices/&lt;slice&gt;.ts</code> (one import line each in <code>store.ts</code>); <code>backend/spectrum/routes/&lt;engine&gt;.py</code> included in <code>main.py</code> in a fixed, commented order with the SPA catch-all <code>GET /{path:path}</code> last; <code>backend/tests/test_&lt;engine&gt;.py</code></td><td>Files a lane can own without touching anyone else's lines</td><td>Mechanical moves only; <code>make test</code> green before and after. Route order is kept: <code>POST /api/fl/{action}</code> is declared before <code>/api/fl/reveal</code> and already shadows it (see gaps)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout tip">
+    <p class="title">Why the engine skeleton goes in Wave 0</p>
+    <p><code>Engine.build</code> is where engines are created and wired. If the skeleton already has one line per engine
+      and the three callback lines, all commented out, each lane un-comments its own lines once both engines exist:
+      L2-1 un-comments <code>on_promote</code> (after L1-1), L3-1 <code>on_gate</code>, L4-2 <code>on_traffic</code>. No
+      two lanes edit the same lines.</p>
+  </div>
+
+  <h3 id="c-lanes" data-toc-label="Lanes and their PRs">C3. Lanes and their pull requests</h3>
+  <p>Twelve lanes. Sizes: S is under about 150 changed lines, M about 150 to 400, L over 400. Sizes are estimated from
+    the current file lengths. "Consumes" are interfaces the PR needs from others; "produces" are what it gives others.
+    Every <code>api.*</code> function already exists from W0-2, so no pull request waits for another lane's client
+    function. Each engine PR ships its own <code>tests/test_&lt;engine&gt;.py</code> built on the W0-4 fixtures.</p>
+  <p class="muted">Jump to a lane: <a href="#lane-learn">L1 Learn</a> · <a href="#lane-verify">L2 Verify</a> ·
+    <a href="#lane-release">L3 Release</a> · <a href="#lane-operate">L4 Operate</a> ·
+    <a href="#lane-oversight">L5 Oversight</a> · <a href="#lane-trust">L6 Trust</a> · <a href="#lane-prove">L7 Prove</a> ·
+    <a href="#lane-observability">L8 Observability</a> · <a href="#lane-shell">L9 Shell and Director</a> ·
+    <a href="#lane-charts">L10 Charts and UI kit</a> · <a href="#lane-aws">L11 AWS adapters</a> ·
+    <a href="#lane-tests">L12 Tests and docs</a></p>
+
+  <h4 id="lane-learn">L1. Learn: federation engine and Federation Center</h4>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>PR, branch, size, reviewer</th><th>Files owned</th><th>Waits for, needs and gives</th><th>Definition of done</th></tr></thead>
+      <tbody>
+        <tr><th>L1-1<br><code>learn/engine</code><br><span class="muted">Size L (large)<br>Review: Prove lead (signatures), Verify lead</span></th><td><code>engines/federation.py</code>; <code>/api/fl*</code> routes; its line in <code>Engine.build</code>; <code>tests/test_federation.py</code></td><td><b>Waits for</b> W0-1, W0-4.<br>Consumes <code>Bus</code>, <code>KeyRing</code>, <code>Ledger.append</code> (the W0-1 minimal ledger is enough). Produces 13 <code>fl.*</code> events, the <code>on_promote</code> hook, <code>snapshot()</code> keys</td><td>The secure aggregation test passes (error 0, 10 pairwise masks); rounds complete at 10 Hz</td></tr>
+        <tr><th>L1-2<br><code>learn/screen-core</code><br><span class="muted">Size M (medium)<br>Review: Shell lead</span></th><td><code>features/federation/manifest.ts</code>, <code>FederationPage.tsx</code>, <code>panels.tsx</code>; <code>fl.*</code> handlers in the federation slice; <code>fl.controls</code> flag</td><td><b>Waits for</b> L1-1, L10-1, L10-2, L10-3 (<code>Ridgeline</code>).<br>Consumes the federation slice. Produces panels <code>round-timeline</code>, <code>convergence</code>, <code>privacy</code>, <code>dp</code>, <code>update-norms</code>, <code>run</code></td><td>Start, pause, next round and stop work from the header; ε chart moves live</td></tr>
+        <tr><th>L1-3<br><code>learn/privacy-panels</code><br><span class="muted">Size M (medium)<br>Review: Learn lead, Trust lead</span></th><td><code>features/federation/panels2.tsx</code>; edits <code>FederationPage.tsx</code> to mount the gated panels; <code>fl.secagg_viz</code>, <code>fl.he</code>, <code>fl.attestation</code>, <code>fl.sovereignty</code>, <code>fl.checkpoints</code> flags</td><td><b>Waits for</b> L1-2, L6-1 (attestation), L10-3 (<code>Sankey</code>).<br>Consumes <code>trust.attestation</code>, <code>observability.frames</code>. Produces panels <code>secagg</code>, <code>he</code>, <code>sovereignty</code>, <code>attestation</code>, <code>fleet</code>, <code>checkpoints</code>, <code>fl-log</code></td><td>Poison button on op-e: the next update is rejected in <code>fleet</code> and <code>update-norms</code>; each flag hides its panel without a gap</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 id="lane-verify">L2. Verify: proving engine and Proving Ground</h4>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>PR, branch, size, reviewer</th><th>Files owned</th><th>Waits for, needs and gives</th><th>Definition of done</th></tr></thead>
+      <tbody>
+        <tr><th>L2-1<br><code>verify/engine</code><br><span class="muted">Size M (medium)<br>Review: Release lead, Prove lead</span></th><td><code>engines/proving.py</code>; <code>/api/eval/*</code> routes; un-comments the <code>on_promote</code> line; <code>tests/test_proving.py</code></td><td><b>Waits for</b> W0-1, W0-4, L1-1 (<code>/api/eval/run</code> calls <code>engine.fl.promote</code>, and <code>on_promote</code> joins the two engines).<br>Consumes <code>Ledger.append</code>, <code>KeyRing</code>. Produces <code>candidate_from_checkpoint(ck)</code>, the <code>on_gate</code> hook, <code>eval.*</code>, <code>aibom.signed</code></td><td>A run goes through all nine stages; gate decision ledgered; <code>verify_aibom</code> returns valid</td></tr>
+        <tr><th>L2-2<br><code>verify/screen</code><br><span class="muted">Size M (medium)<br>Review: Shell lead</span></th><td><code>features/proving/manifest.ts</code>, <code>ProvingPage.tsx</code>, <code>panels.tsx</code>, <code>model.ts</code>; <code>eval.*</code> handlers; <code>eval.parallel</code> flag</td><td><b>Waits for</b> L2-1, L10-1, L10-2, L10-3 (<code>ParallelCoords</code>).<br>Produces panels <code>pipeline</code>, <code>scorecard</code>, <code>pareto</code>, <code>parallel</code>, <code>tasks</code>, <code>redteam</code></td><td>"Run" evaluates the latest checkpoint and the pipeline animates</td></tr>
+        <tr><th>L2-3<br><code>verify/bom-and-fed-eval</code><br><span class="muted">Size M (medium)<br>Review: Release lead</span></th><td><code>features/proving/panels2.tsx</code>; edits <code>ProvingPage.tsx</code> to mount the gated panels; <code>aibom.signed</code>, <code>eval.federated</code> handlers; <code>eval.fed_eval</code>, <code>eval.scaling</code> flags</td><td><b>Waits for</b> L2-2, L3-1 (the <code>/api/release/shadow</code> route).<br>Produces panels <code>gate</code>, <code>aibom</code>, <code>fed-eval</code>, <code>latency</code>, <code>scaling</code></td><td>Verify signature shows valid; the shadow button moves the candidate to Release</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 id="lane-release">L3. Release: release engine and Release Center</h4>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>PR, branch, size, reviewer</th><th>Files owned</th><th>Waits for, needs and gives</th><th>Definition of done</th></tr></thead>
+      <tbody>
+        <tr><th>L3-1<br><code>release/engine</code><br><span class="muted">Size M (medium)<br>Review: Operate lead</span></th><td><code>engines/release.py</code>; <code>/api/release/*</code> routes; un-comments the <code>on_gate</code> line; <code>tests/test_release.py</code></td><td><b>Waits for</b> W0-1, W0-4, L2-1 (<code>/api/release/shadow</code> reads <code>engine.proving.pending_candidate</code>).<br>Produces <code>start_shadow(version)</code>, <code>advance()</code>, <code>rollback()</code>, the <code>on_traffic(version, pct)</code> hook, <code>release.*</code> events</td><td>Advance walks shadow to full; the regression trips the error-rate guard in canary and rolls back automatically; each stage ledgered</td></tr>
+        <tr><th>L3-2<br><code>release/screen</code><br><span class="muted">Size M (medium)<br>Review: Shell lead</span></th><td><code>features/release/manifest.ts</code>, <code>ReleasePage.tsx</code>; <code>release.*</code> handlers; <code>release.dialects</code> flag (the regression button uses <code>demo.attacks</code>, pre-declared in W0-2)</td><td><b>Waits for</b> L3-1, L10-1, L10-2.<br>Produces panels <code>rollout</code>, <code>targets</code>, <code>agreement</code>, <code>disagreements</code>, <code>timeline</code>, <code>manifest</code>, <code>dialects</code></td><td>Advance, Roll back and "Inject regression (demo)" each update the rollout panel, in both themes</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 id="lane-operate">L4. Operate: twin, swarm and Swarm Tower</h4>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>PR, branch, size, reviewer</th><th>Files owned</th><th>Waits for, needs and gives</th><th>Definition of done</th></tr></thead>
+      <tbody>
+        <tr><th>L4-1<br><code>operate/twin</code><br><span class="muted">Size L (large)<br>Review: Operate lead, Charts lead</span></th><td><code>engines/twin.py</code>; <code>charts/HexMap.tsx</code>; <code>tests/test_twin.py</code></td><td><b>Waits for</b> W0-1, W0-3, W0-4.<br>Produces <code>inject</code>, <code>apply</code>, <code>preflight</code>, <code>kpis</code>, <code>twin.*</code> events, the hex map of 40 sites</td><td>KPIs tick each sim second; a fibre cut raises congestion; the map shows it</td></tr>
+        <tr><th>L4-2<br><code>operate/swarm</code><br><span class="muted">Size L (large)<br>Review: Trust lead, Oversight lead</span></th><td><code>engines/swarm.py</code>; <code>/api/twin/inject</code>, <code>/api/swarm/*</code>, <code>/api/autonomy</code>, <code>/api/agents/*</code> routes; the <code>restore-</code> branch of <code>/api/approvals</code>; un-comments the <code>on_traffic</code> line; <code>tests/test_swarm.py</code></td><td><b>Waits for</b> L4-1, L5-1, L6-1, L8-1, L3-1.<br>Consumes <code>trust.authorize</code>, <code>scan</code>, <code>check_delegation</code>, <code>oversight.create(on_decided)</code>, <code>obs.record_call</code>, <code>span</code>. Produces <code>set_model_cohort</code>, <code>start_incident</code>, <code>telemetry_injection</code>, 18 event types</td><td>The two policy tests pass (mass shutdown blocked, large change needs a human); incident resolves after approval</td></tr>
+        <tr><th>L4-3<br><code>operate/screen</code><br><span class="muted">Size L (large)<br>Review: Shell lead, Charts lead</span></th><td><code>features/swarm/manifest.ts</code>, <code>SwarmPage.tsx</code>, <code>panels.tsx</code>; <code>charts/SwarmGraph.tsx</code>; twin, incident, negotiation, plan handlers; <code>swarm.negotiation</code> flag</td><td><b>Waits for</b> L4-2, L10-1, L10-2, L10-3 (<code>DeltaBars</code>).<br>Produces panels <code>twin</code>, <code>swarm</code>, <code>incident</code>, <code>negotiation</code>, <code>plan</code></td><td>"Fibre cut + stadium surge", then "Telemetry injection": the incident, negotiation and plan panels fill in and the attack is denied; swarm canvas smooth at 46 nodes (1 coordinator, 5 domain, 40 site agents)</td></tr>
+        <tr><th>L4-4<br><code>operate/agents-panels</code><br><span class="muted">Size M (medium)<br>Review: Trust lead</span></th><td><code>features/swarm/panels2.tsx</code>; edits <code>SwarmPage.tsx</code> to mount it; <code>swarm.agents</code>, <code>a2a.msg</code>, <code>autonomy.change</code>, <code>swarm.freeze</code> handlers; <code>swarm.autonomy</code> flag</td><td><b>Waits for</b> L4-3.<br>Produces panels <code>messages</code>, <code>roster</code>, <code>breakers</code>, <code>autonomy</code></td><td>Autonomy change is ledgered and the chart updates</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 id="lane-oversight">L5. Oversight: oversight engine, Oversight Desk and phone page</h4>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>PR, branch, size, reviewer</th><th>Files owned</th><th>Waits for, needs and gives</th><th>Definition of done</th></tr></thead>
+      <tbody>
+        <tr><th>L5-1<br><code>oversight/engine</code><br><span class="muted">Size S (small)<br>Review: Operate lead, Prove lead</span></th><td><code>engines/oversight.py</code>; the <code>/api/approvals/*</code> route without the <code>restore-</code> branch (L4-2 adds it); <code>tests/test_oversight.py</code></td><td><b>Waits for</b> W0-1, W0-4.<br>Produces <code>create(…, on_decided)</code>, <code>decide()</code>, SLA timers, escalation, four-eyes</td><td>Critical item needs two different people; SLA expiry escalates L1 to L2 to L3</td></tr>
+        <tr><th>L5-2<br><code>oversight/desk</code><br><span class="muted">Size L (large)<br>Review: Operate lead, Shell lead</span></th><td><code>features/oversight/manifest.ts</code>, <code>OversightPage.tsx</code>, <code>parts.tsx</code>; <code>approval.*</code>, <code>escalation</code> handlers</td><td><b>Waits for</b> L5-1, L4-2 (real plans), L10-1.<br>Produces panels <code>queue</code>, <code>decision</code>, <code>ladder</code>, <code>history</code></td><td>Approve, approve with changes, reject and escalate all round-trip</td></tr>
+        <tr><th>L5-3<br><code>oversight/mobile</code><br><span class="muted">Size S (small)<br>Review: Shell lead</span></th><td><code>features/mobile/manifest.ts</code>, <code>MobileApprove.tsx</code>; <code>oversight.mobile</code> flag</td><td><b>Waits for</b> L5-2.<br>Consumes <code>api.decide(…, {device: 'mobile'})</code></td><td>Approve from a phone on the same Wi-Fi; desk shows the signed decision</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 id="lane-trust">L6. Trust: trust engine and Trust Center</h4>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>PR, branch, size, reviewer</th><th>Files owned</th><th>Waits for, needs and gives</th><th>Definition of done</th></tr></thead>
+      <tbody>
+        <tr><th>L6-1<br><code>trust/engine</code><br><span class="muted">Size M (medium)<br>Review: Operate lead, Prove lead</span></th><td><code>engines/trust.py</code>; <code>tests/test_trust.py</code></td><td><b>Waits for</b> W0-1, W0-4.<br>Produces <code>authorize(principal, action, resource, context)</code> returning decision and policy ids, <code>scan</code>, <code>check_delegation</code>, <code>attestation</code></td><td>Each of P-001 to P-013 has a passing case</td></tr>
+        <tr><th>L6-2<br><code>trust/screen</code><br><span class="muted">Size L (large)<br>Review: Shell lead, Operate lead</span></th><td><code>features/trust/manifest.ts</code>, <code>TrustPage.tsx</code>, <code>panels.tsx</code>; <code>policy.decision</code>, <code>guardrail.block</code>, <code>delegation.check</code> handlers; the <code>/api/trust/test</code> route (it reads <code>engine.swarm.agents</code> and <code>swarm._principal</code>); add <code>api.trustTest</code></td><td><b>Waits for</b> L6-1, L4-2, L10-1, L10-2, L10-3 (<code>AreaStack</code>).<br>Produces panels <code>policy</code>, <code>decisions</code>, <code>denied</code>, <code>identities</code>, <code>delegation</code>, <code>guardrails</code>, <code>attestation-chain</code></td><td>After the "Telemetry injection" button on Swarm Tower, the guardrail, delegation and identity panels show the attack; the test bench never changes stats</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 id="lane-prove">L7. Prove: ledger, Audit &amp; Proof, provenance and dossier</h4>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>PR, branch, size, reviewer</th><th>Files owned</th><th>Waits for, needs and gives</th><th>Definition of done</th></tr></thead>
+      <tbody>
+        <tr><th>L7-1<br><code>prove/ledger</code><br><span class="muted">Size M (medium)<br>Review: Platform owner, Learn lead</span></th><td><code>engines/ledger.py</code> (replaces the W0-1 minimal ledger: anchors, verify, proof, tamper, restore); <code>/api/ledger/*</code>, <code>/api/keys/*</code> routes; regenerates <code>tests/fixtures/canonical.json</code> from engine records; <code>tests/test_ledger.py</code></td><td><b>Waits for</b> W0-1, W0-4.<br>Keeps the <code>append</code> signature; returns <code>{seq, hash, sig}</code>. Produces <code>verify</code>, <code>proof</code>, <code>tamper</code>, <code>restore</code></td><td>The tamper test and the canonical hash check pass</td></tr>
+        <tr><th>L7-2<br><code>prove/audit-screen</code><br><span class="muted">Size L (large)<br>Review: Platform owner, Trust lead</span></th><td><code>features/audit/manifest.ts</code>, <code>AuditPage.tsx</code>, <code>panels.tsx</code>, <code>verify.ts</code>; <code>charts/ChainStrip.tsx</code>, <code>charts/MerkleTree.tsx</code>; <code>ledger.*</code> handlers</td><td><b>Waits for</b> L7-1, L10-1, L10-2.<br>Produces panels <code>chain</code>, <code>records</code>, <code>record</code>, <code>anchors</code>, <code>proof</code>, <code>tamper</code></td><td>Palette "Simulate tampering of a ledger record": verify stops at that record; browser hash matches server hash</td></tr>
+        <tr><th>L7-3<br><code>prove/provenance-api</code><br><span class="muted">Size M (medium)<br>Review: Integration lead</span></th><td><code>provenance.py</code>; <code>/api/provenance/latest</code>, <code>/api/dossier/*</code> routes</td><td><b>Waits for</b> L7-1, L1-1, L2-1, L3-1 (so agents carry the new model), L4-2, L5-1, L6-1. The callback lines land with those pull requests.<br>Consumes ledger records and the state of five engines. Produces the provenance graph and signed dossier</td><td>After promote, run, shadow, canary, a fibre-cut incident and its approval, <code>GET /api/provenance/latest</code> reaches the federated round and operators; the dossier digest is ledgered</td></tr>
+        <tr><th>L7-4<br><code>prove/provenance-screen</code><br><span class="muted">Size L (large)<br>Review: Integration lead, Shell lead</span></th><td><code>features/audit/Provenance.tsx</code>, <code>DossierPage.tsx</code>, <code>dossierManifest.ts</code>; <code>charts/DagGraph.tsx</code>; edits <code>AuditPage.tsx</code> to mount the gated <code>provenance</code> and <code>dossier</code> panels; <code>audit.provenance</code>, <code>audit.dossier</code> flags</td><td><b>Waits for</b> L7-2, L7-3.<br>Produces panels <code>provenance</code>, <code>dossier</code> and the dossier page</td><td>The provenance panel draws the walk from action to round; "Incident dossier" opens the signed dossier page</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 id="lane-observability">L8. Observability: observability engine and screen</h4>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>PR, branch, size, reviewer</th><th>Files owned</th><th>Waits for, needs and gives</th><th>Definition of done</th></tr></thead>
+      <tbody>
+        <tr><th>L8-1<br><code>obs/engine</code><br><span class="muted">Size M (medium)<br>Review: Operate lead</span></th><td><code>engines/observability.py</code>; <code>tests/test_observability.py</code>. <code>obs.tick(dt, extra)</code> takes an empty dict until L9-6 adds <code>Engine._obs_extra</code></td><td><b>Waits for</b> W0-1, W0-4.<br>Produces <code>record_call</code>, <code>record_tool</code>, <code>note</code>, <code>span</code>, <code>new_trace</code>, <code>obs.*</code> events</td><td>Spans grouped by trace; metrics frames emitted (per-plane golden signals fill in with L9-6)</td></tr>
+        <tr><th>L8-2<br><code>obs/screen</code><br><span class="muted">Size L (large)<br>Review: Charts lead, Operate lead</span></th><td><code>features/observability/manifest.ts</code>, <code>ObservabilityPage.tsx</code>, <code>panels.tsx</code>, <code>LogSearch.tsx</code>; <code>obs.*</code> handlers; <code>obs.heatmap</code> flag</td><td><b>Waits for</b> L8-1, L10-1, L10-2, L10-3 (<code>LatencyHeatmap</code>, <code>StackedArea</code>, <code>Waterfall</code>).<br>Produces panels <code>logs</code>, <code>golden</code>, <code>trace</code>, <code>cost</code>, <code>latency</code>, <code>slo</code>, <code>agent-health</code>, <code>infra</code></td><td>After a fibre-cut incident, its trace waterfall and cost by model appear</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 id="lane-shell">L9. Shell, Mission Control, Settings and the Director</h4>
+  <p>L9-1 to L9-5 are frontend and belong to the shell lead. L9-6 and L9-7 touch <code>engine.py</code> and
+    <code>main.py</code> and belong to the integration lead.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>PR, branch, size, reviewer</th><th>Files owned</th><th>Waits for, needs and gives</th><th>Definition of done</th></tr></thead>
+      <tbody>
+        <tr><th>L9-1<br><code>shell/frame</code><br><span class="muted">Size M (medium)<br>Review: Platform owner</span></th><td>Replaces the W0-2 stubs: <code>app/TopBar.tsx</code>, <code>Rail.tsx</code>, <code>Ribbon.tsx</code>, <code>hotkeys.ts</code></td><td><b>Waits for</b> W0-2, W0-3, L10-1.<br>Consumes manifests, flags, <code>core/director.ts</code>. Produces the frame every screen sits in</td><td>Rail lists registered screens; <kbd>g</kbd> letters work; ribbon renders with empty slices</td></tr>
+        <tr><th>L9-2<br><code>shell/drawers</code><br><span class="muted">Size L (large)<br>Review: Prove lead, platform owner</span></th><td>Replaces the stubs <code>app/StreamDrawer.tsx</code>, <code>Inspector.tsx</code>, <code>Overlays.tsx</code> (palette, help, toasts); toast maps in <code>core/ws.ts</code></td><td><b>Waits for</b> L9-1, L10-1.<br>Produces <code>useUi.inspect(target)</code>, <code>GLOBAL_COMMANDS</code>, <code>toast()</code></td><td>Palette, inspector and stream open by key; ledger record recomputes its hash</td></tr>
+        <tr><th>L9-3<br><code>shell/settings</code><br><span class="muted">Size M (medium)<br>Review: Platform owner</span></th><td><code>features/settings/</code></td><td><b>Waits for</b> L9-1, L10-1.<br>Consumes <code>FLAGS</code>, <code>features</code>, <code>/api/config</code>. Produces panels <code>flags</code>, <code>modules</code>, <code>add-feature</code>, <code>datasource</code>, <code>simulation</code>, <code>display</code></td><td>Every flag toggles with its winning source shown; presets apply</td></tr>
+        <tr><th>L9-4<br><code>shell/mission</code><br><span class="muted">Size M (medium)<br>Review: Platform owner, Charts lead</span></th><td><code>features/mission/</code>; <code>charts/ConsortiumMap.tsx</code></td><td><b>Waits for</b> L9-1, L10-1, L10-2, all W1 engine PRs (it reads every slice; it calls no endpoints).<br>Produces panels <code>consortium</code>, <code>mini-twin</code>, <code>health</code>, <code>critical</code></td><td>All four panels live from the snapshot and the stream</td></tr>
+        <tr><th>L9-5<br><code>shell/director-ui</code><br><span class="muted">Size L (large)<br>Review: Integration lead, demo lead</span></th><td><code>app/Director.tsx</code>; <code>features/presenter/</code>; <code>useFollowDirector</code> in <code>app/Shell.tsx</code> (replaces its stub). <code>core/director.ts</code> already exists from W0-2</td><td><b>Waits for</b> L9-1, L10-1.<br>Built against <code>snapshot.director.beats</code>, which stays empty until L9-7</td><td>The Director opens with <kbd>d</kbd> and lists whatever beats the snapshot holds; the presenter page connects</td></tr>
+        <tr><th>L9-6<br><code>integration/wiring</code><br><span class="muted">Size M (medium)<br>Review: All lane leads</span></th><td><code>Engine.warm</code>; <code>Engine._obs_extra</code> (reads federation, proving and release state); the warm-start test</td><td><b>Waits for</b> All W1 engine PRs.<br>Consumes every engine. Produces the opening state (12 federated rounds, past approvals, routine history) and per-plane golden signals</td><td>Promote, run, pass, shadow, canary and cohort happen from buttons alone; the warm-start test passes; Observability shows five planes</td></tr>
+        <tr><th>L9-7<br><code>integration/beats</code><br><span class="muted">Size M (medium)<br>Review: Integration lead, every lane lead for their beats</span></th><td><code>BEATS</code>, <code>beat()</code>, <code>reset()</code>, <code>/api/director/*</code> in <code>engine.py</code> and <code>main.py</code></td><td><b>Waits for</b> L9-6, all W2 screens (each beat's spotlight ids must match real panel ids).<br>Consumes one method per engine. Produces <code>director.beat</code>, preflight</td><td>All 14 beats run with <kbd>→</kbd> only; preflight all green after reset with a phone (or second browser) connected to <code>/m/approve</code>; presenter drives a second browser</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 id="lane-charts">L10. Charts and UI kit</h4>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>PR, branch, size, reviewer</th><th>Files owned</th><th>Waits for, needs and gives</th><th>Definition of done</th></tr></thead>
+      <tbody>
+        <tr><th>L10-1<br><code>ui/kit</code><br><span class="muted">Size L (large)<br>Review: Shell lead, platform owner</span></th><td><code>ui/controls.tsx</code>, <code>ui/data.tsx</code>; appends <code>./controls</code> and <code>./data</code> to <code>ui/index.ts</code></td><td><b>Waits for</b> W0-3.<br>Produces <code>Button</code>, <code>HoldButton</code>, <code>IconButton</code>, <code>Kbd</code>, <code>LiveDot</code>, <code>Toggle</code>, <code>Segmented</code>, <code>Slider</code>, <code>Tabs</code>, <code>StatusPill</code>, <code>Hash</code>, <code>SignatureBadge</code>, <code>LedgerLink</code>, <code>Stat</code>, <code>Meter</code>, <code>Steps</code>, <code>CodeBlock</code>, <code>KV</code></td><td>Each component keyboard reachable, status always icon plus word</td></tr>
+        <tr><th>L10-2<br><code>charts/core</code><br><span class="muted">Size L (large)<br>Review: Learn lead, Shell lead</span></th><td><code>LineChart</code>, <code>Scatter</code>, <code>Heatmap</code>, <code>Histogram</code>, <code>Sparkline</code>, <code>BarList</code>, <code>Gantt</code></td><td><b>Waits for</b> W0-3 (<code>charts/common.tsx</code>).<br>Produces chart props used by every screen</td><td>Each chart has a tooltip, legend and table view, works in both themes</td></tr>
+        <tr><th>L10-3<br><code>charts/extended</code><br><span class="muted">Size L (large)<br>Review: Observability lead, Shell lead</span></th><td><code>StackedArea</code>, <code>AreaStack</code>, <code>Ridgeline</code>, <code>Sankey</code>, <code>ParallelCoords</code>, <code>Waterfall</code>, <code>LatencyHeatmap</code>, <code>DeltaBars</code></td><td><b>Waits for</b> W0-3. Runs in parallel with L10-2.<br>Used by Federation, Proving, Trust, Observability, Swarm</td><td>Same as above</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Screen-specific charts are owned by their lane, not this one: <code>HexMap</code> (L4-1),
+    <code>SwarmGraph</code> (L4-3), <code>ChainStrip</code> and <code>MerkleTree</code> (L7-2), <code>DagGraph</code>
+    (L7-4), <code>ConsortiumMap</code> (L9-4).</p>
+
+  <h4 id="lane-aws">L11. AWS adapters</h4>
+  <p>Today <code>adapters/aws.py</code> has boto3 stubs for eight seams. The adapters package header
+    (<code>adapters/__init__.py</code>) says they are "intentionally not wired into the engines yet and are untested
+    against a live account". Engines never receive adapters today: <code>load_adapters()</code> runs only in
+    <code>main.py</code>, after <code>engine = Engine(seed=SEED)</code> is created, and only <code>/api/config</code>
+    uses it. So the lane starts by passing adapters in (L11-2), then wires one seam at a time behind
+    <code>SPECTRUM_MODE=aws</code>, so mock mode never changes.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>PR, branch, size, reviewer</th><th>Files owned</th><th>Waits for, needs and gives</th><th>Definition of done</th></tr></thead>
+      <tbody>
+        <tr><th>L11-1<br><code>aws/stubs</code><br><span class="muted">Size M (medium)<br>Review: Platform owner</span></th><td><code>adapters/aws.py</code></td><td><b>Waits for</b> W0-1.<br>Produces <code>DynamoLedgerStore</code>, <code>S3ObjectLockAnchors</code>, <code>KmsSigner</code>, <code>VerifiedPermissions</code>, <code>BedrockGuardrails</code>, <code>StepFunctionsApprovals</code>, <code>CloudWatchMetrics</code>, <code>AppConfigFlags</code></td><td>Import works without boto3 in mock mode; <code>/api/config</code> lists the backing services</td></tr>
+        <tr><th>L11-2<br><code>aws/adapter-injection</code><br><span class="muted">Size S (small)<br>Owner and review: Integration lead</span></th><td><code>engine.py</code> (<code>Engine</code> and <code>Engine.build</code> take the adapters and pass them to the engine constructors, defaulting to mock); <code>main.py</code> (load adapters before creating the engine); <code>core.py</code> (<code>KeyRing</code> accepts a <code>Signer</code>)</td><td><b>Waits for</b> L11-1, W0-1.<br>Produces the place each seam plugs in</td><td>Mock mode unchanged; <code>make test</code> green</td></tr>
+        <tr><th>L11-3<br><code>aws/ledger-seams</code><br><span class="muted">Size M (medium)<br>Review: Prove lead, integration lead</span></th><td>Calls from <code>engines/ledger.py</code> into <code>adapters.ledger</code>, <code>anchors</code>, <code>signer</code>; small edits in <code>engine.py</code>, <code>main.py</code> or <code>core.py</code> where the seam is passed in</td><td><b>Waits for</b> L11-2, L7-1. From wave 2.<br>Records go to DynamoDB (conditional put), anchors to S3 Object Lock, signatures from KMS</td><td>Mock tests unchanged; an AWS smoke test verifies one anchored range</td></tr>
+        <tr><th>L11-4<br><code>aws/policy-guardrails</code><br><span class="muted">Size M (medium)<br>Review: Trust lead, integration lead</span></th><td>Calls from <code>engines/trust.py</code> into <code>adapters.policy</code>, <code>guardrails</code>; small edits in <code>engine.py</code> where the seam is passed in</td><td><b>Waits for</b> L11-2, L6-1. From wave 2.<br><code>authorize</code> asks Verified Permissions; <code>scan</code> asks Bedrock Guardrails</td><td>Same decisions as the mirror for the policy tests</td></tr>
+        <tr><th>L11-5<br><code>aws/approvals</code><br><span class="muted">Size S (small)<br>Review: Oversight lead, integration lead</span></th><td>Calls from <code>engines/oversight.py</code> into <code>adapters.approvals</code>; small edits in <code>engine.py</code> where the seam is passed in</td><td><b>Waits for</b> L11-2, L5-1. From wave 2.<br>Each decision completes a Step Functions task token</td><td>Approve and reject reach the state machine</td></tr>
+        <tr><th>L11-6<br><code>aws/flags-metrics-telemetry</code><br><span class="muted">Size M (medium)<br>Review: Observability lead</span></th><td><code>/api/config/flags</code> in <code>main.py</code>; <code>engines/observability.py</code>; a new Kinesis adapter in <code>aws.py</code></td><td><b>Waits for</b> L11-2, L8-1, L4-1.<br>Flags from AppConfig, metrics to CloudWatch, twin ticks to Kinesis</td><td>Mock still reads <code>flags.json</code>; AWS mode reads AppConfig</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 id="lane-tests">L12. Tests and docs</h4>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>PR, branch, size, reviewer</th><th>Files owned</th><th>Waits for, needs and gives</th><th>Definition of done</th></tr></thead>
+      <tbody>
+        <tr><th>L12-1<br><code>tests/cross-engine</code><br><span class="muted">Size S (small)<br>Review: Prove lead</span></th><td>Cross-engine behaviour tests in <code>backend/tests/</code>. Per-engine tests ship with each engine PR; the warm-start test ships with L9-6</td><td><b>Waits for</b> L4-2 (the policy and human-approval tests need swarm, trust and oversight together).<br>Produces the safety net for ledger crypto, mask maths and policy</td><td>Tamper, mask, policy and human-approval tests pass and are deterministic for seed 7</td></tr>
+        <tr><th>L12-2<br><code>tests/full-script</code><br><span class="muted">Size S (small)<br>Review: Integration lead</span></th><td>The full-script test in <code>backend/tests/test_engine.py</code></td><td><b>Waits for</b> L9-7.<br>Produces the merge gate for every later pull request (blocking from CP4)</td><td>14 beats run; incident resolved; site-17 quarantined; no <code>system.error</code></td></tr>
+        <tr><th>L12-3<br><code>docs/guide</code><br><span class="muted">Size M (medium)<br>Review: Demo lead</span></th><td><code>docs/</code> (this guide), <code>README.md</code>, <code>SETUP_AND_RUN_instructions.md</code></td><td><b>Waits for</b> L9-7.<br>Produces presenter and builder documentation</td><td>Every page checked against code; screenshots current</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="c-gantt" data-toc-label="Swimlane view">C4. Swimlane view: waves by lanes</h3>
+  <figure class="diagram wide">
+    <div class="diagram-frame">
+      <svg viewBox="0 0 900 594" role="img" aria-labelledby="fm-g2-t fm-g2-d">
+        <title id="fm-g2-t">Build waves by lane</title>
+        <desc id="fm-g2-d">Twelve lanes as rows and six waves as columns. Wave 0 contracts span every lane. Wave 1 builds the engines, all charts, the UI kit, the frame and the first two AWS pull requests. Wave 2 builds the screens, Mission Control, the Director panel, provenance and the first AWS seams. Wave 3 adds warm start and observability wiring and the provenance screen. Wave 4 adds the beats, the full-script test and docs. Wave 5 finishes the AWS adapters. Dashed lines mark integration checkpoints CP0 to CP5 at the end of each wave.</desc>
+        <text class="d-label" x="193" y="22" text-anchor="middle">W0</text><text class="d-sub" x="193" y="38" text-anchor="middle">contracts</text>
+        <text class="d-label" x="319" y="22" text-anchor="middle">W1</text><text class="d-sub" x="319" y="38" text-anchor="middle">engines, kit, charts</text>
+        <text class="d-label" x="445" y="22" text-anchor="middle">W2</text><text class="d-sub" x="445" y="38" text-anchor="middle">screens</text>
+        <text class="d-label" x="571" y="22" text-anchor="middle">W3</text><text class="d-sub" x="571" y="38" text-anchor="middle">wiring</text>
+        <text class="d-label" x="697" y="22" text-anchor="middle">W4</text><text class="d-sub" x="697" y="38" text-anchor="middle">beats, hardening</text>
+        <text class="d-label" x="823" y="22" text-anchor="middle">W5</text><text class="d-sub" x="823" y="38" text-anchor="middle">AWS adapters</text>
+        <text class="d-sub" x="8" y="74" font-weight="600">L1 Learn</text>
+        <text class="d-sub" x="8" y="114" font-weight="600">L2 Verify</text>
+        <text class="d-sub" x="8" y="154" font-weight="600">L3 Release</text>
+        <text class="d-sub" x="8" y="194" font-weight="600">L4 Operate</text>
+        <text class="d-sub" x="8" y="234" font-weight="600">L5 Oversight</text>
+        <text class="d-sub" x="8" y="274" font-weight="600">L6 Trust</text>
+        <text class="d-sub" x="8" y="314" font-weight="600">L7 Prove</text>
+        <text class="d-sub" x="8" y="354" font-weight="600">L8 Observability</text>
+        <text class="d-sub" x="8" y="394" font-weight="600">L9 Shell, director</text>
+        <text class="d-sub" x="8" y="434" font-weight="600">L10 Charts, UI kit</text>
+        <text class="d-sub" x="8" y="474" font-weight="600">L11 AWS adapters</text>
+        <text class="d-sub" x="8" y="514" font-weight="600">L12 Tests, docs</text>
+        <path class="d-group" d="M4 90H896M4 130H896M4 170H896M4 210H896M4 250H896M4 290H896M4 330H896M4 370H896M4 410H896M4 450H896M4 490H896"/>
+        <rect class="d-node" x="134" y="54" width="118" height="472" rx="6"/>
+        <text class="d-label" x="193" y="232" text-anchor="middle">Wave 0</text>
+        <text class="d-sub" x="193" y="254" text-anchor="middle">W0-4 CI (first)</text>
+        <text class="d-sub" x="193" y="272" text-anchor="middle">W0-1 backend core</text>
+        <text class="d-sub" x="193" y="290" text-anchor="middle">W0-2 frontend core</text>
+        <text class="d-sub" x="193" y="308" text-anchor="middle">W0-3 tokens</text>
+        <text class="d-sub" x="193" y="326" text-anchor="middle">W0-5 split (extend)</text>
+        <rect class="d-node learn" x="260" y="54" width="118" height="32" rx="4"/><text class="d-sub" x="319" y="74" text-anchor="middle">L1-1 engine</text>
+        <rect class="d-node learn" x="386" y="54" width="57" height="32" rx="4"/><text class="d-sub" x="414.5" y="74" text-anchor="middle">L1-2</text>
+        <rect class="d-node learn" x="447" y="54" width="57" height="32" rx="4"/><text class="d-sub" x="475.5" y="74" text-anchor="middle">L1-3</text>
+        <rect class="d-node verify" x="260" y="94" width="118" height="32" rx="4"/><text class="d-sub" x="319" y="114" text-anchor="middle">L2-1 engine</text>
+        <rect class="d-node verify" x="386" y="94" width="57" height="32" rx="4"/><text class="d-sub" x="414.5" y="114" text-anchor="middle">L2-2</text>
+        <rect class="d-node verify" x="447" y="94" width="57" height="32" rx="4"/><text class="d-sub" x="475.5" y="114" text-anchor="middle">L2-3</text>
+        <rect class="d-node release" x="260" y="134" width="118" height="32" rx="4"/><text class="d-sub" x="319" y="154" text-anchor="middle">L3-1 engine</text>
+        <rect class="d-node release" x="386" y="134" width="118" height="32" rx="4"/><text class="d-sub" x="445" y="154" text-anchor="middle">L3-2 screen</text>
+        <rect class="d-node operate" x="260" y="174" width="57" height="32" rx="4"/><text class="d-sub" x="288.5" y="194" text-anchor="middle">L4-1</text>
+        <rect class="d-node operate" x="321" y="174" width="57" height="32" rx="4"/><text class="d-sub" x="349.5" y="194" text-anchor="middle">L4-2</text>
+        <rect class="d-node operate" x="386" y="174" width="57" height="32" rx="4"/><text class="d-sub" x="414.5" y="194" text-anchor="middle">L4-3</text>
+        <rect class="d-node operate" x="447" y="174" width="57" height="32" rx="4"/><text class="d-sub" x="475.5" y="194" text-anchor="middle">L4-4</text>
+        <rect class="d-node operate" x="260" y="214" width="118" height="32" rx="4"/><text class="d-sub" x="319" y="234" text-anchor="middle">L5-1 engine</text>
+        <rect class="d-node operate" x="386" y="214" width="57" height="32" rx="4"/><text class="d-sub" x="414.5" y="234" text-anchor="middle">L5-2</text>
+        <rect class="d-node operate" x="447" y="214" width="57" height="32" rx="4"/><text class="d-sub" x="475.5" y="234" text-anchor="middle">L5-3</text>
+        <rect class="d-node prove" x="260" y="254" width="118" height="32" rx="4"/><text class="d-sub" x="319" y="274" text-anchor="middle">L6-1 engine</text>
+        <rect class="d-node prove" x="386" y="254" width="118" height="32" rx="4"/><text class="d-sub" x="445" y="274" text-anchor="middle">L6-2 screen</text>
+        <rect class="d-node prove" x="260" y="294" width="118" height="32" rx="4"/><text class="d-sub" x="319" y="314" text-anchor="middle">L7-1 ledger</text>
+        <rect class="d-node prove" x="386" y="294" width="57" height="32" rx="4"/><text class="d-sub" x="414.5" y="314" text-anchor="middle">L7-2</text>
+        <rect class="d-node prove" x="447" y="294" width="57" height="32" rx="4"/><text class="d-sub" x="475.5" y="314" text-anchor="middle">L7-3</text>
+        <rect class="d-node prove" x="512" y="294" width="57" height="32" rx="4"/><text class="d-sub" x="540.5" y="314" text-anchor="middle">L7-4</text>
+        <rect class="d-node" x="260" y="334" width="118" height="32" rx="4"/><text class="d-sub" x="319" y="354" text-anchor="middle">L8-1 engine</text>
+        <rect class="d-node" x="386" y="334" width="118" height="32" rx="4"/><text class="d-sub" x="445" y="354" text-anchor="middle">L8-2 screen</text>
+        <rect class="d-node" x="260" y="374" width="118" height="32" rx="4"/><text class="d-sub" x="319" y="394" text-anchor="middle">L9-1 frame</text>
+        <rect class="d-node" x="386" y="374" width="118" height="32" rx="4"/><text class="d-sub" x="445" y="394" text-anchor="middle">L9-2 to L9-5</text>
+        <rect class="d-node" x="512" y="374" width="118" height="32" rx="4"/><text class="d-sub" x="571" y="394" text-anchor="middle">L9-6 wiring</text>
+        <rect class="d-node" x="638" y="374" width="118" height="32" rx="4"/><text class="d-sub" x="697" y="394" text-anchor="middle">L9-7 beats</text>
+        <rect class="d-node" x="260" y="414" width="57" height="32" rx="4"/><text class="d-sub" x="288.5" y="434" text-anchor="middle">L10-1</text>
+        <rect class="d-node" x="321" y="414" width="57" height="32" rx="4"/><text class="d-sub" x="349.5" y="434" text-anchor="middle">L10-2, 3</text>
+        <rect class="d-node ext" x="260" y="454" width="57" height="32" rx="4"/><text class="d-sub" x="288.5" y="474" text-anchor="middle">L11-1</text>
+        <rect class="d-node ext" x="321" y="454" width="57" height="32" rx="4"/><text class="d-sub" x="349.5" y="474" text-anchor="middle">L11-2</text>
+        <rect class="d-node ext" x="386" y="454" width="370" height="32" rx="4"/><text class="d-sub" x="445" y="474" text-anchor="middle">L11-3 to L11-5</text><text class="d-sub" x="571" y="474" text-anchor="middle">aws mode</text><text class="d-sub" x="697" y="474" text-anchor="middle">aws mode</text>
+        <rect class="d-node ext" x="764" y="454" width="118" height="32" rx="4"/><text class="d-sub" x="823" y="474" text-anchor="middle">L11-6</text>
+        <rect class="d-node" x="386" y="494" width="118" height="32" rx="4"/><text class="d-sub" x="445" y="514" text-anchor="middle">L12-1 tests</text>
+        <rect class="d-node" x="638" y="494" width="57" height="32" rx="4"/><text class="d-sub" x="666.5" y="514" text-anchor="middle">L12-2</text>
+        <rect class="d-node" x="699" y="494" width="57" height="32" rx="4"/><text class="d-sub" x="727.5" y="514" text-anchor="middle">L12-3</text>
+        <path class="d-edge dashed" d="M256 48V540M382 48V540M508 48V540M634 48V540M760 48V540M886 48V540"/>
+        <text class="d-sub" x="256" y="558" text-anchor="middle">CP0</text>
+        <text class="d-sub" x="382" y="558" text-anchor="middle">CP1</text>
+        <text class="d-sub" x="508" y="558" text-anchor="middle">CP2</text>
+        <text class="d-sub" x="634" y="558" text-anchor="middle">CP3</text>
+        <text class="d-sub" x="760" y="558" text-anchor="middle">CP4</text>
+        <text class="d-sub" x="886" y="558" text-anchor="end">CP5</text>
+        <text class="d-sub" x="8" y="584">Coloured edge: the lane's plane. Dashed box: AWS work behind SPECTRUM_MODE=aws. Lane bug fixes run in every wave and are not drawn.</text>
+      </svg>
+    </div>
+    <figcaption>Read down a column to see what can run at the same time. Wave 1 holds fifteen pull requests. Most run
+      at once; the few that stack (L2-1 on L1-1, L3-1 on L2-1, L4-2 on four engines and L3-1) are short waits. Waves 3
+      and 4 are small: they hold only the shared wiring (warm start, <code>Engine._obs_extra</code>) and the beats,
+      which touch <code>engine.py</code> and <code>main.py</code>, so the integration lead does them.</figcaption>
+  </figure>
+
+  <h3 id="c-hotspots" data-toc-label="Conflict hotspots">C5. Conflict hotspots</h3>
+  <p>These files are edited by many lanes. Each row says why, from the code, and the strategy that keeps merges
+    painless. Where the strategy names a Wave 0 pull request, that pull request is what carries it out.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>File</th><th>Why many PRs touch it</th><th>Strategy</th></tr></thead>
+      <tbody>
+        <tr><th><code>frontend/src/core/store.ts</code></th><td>One <code>LiveState</code> interface lists every slice; one handler map <code>H</code> holds about 50 event handlers for all engines. Today it is split by plane (learn, verify, release, operate, prove, observability, director / system), not by lane: the trust, oversight and ledger handlers all sit under <code>prove</code>. The <code>NOISY</code> set and <code>PULSE</code> map are shared.</td><td>W0-2 creates one section (or one file under <code>core/slices/</code>) per slice: federation, proving, release, twin, swarm, trust, ledger, oversight, observability, director. W0-5 does the same split for today's code. W0-2 also pre-fills <code>NOISY</code> and <code>PULSE</code> with the full known lists (10 and 6 entries). After that, handlers, <code>NOISY</code> and <code>PULSE</code> are append-only for the lane that owns the event.</td></tr>
+        <tr><th><code>frontend/src/core/types.ts</code></th><td>Shared wire types; any lane that types its slice adds an interface here.</td><td>W0-2 owns <code>Envelope</code>, <code>Snapshot</code> (with every slice key), <code>LedgerRecord</code>. Lanes put new slice types in <code>features/&lt;x&gt;/types.ts</code> or append at the end. Keep <code>Rec</code> for fast-moving payloads, as the file header recommends.</td></tr>
+        <tr><th><code>frontend/src/core/api.ts</code></th><td>One <code>api</code> object with a function per endpoint (29 today). Shared callers such as <code>Inspector.tsx</code> and the palette's <code>GLOBAL_COMMANDS</code> use functions from six lanes.</td><td>W0-2 ships the complete object, all 29 functions, so lanes do not edit it and no pull request waits for another lane's client function. Only a new endpoint adds a line. Fix the one bypass in L6-2: add <code>trustTest</code> for <code>/api/trust/test</code>.</td></tr>
+        <tr><th><code>frontend/src/features/index.ts</code></th><td>One import and one array entry per feature.</td><td>Append-only. A conflict here is always "keep both lines". Order in the array does not matter; menu order comes from <code>nav.order</code>.</td></tr>
+        <tr><th><code>frontend/src/core/flags.tsx</code></th><td>The one <code>FLAGS</code> array; every new panel adds a flag. Today the comment groups are screens, shell, demo, federation, "verify / release", operate and "prove / obs": all <code>demo.*</code> flags share one group although three lanes use them, and two groups are shared between lanes.</td><td>W0-2 pre-declares every known flag (<code>screen.*</code>, <code>shell.*</code>, <code>demo.*</code>), so lanes add only new panel flags. Re-group the comments as one group per lane. New flags <code>default: false</code>, in the same pull request as the manifest or <code>&lt;Gate&gt;</code> that uses them. Presets are computed from the array, so they need no edits.</td></tr>
+        <tr><th><code>backend/spectrum/flags.json</code></th><td>Remote overrides that win over code defaults.</td><td>Owned by the demo lead only. Lanes never commit to it. On demo day it can switch a feature off without a frontend rebuild (browsers pick it up on reload), but only in a browser with no local or URL override for that flag. See <a href="#c-green">C9</a>.</td></tr>
+        <tr><th><code>backend/spectrum/engine.py</code></th><td>Creates and wires every engine, holds the tick order, <code>BEATS</code>, <code>beat()</code>, <code>warm()</code>, <code>_obs_extra</code>, <code>snapshot()</code>.</td><td>The W0-1 skeleton has one line per engine and the three callback lines, commented out; the consuming lane un-comments its callback (L2-1, L3-1, L4-2). The integration lead owns tick order, <code>warm</code>, <code>_obs_extra</code> and <code>BEATS</code> (L9-6, L9-7) and adapter injection (L11-2); lanes change them only through a small, separate pull request reviewed by the integration lead. Beat numbers never change (hotkeys <kbd>1</kbd>–<kbd>9</kbd> and the guide depend on them).</td></tr>
+        <tr><th><code>backend/spectrum/main.py</code></th><td>All REST routes in one file, already split by comment headers per plane. Two routes reach into another engine: <code>/api/trust/test</code> reads the swarm, and <code>/api/approvals</code> calls <code>swarm.release</code> for <code>restore-</code> plans.</td><td>One <code>APIRouter</code> per engine in <code>routes/&lt;engine&gt;.py</code> (W0-1 in a rebuild, W0-5 for today's code), included in <code>main.py</code> in a fixed, commented order, with the SPA catch-all <code>GET /{path:path}</code> last. Route order matters: <code>POST /api/fl/{action}</code> is declared before <code>/api/fl/reveal</code> and already shadows it. Cross-engine routes belong to the later lane (<code>/api/trust/test</code> to L6-2, the <code>restore-</code> branch to L4-2). Keep every handler <code>async def</code>; a sync handler would run in a thread pool and race ledger appends.</td></tr>
+        <tr><th><code>frontend/src/app/Shell.tsx</code></th><td>Routes (W0-2), layout (L9-1), the drawers and overlays it mounts (L9-2: inspector, stream drawer, palette, help, toasts) and <code>useFollowDirector</code> and <code>&lt;Director/&gt;</code> (L9-5) all live here.</td><td>W0-2 ships the final layout with every mount as a stub exported from <code>app/*.tsx</code>, so later pull requests only replace the stub files.</td></tr>
+        <tr><th><code>frontend/package.json</code>, <code>package-lock.json</code>, <code>backend/pyproject.toml</code>, <code>uv.lock</code></th><td>Chart and screen lanes add <code>d3-sankey</code>, <code>d3-force</code>, <code>qrcode</code> and <code>@fontsource/*</code>; lockfiles conflict badly.</td><td>W0-1 and W0-2 declare every known dependency up front. On a lockfile conflict, take main's version and regenerate (<code>npm install</code> or <code>uv lock</code>) instead of hand-merging.</td></tr>
+        <tr><th><code>vite.config.ts</code>, <code>tsconfig*.json</code>, <code>frontend/index.html</code></th><td>Build configuration that no lane owns.</td><td>Created in W0-2; changes go through the platform owner.</td></tr>
+        <tr><th><code>frontend/src/index.css</code></th><td>Tokens for both themes, plane colours, spotlight rules.</td><td>Charts and UI lane owns it. Feature lanes use Tailwind classes and existing variables; a new token is its own small pull request.</td></tr>
+        <tr><th><code>core/ws.ts</code>, <code>app/Overlays.tsx</code></th><td><code>TOAST_TYPES</code>/<code>TOAST_ROUTE</code> maps and <code>GLOBAL_COMMANDS</code> list every lane's events and actions.</td><td>Prefer manifest <code>commands</code> (owned by the feature) over <code>GLOBAL_COMMANDS</code>. Toast maps are append-only.</td></tr>
+        <tr><th><code>backend/tests/test_engine.py</code></th><td>Every lane adds tests. Today every test builds the full <code>Engine(seed=7)</code>, which runs <code>build()</code> (all nine engines) and <code>warm()</code>, so no single engine can be tested alone.</td><td>W0-4 ships per-engine fixtures (<code>Clock</code>, <code>Bus</code>, <code>KeyRing</code>, <code>Ledger</code> built directly) and each lane adds <code>tests/test_&lt;engine&gt;.py</code>. W0-5 splits today's file. The warm-start test moves to L9-6; the full-script test is owned by the integration lead.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h4 id="c-hotspot-habits">Team habits that go with it</h4>
+  <ul>
+    <li><b>Code owners.</b> Add a CODEOWNERS file: each lane owns <code>engines/&lt;x&gt;.py</code> and
+      <code>features/&lt;x&gt;/</code>; the platform owner owns <code>core/</code>; the integration lead owns
+      <code>engine.py</code> and <code>main.py</code>.</li>
+    <li><b>Reviewer is never the author.</b> If the lane lead named as reviewer wrote the pull request, the next person
+      in the role list under the team table reviews instead.</li>
+    <li><b>Stacked pull requests.</b> A lane's screen PR branches from its engine PR and is retargeted once the
+      engine merges. Aim for under about 400 changed lines; a pull request marked L gets two reviewers.</li>
+    <li><b>Rebase cadence.</b> Rebase on main every morning and before asking for review. Merge hotspot edits early in
+      the day, never at the end of a wave.</li>
+    <li><b>Flags off by default.</b> Merge unfinished screens with their flag off; turn on with <code>?ff=screen.x:on</code>
+      to review.</li>
+  </ul>
+
+  <h3 id="c-merge" data-toc-label="Merge order and checkpoints">C6. Merge order and integration checkpoints</h3>
+  <ol class="steps">
+    <li><b>Wave 0:</b> open W0-4 (Makefile, CI, smoke test) first and merge it with or straight after W0-1. Run W0-1
+      in parallel with W0-2 and W0-3 (stacked, or one pull request). W0-5 only when extending today's code.
+      <b>CP0:</b> <code>make test</code> green on the skeleton; the frame shows "Connecting" then goes live;
+      <code>/ws</code> says hello.</li>
+    <li><b>Wave 1:</b> most pull requests in any order. Three short stacks: L1-1, then L2-1, then L3-1 (each
+      un-commenting its callback); L7-1 early, because it replaces the minimal ledger; L4-2 last, because it calls
+      trust, twin, oversight, observability and release. The kit and all charts (L10-1, L10-2, L10-3), the frame
+      (L9-1), L11-1 and L11-2 run alongside. <b>CP1:</b> the snapshot has all ten keys filled; every event type
+      appears on <code>/ws</code> (check the bus history or the browser's network tab), and the non-noisy types also
+      appear in the stream drawer; ledger verify is clean and the tamper test breaks it.</li>
+    <li><b>Wave 2:</b> each screen merges after its own engine and the charts it imports. Also L9-2 to L9-5
+      (drawers, Settings, Mission Control, Director panel), L7-3, L12-1, and L11-3 to L11-5 behind
+      <code>SPECTRUM_MODE=aws</code>. <b>CP2:</b> every screen's main moment can be triggered with its own buttons,
+      without the Director.</li>
+    <li><b>Wave 3:</b> L9-6 (warm start and <code>_obs_extra</code>), and L7-4 if it has not landed. <b>CP3:</b> start
+      training, promote, run, pass, shadow, canary, cohort switch, incident, approval, provenance graph, all by
+      buttons; a fresh engine opens with 12 federated rounds done.</li>
+    <li><b>Wave 4:</b> L9-7 (beats), then L12-2 (full-script test, blocking from here on) and L12-3 (docs).
+      <b>CP4:</b> 14 beats with <kbd>→</kbd> only; preflight all green after reset with a phone (or second browser)
+      connected to <code>/m/approve</code>; both themes reviewed at 1280 x 720.</li>
+    <li><b>Wave 5:</b> L11-6 and any remaining seam, one per pull request. <b>CP5:</b> per seam, mock tests unchanged
+      and an AWS smoke test passes; mock stays the default.</li>
+  </ol>
+
+  <h3 id="c-ci" data-toc-label="CI gates">C7. CI gates</h3>
+  <p>Every pull request must pass these before merge. <code>make test</code> runs the backend tests, the canonical
+    check and the type check; <code>make build</code> is the production build gate.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Gate</th><th>Command</th><th>What it proves</th></tr></thead>
+      <tbody>
+        <tr><th>Setup</th><td><code>make install</code> (<code>uv sync --group dev</code>, <code>npm install</code>)</td><td>Python 3.12 or later (<code>requires-python</code> in <code>pyproject.toml</code>); a Node version that runs TypeScript 7 and Vite 8 (Node 22 is used here); cache <code>~/.cache/uv</code> and <code>node_modules</code>.</td></tr>
+        <tr><th>Backend tests</th><td><code>cd backend &amp;&amp; uv run pytest -q</code> (part of <code>make test</code>)</td><td>Warm start is deterministic and verified; tamper is caught at the exact record and the anchor still holds; masks cancel exactly; policy blocks mass shutdowns and protects hospitals; large changes need a human; the full 14-beat script runs with no <code>system.error</code>. Today every test builds the full <code>Engine</code>; with the W0-4 fixtures, per-engine tests gate wave 1 and 2 pull requests, and the full-script test becomes blocking at CP4.</td></tr>
+        <tr><th>Canonical hash check</th><td><code>node frontend/scripts/check-canonical.mjs</code> (part of <code>make test</code>)</td><td>A JS copy of the canonicaliser, inside the script, hashes the records in <code>tests/fixtures/canonical.json</code> exactly as Python does. <code>core/canonical.ts</code> is not tested directly, so drift there would pass. Proposal: make the script import or transpile <code>core/canonical.ts</code>.</td></tr>
+        <tr><th>Type check</th><td><code>cd frontend &amp;&amp; ./node_modules/.bin/tsc -p tsconfig.app.json --noEmit</code> (part of <code>make test</code>)</td><td>No screen reads a field that the types say does not exist; every manifest matches <code>FeatureManifest</code>.</td></tr>
+        <tr><th>Production build</th><td><code>make build</code> (<code>npx vite build</code>)</td><td>Lazy routes still split; the bundle the backend serves on demo day builds. This is the build gate; <code>tsc</code> already runs inside <code>make test</code>. (<code>npm run build</code> runs <code>tsc -b &amp;&amp; vite build</code>, both at once.)</td></tr>
+        <tr><th>Lint (available)</th><td><code>npm run lint</code> (<code>oxlint</code>, in <code>package.json</code>)</td><td>Catches unused imports and obvious mistakes. Not in <code>make test</code> today; add it as a non-blocking check first.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="c-teams" data-toc-label="Team allocation">C8. Team allocation for 3, 5 and 8 people</h3>
+  <p>Each person owns whole lanes, so they own both the engine and the screen and rarely wait on anyone. Wave 0 is
+    shared across the first day. "Lines today" counts the current files each person's lanes own (engine, feature
+    folder and lane charts, from <code>wc -l</code>); Wave 0 and integration work come on top.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <caption>Three people</caption>
+      <thead><tr><th>Person</th><th>Wave 0</th><th>Lanes</th><th>Lines today</th><th>Also</th></tr></thead>
+      <tbody>
+        <tr><th>A</th><td>W0-1 backend core</td><td>L1 Learn, L2 Verify, L3 Release, L7 Prove</td><td>about 4,340</td><td>Integration lead: L9-6, L9-7, L11-2, L12-2; L11 ledger seams</td></tr>
+        <tr><th>B</th><td>W0-4 CI</td><td>L4 Operate, L5 Oversight, L6 Trust, L8 Observability</td><td>about 4,480</td><td>CI owner; L11 policy, approvals, metrics seams; L12-1</td></tr>
+        <tr><th>C</th><td>W0-2 frontend core, W0-3 tokens</td><td>L9-1 to L9-5 Shell and Director, L10 Charts and UI kit</td><td>about 3,990</td><td>Platform owner and demo lead; L12-3 docs</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Roles: platform owner C, integration lead A, demo lead C, CI owner B. Lane leads: A for Learn,
+    Verify, Release and Prove; B for Operate, Oversight, Trust and Observability; C for Shell and Charts. When a named
+    reviewer is the author (for example A's L1-1 names the Prove lead), the review goes to the next person: A's work
+    to B, B's to C, C's to A.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <caption>Five people</caption>
+      <thead><tr><th>Person</th><th>Lanes</th><th>Lines today</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><th>A</th><td>L1 Learn, L2 Verify</td><td>about 2,160</td><td>W0-1 backend core; integration lead (L9-6, L9-7, L11-2, L12-2)</td></tr>
+        <tr><th>B</th><td>L3 Release, L8 Observability, L10 Charts and UI kit</td><td>about 2,910</td><td>L11 metrics and telemetry seams</td></tr>
+        <tr><th>C</th><td>L4 Operate, L5 Oversight</td><td>about 3,070</td><td>L11 approvals seam; L12-1</td></tr>
+        <tr><th>D</th><td>L6 Trust, L7 Prove</td><td>about 2,360</td><td>W0-4 CI and fixtures; L11 ledger, policy and guardrails seams</td></tr>
+        <tr><th>E</th><td>L9-1 to L9-5 Shell and Director</td><td>about 2,310</td><td>W0-2 frontend core and W0-3 tokens; platform owner and demo lead; L12-3 docs</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Roles: platform owner E, integration lead A, demo lead E, CI owner D. Each person leads the lanes
+    they own. When a named reviewer is the author, the review goes to the next letter (E's goes to A).</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <caption>Eight people</caption>
+      <thead><tr><th>Person</th><th>Lanes</th><th>Lines today</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><th>A</th><td>L1 Learn</td><td>about 1,260</td><td>W0-1 backend core; integration lead (L9-6, L9-7, L11-2, L12-2)</td></tr>
+        <tr><th>B</th><td>L2 Verify, L3 Release</td><td>about 1,400</td><td></td></tr>
+        <tr><th>C</th><td>L4-2 to L4-4 (swarm and Swarm Tower)</td><td>about 1,610</td><td></td></tr>
+        <tr><th>D</th><td>L5 Oversight, L6 Trust</td><td>about 1,630</td><td></td></tr>
+        <tr><th>E</th><td>L7 Prove</td><td>about 1,680</td><td>Reviews the W0-4 canonical fixture</td></tr>
+        <tr><th>F</th><td>L8 Observability, L10 Charts and UI kit</td><td>about 2,410</td><td>W0-3 tokens</td></tr>
+        <tr><th>G</th><td>L9-1 to L9-5 Shell and Director</td><td>about 2,310</td><td>W0-2 frontend core; platform owner and demo lead</td></tr>
+        <tr><th>H</th><td>L4-1 (twin and <code>HexMap</code>), L11 AWS adapters, L12-1, L12-3</td><td>about 830, plus new seam code</td><td>W0-4 CI; CI owner. L11-3 to L11-5 start in wave 2</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Roles: platform owner G, integration lead A, demo lead G, CI owner H. Each person leads the lanes
+    they own; the Operate lead is C. When a named reviewer is the author, the review goes to the next letter.</p>
+
+  <h3 id="c-green" data-toc-label="Keeping the demo green">C9. How the demo stays green while merging</h3>
+  <p>The demo must work at any moment, even mid-wave. These mechanisms exist in the code today; the plan only asks
+    the team to use them consistently.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Mechanism</th><th>How it works in the code</th><th>How to use it</th></tr></thead>
+      <tbody>
+        <tr><th>Flags, off by default for new work</th><td><code>isOn</code> resolves default, then remote, then this browser, then the URL (the last one that is set wins). A screen that is off is not routed, not in the rail and not in the palette. An id that is missing from <code>FLAGS</code> resolves to on.</td><td>Merge new screens with <code>default: false</code>, with the <code>FLAGS</code> entry in the same pull request. Review with <code>?ff=screen.x:on</code>.</td></tr>
+        <tr><th>Remote kill switch</th><td><code>GET /api/config/flags</code> re-reads <code>flags.json</code> on every request; <code>Shell.tsx</code> loads it at start-up. Remote loses to this browser's overrides (Settings toggles and presets, stored in <code>localStorage</code> <code>'spectrum.flags'</code>) and to <code>?ff=</code> in the URL.</td><td>Set <code>"feature.id": false</code> in <code>flags.json</code> and reload the browsers. No rebuild. It works only where the browser has no override for that flag: on the demo machine, apply the Demo preset (it clears local overrides) or remove the override on the Settings page, and open the console without <code>?ff=</code>, before relying on it.</td></tr>
+        <tr><th>Presets</th><td><code>PRESETS</code> in <code>flags.tsx</code>: Demo (code defaults, clears local overrides), Full (every flag on), Minimal (stable flags only), Ops (demo-only flags off). Full and Minimal write all 36 flags to <code>localStorage</code>.</td><td>If one panel misbehaves, switch off only that flag (Settings, Feature flags, or add <code>?ff=&lt;flag&gt;:off</code> to the URL). Do not apply Minimal during a demo: it also hides the Demo Director and the panels for beats 3, 8, 11 and 12. Ops removes the demo-only controls, so it is not a demo fallback either. Never use Full on stage: it turns on every <code>default: false</code> work-in-progress flag and overrides <code>flags.json</code>.</td></tr>
+        <tr><th>Director preflight</th><td><code>GET /api/director/preflight</code> plus browser checks. Seven rows: backend reachable, WebSocket live, ledger verified clean, scenario at beat 0, fonts loaded, theme chosen, approval phones connected. The phones row is green only when more than one WebSocket client is connected.</td><td>Open the Director (<kbd>d</kbd>), Preflight tab, before every rehearsal and the real run, with a phone (or second browser) on <code>/m/approve</code>.</td></tr>
+        <tr><th>Deterministic reset</th><td><code>Engine.reset</code> rebuilds every engine with the same seed and replays the warm-up; every console resyncs on <code>system.reset</code>.</td><td>Hold <kbd>r</kbd> for 1 second, or hold the Director's Reset button.</td></tr>
+        <tr><th>Full-script test</th><td><code>test_full_demo_script_runs_end_to_end</code> fires all 14 beats on a fresh engine and checks the outcome.</td><td>Blocking gate on every pull request from CP4 (wave 4) on.</td></tr>
+        <tr><th>Engine error guard</th><td><code>Engine.run</code> catches any tick exception and emits <code>system.error</code> instead of stopping.</td><td>Watch the stream drawer during rehearsal; any <code>system.error</code> is a release blocker.</td></tr>
+        <tr><th>One-process demo build</th><td><code>make demo</code> builds the frontend and serves API and UI on <code>:8787</code> from one process.</td><td>Demo from a tagged build, not from a dev server someone is editing.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="c-extend" data-toc-label="Mock to AWS">C10. Extending: from mock to real AWS</h3>
+  <p>Each seam is an interface in <code>adapters/base.py</code>, described in <code>adapters/mock.py</code> and stubbed in
+    <code>adapters/aws.py</code>. The Settings page "Data source" panel lists whatever <code>/api/config</code> reports.
+    Every seam first needs adapter injection (L11-2).</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Seam</th><th>Mock today</th><th>AWS stub</th><th>Wired into engine?</th><th>Lane PR</th></tr></thead>
+      <tbody>
+        <tr><th><code>LedgerStore</code></th><td>Python list in <code>ledger.py</code></td><td><code>DynamoLedgerStore</code> (conditional put, a seq can never be overwritten)</td><td>No</td><td>L11-3</td></tr>
+        <tr><th><code>AnchorStore</code></th><td>Python list</td><td><code>S3ObjectLockAnchors</code> (COMPLIANCE mode, 2,555-day retention)</td><td>No</td><td>L11-3</td></tr>
+        <tr><th><code>Signer</code></th><td>Ed25519 <code>KeyRing</code></td><td><code>KmsSigner</code> (ECDSA_SHA_256)</td><td>No</td><td>L11-3</td></tr>
+        <tr><th><code>PolicyEngine</code></th><td><code>Trust.authorize</code> mirror</td><td><code>VerifiedPermissions.is_authorized</code></td><td>No</td><td>L11-4</td></tr>
+        <tr><th><code>Guardrails</code></th><td>Regex patterns</td><td><code>BedrockGuardrails.apply</code></td><td>No</td><td>L11-4</td></tr>
+        <tr><th><code>ApprovalBroker</code></th><td>Oversight queue</td><td><code>StepFunctionsApprovals.complete</code></td><td>No</td><td>L11-5</td></tr>
+        <tr><th><code>MetricsSink</code></th><td>In-memory frames</td><td><code>CloudWatchMetrics.put</code></td><td>No</td><td>L11-6</td></tr>
+        <tr><th><code>FlagSource</code></th><td><code>flags.json</code></td><td><code>AppConfigFlags.flags</code></td><td>No (<code>/api/config/flags</code> always reads the file)</td><td>L11-6</td></tr>
+        <tr><th>Telemetry</th><td>Twin simulator</td><td>None: listed in <code>mock.py</code> but missing from <code>aws_adapters()</code></td><td>No</td><td>L11-6</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The bigger AWS pieces in the README's mapping table (Flower clients on ECS, a Nitro Enclave aggregator, Strands
+    agents on AgentCore, SageMaker and Bedrock deployment) have no adapter at all yet. They would be new lanes, each
+    replacing one engine's simulated internals while keeping its events and snapshot shape, so no screen changes.</p>
+  <div class="callout say">
+    <p class="title">Say this if a judge asks</p>
+    <p>"Everything runs in mock mode today. The ledger cryptography, secure aggregation maths, signed agent messages
+      and policy enforcement are real code. The AWS adapters exist with the right API calls but are not wired in or
+      tested against an account."</p>
+  </div>
+
+  <h3 id="c-gaps" data-toc-label="Known gaps">C11. Known gaps found in the code</h3>
+  <p>Each item was checked in the source. Each is a small, independent pull request, good for a new team member.
+    Several of them are things a presenter might click on stage, so know them before the demo.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Gap</th><th>Where</th><th>Effect</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><th>AWS adapters not wired</th><td><code>adapters/__init__.py</code> header</td><td>Mode <code>aws</code> changes only what <code>/api/config</code> reports (and so the mode badge). It also needs <code>boto3</code> installed, because the stubs create clients at start-up.</td><td>Lane L11, starting with L11-2</td></tr>
+        <tr><th>No telemetry seam in AWS mode</th><td><code>adapters/aws.py</code> <code>aws_adapters()</code></td><td>Eight services in AWS mode versus nine in mock.</td><td>Add a Kinesis adapter (L11-6)</td></tr>
+        <tr><th>Remote flags ignore AppConfig</th><td><code>main.py</code> <code>remote_flags</code></td><td>Always serves <code>flags.json</code>.</td><td>Call <code>adapters.services['flags']</code> in AWS mode</td></tr>
+        <tr><th>Release pause does nothing</th><td><code>engines/release.py</code> (<code>paused</code> is only set in <code>__init__</code> and returned in <code>view()</code>); <code>main.py</code> <code>release_action('pause')</code> toggles it</td><td>Advance still works and metrics keep flowing while "paused"; only the button label, the status pill and the toast change.</td><td>Make <code>advance()</code> and the guard and agreement loop respect <code>self.paused</code></td></tr>
+        <tr><th>Palette flag does not disable the palette</th><td><code>app/hotkeys.ts</code>, <code>app/Shell.tsx</code></td><td><code>shell.palette</code> off hides only the top-bar search button; <kbd>Cmd</kbd> <kbd>K</kbd> still opens the palette, because <code>&lt;CommandPalette/&gt;</code> is mounted without a gate.</td><td>Check <code>isOn('shell.palette')</code> in the <kbd>Cmd</kbd> <kbd>K</kbd> handler and gate <code>&lt;CommandPalette/&gt;</code></td></tr>
+        <tr><th>Operator context selector has no effect</th><td><code>app/TopBar.tsx</code> (<code>useState('a')</code> is read by nothing but the <code>&lt;select&gt;</code>)</td><td>Choosing "Consortium view" changes nothing on screen.</td><td>Wire it to a filter, or remove it</td></tr>
+        <tr><th>Trust test bench bypasses the API client</th><td><code>features/trust/panels.tsx</code> calls <code>post('/api/trust/test')</code></td><td>The endpoint is missing from <code>api.ts</code>.</td><td>Add <code>api.trustTest</code></td></tr>
+        <tr><th>Reveal endpoint unreachable</th><td><code>api.reveal</code>, <code>POST /api/fl/reveal</code> in <code>main.py</code>; beat 3 sets <code>fl.reveal</code> directly</td><td><code>POST /api/fl/reveal</code> is matched first by <code>POST /api/fl/{action}</code>, which returns 404 "unknown action reveal", so <code>api.reveal</code> can never work. No screen reads <code>federation.reveal</code> either; the "Show true updates" button is local browser state, so beat 3 changes the view only through spotlight.</td><td>Declare <code>/api/fl/reveal</code> before <code>/api/fl/{action}</code> (or handle <code>reveal</code> inside <code>fl_action</code>), then read <code>federation.reveal</code> in the secure aggregation panel; or delete both</td></tr>
+        <tr><th><code>demo.spotlight</code> flag unused</th><td><code>core/flags.tsx</code></td><td>No component reads it; the spotlight follows the <kbd>s</kbd> toggle in <code>ui-store.ts</code>.</td><td>Gate the spotlight on the flag, or remove it</td></tr>
+        <tr><th>Bare routes not flag-gated</th><td><code>app/Shell.tsx</code> mounts bare routes without <code>isOn</code></td><td><code>oversight.mobile</code> is read by nothing: off still serves <code>/m/approve</code>, and the Director's preflight still shows the QR code.</td><td>Check <code>isOn(f.id)</code> for bare routes too</td></tr>
+        <tr><th>Swarm pause has no event</th><td><code>main.py</code> <code>swarm_action('pause')</code>; <code>SwarmPage.tsx</code></td><td>The page patches its own store; other open consoles do not see the change until a snapshot.</td><td>Emit an event and handle it in <code>store.ts</code></td></tr>
+        <tr><th>Eight events have no store handler</th><td><code>store.ts</code> <code>H</code></td><td><code>fl.poison</code>, <code>attack.denied</code>, <code>identity.revoked</code>, <code>identity.reissued</code>, <code>twin.syslog</code>, <code>swarm.cohort</code>, <code>loop.enqueue</code> and <code>system.error</code> appear only in the stream and toasts. (<code>system.reset</code> is handled in <code>ws.ts</code> by a resync.)</td><td>Fine for now; add handlers if a panel needs them</td></tr>
+        <tr><th><code>live.lastSecagg</code> written but never read</th><td><code>store.ts</code> <code>fl.secagg</code> handler</td><td>The secure aggregation panel reads <code>federation.secagg</code> instead.</td><td>Remove it, or use it</td></tr>
+        <tr><th>GET with a side effect</th><td><code>GET /api/dossier/{incident}</code></td><td>Every fetch appends a <code>dossier.generated</code> ledger record.</td><td>Make it <code>POST</code>, or cache by digest</td></tr>
+        <tr><th>Go-to keys ignore flags</th><td><code>app/hotkeys.ts</code></td><td><kbd>g</kbd> + letter for a screen that is off navigates, then redirects to <code>/</code>.</td><td>Skip manifests where <code>isOn</code> is false</td></tr>
+        <tr><th>Spec drift</th><td><code>DASHBOARD_SPEC.md</code> §7–§9</td><td>The spec names <code>src/core/flags/registry.ts</code>, <code>POST /api/fl/config</code>, <code>POST /api/agents/{id}/autonomy</code>, <code>GET /api/provenance/{entity}</code>, <code>POST /api/dossier/{incident}</code>, events <code>eval.result</code>, <code>release.target</code>, <code>fl.he</code> and slices <code>fl</code>, <code>eval</code>, <code>obs</code>. The code uses <code>core/flags.tsx</code>, <code>/api/fl-config</code>, <code>/api/autonomy</code>, <code>/api/provenance/latest</code>, <code>GET /api/dossier/{incident}</code>, does not emit those three events, and names the slices <code>federation</code>, <code>proving</code>, <code>observability</code>.</td><td>Update the spec; trust the code and this page</td></tr>
+        <tr><th>No frontend unit tests, no CI file</th><td><code>frontend/src</code>, project root</td><td>The frontend is checked only by <code>tsc</code>, the canonical script and the build.</td><td>W0-4 CI workflow; component tests later</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="c-recipe" data-toc-label="Adding a feature">C12. Recipe: adding a new feature</h3>
+  <p>The Settings page's "Adding or removing a screen" panel gives the frontend half. Here is the full path, front
+    and back, as two stacked pull requests in one lane.</p>
+  <ol class="steps">
+    <li><b>Engine.</b> Add <code>backend/spectrum/engines/&lt;x&gt;.py</code> with <code>__init__(clock, bus, …)</code>,
+      <code>tick(dt)</code> and <code>snapshot()</code>. Emit events with <code>bus.emit</code>; append to the ledger for
+      anything a judge might ask to prove.</li>
+    <li><b>Wire it.</b> One line in <code>Engine.build</code>, one call in <code>Engine.tick</code>, one key in
+      <code>Engine.snapshot</code>. Reviewed by the integration lead.</li>
+    <li><b>Routes.</b> Add <code>async def</code> handlers in <code>main.py</code> (or the lane's router) that call engine
+      methods and return <code>ok(…)</code>. Mind route order: a new fixed path under an existing
+      <code>{action}</code> route must be declared before it.</li>
+    <li><b>Test.</b> Add <code>tests/test_&lt;x&gt;.py</code> with a behavioural test (on the per-engine fixtures once
+      W0-4 lands). Run <code>make test</code>.</li>
+    <li><b>Slice.</b> Add the slice key to <code>SliceKey</code>, <code>LiveState</code>, the initial value in
+      <code>useLive = create(…)</code>, the <code>Snapshot</code> interface in <code>core/types.ts</code> and
+      <code>loadSnapshot</code>; add handlers to <code>H</code> (or the lane's slice file). Add chatty event types to
+      <code>NOISY</code>, which is append-only for the lane that owns the event.</li>
+    <li><b>Client.</b> Add one function per endpoint to <code>api.ts</code>.</li>
+    <li><b>Screen.</b> Create <code>features/&lt;x&gt;/manifest.ts</code> and its page; add one line to
+      <code>features/index.ts</code>; in the same pull request add <code>screen.&lt;x&gt;</code> to <code>FLAGS</code>
+      with <code>default: false</code> (an id missing from <code>FLAGS</code> would resolve to on). Route, rail entry,
+      palette entry and <kbd>g</kbd> letter appear by themselves.</li>
+    <li><b>Turn it on.</b> After review in both themes, set the default to <code>true</code>. If it belongs in the demo,
+      append a beat at the end of <code>BEATS</code> in a separate pull request (never renumber), update the 14 in
+      <code>main.py</code> <code>director_beat</code> and <code>range(1, 15)</code> in the full-script test, and update
+      this guide. Beats above 9 are reachable only with the arrow keys, the palette or the Director.</li>
+  </ol>
+
+</main>
+</body>
+</html>

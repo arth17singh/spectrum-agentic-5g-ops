@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Console frame &amp; controls | SPECTRUM presenter guide</title>
+<link rel="stylesheet" href="assets/guide.css">
+<script src="assets/guide.js" defer></script>
+<style>
+  /* Page-only additions for shell.html. */
+  body[data-page="shell.html"] .shot-frame.pin-gutter { padding-bottom: 2.3rem; }
+  body[data-page="shell.html"] .shot-frame.pin-gutter > .crop-inner { position: relative; }
+  body[data-page="shell.html"] .shot-frame.pin-gutter > .pin { top: calc(100% - 1.15rem); }
+  body[data-page="shell.html"] figure.shot.narrow { max-width: 29rem; }
+  body[data-page="shell.html"] .crop-pair { display: grid; gap: 0.6rem; }
+  body[data-page="shell.html"] .crop-pair .shot-frame + .shot-frame { margin-top: 0; }
+  body[data-page="shell.html"] .stage-box dl.keys { margin-top: 0.4rem; }
+  body[data-page="shell.html"] .stage-box ol { margin: 0.3rem 0 0 1.2rem; padding: 0; }
+  body[data-page="shell.html"] .stage-box ol li + li { margin-top: 0.2rem; }
+  body[data-page="shell.html"] .tour p { margin: 0; }
+  body[data-page="shell.html"] .tour p + p { margin-top: 0.35rem; }
+  body[data-page="shell.html"] .sec.how > p.plain { margin-top: 0.25rem; color: var(--ink-1); }
+  @media (max-width: 480px) {
+    body[data-page="shell.html"] table.stack thead { display: none; }
+    body[data-page="shell.html"] table.stack,
+    body[data-page="shell.html"] table.stack tbody,
+    body[data-page="shell.html"] table.stack tr,
+    body[data-page="shell.html"] table.stack th,
+    body[data-page="shell.html"] table.stack td { display: block; width: auto; }
+    body[data-page="shell.html"] table.stack tr { padding: 0.5rem 0; border-bottom: 1px solid var(--hairline); }
+    body[data-page="shell.html"] table.stack tr:last-child { border-bottom: 0; }
+    body[data-page="shell.html"] table.stack th,
+    body[data-page="shell.html"] table.stack td { border: 0; padding: 0.15rem 0.75rem; }
+    body[data-page="shell.html"] table.stack td.num { display: inline-block; padding-right: 0; font-weight: 600; }
+    body[data-page="shell.html"] table.stack td.num + th { display: inline-block; padding-left: 0.4rem; }
+    body[data-page="shell.html"] table.stack td[data-label]::before {
+      content: attr(data-label) ": "; color: var(--ink-3); font-size: 0.8125rem;
+    }
+  }
+</style>
+</head>
+<body data-page="shell.html">
+<main class="content">
+
+  <header class="page-head">
+    <h1>Console frame &amp; controls</h1>
+    <p class="lede">Every console screen sits inside the same frame: a top bar, the five-colour lifecycle ribbon,
+      a rail of screens on the left, a live event stream at the bottom, and a set of tools that float on top
+      (the Demo Director, the inspector, the command palette, toasts and the keyboard help). This page explains
+      what each part of that frame does, where its data comes from, and how to read any panel on any screen.
+      Read the box below first; the numbered cards further down are reference.</p>
+    <div class="meta">
+      <span>On every console route except <code>/m/approve</code>, <code>/presenter</code> and <code>/dossier/…</code></span>
+      <span>Keyboard help: <kbd>?</kbd></span>
+      <span class="beat-chips">The ribbon is lit in demo beats
+        <a class="chip" href="demo-playbook.html#beat-1">1</a>
+        <a class="chip" href="demo-playbook.html#beat-14">14</a>
+      </span>
+    </div>
+  </header>
+
+  <div class="callout tip stage-box" id="on-stage"><p class="title">On stage you only need this</p>
+    <p>A <b>beat</b> is one step of the scripted 14-step demo (each takes about 20 to 40 seconds). These six keys run
+      the whole demo:</p>
+    <dl class="keys">
+      <dt><kbd>→</kbd> or <kbd>PageDown</kbd></dt><dd>Next beat (a presentation clicker sends <kbd>PageDown</kbd>).</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Clear the highlights so the whole screen shows. It also closes the inspector, and when it does, the highlights go too.</dd>
+      <dt><kbd>s</kbd></dt><dd>Spotlight on or off (fades the panels that are not part of the beat).</dd>
+      <dt><kbd>d</kbd></dt><dd>Hide or show the Demo Director panel.</dd>
+      <dt><kbd>l</kbd></dt><dd>Open or close the live stream of events at the bottom.</dd>
+      <dt>Hold <kbd>r</kbd> 1 s</dt><dd>Reset the scenario to the pre-demo state.</dd>
+    </dl>
+    <p><b>Before the judges arrive:</b></p>
+    <ol>
+      <li>Open the console as <code>http://localhost:5173</code> on the presenting laptop itself.</li>
+      <li>Hold <kbd>r</kbd> for one second to reset.</li>
+      <li>Open the Director's Preflight tab and check that every row is green. "Approval phones connected" stays
+        amber until a phone (or another screen) has the console open.</li>
+      <li>If the main screen is a projector, press <kbd>t</kbd> for the light Projector theme.</li>
+    </ol>
+    <p>All keys: <a href="#keyboard">Keyboard reference</a>. Something went wrong:
+      <a href="#troubleshooting">On stage: symptoms and fixes</a>.</p>
+  </div>
+
+  <!-- ===================================================================== -->
+  <h2 id="at-a-glance">The console at a glance</h2>
+  <p>The frame is drawn by <code>frontend/src/app/Shell.tsx</code>. It is the same on all ten screens; only the
+    middle area (the page) changes when you move between screens. Hover a number to outline that part, click it
+    to jump to its card.</p>
+
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/shell-director.jpg" width="1440" height="900"
+           alt="Mission Control inside the console frame: top bar, five-colour ribbon, icon rail on the left, Demo Director floating at the lower left, live stream line at the bottom">
+      <span class="box" data-target="c-1" style="left:0%;top:0%;width:100%;height:5.33%"></span>
+      <span class="box" data-target="c-3" style="left:0%;top:5.33%;width:100%;height:4%"></span>
+      <span class="box" data-target="c-4" style="left:0%;top:9.33%;width:4.44%;height:87.11%"></span>
+      <span class="box" data-target="c-5" style="left:5.56%;top:37.78%;width:23.61%;height:45.33%"></span>
+      <span class="box" data-target="c-9" style="left:0%;top:96.44%;width:100%;height:3.56%"></span>
+      <span class="box" data-target="c-15" style="left:6.11%;top:11.56%;width:92.22%;height:9.78%"></span>
+      <span class="box" data-target="c-16" style="left:6.11%;top:21.33%;width:37.78%;height:4.5%"></span>
+      <a class="pin" href="#c-1" style="left:60%;top:2.7%">1</a>
+      <a class="pin" href="#c-3" style="left:17%;top:7.3%">3</a>
+      <a class="pin" href="#c-4" style="left:2.2%;top:80%">4</a>
+      <a class="pin" href="#c-5" style="left:7%;top:39.9%">5</a>
+      <a class="pin" href="#c-9" style="left:60%;top:98.2%">9</a>
+      <a class="pin" href="#c-15" style="left:27%;top:13.2%">15</a>
+      <a class="pin" href="#c-16" style="left:38.3%;top:20.2%">16</a>
+    </div>
+    <figcaption>Pre-demo state (beat 0), Ops (dark) theme, Demo Director open on its Script tab. Numbers match the cards below.</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#c-1"><span class="n">1</span><span>Top bar</span></a></li>
+      <li><a href="#c-3"><span class="n">3</span><span>Lifecycle ribbon</span></a></li>
+      <li><a href="#c-4"><span class="n">4</span><span>Screens rail</span></a></li>
+      <li><a href="#c-5"><span class="n">5</span><span>Demo Director</span></a></li>
+      <li><a href="#c-9"><span class="n">9</span><span>Live stream drawer</span></a></li>
+      <li><a href="#c-15"><span class="n">15</span><span>Page header and track tags</span></a></li>
+      <li><a href="#c-16"><span class="n">16</span><span>Panel header and source chip</span></a></li>
+    </ul>
+  </figure>
+
+  <div class="callout say tour" id="frame-tour"><p class="title">Frame tour in 30 seconds</p>
+    <p>(1, top bar) "Up here: the connection is live, this is the scenario clock, and this badge says mock: the data is simulated, the cryptography is real."</p>
+    <p>(3, ribbon) "This coloured strip is a model's whole life on one line: learn, verify, release, operate, prove."</p>
+    <p>(4, rail) "On the left, one icon per screen. A dot means an approval is waiting or an incident is running."</p>
+    <p>(15, page header) "Each screen says what it is and which hackathon track it answers."</p>
+    <p>(16, source chip) "Every panel names its data source: the flask means simulated today, the label is the AWS service it reads in AWS mode."</p>
+    <p>(9, live stream) "At the bottom, every event in the system, live."</p>
+    <p>(5, Director) "This floating panel is our script runner: one key moves the demo forward."</p>
+  </div>
+
+  <h3 id="how-the-frame-gets-data">How the frame gets its data</h3>
+  <p>Nothing in the frame polls for data except the Preflight checklist. Everything else is pushed from the
+    backend over one WebSocket (a connection that stays open so the server can push updates the moment they
+    happen) and kept in one browser store (the browser's single copy of the current state), so every part of the
+    screen always agrees.</p>
+  <ol class="flow" aria-label="How live data reaches the frame">
+    <li class="src"><b>Engines tick at 10 Hz</b><span><code>backend/spectrum/engine.py</code>, mock simulation</span></li>
+    <li><b>Event bus</b><span>each change becomes an event: <code>plane</code>, <code>type</code>, <code>severity</code>, <code>summary</code></span></li>
+    <li><b>One WebSocket <code>/ws</code></b><span>events sent in batches every 100 ms</span></li>
+    <li><b>Store <code>core/store.ts</code></b><span>one slice per engine, updated once per batch</span></li>
+    <li class="ui"><b>Frame and page re-render</b><span>top bar, ribbon, rail badges, stream, panels</span></li>
+  </ol>
+  <p>When the browser connects, or after a reset, it first loads a snapshot (the whole current state, in one
+    request) with <code>GET /api/snapshot</code>, then applies any events that arrived meanwhile (<code>core/ws.ts</code>).
+    Commands go the other way as plain REST calls (<code>POST /api/…</code>). The result of a command comes back
+    as events on the WebSocket, so every open console (presenter laptop, projector, phone) sees it.</p>
+  <p>Until the first snapshot has loaded, the page area shows "Connecting to the SPECTRUM engine" and the top
+    bar shows a grey "Connecting". If the WebSocket cannot connect before then, the page area shows "Backend
+    unreachable" with the start command (the top bar still says "Connecting"), and keeps retrying (after 0.5 s,
+    then 1 s, 2 s, 4 s, up to every 8 s). If the backend stops later, during the demo, the page does not show
+    that message: the top bar turns red "Offline" and the screen keeps its last data, frozen, until the
+    connection comes back and the snapshot reloads.</p>
+  <div class="callout tip"><p class="title">Two kinds of state</p>
+    <p><b>Server state</b> (the simulation, the current beat, the ledger, pause and speed) is shared by every
+      connected screen. <b>Browser state</b> (theme, density, motion, which drawers are open, spotlight, notes,
+      Director position) belongs to one browser only. Theme, density, motion, Director open, notes and
+      spotlight are saved in that browser's <code>localStorage</code> (the browser's own small storage, kept across
+      reloads) under the key <code>spectrum.ui</code>; the rest
+      resets on reload.</p></div>
+
+  <ol class="comp-list">
+    <li><span class="comp-num">1</span><a href="#c-1">Top bar</a></li>
+    <li><span class="comp-num">2</span><a href="#c-2">Freeze (kill switch)</a></li>
+    <li><span class="comp-num">3</span><a href="#c-3">Lifecycle ribbon</a></li>
+    <li><span class="comp-num">4</span><a href="#c-4">Screens rail</a></li>
+    <li><span class="comp-num">5</span><a href="#c-5">Demo Director</a></li>
+    <li><span class="comp-num">6</span><a href="#c-6">Preflight checklist and phone QR</a></li>
+    <li><span class="comp-num">7</span><a href="#c-7">Spotlight</a></li>
+    <li><span class="comp-num">8</span><a href="#c-8">Presenter notes</a></li>
+    <li><span class="comp-num">9</span><a href="#c-9">Live stream drawer</a></li>
+    <li><span class="comp-num">10</span><a href="#c-10">Inspector</a></li>
+    <li><span class="comp-num">11</span><a href="#c-11">Command palette</a></li>
+    <li><span class="comp-num">12</span><a href="#c-12">Toasts</a></li>
+    <li><span class="comp-num">13</span><a href="#c-13">Keyboard help overlay</a></li>
+    <li><span class="comp-num">14</span><a href="#c-14">Display: theme, density, motion</a></li>
+    <li><span class="comp-num">15</span><a href="#c-15">Page header and track tags</a></li>
+    <li><span class="comp-num">16</span><a href="#c-16">Panel header and source chip</a></li>
+    <li><span class="comp-num">17</span><a href="#c-17">Status pills</a></li>
+    <li><span class="comp-num">18</span><a href="#c-18">Hashes, signature badges and ledger links</a></li>
+    <li><span class="comp-num">19</span><a href="#c-19">Charts: tooltips, legends, table view</a></li>
+  </ol>
+
+  <!-- ===================================================================== -->
+  <h2 id="frame">The frame: always on screen</h2>
+
+  <!-- ---------- 1 Top bar ---------- -->
+  <article class="comp" id="c-1">
+    <header><span class="comp-num">1</span><h3>Top bar</h3><span class="where">file <code>app/TopBar.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The 48-pixel strip across the top answers four questions at a glance: is the console connected and live,
+        what time is it in the scenario, does a human need to decide something, and is this mock data or AWS. It
+        also holds the search box, the theme switch and the emergency stop for the agent swarm.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Left to right. The numbers on the screenshot match the rows of the table.</p>
+      <figure class="shot boxes-quiet">
+        <div class="crop-pair">
+          <div class="shot-frame pin-gutter">
+            <div class="crop-inner">
+              <img src="img/shell-topbar-left.jpg" width="1498" height="96" alt="Left half of the top bar: SPECTRUM wordmark, Operator A home NOC dropdown, green Live dot, clock 21:31:43 PDT, search box with the Command K hint">
+              <span class="box" data-target="tb-1" style="left:1.92%;top:16.9%;width:15.38%;height:67.5%"></span>
+              <span class="box" data-target="tb-2" style="left:19.42%;top:20.6%;width:21.35%;height:61.9%"></span>
+              <span class="box" data-target="tb-3" style="left:42.5%;top:20.6%;width:6.15%;height:61.9%"></span>
+              <span class="box" data-target="tb-4" style="left:49.62%;top:20.6%;width:11.73%;height:61.9%"></span>
+              <span class="box" data-target="tb-5" style="left:64.04%;top:16.9%;width:34.81%;height:67.5%"></span>
+            </div>
+            <a class="pin" href="#tb-1" aria-label="1: Wordmark" title="Wordmark" style="left:9.62%">1</a>
+            <a class="pin" href="#tb-2" aria-label="2: Operator context" title="Operator context" style="left:30.13%">2</a>
+            <a class="pin" href="#tb-3" aria-label="3: Connection status" title="Connection status" style="left:45.38%">3</a>
+            <a class="pin" href="#tb-4" aria-label="4: Simulation clock" title="Simulation clock" style="left:55.44%">4</a>
+            <a class="pin" href="#tb-5" aria-label="5: Search box" title="Search box" style="left:81.54%">5</a>
+          </div>
+          <div class="shot-frame pin-gutter">
+            <div class="crop-inner">
+              <img src="img/shell-topbar-right.jpg" width="1498" height="96" alt="Right half of the top bar: flag with 0 pending approvals, Autonomy L4 site L3 coord., MOCK badge, sun theme button, red-outlined Freeze button">
+              <span class="box" data-target="tb-6" style="left:43.85%;top:20.6%;width:5.19%;height:61.9%"></span>
+              <span class="box" data-target="tb-7" style="left:50.38%;top:16.9%;width:23.65%;height:67.5%"></span>
+              <span class="box" data-target="tb-8" style="left:75.19%;top:26.3%;width:5.58%;height:52.5%"></span>
+              <span class="box" data-target="tb-9" style="left:82.31%;top:20.6%;width:3.65%;height:61.9%"></span>
+              <span class="box" data-target="tb-10" style="left:87.31%;top:16.9%;width:10.58%;height:67.5%"></span>
+            </div>
+            <a class="pin" href="#tb-6" aria-label="6: Pending approvals" title="Pending approvals" style="left:46.42%">6</a>
+            <a class="pin" href="#tb-7" aria-label="7: Autonomy" title="Autonomy" style="left:62.27%">7</a>
+            <a class="pin" href="#tb-8" aria-label="8: Mode badge" title="Mode badge" style="left:77.5%">8</a>
+            <a class="pin" href="#tb-9" aria-label="9: Theme button" title="Theme button" style="left:84.8%">9</a>
+            <a class="pin" href="#tb-10" aria-label="10: Freeze" title="Freeze" style="left:92.65%">10</a>
+          </div>
+        </div>
+        <figcaption>The top bar in two halves (left half above, right half below), cropped from the pre-demo screen. Each number sits under its element. Hover a number to outline the element; click the image to enlarge it.</figcaption>
+      </figure>
+      <div class="table-wrap">
+        <table class="compact stack">
+          <thead><tr><th>#</th><th>Element</th><th>What you see</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr id="tb-1"><td class="num">1</td><th>Wordmark</th><td data-label="What you see">Five small bars in the plane colours and "SPECTRUM".</td><td data-label="What it means">The five bars are the five planes. Clicking it goes to Mission Control (<code>/</code>).</td></tr>
+            <tr id="tb-2"><td class="num">2</td><th>Operator context</th><td data-label="What you see">A dropdown: "Operator A, home NOC" or "Consortium view".</td><td data-label="What it means">Frames whose point of view you are presenting. In this build it changes nothing else on screen (see Watch out).</td></tr>
+            <tr id="tb-3"><td class="num">3</td><th>Connection status</th><td data-label="What you see">A dot and a word: <span class="pill good">Live</span> (green, gently pulsing), <span class="pill warn">Lagging</span> (amber), <span class="pill critical">Offline</span> (red), or a grey "Connecting".</td><td data-label="What it means">Whether data is flowing from the backend. Hovering shows only the status word.</td></tr>
+            <tr id="tb-4"><td class="num">4</td><th>Simulation clock</th><td data-label="What you see"><code>21:31:43 PDT</code>, plus an amber "Paused" tag when paused and a speed tag (0.5×, 2× or 5×) when not at 1×.</td><td data-label="What it means">The scenario's own time: Saturday 31 October 2026, starting at 21:30 Pacific time. It is not the wall clock.</td></tr>
+            <tr id="tb-5"><td class="num">5</td><th>Search box</th><td data-label="What you see">"Search agents, records, actions" with <kbd>⌘</kbd> <kbd>K</kbd>.</td><td data-label="What it means">Opens the <a href="#c-11">command palette</a>. It is a button, not a text field.</td></tr>
+            <tr id="tb-6"><td class="num">6</td><th>Pending approvals</th><td data-label="What you see">A flag icon and a number. Grey at 0, white when there is at least one, amber background when one is close to its deadline.</td><td data-label="What it means">How many decisions are waiting for a human on the Oversight Desk. Clicking goes to <code>/oversight</code>.</td></tr>
+            <tr id="tb-7"><td class="num">7</td><th>Autonomy</th><td data-label="What you see">"Autonomy L4 site L3 coord."</td><td data-label="What it means">How much the site agents and the coordinator agent may do on their own, on the TM Forum Autonomous Networks scale from L0 (manual) to L5 (fully autonomous). See <a href="concepts.html#term-earned-autonomy">earned autonomy</a>.</td></tr>
+            <tr id="tb-8"><td class="num">8</td><th>Mode badge</th><td data-label="What you see"><code>MOCK</code> (grey) or <code>AWS</code> (blue).</td><td data-label="What it means">Where the data comes from. Hover: "Mock engine: simulated data, real cryptography" or "Backed by AWS services".</td></tr>
+            <tr id="tb-9"><td class="num">9</td><th>Theme button</th><td data-label="What you see">A sun in the dark theme, a moon in the light theme.</td><td data-label="What it means">Switches between Ops (dark) and Projector (light). Same as <kbd>t</kbd>. See <a href="#c-14">Display</a>.</td></tr>
+            <tr id="tb-10"><td class="num">10</td><th>Freeze</th><td data-label="What you see">A red-outlined "Freeze" button with a snowflake; after freezing, a filled red "Frozen: resume".</td><td data-label="What it means">The kill switch for the agent swarm. See <a href="#c-2">Freeze</a>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">The backend pushes every change to the browser; the top bar only displays it.</p>
+      <dl class="facts">
+        <dt>Changes when</dt><dd>Every second (connection check, clock sync), when an approval is requested or decided, when autonomy changes (for example in beat 10), when someone pauses, changes speed or freezes.</dd>
+      </dl>
+      <details class="more"><summary>For engineers: data path</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd>Clock in <code>core.py</code>; approvals in <code>engines/oversight.py</code>; autonomy and freeze in <code>engines/swarm.py</code>; mode from the <code>SPECTRUM_MODE</code> setting.</dd>
+          <dt>Arrives by</dt><dd>Snapshot, then WebSocket events <code>sim.clock</code>, <code>approval.requested</code>, <code>approval.decision</code>, <code>escalation</code>, <code>autonomy.change</code>, <code>swarm.freeze</code>. The mode comes once from <code>GET /api/config</code>.</dd>
+          <dt>Store slices</dt><dd><code>conn</code>, <code>msgPerSec</code>, <code>clock</code>, <code>mode</code>, <code>oversight.items</code>, <code>swarm.autonomy</code>, <code>swarm.frozen</code>.</dd>
+        </dl>
+      </details>
+      <p><b>Connection status.</b> Once a second the browser looks at how long ago the last WebSocket batch arrived.
+        The backend sends the clock at least once a second while the simulation runs. While it is paused nothing is
+        sent, so the status turns amber "Lagging" after about 2.5 s. That is normal.</p>
+      <ol class="flow states" aria-label="Connection states">
+        <li><b>Connecting</b><span>no snapshot yet</span></li>
+        <li class="ui"><b>Live</b><span>last batch under 2.5 s ago</span></li>
+        <li><b>Lagging</b><span>socket open, silent 2.5 s or more, or the simulation is paused</span></li>
+        <li><b>Offline</b><span>socket closed after the first snapshot; retrying; the page keeps its last data</span></li>
+      </ol>
+      <p><b>Simulation clock.</b> The backend sends the clock (<code>sim.clock</code>) once a second. Between
+        updates the browser moves the clock forward itself four times a second, using the current speed, so the
+        seconds tick smoothly. When paused, it stops. The label is always shown in Pacific daylight time,
+        whatever time zone the laptop is in.</p>
+      <p><b>Pending approvals.</b> The number is the count of items in <code>oversight.items</code> whose status is
+        "pending". It turns amber when any pending item has less than 60 simulated seconds left before its SLA
+        deadline (the time by which a human must answer before it escalates).</p>
+      <p><b>Autonomy.</b> Shows <code>swarm.autonomy.site</code> and <code>swarm.autonomy.coordinator</code>
+        (the domain agents' level is not shown here). The pre-demo values are L4 and L3. In beat 10, when the
+        sentinel (the swarm's security agent, "Security sentinel") quarantines a site agent, the swarm engine drops site agents to L3 automatically "until a human
+        restores it", and the top bar follows.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Wordmark</th><td>Goes to Mission Control.</td><td>Route <code>/</code>. No backend call.</td></tr>
+            <tr><th>Operator dropdown</th><td>Switches the label between the two options.</td><td>Only the dropdown itself. No backend call.</td></tr>
+            <tr><th>Search box</th><td>Opens the command palette.</td><td>Browser only.</td></tr>
+            <tr><th>Flag (pending approvals)</th><td>Opens the Oversight Desk.</td><td>Route <code>/oversight</code>.</td></tr>
+            <tr><th>Theme button</th><td>Ops to Projector or back.</td><td>This browser only; saved.</td></tr>
+            <tr><th>Freeze, hold 1.2 s</th><td>Stops the swarm.</td><td><code>POST /api/swarm/freeze</code>, ledger record <code>swarm.freeze</code>. See <a href="#c-2">card 2</a>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Before you start: <span class="pill good">Live</span>, no "Paused" tag, no speed tag, flag at 0,
+          <code>MOCK</code>. The flag shows 1 from about 12 seconds into beat 7 (the incident) until a human decides
+          it in beat 9, and again in beat 10. In beat 10 site autonomy drops to L3.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>In the cold open, point at the <code>MOCK</code> badge and hover it so the tooltip shows.</li>
+          <li>When the approval arrives (late in beat 7, with an amber "Review" toast), point at the flag: it reads 1. After you approve in beat 9 it drops to 0.</li>
+          <li>In beat 10, point at "Autonomy L3 site".</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Up here: it's live, it's the scenario clock, one decision is waiting for a human, and
+          this badge says mock. The data is simulated, but the cryptography is real."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Is this real or a recording?"</strong> The live dot and the ticking clock show a running engine,
+          and the live stream drawer (<kbd>l</kbd>) shows events arriving; the mode badge states plainly that the
+          data is simulated.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The connection status and approval count are
+          real measurements of the running system; the clock, the scenario and the autonomy changes come from the
+          mock simulation.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Do not switch the operator dropdown to "Consortium view" and claim the screen changed: nothing reads
+          that value. Also, after clicking the dropdown the keyboard focus stays in it, and the console ignores
+          shortcut keys while a dropdown has focus. Click on an empty part of the page before pressing
+          <kbd>→</kbd>.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- 2 Freeze ---------- -->
+  <article class="comp" id="c-2">
+    <header><span class="comp-num">2</span><h3>Freeze (kill switch)</h3><span class="where">top bar, flag <code>shell.killswitch</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>An emergency stop that a human can hit at any moment to stop every agent from changing the network.
+        It exists to show that people, not agents, have the last word.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Normally a red-outlined "Freeze" button with a snowflake. While you hold it, a red fill grows from left
+        to right; when it reaches the end the swarm freezes. The button then becomes a filled red "Frozen: resume".</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">Freezing sets one switch on the server; the policy check that every agent action passes through then refuses almost everything.</p>
+      <dl class="facts">
+        <dt>Changes when</dt><dd>Someone freezes or resumes, from any connected console, or the palette commands "Freeze the swarm (kill switch)" and "Resume the swarm".</dd>
+      </dl>
+      <details class="more"><summary>For engineers: data path</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd><code>engines/swarm.py</code>, <code>freeze()</code>.</dd>
+          <dt>Arrives by</dt><dd>Event <code>swarm.freeze</code> (severity critical when freezing, notice when resuming).</dd>
+          <dt>Store slice</dt><dd><code>swarm.frozen</code>.</dd>
+        </dl>
+      </details>
+      <ol class="flow" aria-label="What freezing does">
+        <li class="ui"><b>Hold 1.2 s</b><span>release early to cancel</span></li>
+        <li class="src"><b><code>POST /api/swarm/freeze</code></b><span><code>frozen = true</code></span></li>
+        <li><b>Signed ledger record</b><span><code>swarm.freeze</code> by <code>human:a.rivera</code></span></li>
+        <li><b>Agents blocked</b><span>tool calls denied by the <code>kill-switch</code> rule</span></li>
+      </ol>
+      <p>While frozen, every agent tool call except the read-only <code>get_kpis</code> and
+        <code>simulate_change</code> is denied, and each denial is emitted as a <code>policy.decision</code> event
+        "DENY … swarm is frozen". Routine site-agent actions stop. Resuming writes a <code>swarm.resume</code>
+        ledger record; resuming from the top bar button shows the toast "Swarm resumed". The hold is there so nobody freezes the swarm by a
+        stray click. A reset also clears the frozen state, because it rebuilds the scenario.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Hold "Freeze" 1.2 s (or hold <kbd>Enter</kbd> on it)</th><td>Freezes the swarm.</td><td><code>POST /api/swarm/freeze</code>; ledger record <code>swarm.freeze</code>; critical event in the stream on every console.</td></tr>
+            <tr><th>Click "Frozen: resume"</th><td>Resumes at once (no hold).</td><td><code>POST /api/swarm/resume</code>; ledger record <code>swarm.resume</code>; toast "Swarm resumed".</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Only if a judge asks in Q&amp;A. Hold "Freeze" until the red fill reaches the end (1.2 s).</li>
+          <li>Point at the button: it is now a filled red "Frozen: resume".</li>
+          <li>Press <kbd>l</kbd>: the stream shows the critical row "Swarm frozen by kill switch: no actions will execute", and new <code>twin.action</code> rows stop.</li>
+          <li>Click "Frozen: resume" straight away.</li>
+        </ol>
+        <p>The signed <code>swarm.freeze</code> record is written to the ledger and can be found on <a href="audit.html">Audit</a>; the stream row itself has no <code>#seq</code> link.</p>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"There is always a human stop button. Freezing is itself signed into the ledger with the operator's key, with the time it happened."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"What if the agents go wrong?"</strong> One held button blocks every agent action at the policy layer, outside the model.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The signed ledger record and the policy denial are real code paths; the agents being stopped are simulated.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>No beat uses Freeze. If you show it, resume straight after, or the following beats (incident, negotiation, attack) will be denied by the kill switch and look broken.
+          The record is signed as <code>human:a.rivera</code>, the demo's single operator identity; there is no login in
+          this build. Say "the operator's key", not "we know which person pressed it".</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- 3 Ribbon ---------- -->
+  <article class="comp" id="c-3">
+    <header><span class="comp-num">3</span><h3>Lifecycle ribbon</h3><span class="where">panel <code>ribbon</code>, file <code>app/Ribbon.tsx</code>, flag <code>shell.ribbon</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The ribbon is the strip under the top bar on every console screen. It tells you where each of the five
+        planes stands right now, and it is the quickest way to jump between them. It is the signature element of
+        the design: five planes side by side make a literal spectrum.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Five segments, left to right: Learn, Verify, Release, Operate, Prove. Each has a thin top line in the
+        plane colour, the plane name, a main reading, and a smaller reading on the right. The segment for the
+        screen you are on is tinted stronger and has a short bar along its bottom edge. Only Federation, Proving,
+        Release, Swarm Tower and Audit highlight their segment; on the other five screens (Mission Control,
+        Oversight Desk, Trust Center, Observability, Settings) none is highlighted. The right-hand reading turns
+        red when that plane needs attention. A soft white band sweeps from one segment to another when work moves
+        along the lifecycle.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Segment</th><th>Main reading</th><th>Right-hand reading</th></tr></thead>
+          <tbody>
+            <tr><th>Learn</th><td>"Round N/M" while a federated round trains; "Round N queued" when the next round is ready (the pre-demo state shows "Round 13 queued"); otherwise the round number and its state.</td><td>"ε max x.xx of 3": the highest privacy spend (epsilon) of any of the five operators, against the target. See <a href="concepts.html#term-privacy-budget">privacy budget</a>.</td></tr>
+            <tr><th>Verify</th><td>The model being evaluated, or the last one evaluated. Before any evaluation since the last reset it shows "nlm-v6 in prod".</td><td>"evaluating", "gate pass" or "gate blocked" (red); these stay after the run ends, until a reset. Before any evaluation, how many models are benchmarked.</td></tr>
+            <tr><th>Release</th><td>Candidate model and its stage, for example "nlm-v7 canary 10%". With no candidate: "nlm-v6 serving".</td><td>"agreement N%" between candidate and production; with no candidate, the fixed text "4 targets, 2 vendors".</td></tr>
+            <tr><th>Operate</th><td>"INC-… active" during an incident, otherwise "46 agents, 0 incidents".</td><td>"elapsed …" since the incident started (red); after it is resolved, "last MTTR …" (<a href="concepts.html#term-mttr">mean time to repair</a>); otherwise "network nominal".</td></tr>
+            <tr><th>Prove</th><td>"Ledger #N": how many records the signed ledger holds.</td><td>"anchored … ago" since the last <a href="concepts.html#term-merkle">Merkle anchor</a>, or "signed"; after a failed check, "chain broken at #N" (red).</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">Each segment shows the latest state of one backend engine; the ribbon only chooses the words.</p>
+      <details class="more"><summary>For engineers: data path</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd>Five engines: <code>federation</code>, <code>proving</code>, <code>release</code>, <code>swarm</code>, <code>ledger</code>.</dd>
+          <dt>Arrives by</dt><dd><code>GET /api/snapshot</code> when the page connects, then events on <code>/ws</code> in 100 ms batches.</dd>
+          <dt>Store slices</dt><dd><code>federation</code>, <code>proving</code>, <code>release</code>, <code>swarm</code>, <code>ledger</code>, plus <code>live.pulses</code>.</dd>
+        </dl>
+      </details>
+      <dl class="facts">
+        <dt>Changes when</dt><dd>Any of those engines emits an event: a training step, a gate result, a rollout stage, an incident, a new ledger record. Time readings ("elapsed", "anchored … ago") update once a second.</dd>
+      </dl>
+      <ol class="flow" aria-label="Ribbon data path">
+        <li class="src"><b>Engine emits event</b><span>e.g. <code>eval.gate</code></span></li>
+        <li><b>WebSocket batch</b><span>every 100 ms</span></li>
+        <li><b>Store handler</b><span>updates the slice, maybe adds a pulse</span></li>
+        <li class="ui"><b>Ribbon re-renders</b><span>reads five slices</span></li>
+      </ol>
+      <p>The ribbon computes nothing on the server. It reads the five slices and picks the text for each segment.
+        The white sweep is a "pulse": when one of six event types arrives, the store adds a pulse and the ribbon
+        animates it for 900 ms.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Event</th><th>Pulse moves</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>fl.promote</code></td><td>Learn to Verify</td><td>A trained checkpoint is sent for evaluation.</td></tr>
+            <tr><td><code>eval.gate</code></td><td>Verify to Release</td><td>The deploy gate decided.</td></tr>
+            <tr><td><code>release.stage</code></td><td>Release to Operate</td><td>The rollout moved a stage.</td></tr>
+            <tr><td><code>incident.resolved</code></td><td>Operate to Prove</td><td>An incident closed.</td></tr>
+            <tr><td><code>loop.enqueue</code></td><td>Prove to Learn (leaves on the right, re-enters on the left)</td><td>The incident is queued as private training data (beat 14).</td></tr>
+            <tr><td><code>fl.checkpoint</code></td><td>Within Learn</td><td>A checkpoint was saved and signed, or the model was restored to one.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click a segment</th><td>Opens that plane's screen.</td><td>Goes to <code>/federation</code>, <code>/proving</code>, <code>/release</code>, <code>/swarm</code> or <code>/audit</code>. No backend call.</td></tr>
+            <tr><th>Spotlight</th><td>Beats 1 and 14 light the ribbon when spotlight is on.</td><td>A thin outline appears around it. The ribbon itself is never dimmed. Browser only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Read it left to right as one model's life: trained, tested, shipped, used, proven. Red text on the right
+          means that plane needs attention now.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Press <kbd>1</kbd> to fire beat 1. Mission Control opens with the ribbon lit.</li>
+          <li>Sweep your hand left to right across the five segments.</li>
+          <li>In beat 14, point at the ribbon again: it now shows the whole story (canary, last MTTR, a bigger ledger).</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"This strip is the whole system on one line. A model is trained across five operators,
+          tested, rolled out, used by the agents, and every step is signed into a ledger."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How do the pieces connect?"</strong> The pulse shows work passing from one plane to the next, and back to Learn.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The ledger count and the "chain broken" check come from the real signed hash chain. Every other reading (training rounds, privacy spend, benchmarks, rollout agreement, incidents) comes from the mock simulation.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>The pulse lasts under a second and only fires on the six events above; beat 1 sends none, so do not
+          promise one on cue. On a 1440-pixel-wide screen some readings are cut off with "…" (for example
+          "46 agents, 0 incide…"); the full text is in the panels below.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- 4 Rail ---------- -->
+  <article class="comp" id="c-4">
+    <header><span class="comp-num">4</span><h3>Screens rail</h3><span class="where">file <code>app/Rail.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The column of icons on the left is the main navigation: one icon per screen. It also carries two
+        warning dots, so you can see from any screen that an approval is waiting or an incident is active.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <figure class="shot">
+        <div class="shot-frame">
+          <img src="img/shell-rail.jpg" width="1440" height="900" alt="The rail expanded on hover, listing ten screens with their go-to letters and a Shortcuts button at the bottom">
+          <span class="box" data-target="c-4" style="left:0%;top:9.33%;width:15.28%;height:87.11%"></span>
+        </div>
+        <figcaption>The rail expands from 64 to 220 pixels while the mouse is over it, showing names and go-to keys. The page moves right to make room.</figcaption>
+      </figure>
+      <p>Collapsed, each screen is an icon with a short coloured line on its left in the colour of its plane
+        (brighter for the screen you are on; Mission Control, Observability and Settings have no line because they
+        cover all planes). The current screen has a lighter background. Expanded, each row also shows the name and
+        the go-to letters, for example "g f".</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Order</th><th>Screen</th><th>Route</th><th>Keys</th><th>Plane line</th><th>Guide page</th></tr></thead>
+          <tbody>
+            <tr><td class="num">1</td><th>Mission Control</th><td><code>/</code></td><td><kbd>g</kbd> <kbd>m</kbd></td><td>none</td><td><a href="mission.html">mission.html</a></td></tr>
+            <tr><td class="num">2</td><th>Federation Center</th><td><code>/federation</code></td><td><kbd>g</kbd> <kbd>f</kbd></td><td>Learn</td><td><a href="federation.html">federation.html</a></td></tr>
+            <tr><td class="num">3</td><th>Proving Ground</th><td><code>/proving</code></td><td><kbd>g</kbd> <kbd>p</kbd></td><td>Verify</td><td><a href="proving.html">proving.html</a></td></tr>
+            <tr><td class="num">4</td><th>Release Center</th><td><code>/release</code></td><td><kbd>g</kbd> <kbd>r</kbd></td><td>Release</td><td><a href="release.html">release.html</a></td></tr>
+            <tr><td class="num">5</td><th>Swarm Tower</th><td><code>/swarm</code></td><td><kbd>g</kbd> <kbd>s</kbd></td><td>Operate</td><td><a href="swarm.html">swarm.html</a></td></tr>
+            <tr><td class="num">6</td><th>Oversight Desk</th><td><code>/oversight</code></td><td><kbd>g</kbd> <kbd>o</kbd></td><td>Operate</td><td><a href="oversight.html">oversight.html</a></td></tr>
+            <tr><td class="num">7</td><th>Trust Center</th><td><code>/trust</code></td><td><kbd>g</kbd> <kbd>t</kbd></td><td>Prove</td><td><a href="trust.html">trust.html</a></td></tr>
+            <tr><td class="num">8</td><th>Audit &amp; Proof</th><td><code>/audit</code></td><td><kbd>g</kbd> <kbd>a</kbd></td><td>Prove</td><td><a href="audit.html">audit.html</a></td></tr>
+            <tr><td class="num">9</td><th>Observability</th><td><code>/observability</code></td><td><kbd>g</kbd> <kbd>b</kbd></td><td>none</td><td><a href="observability.html">observability.html</a></td></tr>
+            <tr><td class="num">10</td><th>Settings &amp; Flags</th><td><code>/settings</code></td><td><kbd>g</kbd> <kbd>,</kbd></td><td>none</td><td><a href="settings.html">settings.html</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Two dots can appear on icons: an amber dot on Oversight Desk while any approval is pending, and a red dot
+        on Swarm Tower while an incident is active. At the bottom, the "Shortcuts" button opens the
+        <a href="#c-13">keyboard help</a>.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">Each screen describes itself in a small file; the rail lists every screen that is switched on.</p>
+      <dl class="facts">
+        <dt>Source</dt><dd>The list of screens is built from each screen's <code>features/&lt;screen&gt;/manifest.ts</code> (label, icon, plane, go-to letter, order), registered in <code>features/index.ts</code>.</dd>
+        <dt>Filtered by</dt><dd>Feature flags: a screen whose <code>screen.*</code> flag is off disappears from the rail and its route redirects to <code>/</code>. See <a href="settings.html">Settings</a>.</dd>
+        <dt>Badges read</dt><dd><code>oversight.items</code> (status "pending") and <code>swarm.incident</code> (not "resolved").</dd>
+      </dl>
+      <p>Because the rail, the palette's "Go to" list and the <kbd>g</kbd> keys all come from the same manifests,
+        adding or removing a screen updates all three at once. That is the modular design the
+        <a href="feature-map.html">feature map</a> describes.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Hover the rail</th><td>Expands it to show names and keys.</td><td>Browser only.</td></tr>
+            <tr><th>Click an icon</th><td>Opens that screen.</td><td>Route changes. No backend call.</td></tr>
+            <tr><th><kbd>g</kbd> then a letter</th><td>Same, from the keyboard. Press the letter within 0.9 s.</td><td>Route changes.</td></tr>
+            <tr><th>Shortcuts</th><td>Opens the keyboard help.</td><td>Browser only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>The coloured lines group screens by plane: two green (Operate) screens, two orange (Prove) screens.
+          A dot means "go here, something needs you".</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>During the scripted demo you rarely need the rail: each beat opens its own screen. Use the rail (or
+          <kbd>g</kbd> keys) for judge questions, then press <kbd>→</kbd> to carry on; the next beat navigates for you.
+          Hovering the rail widens it and pushes the whole page to the right (it does not float over it), so keep the
+          mouse away from the left edge while panels are lit.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================================== -->
+  <h2 id="demo-tools">Demo tools: Director, preflight, spotlight, notes</h2>
+  <p>These tools exist only to run the live demo. The Director panel is shown only when the
+    <code>demo.director</code> flag is on (stage "demo-only"). The "Ops" flag preset on the
+    <a href="settings.html">Settings</a> page turns off every demo-only flag, which hides the Director panel and
+    the palette's Reset, attack, tamper and restore commands. The keyboard shortcuts are not controlled by flags, so in Ops
+    mode <kbd>→</kbd>, <kbd>Space</kbd>, <kbd>PageDown</kbd>, <kbd>←</kbd>, the number keys and hold-<kbd>r</kbd>
+    still fire beats and resets, <kbd>s</kbd> and <kbd>n</kbd> still switch spotlight and notes, and every console
+    still follows the current beat. A clicker in Ops mode still moves the demo.</p>
+
+  <!-- ---------- 5 Director ---------- -->
+  <article class="comp" id="c-5">
+    <header><span class="comp-num">5</span><h3>Demo Director</h3><span class="where">files <code>app/Director.tsx</code>, <code>core/director.ts</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A beat is one step of the scripted 14-step demo (about 20 to 40 seconds each; the full script is in the
+        <a href="demo-playbook.html">Demo playbook</a>). The Director runs that script. One press of <kbd>→</kbd> moves to the next beat: it opens the
+        right screen, triggers the right event in the simulation, lights the panels to look at, and shows the line
+        to say. You never have to click around during the pitch.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <figure class="shot boxes-quiet narrow">
+        <div class="shot-frame">
+          <img src="img/shell-director-crop.jpg" width="743" height="858" alt="The Demo Director panel at beat 0 of 14: title bar, Previous, Next: Cold open, Pause, Script and Preflight tabs, 1x 2x 5x speed switch, red Reset, the beat list from Cold open to Agents negotiate, and the Spotlight and Notes switches">
+          <span class="box" data-target="c-5" style="left:4.5%;top:2.47%;width:91.5%;height:95.1%"></span>
+          <a class="pin" href="#dir-1" aria-label="1: Title bar" title="Title bar" style="left:67.56%;top:6.92%">1</a>
+          <a class="pin" href="#dir-2" aria-label="2: Previous" title="Previous" style="left:8.02%;top:13.58%">2</a>
+          <a class="pin" href="#dir-3" aria-label="3: Next" title="Next" style="left:19.88%;top:13.58%">3</a>
+          <a class="pin" href="#dir-4" aria-label="4: Pause" title="Pause" style="left:92.48%;top:13.58%">4</a>
+          <a class="pin" href="#dir-5" aria-label="5: Script and Preflight tabs" title="Script and Preflight tabs" style="left:8.02%;top:26.39%">5</a>
+          <a class="pin" href="#dir-6" aria-label="6: Speed" title="Speed" style="left:40.35%;top:26.39%">6</a>
+          <a class="pin" href="#dir-7" aria-label="7: Reset" title="Reset" style="left:92.48%;top:26.39%">7</a>
+          <a class="pin" href="#dir-8" aria-label="8: Beat list" title="Beat list" style="left:58.14%;top:40.04%">8</a>
+          <a class="pin" href="#dir-9" aria-label="9: Spotlight toggle" title="Spotlight toggle" style="left:8.02%;top:91.09%">9</a>
+          <a class="pin" href="#dir-10" aria-label="10: Notes toggle" title="Notes toggle" style="left:33.33%;top:91.09%">10</a>
+        </div>
+        <figcaption>The Director at beat 0 of 14 (before the demo), cropped from the pre-demo screen. Each number sits at a corner of its control and matches a row of the Controls table.</figcaption>
+      </figure>
+      <p>A 340-pixel floating panel. From top to bottom:</p>
+      <ol>
+        <li>Title bar: "Demo Director", "beat N of 14" and a close cross (<a href="#dir-1">1</a>).</li>
+        <li>The "Say this" note for the current beat, when notes are on (<a href="#c-8">card 8</a>; not shown at beat 0).</li>
+        <li>Previous, a wide Next button labelled "Next: <i>title of the next beat</i>" ("End of script" after beat 14), and Pause (<a href="#dir-2">2</a>, <a href="#dir-3">3</a>, <a href="#dir-4">4</a>).</li>
+        <li>The Script and Preflight tabs, the speed switch (1×, 2×, 5×) and a red Reset button (<a href="#dir-5">5</a>, <a href="#dir-6">6</a>, <a href="#dir-7">7</a>).</li>
+        <li>The beat list, or the Preflight checklist (<a href="#dir-8">8</a>, <a href="#c-6">card 6</a>).</li>
+        <li>A footer with the Spotlight and Notes switches and a reminder "→ next" (<a href="#dir-9">9</a>, <a href="#dir-10">10</a>).</li>
+      </ol>
+      <p>Each line of the beat list has the beat number, a status mark, the title and the route it opens:</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Mark</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td>Green tick</td><td>Beat already passed (lower number than the current one).</td></tr>
+            <tr><td>Blue dot, highlighted row</td><td>Current beat.</td></tr>
+            <tr><td>Dashed circle</td><td>Not reached yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">The script and the current beat live on the server; the Director only sends "go to beat N", so every open screen moves together.</p>
+      <details class="more"><summary>For engineers: data path</summary>
+      <dl class="facts">
+        <dt>Script</dt><dd>The 14 beats (title, route, panels to light, duration, note) live in <code>BEATS</code> in <code>backend/spectrum/engine.py</code>, and reach the browser in the <code>director</code> slice of the snapshot.</dd>
+        <dt>Beat state</dt><dd>Held on the server (<code>engine.director.beat</code>), not in the browser, so every connected screen agrees on the current beat.</dd>
+        <dt>Arrives by</dt><dd>Event <code>director.beat</code>; after a reset, <code>system.reset</code> and a fresh snapshot.</dd>
+        <dt>Endpoints</dt><dd><code>POST /api/director/beat/{n}</code> (1 to 14), <code>POST /api/director/reset</code>, <code>POST /api/sim</code>.</dd>
+      </dl>
+      </details>
+      <p>Firing a beat, whether by <kbd>→</kbd>, a number key, a click in the list or the palette, always runs the
+        same three steps in <code>core/director.ts</code>:</p>
+      <ol class="flow" aria-label="Firing a beat">
+        <li class="ui"><b>Navigate</b><span>to the beat's route straight away, so it feels instant</span></li>
+        <li><b>Light panels</b><span>only if spotlight is on</span></li>
+        <li class="src"><b><code>POST /api/director/beat/N</code></b><span>server runs the beat's action</span></li>
+        <li><b><code>director.beat</code> event</b><span>every other console follows</span></li>
+      </ol>
+      <p>On the server, <code>Engine.beat</code> records the beat number and start time, runs that beat's scenario
+        action, then broadcasts <code>director.beat</code>. Every console that receives it goes to the beat's route
+        (except the phone page and the presenter view), lights the beat's panels if its own spotlight is on, and
+        scrolls the first lit panel into view after about half a second. That is how a presenter laptop can drive the
+        projector. Open the console as <code>localhost</code> on the presenter laptop; a projector machine that opens
+        the laptop's LAN address shows the beats, but its inspector cannot recompute hashes (see
+        <a href="#c-10">Inspector</a> and <a href="architecture.html">Architecture</a>). If the request fails, a red
+        toast says "Beat N failed: …".</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <caption>What each beat does on the server (<code>Engine.beat</code>)</caption>
+          <thead><tr><th>Beat</th><th>Server action</th></tr></thead>
+          <tbody>
+            <tr><td>1, 8, 9, 11, 13</td><td>None. The beat only changes the screen, the spotlight and the note; the simulation is already doing the work (for 8 and 9 the incident from beat 7 is still running).</td></tr>
+            <tr><td>2</td><td>Starts the federated round if training is ready, paused or idle.</td></tr>
+            <tr><td>3</td><td>Turns on the privileged secure-aggregation view (the "reveal").</td></tr>
+            <tr><td>4</td><td>Marks operator E to send a poisoned update.</td></tr>
+            <tr><td>5</td><td>Promotes the latest checkpoint (saving one if needed) and starts the Proving Ground run.</td></tr>
+            <tr><td>6</td><td>Starts shadow for the passed candidate if needed, then advances to the 10% canary.</td></tr>
+            <tr><td>7</td><td>Starts the incident (fibre cut during the stadium let-out).</td></tr>
+            <tr><td>10</td><td>Injects the telemetry prompt-injection attack on <code>site-17</code>.</td></tr>
+            <tr><td>12</td><td>Tampers with one ledger record directly in the datastore.</td></tr>
+            <tr><td>14</td><td>Writes a signed <code>loop.enqueue</code> record: the incident is queued as private training data at Op-A.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><b>Reset.</b> The server rebuilds the whole scenario and fast-forwards it to the pre-demo state (about two
+        seconds), with training held at the round boundary ("Round 13 queued") and the beat back at 0. It then sends
+        <code>system.reset</code>; each console reloads the snapshot. The console that asked for the reset also clears
+        the spotlight, returns to Mission Control and shows "Scenario reset to the pre-demo state".</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr id="dir-1"><th>1. Title bar (drag)</th><td>Drag to move the panel anywhere. The cross hides it (same as <kbd>d</kbd>).</td><td>Browser only. The position is not saved; after a reload it returns to the lower left.</td></tr>
+            <tr id="dir-2"><th>2. Previous</th><td>Fires the beat before the current one. Disabled at beat 1 or 0.</td><td><code>POST /api/director/beat/N-1</code>. Runs that beat's action again; it does not undo the later beat.</td></tr>
+            <tr id="dir-3"><th>3. Next: …</th><td>Fires the next beat. Same as <kbd>→</kbd>, <kbd>Space</kbd>, <kbd>PageDown</kbd>.</td><td><code>POST /api/director/beat/N+1</code>, then <code>director.beat</code> to all consoles.</td></tr>
+            <tr id="dir-4"><th>4. Pause</th><td>Pauses or resumes the whole simulation. Same as <kbd>p</kbd>.</td><td><code>POST /api/sim</code> with <code>paused</code>. The clock stops for every console; the top bar shows "Paused".</td></tr>
+            <tr id="dir-5"><th>5. Script / Preflight</th><td>Switches the lower part between the beat list and the checklist.</td><td>Browser only. Preflight starts polling, see <a href="#c-6">card 6</a>.</td></tr>
+            <tr id="dir-6"><th>6. 1× 2× 5×</th><td>Sets simulation speed.</td><td><code>POST /api/sim</code> with <code>speed</code>. Shared by all consoles; the top bar shows "2×" or "5×". (Settings also offers 0.5×; then none of the three is selected here.)</td></tr>
+            <tr id="dir-7"><th>7. Reset (hold 1.2 s)</th><td>Resets the scenario to the pre-demo state. Same as holding <kbd>r</kbd> for 1 s.</td><td><code>POST /api/director/reset</code>, <code>system.reset</code>, fresh snapshot everywhere.</td></tr>
+            <tr id="dir-8"><th>8. Click a beat</th><td>Fires that beat directly, forwards or backwards. To reach beats 10 to 14 without stepping, click them here or press <kbd>⌘</kbd> <kbd>K</kbd> and type "beat 12".</td><td><code>POST /api/director/beat/N</code>.</td></tr>
+            <tr id="dir-9"><th>9. Spotlight</th><td>Dims everything except the beat's panels. Same as <kbd>s</kbd>.</td><td>Browser only. See <a href="#c-7">card 7</a>.</td></tr>
+            <tr id="dir-10"><th>10. Notes</th><td>Shows or hides the "Say this" line. Same as <kbd>n</kbd>.</td><td>Browser only. See <a href="#c-8">card 8</a>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>"beat N of 14" and the green ticks tell you where you are; the Next button tells you what comes next, so
+          you can introduce it before you press.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Before the session, hold <kbd>r</kbd> (or Reset) and check Preflight is green. See the <a href="demo-playbook.html">Demo playbook</a>.</li>
+          <li>Drag the Director to a corner where it hides nothing important, or press <kbd>d</kbd> to hide it and drive with keys only.</li>
+          <li>Press <kbd>→</kbd> (or the clicker's next button, which sends <kbd>PageDown</kbd>) for each beat.</li>
+        </ol>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Is this scripted?"</strong> The order of beats is scripted; the simulation underneath is live,
+          and anything can be triggered by hand from the screens or the palette.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The Director is real control code; it triggers events in the mock simulation, and some of those (beat 12's tamper, beat 14's record, signed messages in beat 10) go through the real ledger and signing code.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Going back does not undo anything. After beat 12 the ledger stays tampered until you restore it or reset;
+          pressing <kbd>4</kbd> again poisons operator E again. If you need a clean run, reset. If a double press
+          skips a beat, do not press <kbd>←</kbd>; see <a href="#skipped-beat">Skipped a beat by accident</a>. Also, the
+          Director is visible to the audience on a mirrored screen; hide it with <kbd>d</kbd> if it covers a lit panel.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- 6 Preflight ---------- -->
+  <article class="comp" id="c-6">
+    <header><span class="comp-num">6</span><h3>Preflight checklist and phone QR</h3><span class="where">Director, Preflight tab</span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A pre-show checklist. Seven ticks tell you the backend, the live stream, the ledger, the scenario, the
+        fonts and the phones are ready, and a QR code lets a judge or teammate open the phone approval page.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <figure class="shot boxes-quiet">
+        <div class="shot-frame">
+          <img src="img/shell-preflight.jpg" width="1440" height="900" alt="Preflight tab with six green ticks, one amber dashed circle for approval phones, and a QR code for the phone approval page">
+          <span class="box" data-target="pf-rows" style="left:5.6%;top:54%;width:23.5%;height:16%"></span>
+          <span class="box" data-target="pf-qr" style="left:6.4%;top:71%;width:22%;height:11.4%"></span>
+          <a class="pin" href="#pf-rows" aria-label="Checklist rows" title="Checklist rows" style="left:4.3%;top:61%">A</a>
+          <a class="pin" href="#pf-qr" aria-label="Phone approvals QR code" title="Phone approvals QR code" style="left:4.3%;top:76.5%">B</a>
+        </div>
+        <figcaption>Six green ticks; "Approval phones connected" is still amber because no second device is connected. The QR here points at 127.0.0.1 because this screenshot was taken on an isolated instance.</figcaption>
+      </figure>
+      <p id="pf-rows">Each row shows a green tick (ready) or an amber dashed circle (not ready), the check's name, and a
+        short detail on the right.</p>
+      <div class="table-wrap">
+        <table class="compact stack">
+          <thead><tr><th>Row</th><th>Green when</th><th>Detail on the right</th><th>How to make it green</th></tr></thead>
+          <tbody>
+            <tr><th>Backend reachable</th><td data-label="Green when"><code>GET /api/director/preflight</code> answered.</td><td data-label="Detail">"ok", or "start the API: make dev".</td><td data-label="To make it green">Start the backend (<code>make dev</code>, see <code>SETUP_AND_RUN_instructions.md</code>).</td></tr>
+            <tr><th>WebSocket live</th><td data-label="Green when">The connection status is "live".</td><td data-label="Detail">The status word: live, lagging, offline.</td><td data-label="To make it green">Wait a few seconds after starting the backend; reload the page if it stays offline.</td></tr>
+            <tr><th>Ledger verified clean</th><td data-label="Green when">A full verification of the hash chain passes.</td><td data-label="Detail">"3,468 records" (the ledger height).</td><td data-label="To make it green">If it turned amber after beat 12's tamper: "Restore originals" on <a href="audit.html">Audit</a>, the palette command "Restore tampered records", or a reset.</td></tr>
+            <tr><th>Scenario reset (beat 0)</th><td data-label="Green when">The server's current beat is 0.</td><td data-label="Detail">"beat N, FL state", e.g. "beat 0, FL ready".</td><td data-label="To make it green">Hold <kbd>r</kbd> for 1 s, or hold Reset.</td></tr>
+            <tr><th>Fonts loaded</th><td data-label="Green when">The browser has IBM Plex Sans ready.</td><td data-label="Detail">"IBM Plex", or "fallback font in use".</td><td data-label="To make it green">The fonts ship with the app (no internet needed). Reload the page if it shows the fallback.</td></tr>
+            <tr><th>Theme chosen</th><td data-label="Green when">Always ticked.</td><td data-label="Detail">"Ops (dark)" or "Projector (light)".</td><td data-label="To make it green">Nothing to fix; it is a reminder to pick the right theme for the room (<kbd>t</kbd>).</td></tr>
+            <tr><th>Approval phones connected</th><td data-label="Green when">The backend has more than one WebSocket client.</td><td data-label="Detail">"N other client(s)".</td><td data-label="To make it green">Scan the QR with a phone and keep the page open.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p id="pf-qr"><b>Phone approvals box.</b> A QR code, "Scan to open the mobile approval page on the same
+        Wi-Fi", and the address it encodes, ending in <code>/m/approve</code>. That page is where a human approves
+        from a phone in beat 9; see <a href="oversight.html">Human oversight &amp; phone approvals</a>.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">While the tab is open, the browser asks the backend for a health report every 10 seconds and adds three checks of its own.</p>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>GET /api/director/preflight</code> in <code>main.py</code>: returns backend ok, LAN address, ledger verification result and height, WebSocket client count, training state and round, clock and current beat.</dd>
+        <dt>Polling</dt><dd>Once when the tab opens, then every 10 s while it stays open.</dd>
+        <dt>Browser checks</dt><dd>"WebSocket live" uses the connection status; "Fonts loaded" asks the browser's font API; "Theme chosen" reads the theme.</dd>
+      </dl>
+      <p>To keep the server responsive, the ledger check reuses the last full verification while the chain has not
+        grown, and runs a fresh one otherwise. The QR code is drawn in the browser. Its address uses the page's own
+        host and port; if you opened the console as <code>localhost</code>, it swaps in the laptop's LAN address
+        reported by the backend, so a phone on the same Wi-Fi can reach it. The dev server listens on the network for
+        exactly this reason.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data (scan the QR with a phone camera).</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>All seven green means you can start. The one that is normally amber until a phone joins is the last row.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> Every check measures the running system; the ledger check runs the real hash-chain and signature verification.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>"Approval phones connected" counts every WebSocket client, not only phones: a second browser tab, the
+          projector laptop or the presenter view also turn it green. Check the phone itself.</p>
+        <p>Always present from <code>http://localhost:5173</code> on the laptop itself. The QR then encodes the
+          laptop's LAN address automatically, so phones can still reach it. Do not open the console itself by LAN
+          address (for example <code>http://192.168.x.x:5173</code>) or by <code>127.0.0.1</code>. On a LAN address
+          over plain http the browser does not offer WebCrypto, so the inspector's in-browser hash check never
+          finishes (see <a href="architecture.html">Architecture</a>); with <code>127.0.0.1</code> the QR encodes
+          <code>127.0.0.1</code>, which a phone cannot open.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- 7 Spotlight ---------- -->
+  <article class="comp" id="c-7">
+    <header><span class="comp-num">7</span><h3>Spotlight</h3><span class="where">state <code>spotlight</code>, <code>lit</code> in <code>core/ui-store.ts</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Spotlight tells the audience where to look. During a beat, the panels that matter keep full colour and
+        get a coloured outline; the other panels on the page fade. The frame (top bar, ribbon, rail, page header,
+        Director, stream, toasts) is never faded.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <figure class="shot boxes-quiet">
+        <div class="shot-frame">
+          <img src="img/shell-spotlight.jpg" width="1440" height="900" alt="Beat 1 with spotlight on: the ribbon outlined, the Consortium panel outlined in purple, Network health and the plane tiles faded, Demo Director showing the Say this note">
+          <span class="box" data-target="sp-1" style="left:0%;top:5.33%;width:100%;height:4%"></span>
+          <span class="box" data-target="sp-2" style="left:45%;top:21.33%;width:53.33%;height:48.33%"></span>
+          <span class="box" data-target="sp-3" style="left:6.11%;top:21.33%;width:37.78%;height:32.89%"></span>
+          <span class="box" data-target="c-8" style="left:5.56%;top:42%;width:23.61%;height:8%"></span>
+          <a class="pin" href="#sp-1" aria-label="1: Lit ribbon" title="Lit ribbon" style="left:17%;top:7.3%">1</a>
+          <a class="pin" href="#sp-2" aria-label="2: Lit panel" title="Lit panel" style="left:46.2%;top:21.6%">2</a>
+          <a class="pin" href="#sp-3" aria-label="3: Dimmed panel" title="Dimmed panel" style="left:7.6%;top:23.3%">3</a>
+          <a class="pin" href="#c-8" style="left:27.8%;top:44%">8</a>
+        </div>
+        <figcaption>Beat 1 with spotlight on. Pin 8 is the presenter note.</figcaption>
+      </figure>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>#</th><th>What you see</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr id="sp-1"><td class="num">1</td><td>A thin outline around the ribbon in the text colour (light in Ops, dark in Projector).</td><td>The ribbon is lit (beats 1 and 14). The ribbon is never faded, lit or not.</td></tr>
+            <tr id="sp-2"><td class="num">2</td><td>A 2-pixel outline in the panel's plane colour (blue focus colour if it has no plane).</td><td>This panel is part of the current beat.</td></tr>
+            <tr id="sp-3"><td class="num">3</td><td>Panel at 38% opacity with muted colours.</td><td>A panel that is not part of this beat. It still updates live. Only panels fade; the page header and the frame stay at full brightness.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">Each beat in the script names the panels to look at; this browser fades every other panel.</p>
+      <dl class="facts">
+        <dt>Source</dt><dd>Each beat in <code>BEATS</code> lists panel ids to light, for example <code>["ribbon", "consortium"]</code> for beat 1.</dd>
+        <dt>Matching</dt><dd>Every panel on every screen carries a <code>data-panel</code> id. Lit panels get <code>data-lit="true"</code>.</dd>
+        <dt>Styling</dt><dd>When spotlight is on and at least one panel is lit, the page gets <code>data-spotlight="on"</code> and a CSS rule fades the rest over 300 ms.</dd>
+        <dt>Scope</dt><dd>Browser only. Each console decides for itself whether to spotlight, but all of them use the same beat's list.</dd>
+      </dl>
+      <ol class="flow states" aria-label="Spotlight states">
+        <li><b>Spotlight off</b><span>nothing fades</span></li>
+        <li><b>On, nothing lit</b><span>nothing fades yet</span></li>
+        <li class="ui"><b>On, beat fired</b><span>beat's panels lit, rest faded</span></li>
+        <li><b><kbd>Esc</kbd></b><span>lit list cleared; spotlight stays on</span></li>
+      </ol>
+      <div class="table-wrap">
+        <table class="compact">
+          <caption>Panels each beat lights (from <code>BEATS</code>)</caption>
+          <thead><tr><th>Beat</th><th>Screen</th><th>Lit panels</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Mission Control</td><td><code>ribbon</code>, <code>consortium</code></td></tr>
+            <tr><td>2</td><td>Federation</td><td><code>round-timeline</code>, <code>privacy</code>, <code>convergence</code></td></tr>
+            <tr><td>3</td><td>Federation</td><td><code>secagg</code></td></tr>
+            <tr><td>4</td><td>Federation</td><td><code>update-norms</code>, <code>fleet</code></td></tr>
+            <tr><td>5</td><td>Proving Ground</td><td><code>pipeline</code>, <code>scorecard</code></td></tr>
+            <tr><td>6</td><td>Release</td><td><code>rollout</code>, <code>targets</code></td></tr>
+            <tr><td>7</td><td>Swarm Tower</td><td><code>twin</code>, <code>swarm</code></td></tr>
+            <tr><td>8</td><td>Swarm Tower</td><td><code>negotiation</code>, <code>plan</code></td></tr>
+            <tr><td>9</td><td>Oversight Desk</td><td><code>decision</code></td></tr>
+            <tr><td>10</td><td>Swarm Tower</td><td><code>swarm</code>, <code>messages</code></td></tr>
+            <tr><td>11</td><td>Audit</td><td><code>provenance</code></td></tr>
+            <tr><td>12</td><td>Audit</td><td><code>chain</code></td></tr>
+            <tr><td>13</td><td>Observability</td><td><code>cost</code>, <code>trace</code></td></tr>
+            <tr><td>14</td><td>Mission Control</td><td><code>ribbon</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th><kbd>s</kbd> or the Spotlight switch</th><td>Turns spotlight on or off. Turning it off also clears the lit panels.</td><td>Browser only; the choice is saved.</td></tr>
+            <tr><th><kbd>Esc</kbd></th><td>Clears the current highlights so the whole screen is visible.</td><td>Browser only. The next beat lights again.</td></tr>
+            <tr><th>Fire any beat</th><td>Lights that beat's panels (if spotlight is on).</td><td>See <a href="#c-5">Demo Director</a>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Keep spotlight on (it is on by default).</li>
+          <li>When a judge asks about a faded panel, press <kbd>Esc</kbd> to bring the whole screen back.</li>
+          <li>Press <kbd>→</kbd> to continue; the next beat lights its own panels.</li>
+        </ol>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Turning spotlight on in the middle of a beat lights nothing until the next beat fires. And the "Spotlight"
+          flag on the Settings page has no effect in this build (no code reads it); use <kbd>s</kbd> or the Director
+          switch.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- 8 Notes ---------- -->
+  <article class="comp" id="c-8">
+    <header><span class="comp-num">8</span><h3>Presenter notes</h3><span class="where">Director, "Say this"</span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A one-line script for the current beat, shown at the top of the Director, so the presenter always knows
+        the point to make.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>A small "Say this" label and the beat's note, for example in beat 1: "Every operator has outages and learns
+        alone, because nobody can share data. Five operators fix that here." Nothing shows at beat 0.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">Each beat in the script carries one line to say; the Director shows the current one.</p>
+      <dl class="facts">
+        <dt>Source</dt><dd>The <code>note</code> field of each beat in <code>BEATS</code> (<code>engine.py</code>), delivered in the <code>director</code> slice.</dd>
+        <dt>Shown when</dt><dd>Notes are on (<code>notesOpen</code>, saved, on by default), the Director is open, and a beat is current.</dd>
+      </dl>
+      <p>The same notes appear on the presenter view at <code>/presenter</code>, a separate full-screen page for a
+        second laptop with the notes, a talk timer (it starts when beat 1 fires, turns amber near 7 minutes and red at
+        7, and shows how far ahead or behind plan you are), the suggested time for each beat, and the beat list. It
+        follows the same server-side beat. See
+        <a href="settings.html">Settings, feature flags &amp; presenter view</a>.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th><kbd>n</kbd> or the Notes switch</th><td>Shows or hides the note.</td><td>Browser only; saved.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>If your laptop screen is mirrored to the projector, the audience reads the notes too. Either turn them off
+          (<kbd>n</kbd>) and rely on this guide, or drive from a second laptop with <code>/presenter</code>.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================================== -->
+  <h2 id="drawers">Drawers and overlays</h2>
+
+  <!-- ---------- 9 Stream ---------- -->
+  <article class="comp" id="c-9">
+    <header><span class="comp-num">9</span><h3>Live stream drawer</h3><span class="where">file <code>app/StreamDrawer.tsx</code>, flag <code>shell.stream</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The raw event feed of the whole system, at the bottom of every screen. It proves things are happening
+        live, and lets you find any event and open the signed ledger record behind it.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <figure class="shot boxes-quiet">
+        <div class="shot-frame">
+          <img src="img/shell-stream.jpg" width="1440" height="900" alt="Live stream drawer open at the bottom, with plane filter chips, a severity menu, an only ledgered checkbox, a text filter and rows of events">
+          <span class="box" data-target="c-9" style="left:0%;top:68.89%;width:100%;height:31.11%"></span>
+          <a class="pin" href="#st-1" aria-label="1: Header and toggle" title="Header and toggle" style="left:4%;top:67.4%">1</a>
+          <a class="pin" href="#st-2" aria-label="2: Plane chips" title="Plane chips" style="left:17.5%;top:67.4%">2</a>
+          <a class="pin" href="#st-3" aria-label="3: Severity" title="Severity" style="left:32.8%;top:67.4%">3</a>
+          <a class="pin" href="#st-4" aria-label="4: Only ledgered" title="Only ledgered" style="left:40.2%;top:67.4%">4</a>
+          <a class="pin" href="#st-5" aria-label="5: Text filter" title="Text filter" style="left:51.5%;top:67.4%">5</a>
+          <a class="pin" href="#st-6" aria-label="6: Count" title="Count" style="left:95%;top:67.4%">6</a>
+          <a class="pin" href="#st-7" aria-label="7: Event row" title="Event row" style="left:63%;top:73.7%">7</a>
+        </div>
+        <figcaption>Opened with <kbd>l</kbd>. Closed, the drawer is a single line showing the latest event.</figcaption>
+      </figure>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>#</th><th>Part</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr id="st-1"><td class="num">1</td><th>"Live stream" toggle</th><td>Opens (280 px) or closes (one line) the drawer. Closed, the line shows the newest event that is not debug-level; clicking it opens the drawer.</td></tr>
+            <tr id="st-2"><td class="num">2</td><th>Plane chips</th><td>Learn, Verify, Release, Operate, Prove. Click to show only those planes; several can be on; none on means all.</td></tr>
+            <tr id="st-3"><td class="num">3</td><th>"severity ≥ info"</th><td>Hides events below a level: debug, info, notice, warn, critical. Default info.</td></tr>
+            <tr id="st-4"><td class="num">4</td><th>"only ledgered"</th><td>Shows only events that were written to the signed ledger.</td></tr>
+            <tr id="st-5"><td class="num">5</td><th>Text filter</th><td>Matches the actor, the event type or the summary text, for example <code>site-17</code> or <code>a2a</code>.</td></tr>
+            <tr id="st-6"><td class="num">6</td><th>"28 shown, 117 buffered"</th><td>Rows passing the filters, out of all events kept in the browser.</td></tr>
+            <tr id="st-7"><td class="num">7</td><th>Event row</th><td>Severity icon, time (scenario time to the millisecond), plane dot and name (or "system"), actor (who did it, e.g. <code>site-36</code>, <code>ledger</code>), type (e.g. <code>twin.action</code>, <code>ledger.anchor</code>), summary, and on the right a <code>#seq</code> ledger link if the event was ledgered.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <table class="compact">
+          <caption>Severity icons (same in the stream, toasts and elsewhere)</caption>
+          <thead><tr><th>Severity</th><th>Icon</th><th>Colour</th></tr></thead>
+          <tbody>
+            <tr><td>debug</td><td>Small dot</td><td>Grey</td></tr>
+            <tr><td>info</td><td>Circle with "i"</td><td>Grey</td></tr>
+            <tr><td>notice</td><td>Circle with "!"</td><td>Blue</td></tr>
+            <tr><td>warn</td><td>Triangle with "!"</td><td>Amber</td></tr>
+            <tr><td>critical</td><td>Octagon with a cross</td><td>Red</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">Every change in the simulation becomes one event; the drawer lists the recent ones, newest first.</p>
+      <details class="more"><summary>For engineers: data path</summary>
+      <dl class="facts">
+        <dt>Backend</dt><dd>The event bus in <code>core.py</code>. Every event is an envelope with <code>seq</code>, <code>ts</code>, <code>plane</code>, <code>type</code>, <code>severity</code>, <code>actor</code>, <code>summary</code> and, if ledgered, <code>ledger.seq</code>.</dd>
+        <dt>Arrives by</dt><dd>The snapshot's recent events, then every WebSocket batch.</dd>
+        <dt>Store slice</dt><dd><code>stream</code>: the newest 3,000 events.</dd>
+        <dt>Left out</dt><dd>High-rate telemetry is never added: <code>fl.step</code>, <code>fl.gradhist</code>, <code>twin.tick</code>, <code>obs.metrics</code>, <code>obs.span</code>, <code>obs.trace</code>, <code>release.metrics</code>, <code>swarm.agents</code>, <code>sim.clock</code>, <code>eval.progress</code>.</dd>
+      </dl>
+      </details>
+      <p>Filtering runs in the browser, newest first, and stops at 400 matching rows. The filters are not saved and
+        reset on reload. In the quiet pre-demo state most rows are routine site-agent actions
+        (<code>twin.action</code>) and Merkle anchors; during beats you see training, gate, incident, approval and
+        policy events.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th><kbd>l</kbd> or "Live stream"</th><td>Opens or closes the drawer.</td><td>Browser only.</td></tr>
+            <tr><th>Chips, severity, checkbox, text</th><td>Filter the rows.</td><td>Browser only.</td></tr>
+            <tr><th><code>#seq</code> on a row</th><td>Opens that ledger record in the inspector.</td><td><code>GET /api/ledger/{seq}</code> and <code>GET /api/ledger/proof/{seq}</code>.</td></tr>
+            <tr><th>Arrow at row end (on hover)</th><td>Opens the raw event in the inspector.</td><td>No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>After beat 10, press <kbd>l</kbd>, type <code>site-17</code> in the filter.</li>
+          <li>Tick "only ledgered" and click a <code>#seq</code> to show the signed record.</li>
+          <li>Click the cross on the inspector to close it (<kbd>Esc</kbd> also works but removes the beat's highlights), then press <kbd>l</kbd> to close the drawer.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"This is every event in the system, live. Anything with a number on the right is in the signed ledger, one click away."</p></blockquote>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The events come from the mock simulation; the ledger links point at real hash-chained, signed records.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>The open drawer takes a third of the screen height and shortens the rail. Close it before the next beat so lit panels are not hidden.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- 10 Inspector ---------- -->
+  <article class="comp" id="c-10">
+    <header><span class="comp-num">10</span><h3>Inspector</h3><span class="where">file <code>app/Inspector.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A drawer on the right that opens the raw artefact behind anything you click: a ledger record, an agent, a
+        signed agent-to-agent (<a href="concepts.html#term-a2a">A2A</a>) message, a
+        <a href="concepts.html#term-cedar-gateway">Cedar policy</a> or a raw event. It is where you prove a claim instead of
+        asserting it.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <figure class="shot boxes-quiet">
+        <div class="shot-frame">
+          <img src="img/shell-inspector.jpg" width="1440" height="900" alt="Inspector drawer open on ledger record 3456, showing Verified, five verification steps, the signature details and the anchor details">
+          <span class="box" data-target="c-10" style="left:69.44%;top:9.33%;width:30.56%;height:87.11%"></span>
+          <a class="pin" href="#in-1" aria-label="1: Header" title="Header" style="left:69.8%;top:11.8%">1</a>
+          <a class="pin" href="#in-2" aria-label="2: Status line" title="Status line" style="left:69.8%;top:17.6%">2</a>
+          <a class="pin" href="#in-3" aria-label="3: Tabs" title="Tabs" style="left:69.8%;top:21.7%">3</a>
+          <a class="pin" href="#in-4" aria-label="4: Verification steps" title="Verification steps" style="left:69.8%;top:30.4%">4</a>
+          <a class="pin" href="#in-5" aria-label="5: Signature" title="Signature" style="left:69.8%;top:54.8%">5</a>
+          <a class="pin" href="#in-6" aria-label="6: Anchor" title="Anchor" style="left:69.8%;top:74%">6</a>
+          <a class="pin" href="#in-7" aria-label="7: Close" title="Close" style="left:96.3%;top:12%">7</a>
+        </div>
+        <figcaption>A ledger record opened from the Audit &amp; Proof screen.</figcaption>
+      </figure>
+      <div class="table-wrap">
+        <table class="compact">
+          <caption>Ledger record view (the most common)</caption>
+          <thead><tr><th>#</th><th>Part</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr id="in-1"><td class="num">1</td><th>Header</th><td>What kind of thing it is and its id. "Ledger record", "Agent", "A2A message" and "Cedar policy" have their own views; "Policy decision", "Checkpoint", "Model", "Approval", "Operator", "Cell site", "Trace" and "Raw data" show a labelled raw JSON view. A back arrow appears when you opened one item from another.</td></tr>
+            <tr id="in-2"><td class="num">2</td><th>Status line</th><td><span class="pill good">Verified</span> or <span class="pill critical">Tampered</span>, the record type (e.g. <code>a2a.message</code>), who wrote it, and its time.</td></tr>
+            <tr id="in-3"><td class="num">3</td><th>Proof / Payload / Raw</th><td>Proof: the checks below. Payload: the record's content as JSON. Raw: the whole record including hash and signature.</td></tr>
+            <tr id="in-4"><td class="num">4</td><th>Verification, step by step</th><td>1. The <a href="concepts.html#term-hash">SHA-256 hash</a> recomputed in this browser. 2. It matches the stored hash. 3. It links to the previous record's hash. 4. The <a href="concepts.html#term-ed25519">Ed25519 signature</a> is valid (with the key fingerprint). 5. It is included in a <a href="concepts.html#term-merkle">Merkle anchor</a> (<a href="concepts.html#term-object-lock">S3 Object Lock</a>), or "Awaiting the next Merkle anchor" with the record number where the next anchor will be cut (one every 32 records). Each step has a green shield, a red shield, or a spinner while loading. Step 5 keeps spinning for as long as the record waits for the next anchor; open an older record, or wait, to show a green step 5.</td></tr>
+            <tr id="in-5"><td class="num">5</td><th>Signature</th><td>Algorithm, signing key (e.g. <code>kms:spectrum/agent/site-30</code>), public key, fingerprint, signature, key status (Active or Revoked).</td></tr>
+            <tr id="in-6"><td class="num">6</td><th>Anchor</th><td>Record range covered, Merkle root, object path, Object Lock mode and retention date, version id.</td></tr>
+            <tr id="in-7"><td class="num">7</td><th>Close</th><td>Closes the drawer (and the whole history of opened items).</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Other views: an <b>agent</b> shows its status, class, autonomy level, identity (key, fingerprint, model,
+        trust score, allowed sites), tokens and cost in the last hour, recent messages, and a Quarantine (or "Release
+        with new identity") button. A <b>message</b> shows Delivered or Blocked, three checks (signature valid for the
+        sender's key; claimed authority matches the signer; guardrails), the delegation chain, digest, signature and
+        ledger link. A <b>policy</b> shows the Cedar text, the policy hash and how many decisions it made. Anything
+        else is shown as raw JSON, "exactly as received from the backend".</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">The inspector fetches the record from the server, then checks it again in your own browser instead of trusting the server's answer.</p>
+      <dl class="facts">
+        <dt>Opened by</dt><dd>Ledger links and signature badges (<a href="#c-18">card 18</a>), <code>#seq</code> in the stream, the palette ("#1234" or an agent id), and rows on the feature screens.</dd>
+        <dt>Ledger data</dt><dd><code>GET /api/ledger/{seq}</code> (record, server verification, public key) and <code>GET /api/ledger/proof/{seq}</code> (Merkle inclusion proof).</dd>
+        <dt>Browser check</dt><dd>Step 1 recomputes the hash with the browser's WebCrypto from the <a href="concepts.html#term-canonical-json">canonical JSON</a> (<code>core/canonical.ts</code>), independently of the server.</dd>
+        <dt>History</dt><dd>Up to ten items stack; the back arrow returns to the previous one.</dd>
+      </dl>
+      <ol class="flow" aria-label="Checking a ledger record">
+        <li class="ui"><b>Click <code>#3456</code></b></li>
+        <li class="src"><b>Fetch record and proof</b><span>two GET requests</span></li>
+        <li><b>Recompute SHA-256 here</b><span>canonical body plus previous hash</span></li>
+        <li class="ui"><b>Five ticks</b><span>or a red shield at the step that fails</span></li>
+      </ol>
+      <p>After the tamper in beat 12, opening the edited record shows Tampered and the failing step in red.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Proof / Payload / Raw tabs</th><td>Switch the view.</td><td>Browser only.</td></tr>
+            <tr><th>Back arrow</th><td>Returns to the previously opened item.</td><td>Browser only.</td></tr>
+            <tr><th>Cross or <kbd>Esc</kbd></th><td>Closes the inspector.</td><td>Browser only.</td></tr>
+            <tr><th>Hash values</th><td>Click to copy the full value.</td><td>Clipboard.</td></tr>
+            <tr><th>Quarantine (agent view)</th><td>Revokes the agent's identity and isolates it.</td><td><code>POST /api/agents/{id}/quarantine</code>. A real change to the scenario.</td></tr>
+            <tr><th>Release with new identity</th><td>Brings a quarantined agent back with a new key.</td><td><code>POST /api/agents/{id}/release</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Don't trust our server: your browser just recomputed this hash itself, checked the link to the previous record, the signature, and the anchor."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How do I know the record wasn't changed?"</strong> Step 1 is computed in the viewer's own browser, and step 5 ties the record to a write-once anchor.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> Hashing, chaining, Ed25519 signatures and Merkle proofs are real. In <code>MOCK</code> mode the anchor is kept in memory by the mock adapter; the S3 path and Object Lock fields show where it would be written in AWS mode.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>The Quarantine button in the agent view is live: pressing it on stage changes the swarm. A newly written
+          record shows "Awaiting the next Merkle anchor" and a spinning step 5 until the next anchor is cut (up to 32
+          records later); that is normal, not a hang. Step 1 needs the browser's WebCrypto, which plain http offers
+          only on <code>localhost</code>: if the console was opened by the laptop's LAN address, step 1 spins forever.
+          Present from <code>http://localhost:5173</code> (see <a href="#c-6">Preflight</a> and
+          <a href="architecture.html">Architecture</a>).</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- 11 Palette ---------- -->
+  <article class="comp" id="c-11">
+    <header><span class="comp-num">11</span><h3>Command palette</h3><span class="where">file <code>app/Overlays.tsx</code>, flag <code>shell.palette</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>One search box to reach anything: go to a screen, run an action (start training, inject an incident,
+        verify the ledger), fire a beat, or open a ledger record or an agent by typing its id.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <figure class="shot boxes-quiet">
+        <div class="shot-frame">
+          <img src="img/shell-palette.jpg" width="1440" height="900" alt="Command palette over Mission Control: a search field and a list of Go to entries with their keys, followed by Federation commands">
+          <span class="box" data-target="c-11" style="left:28.47%;top:12%;width:43.06%;height:57.67%"></span>
+          <a class="pin" href="#pl-1" aria-label="1: Search field" title="Search field" style="left:60%;top:14.8%">1</a>
+          <a class="pin" href="#pl-2" aria-label="2: Group" title="Group" style="left:33.5%;top:20%">2</a>
+          <a class="pin" href="#pl-3" aria-label="3: Key hint" title="Key hint" style="left:68%;top:20%">3</a>
+          <a class="pin" href="#pl-4" aria-label="4: Commands" title="Commands" style="left:60%;top:60%">4</a>
+        </div>
+        <figcaption>Opened with <kbd>⌘</kbd> <kbd>K</kbd> and nothing typed: screens first, then actions.</figcaption>
+      </figure>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>#</th><th>Part</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr id="pl-1"><td class="num">1</td><th>Search field</th><td>"Jump to a screen, run an action, open #record or an agent". Every word you type must appear in the group or label.</td></tr>
+            <tr id="pl-2"><td class="num">2</td><th>Group</th><td>Go to, Federation, Verification, Release, Network, Security, Audit, Swarm, Simulation, Demo, Display, Demo beats, Ledger, Agents.</td></tr>
+            <tr id="pl-3"><td class="num">3</td><th>Key hint</th><td>For screens, the <kbd>g</kbd> keys (e.g. "g m").</td></tr>
+            <tr id="pl-4"><td class="num">4</td><th>Commands</th><td>Actions that call the backend directly (list below).</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <table class="compact stack">
+          <caption>Every global command</caption>
+          <thead><tr><th>Group</th><th>Label</th><th>Calls</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Group">Federation</td><td data-label="Label">Start or resume training</td><td data-label="Calls"><code>POST /api/fl/start</code></td></tr>
+            <tr><td data-label="Group">Federation</td><td data-label="Label">Pause training</td><td data-label="Calls"><code>POST /api/fl/pause</code></td></tr>
+            <tr><td data-label="Group">Federation</td><td data-label="Label">Save checkpoint now</td><td data-label="Calls"><code>POST /api/fl/checkpoint</code></td></tr>
+            <tr><td data-label="Group">Verification</td><td data-label="Label">Run Proving Ground on the latest checkpoint</td><td data-label="Calls"><code>POST /api/eval/run</code></td></tr>
+            <tr><td data-label="Group">Release</td><td data-label="Label">Advance rollout to the next stage</td><td data-label="Calls"><code>POST /api/release/advance</code></td></tr>
+            <tr><td data-label="Group">Release</td><td data-label="Label">Roll back the candidate</td><td data-label="Calls"><code>POST /api/release/rollback</code></td></tr>
+            <tr><td data-label="Group">Network</td><td data-label="Label">Inject incident: fibre cut during stadium let-out</td><td data-label="Calls"><code>POST /api/twin/inject</code> (incident)</td></tr>
+            <tr><td data-label="Group">Network</td><td data-label="Label">Inject fault: uplink interference at s-08</td><td data-label="Calls"><code>POST /api/twin/inject</code></td></tr>
+            <tr><td data-label="Group">Security</td><td data-label="Label">Attack: telemetry prompt injection on site-17 (flag <code>demo.attacks</code>)</td><td data-label="Calls"><code>POST /api/twin/inject</code></td></tr>
+            <tr><td data-label="Group">Audit</td><td data-label="Label">Verify the whole ledger chain</td><td data-label="Calls"><code>POST /api/ledger/verify</code></td></tr>
+            <tr><td data-label="Group">Audit</td><td data-label="Label">Simulate tampering of a ledger record (flag <code>demo.tamper</code>)</td><td data-label="Calls"><code>POST /api/ledger/tamper</code></td></tr>
+            <tr><td data-label="Group">Audit</td><td data-label="Label">Restore tampered records (flag <code>demo.tamper</code>)</td><td data-label="Calls"><code>POST /api/ledger/restore</code></td></tr>
+            <tr><td data-label="Group">Swarm</td><td data-label="Label">Freeze the swarm (kill switch)</td><td data-label="Calls"><code>POST /api/swarm/freeze</code></td></tr>
+            <tr><td data-label="Group">Swarm</td><td data-label="Label">Resume the swarm</td><td data-label="Calls"><code>POST /api/swarm/resume</code></td></tr>
+            <tr><td data-label="Group">Simulation</td><td data-label="Label">Pause or resume the simulation</td><td data-label="Calls"><code>POST /api/sim</code></td></tr>
+            <tr><td data-label="Group">Demo</td><td data-label="Label">Reset scenario to the pre-demo state (flag <code>demo.director</code>)</td><td data-label="Calls"><code>POST /api/director/reset</code></td></tr>
+            <tr><td data-label="Group">Display</td><td data-label="Label">Toggle Ops / Projector theme</td><td data-label="Calls">Browser only</td></tr>
+            <tr><td data-label="Group">Demo beats</td><td data-label="Label">Beat N: <i>title</i>, one entry for each of the 14 beats (type "beat 12" to find one)</td><td data-label="Calls"><code>POST /api/director/beat/N</code>, the same as firing it from the Director</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">The palette collects every screen, command, beat and agent into one list and filters it as you type.</p>
+      <dl class="facts">
+        <dt>Built from</dt><dd>Screen manifests (Go to), the command list in <code>app/Overlays.tsx</code>, the beats in the <code>director</code> slice, and the agents in <code>swarm.agents</code>.</dd>
+        <dt>Filtered by</dt><dd>Feature flags: commands and screens whose flag is off do not appear.</dd>
+        <dt>Special input</dt><dd>A number such as <code>3456</code> or <code>#3456</code> adds "Open ledger record #3456". Two or more letters also search agent ids, e.g. <code>site-17</code>.</dd>
+      </dl>
+      <p>With nothing typed it lists the first 60 entries (agents are left out). Running a command closes the
+        palette and shows a toast: the command's label on success, or "… failed: …" in red.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th><kbd>⌘</kbd> <kbd>K</kbd> / <kbd>Ctrl</kbd> <kbd>K</kbd>, or the top bar search box</th><td>Opens or closes the palette. Works even while typing elsewhere.</td><td>Browser only.</td></tr>
+            <tr><th><kbd>↑</kbd> <kbd>↓</kbd>, hover</th><td>Move the selection.</td><td>Browser only.</td></tr>
+            <tr><th><kbd>Enter</kbd> or click</th><td>Runs the selected entry.</td><td>Depends on the entry; see the table above.</td></tr>
+            <tr><th><kbd>Esc</kbd> or click outside</th><td>Closes it.</td><td>Browser only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>When a judge asks about a specific record, press <kbd>⌘</kbd> <kbd>K</kbd> and type its number.</li>
+          <li>Press <kbd>Enter</kbd>; the inspector opens on that record.</li>
+        </ol>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The commands call the same backend endpoints as the buttons on each screen; what they act on is the mock simulation, except the ledger commands, which act on the real signed chain.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Palette commands run at once, with no hold: "Reset scenario…" here resets immediately (and, unlike the
+          Director, does not return you to Mission Control). While the palette is open, all other shortcut keys are
+          ignored.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- 12 Toasts ---------- -->
+  <article class="comp" id="c-12">
+    <header><span class="comp-num">12</span><h3>Toasts</h3><span class="where">file <code>app/Overlays.tsx</code>, rules in <code>core/ws.ts</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Short pop-up messages at the bottom right that announce important moments (an incident opened, an
+        approval needed, an attack blocked) and confirm your own actions, with a button that takes you to the
+        place to act.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <figure class="shot boxes-quiet">
+        <div class="shot-frame">
+          <img src="img/beat-10.jpg" width="1440" height="900" alt="Swarm Tower during beat 10 with three toasts at the bottom right: an approval request with Review, and two critical messages with Inspect">
+          <span class="box" data-target="c-12" style="left:72.5%;top:76.67%;width:26.39%;height:18%"></span>
+          <a class="pin" href="#c-12" style="left:72.5%;top:76.2%">12</a>
+        </div>
+        <figcaption>Beat 10: the approval request (amber triangle, "Review") and two critical messages (red border, "Inspect").</figcaption>
+      </figure>
+      <p>Each toast has the severity icon, the message, an optional action ("Review", "Inspect" or "Open") and a
+        cross. Critical toasts have a red border and blink twice. At most three are shown; the newest is on top.
+        Each disappears after 6 seconds.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">A few important server events, and your own actions, pop up as toasts; everything else stays in the stream.</p>
+      <dl class="facts">
+        <dt>From the server</dt><dd>Certain WebSocket event types become toasts: <code>approval.requested</code>, <code>incident.opened</code>, <code>eval.gate</code> and <code>fl.budget</code> always; <code>escalation</code>, <code>attack.denied</code>, <code>identity.revoked</code>, <code>fl.poison</code>, <code>guardrail.block</code> and <code>ledger.verify</code> only when their severity is critical.</dd>
+        <dt>From the browser</dt><dd>Confirmations of your own actions, e.g. "Scenario reset to the pre-demo state", "Swarm resumed", "Checkpoint saved, signed and ledgered", and errors such as "Beat N failed".</dd>
+      </dl>
+      <div class="table-wrap">
+        <table class="compact">
+          <caption>Where the action button goes</caption>
+          <thead><tr><th>Event</th><th>Button</th><th>Goes to</th></tr></thead>
+          <tbody>
+            <tr><td><code>approval.requested</code>, <code>escalation</code></td><td>Review</td><td><code>/oversight</code></td></tr>
+            <tr><td><code>attack.denied</code>, <code>identity.revoked</code></td><td>Inspect</td><td><code>/swarm</code></td></tr>
+            <tr><td><code>guardrail.block</code></td><td>Inspect</td><td><code>/trust</code></td></tr>
+            <tr><td><code>fl.poison</code></td><td>Inspect</td><td><code>/federation</code></td></tr>
+            <tr><td><code>fl.budget</code></td><td>Open</td><td><code>/federation</code></td></tr>
+            <tr><td><code>incident.opened</code></td><td>Open</td><td><code>/swarm</code></td></tr>
+            <tr><td><code>eval.gate</code></td><td>Open</td><td><code>/proving</code></td></tr>
+            <tr><td><code>ledger.verify</code> (failed)</td><td>Open</td><td><code>/audit</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Review / Inspect / Open</th><td>Goes to the screen where you can act.</td><td>Route change only.</td></tr>
+            <tr><th>Cross</th><td>Dismisses the toast.</td><td>Browser only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>The icon gives the severity (see the table in <a href="#c-9">card 9</a>). Toasts come from the server
+          events, so the projector and the presenter laptop show the same ones.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Toasts can sit on top of the lower right corner of a lit panel for up to 6 seconds. Dismiss them with the cross if they hide what you are pointing at.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- 13 Help ---------- -->
+  <article class="comp" id="c-13">
+    <header><span class="comp-num">13</span><h3>Keyboard help overlay</h3><span class="where">file <code>app/Overlays.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A quick reminder of every shortcut, one key press away.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <figure class="shot">
+        <div class="shot-frame">
+          <img src="img/shell-help.jpg" width="1440" height="900" alt="Keyboard shortcuts overlay listing fourteen keys and what they do">
+          <a class="pin" href="#c-13" style="left:32%;top:25.2%">13</a>
+        </div>
+        <figcaption>Opened with <kbd>?</kbd> or the Shortcuts button at the bottom of the rail.</figcaption>
+      </figure>
+      <p>A centred box "Keyboard shortcuts" with fourteen lines. The full list is in the
+        <a href="#keyboard">keyboard reference</a>.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>A fixed list in the code (<code>KEYS</code> in <code>app/Overlays.tsx</code>); the keys themselves are handled in <code>app/hotkeys.ts</code>.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p><kbd>?</kbd> or Shortcuts in the rail opens or closes it; <kbd>Esc</kbd> or a click outside closes it. Browser only.</p>
+    </div>
+  </article>
+
+  <!-- ---------- 14 Display ---------- -->
+  <article class="comp" id="c-14">
+    <header><span class="comp-num">14</span><h3>Display: theme, density, motion</h3><span class="where">state in <code>core/ui-store.ts</code>, controls on <code>/settings</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Three display settings that adapt the console to the room: a dark or light theme, normal or tighter
+        spacing, and full or reduced animation.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <figure class="shot">
+        <div class="shot-frame">
+          <img src="img/shell-projector.jpg" width="1440" height="900" alt="Mission Control in the light Projector theme">
+          <a class="pin" href="#c-14" style="left:91.8%;top:7.8%">14</a>
+        </div>
+        <figcaption>The Projector (light) theme. The theme button (moon icon in this theme) is above pin 14.</figcaption>
+      </figure>
+      <div class="compare">
+        <div>
+          <h4>Ops (dark), the default</h4>
+          <p>Near-black page, light text. Best on laptop screens and monitors, and in dim rooms.</p>
+        </div>
+        <div>
+          <h4>Projector (light)</h4>
+          <p>Light grey page, dark text, slightly deeper plane colours. Made for projectors, which wash out dark interfaces. Use it whenever the main screen is a projector in a lit room.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Setting</th><th>Options</th><th>Effect</th></tr></thead>
+          <tbody>
+            <tr><th>Theme</th><td>Ops (dark), Projector (light)</td><td>Swaps the whole colour set. Charts drawn on canvas re-render in the new colours.</td></tr>
+            <tr><th>Density</th><td>Comfortable, Compact</td><td>Compact shrinks panel padding to 10–12 px, panel headers from 40 to 34 px and gaps between panels to 10 px. Meant for small projectors (1280 × 720).</td></tr>
+            <tr><th>Motion</th><td>Follow system, Reduced</td><td>Reduced cuts CSS animations and transitions to almost nothing (fades, the pulsing live dot, row slide-ins). "Follow system" does the same only if the laptop asks for reduced motion.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">These are settings of this one browser; they change no data and no other screen.</p>
+      <dl class="facts">
+        <dt>Stored</dt><dd>In this browser's <code>localStorage</code> (<code>spectrum.ui</code>), so the choice survives a reload. Not shared with other screens.</dd>
+        <dt>Applied</dt><dd>As attributes on the page root: <code>data-theme</code>, <code>data-density</code>, <code>data-motion</code>. The stylesheet (<code>src/index.css</code>) reads them.</dd>
+      </dl>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th><kbd>t</kbd>, top bar sun/moon, or palette "Toggle Ops / Projector theme"</th><td>Switches theme.</td><td>Browser only; saved.</td></tr>
+            <tr><th>Settings, Display panel</th><td>Theme, Density, Motion switches.</td><td>Browser only; saved. See <a href="settings.html">Settings</a>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>At the venue, look at the projected image from the back of the room. If dark panels look grey and muddy, press <kbd>t</kbd>.</li>
+          <li>If the projector is 1280 × 720 and panels feel cramped, set Density to Compact on the Settings page.</li>
+        </ol>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Theme is per browser: setting it on the presenter laptop does not change the projector machine. The
+          ribbon's pulse is animated by script, not CSS, so it still moves with Motion set to Reduced.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===================================================================== -->
+  <h2 id="read-any-panel">How to read any panel</h2>
+  <p>Every screen is built from the same few parts. Once you can read one panel you can read all of them.</p>
+
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/shell-stream.jpg" width="1440" height="900" alt="Mission Control with the page title, track tags, Network health panel header, Nominal status pill, CloudWatch metrics source chip and a chart legend numbered">
+      <span class="box" data-target="c-15" style="left:6.11%;top:11.56%;width:92.22%;height:9.78%"></span>
+      <span class="box" data-target="c-16" style="left:6.11%;top:21.33%;width:37.78%;height:4.5%"></span>
+      <span class="box" data-target="c-17" style="left:28.6%;top:22.2%;width:4.6%;height:3%"></span>
+      <span class="box" data-target="c-19" style="left:6.11%;top:36%;width:37.78%;height:18%"></span>
+      <a class="pin" href="#c-15" style="left:27%;top:13.2%">15</a>
+      <a class="pin" href="#c-16" style="left:38.3%;top:20.2%">16</a>
+      <a class="pin" href="#c-17" style="left:30.9%;top:20.4%">17</a>
+      <a class="pin" href="#c-19" style="left:27%;top:51.4%">19</a>
+    </div>
+    <figcaption>Panel anatomy on Mission Control. Hover a number to outline the part.</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#c-15"><span class="n">15</span><span>Page header and track tags</span></a></li>
+      <li><a href="#c-16"><span class="n">16</span><span>Panel header and source chip</span></a></li>
+      <li><a href="#c-17"><span class="n">17</span><span>Status pill</span></a></li>
+      <li><a href="#c-19"><span class="n">19</span><span>Chart and legend</span></a></li>
+    </ul>
+  </figure>
+
+  <!-- ---------- 15 Page header ---------- -->
+  <article class="comp" id="c-15">
+    <header><span class="comp-num">15</span><h3>Page header and track tags</h3><span class="where"><code>PageHeader</code>, <code>TrackTag</code> in <code>ui/Panel.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The top of each screen says what the screen is, in one sentence, and which hackathon tracks it answers.
+        Use it to tell judges which track you are scoring on.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>The screen title, small outlined tags, a one-sentence description, and sometimes action buttons on the
+        right. Hover a tag for its full name.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Tag</th><th>Full name (tooltip)</th><th>Border colour</th><th>Screens</th></tr></thead>
+          <tbody>
+            <tr><td><code>T1</code></td><td>Track 1: NLM training, scaling &amp; production readiness</td><td>Verify amber</td><td>Mission, Federation, Proving, Release, Observability</td></tr>
+            <tr><td><code>T2</code></td><td>Track 2: Federated learning at scale</td><td>Learn purple</td><td>Mission, Federation</td></tr>
+            <tr><td><code>T3</code></td><td>Track 3: Multi-agent swarms with policy, audit and human oversight</td><td>Operate green</td><td>Mission, Swarm, Oversight, Trust</td></tr>
+            <tr><td><code>Trust</code></td><td>Security &amp; traceability</td><td>Prove orange</td><td>Oversight, Trust, Audit</td></tr>
+            <tr><td><code>Obs</code></td><td>Observability</td><td>Release blue</td><td>Observability</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>Title, description and tags come from the screen's <code>manifest.ts</code> (<code>title</code>,
+        <code>description</code>, <code>tracks</code>). They are fixed text, not live data.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data (hover a tag for its name). Action buttons, where present, are described on each screen's page.</p>
+    </div>
+  </article>
+
+  <!-- ---------- 16 Panel header ---------- -->
+  <article class="comp" id="c-16">
+    <header><span class="comp-num">16</span><h3>Panel header and source chip</h3><span class="where"><code>Panel</code>, <code>SourceChip</code> in <code>ui/Panel.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Every panel's top line names it, says in a few words what it measures, and states honestly where the data
+        comes from and which AWS service it maps to.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Part</th><th>Example</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Title</th><td>"Network health"</td><td>The panel's name. The same name is used in this guide.</td></tr>
+            <tr><th>Subtitle (grey)</th><td>"share of sites inside their KPI SLO"</td><td>What the numbers measure. (A KPI is a key performance indicator; an <a href="concepts.html#term-slo">SLO</a> is the target it must stay inside.)</td></tr>
+            <tr><th>Actions</th><td>A status pill, tabs, or buttons</td><td>Panel-specific; see each screen's page.</td></tr>
+            <tr><th>Table button</th><td>A small grid icon</td><td>Only on panels with a table version of their chart; switches between chart and table.</td></tr>
+            <tr><th>Source chip</th><td>Flask icon + "CloudWatch metrics"</td><td>In <code>MOCK</code> mode: the flask means simulated now, and the text is the AWS service this panel reads in AWS mode. Hover: "<i>what simulates it</i> now. In AWS mode this panel reads from <i>service</i>." In <code>AWS</code> mode the flask disappears and the hover says "Live from <i>service</i>".</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Each panel also has an invisible id (<code>data-panel</code>) that the spotlight uses, and takes its
+        spotlight outline colour from its plane (<a href="#c-7">card 7</a>).</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p class="plain">The chip text is written into each panel; the backend only says whether the console runs in mock or AWS mode.</p>
+      <dl class="facts">
+        <dt>Source chip text</dt><dd>Written by each panel's code (<code>source={{ aws, mock }}</code>); the chip picks its style from the <code>mode</code> reported by <code>GET /api/config</code>.</dd>
+        <dt>Mode</dt><dd>Set on the backend by <code>SPECTRUM_MODE</code>; the adapters behind it are listed on the Settings page "Data source" panel (e.g. ledger "in-memory (maps to DynamoDB)").</dd>
+      </dl>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Hover the source chip</th><td>Shows what simulates the panel now and its AWS mapping.</td><td>Nothing.</td></tr>
+            <tr><th>Table button</th><td>Swaps the chart for a table of the same numbers.</td><td>Browser only. See <a href="#c-19">card 19</a>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Every panel tells you where its data comes from. The flask means simulated today; the name is the AWS service it reads in production."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How would this run on AWS?"</strong> Each panel names its AWS service, and the backend swaps adapters behind one setting.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- 17 Status pills ---------- -->
+  <article class="comp" id="c-17">
+    <header><span class="comp-num">17</span><h3>Status pills</h3><span class="where"><code>StatusPill</code>, <code>LiveDot</code> in <code>ui/data.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>One shared vocabulary for "how is this thing doing", used on every screen. Each status always comes with
+        an icon and a word, so it is readable by people who cannot tell red from green and on a washed-out projector.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>A small tinted label with an icon and a word. The guide's own pills below approximate the colour family;
+        the icon column says which icon the console draws.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Word</th><th>Colour family</th><th>Console icon</th><th>Used for</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill good">Verified</span> <span class="pill good">Signed</span></td><td>Green</td><td>Shield with tick</td><td>A signature or chain check passed.</td></tr>
+            <tr><td><span class="pill good">Approved</span> <span class="pill good">Passed</span> <span class="pill good">OK</span></td><td>Green</td><td>Circle with tick</td><td>A decision, gate or check succeeded.</td></tr>
+            <tr><td><span class="pill warn">Pending</span></td><td>Amber</td><td>Clock</td><td>Waiting, usually for a human.</td></tr>
+            <tr><td><span class="pill neutral" style="--st:var(--release);--st-ink:var(--focus)">Running</span></td><td>Blue</td><td>Clock</td><td>In progress.</td></tr>
+            <tr><td><span class="pill warn">Warning</span></td><td>Amber</td><td>Triangle with "!"</td><td>Needs a look, not yet bad.</td></tr>
+            <tr><td><span class="pill serious">Degraded</span></td><td>Orange</td><td>Circle with "!"</td><td>Working but worse than it should be.</td></tr>
+            <tr><td><span class="pill critical">Denied</span> <span class="pill critical">Blocked</span> <span class="pill critical">Rejected</span> <span class="pill critical">Critical</span></td><td>Red</td><td>Octagon with a cross</td><td>Stopped by policy, a gate or a human, or a critical fault.</td></tr>
+            <tr><td><span class="pill critical">Tampered</span></td><td>Red</td><td>Shield with a cross</td><td>A ledger record failed verification.</td></tr>
+            <tr><td><span class="pill neutral">Quarantined</span></td><td>Grey</td><td>Padlock</td><td>An agent isolated, its identity revoked.</td></tr>
+            <tr><td><span class="pill neutral">Simulated</span></td><td>Grey</td><td>Flask</td><td>Data that is simulated.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Screens may replace the word with a more specific one ("Nominal", "Active", "Delivered", "Agreed on C")
+        while keeping the colour and icon of the status. The connection dot (<code>LiveDot</code>) follows the same
+        colours: green live, amber lagging, red offline, grey connecting.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>One table in <code>ui/data.tsx</code> maps each status to a colour token, an icon and a default word. Status
+        colours are reserved: they are never used for the plane colours, so red always means a problem, not "Prove".</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Read the word first, the colour second. Green shield = proven; green circle = done; amber = waiting or
+          watch; red octagon = stopped; grey = not active or simulated.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- 18 Proof primitives ---------- -->
+  <article class="comp" id="c-18">
+    <header><span class="comp-num">18</span><h3>Hashes, signature badges and ledger links</h3><span class="where"><code>Hash</code>, <code>SignatureBadge</code>, <code>LedgerLink</code> in <code>ui/data.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Three small building blocks that appear wherever something is signed or recorded. They turn "trust us"
+        into "click and check".</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Looks like</th><th>Meaning</th><th>Click</th></tr></thead>
+          <tbody>
+            <tr><th>Hash</th><td>Monospace, shortened: first 6 and last 4 characters, e.g. <code>367f01…cd8a</code>.</td><td>A fingerprint of some data (SHA-256 hash, signature or key). Hover shows the full value.</td><td>Copies the full value; a small tick shows for 1 s. Does not open anything.</td></tr>
+            <tr><th>Signature badge</th><td>Green shield and "Signed" or "Verified" plus the key name (e.g. <code>agent/site-30</code>); red shield and "Failed" or "Revoked". Compact version: the shield only.</td><td>Who signed it and whether the signature checks out. Hover lists the algorithm (Ed25519), the key id and the ledger number.</td><td>Opens the ledger record in the <a href="#c-10">inspector</a>, if the badge knows its record number.</td></tr>
+            <tr><th>Ledger link</th><td>Monospace number, e.g. <code>#3,456</code>.</td><td>The record number in the signed ledger.</td><td>Opens that record in the inspector.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The values come from whatever the panel shows (a ledger record, a message, a checkpoint). Clicking a badge
+        or link adds an item to the inspector stack; the inspector then fetches the record and its proof and
+        re-verifies it (see <a href="#c-10">card 10</a>). They appear across the screens, for example
+        the Records table on <a href="audit.html">Audit</a>, messages on <a href="swarm.html">Swarm Tower</a> and
+        decisions on the <a href="oversight.html">Oversight Desk</a>.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click a hash</th><td>Copies it.</td><td>Clipboard only.</td></tr>
+            <tr><th>Click a signature badge or <code>#seq</code></th><td>Opens the record.</td><td><code>GET /api/ledger/{seq}</code>, <code>GET /api/ledger/proof/{seq}</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> Hashes, signatures and ledger numbers are produced by the real hash chain and Ed25519 signing, even in mock mode.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Clicking a hash only copies it. To show proof, click the shield or the <code>#</code> number next to it.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- 19 Charts ---------- -->
+  <article class="comp" id="c-19">
+    <header><span class="comp-num">19</span><h3>Charts: tooltips, legends, table view</h3><span class="where"><code>charts/common.tsx</code>, <code>charts/LineChart.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>All charts follow the same rules, so once you know how to read one you can read them all and answer
+        "what is that line?" without guessing.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Looks like</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Legend</th><td>Above the plot on line charts with two or more series (some panels, such as Network health, place their own legend below): a short line, square or dot in each series colour and its name, e.g. "Network health", "Stadium district PRB load". A dashed swatch means a dashed line.</td><td>Which colour is which.</td></tr>
+            <tr><th>Crosshair and tooltip</th><td>On hover, a thin vertical line snaps to the nearest point; a small box lists each series' value with its colour swatch and name, under a title (usually the time).</td><td>Exact values at that moment. The box flips to the left near the right edge.</td></tr>
+            <tr><th>"Now" line</th><td>A faint blue vertical line on some time charts.</td><td>The current simulation time.</td></tr>
+            <tr><th>Threshold line</th><td>A thin horizontal line.</td><td>A limit, for example a target or SLO.</td></tr>
+            <tr><th>Annotation</th><td>A faint vertical line with a label.</td><td>An event marked on the timeline.</td></tr>
+            <tr><th>Table view</th><td>The grid icon in the panel header.</td><td>The same numbers as a plain table.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Panels with a table view: Convergence and Privacy budget (<a href="federation.html">Federation</a>),
+        Pareto frontier and Task accuracy (<a href="proving.html">Proving Ground</a>), Shadow agreement
+        (<a href="release.html">Release</a>), Golden signals and Tokens and cost
+        (<a href="observability.html">Observability</a>).</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>Charts are hand-built with d3 scales and SVG or canvas, fed from the same store slices as the rest of the
+        panel, so they move with each WebSocket batch. Shared parts (tooltip, legend, table) live in
+        <code>charts/common.tsx</code>. Style rules are written at its top: hairline grid, 2-pixel lines, markers with
+        a ring in the surface colour, text in the theme's ink colours, a legend for two or more series. Canvas charts
+        redraw when the theme changes.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Hover the chart</th><td>Shows the crosshair and tooltip.</td><td>Browser only.</td></tr>
+            <tr><th>Table button</th><td>Chart to table and back.</td><td>Browser only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> Most chart data (training curves, network KPIs, benchmark scores, token costs) comes from the mock simulation, as the README states.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>When a judge asks for an exact number, hover for the tooltip or switch to the table rather than reading it off the axis.</p>
+      </div>
+    </div>
+  </article>
+
+  <p>Two more patterns you will see: a few headline numbers briefly flash a tinted background when their value
+    changes (so you notice the change), and some panels with nothing to show yet display a grey title and a short
+    hint instead of an empty chart.</p>
+
+  <!-- ===================================================================== -->
+  <h2 id="keyboard">Keyboard reference</h2>
+  <p>The full key map from <code>frontend/src/app/hotkeys.ts</code>. Single-letter keys work in upper or lower
+    case, but the go-to chord needs a lowercase <kbd>g</kbd>: with Caps Lock on, <kbd>g</kbd> then a letter does
+    not navigate, and the letter acts on its own (for example <kbd>S</kbd> switches spotlight).</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Key</th><th>What it does</th><th>Shared with other screens?</th><th>Backend call</th></tr></thead>
+      <tbody>
+        <tr><td><kbd>→</kbd> <kbd>Space</kbd> <kbd>PageDown</kbd></td><td>Next beat (does nothing after beat 14). Clickers send <kbd>PageDown</kbd>.</td><td>Yes, all consoles follow</td><td><code>POST /api/director/beat/N+1</code></td></tr>
+        <tr><td><kbd>←</kbd> <kbd>PageUp</kbd></td><td>Previous beat (from beat 2 onwards). Runs that beat again; does not undo. After an accidental double press, see <a href="#skipped-beat">Skipped a beat</a> instead.</td><td>Yes</td><td><code>POST /api/director/beat/N-1</code></td></tr>
+        <tr><td><kbd>1</kbd> to <kbd>9</kbd></td><td>Fire beat 1 to 9 directly. Beats 10 to 14: step with <kbd>→</kbd>, click them in the Director, or press <kbd>⌘</kbd> <kbd>K</kbd> and type "beat 1…".</td><td>Yes</td><td><code>POST /api/director/beat/N</code></td></tr>
+        <tr><td><kbd>g</kbd> then <kbd>m</kbd> <kbd>f</kbd> <kbd>p</kbd> <kbd>r</kbd> <kbd>s</kbd> <kbd>o</kbd> <kbd>t</kbd> <kbd>a</kbd> <kbd>b</kbd> <kbd>,</kbd></td><td>Go to Mission, Federation, Proving, Release, Swarm, Oversight, Trust, Audit, Observability, Settings. Press the letter within 0.9 s.</td><td>No</td><td>None</td></tr>
+        <tr><td><kbd>⌘</kbd> <kbd>K</kbd> / <kbd>Ctrl</kbd> <kbd>K</kbd></td><td>Open or close the command palette. Works even while typing.</td><td>No</td><td>None</td></tr>
+        <tr><td><kbd>d</kbd></td><td>Show or hide the Demo Director.</td><td>No</td><td>None</td></tr>
+        <tr><td><kbd>n</kbd></td><td>Show or hide presenter notes.</td><td>No</td><td>None</td></tr>
+        <tr><td><kbd>s</kbd></td><td>Spotlight on or off.</td><td>No</td><td>None</td></tr>
+        <tr><td><kbd>l</kbd></td><td>Open or close the live stream drawer.</td><td>No</td><td>None</td></tr>
+        <tr><td><kbd>t</kbd></td><td>Switch theme, Ops (dark) or Projector (light).</td><td>No</td><td>None</td></tr>
+        <tr><td><kbd>p</kbd></td><td>Pause or resume the simulation.</td><td>Yes, the clock stops everywhere</td><td><code>POST /api/sim</code></td></tr>
+        <tr><td>Hold <kbd>r</kbd> 1 s</td><td>Reset the scenario to the pre-demo state and return to Mission Control. Let go earlier to cancel.</td><td>Yes</td><td><code>POST /api/director/reset</code></td></tr>
+        <tr><td><kbd>?</kbd></td><td>Keyboard help.</td><td>No</td><td>None</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Clear spotlight highlights and close help; also closes the inspector and the palette. Closing the inspector with <kbd>Esc</kbd> also clears the highlights (closing the palette does not).</td><td>No</td><td>None</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout warn"><p class="title">When keys do nothing</p>
+    <p>Shortcuts are ignored while the cursor is in a text field, a dropdown (including the top bar's operator
+      dropdown and the stream's severity menu) or an editable area; while <kbd>⌘</kbd>, <kbd>Ctrl</kbd> or
+      <kbd>Alt</kbd> is held (except <kbd>⌘</kbd> <kbd>K</kbd>); and while the palette is open. Click an empty
+      part of the page and try again.</p></div>
+  <div class="callout tip"><p class="title">Same letter, two meanings</p>
+    <p><kbd>s</kbd> alone is spotlight; <kbd>g</kbd> <kbd>s</kbd> is Swarm Tower. The same goes for
+      <kbd>p</kbd> (pause, or Proving), <kbd>t</kbd> (theme, or Trust) and <kbd>r</kbd> (hold to reset, or
+      Release). If you wait more than 0.9 s after <kbd>g</kbd>, the second key acts on its own: a slow
+      <kbd>g</kbd> … <kbd>p</kbd> pauses the simulation.</p></div>
+
+  <!-- ===================================================================== -->
+  <h2 id="troubleshooting">On stage: symptoms and fixes</h2>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>You see</th><th>Why</th><th>Do this</th></tr></thead>
+      <tbody>
+        <tr><th>Page says "Backend unreachable", top bar says Connecting</th><td>The backend has not been reached since the page loaded.</td><td>Start it (<code>make dev</code>). The console connects by itself.</td></tr>
+        <tr><th>Top bar says Offline (red) but the screen still shows data</th><td>The backend stopped during the demo; the numbers on screen are frozen.</td><td>Restart it. The console reconnects (retrying every 0.5 to 8 s) and reloads the snapshot. The restarted backend builds a fresh scenario at beat 0, so the demo position is lost. Some beats depend on earlier ones (for example, beat 9's approval comes from the incident that beat 7 starts), so replay the beats you need from the Director rather than jumping straight to where you were.</td></tr>
+        <tr><th>Status Lagging</th><td>The simulation is paused (look for the "Paused" tag), or no batch arrived for 2.5 s.</td><td>If Paused, press <kbd>p</kbd>. Otherwise wait a moment, then reload the page.</td></tr>
+        <tr><th>Clock not moving, "Paused" in the top bar</th><td>Someone pressed <kbd>p</kbd>, the Director's Pause, or turned off "Run simulation" on Settings.</td><td>Press <kbd>p</kbd>.</td></tr>
+        <tr><th>A speed tag (0.5×, 2× or 5×) next to the clock</th><td>Speed was changed; it is shared by everyone.</td><td>Click 1× in the Director (or on Settings).</td></tr>
+        <tr id="skipped-beat"><th>Skipped a beat by accident</th><td>A double press of <kbd>→</kbd> or of the clicker.</td><td>Do not press <kbd>←</kbd>. Beats 1, 8, 9, 11 and 13 have no server action, so clicking one of them in the Director (or pressing its number) only changes the screen and is safe. For any other beat, keep talking and carry on: going back re-runs that beat's action, for example the poison (4), the attack (10) or the tamper (12).</td></tr>
+        <tr><th><kbd>→</kbd> does nothing</th><td>Focus is in a field or dropdown, the palette is open, or you are at beat 14.</td><td>Click on empty page space, press <kbd>Esc</kbd>, check "beat N of 14".</td></tr>
+        <tr><th>The Director is gone</th><td>Someone pressed <kbd>d</kbd> (or its cross), or the <code>demo.director</code> flag is off (for example after the Ops preset).</td><td>Press <kbd>d</kbd>. If it stays hidden, choose the "Demo (judges)" preset on Settings. Meanwhile you can still drive with <kbd>→</kbd>, <kbd>1</kbd> to <kbd>9</kbd>, or <kbd>⌘</kbd> <kbd>K</kbd> and "beat".</td></tr>
+        <tr><th>Beat fired but nothing is highlighted</th><td>Spotlight is off, or you pressed <kbd>Esc</kbd> (closing the inspector with <kbd>Esc</kbd> counts).</td><td>Press <kbd>s</kbd> if needed, then fire the beat again only if it is a no-action beat (1, 8, 9, 11, 13); otherwise carry on.</td></tr>
+        <tr><th>The lit panel is off screen</th><td>The page scrolled after the beat fired; the console scrolls to the lit panel only when a beat fires.</td><td>Scroll to it by hand.</td></tr>
+        <tr><th>A toast covers the panel you are pointing at</th><td>Toasts sit at the lower right for 6 s.</td><td>Click the toast's cross.</td></tr>
+        <tr><th>Top bar shows a filled red "Frozen: resume"; no new <code>twin.action</code> rows in the stream; during beats, "DENY … swarm is frozen" rows</th><td>The kill switch is on.</td><td>Click "Frozen: resume" in the top bar.</td></tr>
+        <tr><th>Preflight "Ledger verified clean" is amber</th><td>The tamper from beat 12 is still in place.</td><td>Restore originals on Audit, or reset.</td></tr>
+        <tr><th>Phone cannot open the QR address</th><td>Different Wi-Fi, or the console was opened as <code>127.0.0.1</code>.</td><td>Join the same Wi-Fi. Open the console as <code>http://localhost:5173</code>; the QR then uses the laptop's LAN address. Do not open the console itself by LAN address (the inspector's hash check needs <code>localhost</code>).</td></tr>
+        <tr><th>Inspector step 1 keeps spinning</th><td>The console was opened by a LAN address, where the browser offers no WebCrypto over plain http.</td><td>Open it as <code>http://localhost:5173</code> on the laptop itself.</td></tr>
+        <tr><th>A red toast "Beat N failed: …"</th><td>The beat request to the server failed.</td><td>Check the status dot; press the beat's number (or click it in the Director) again.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+</body>
+</html>

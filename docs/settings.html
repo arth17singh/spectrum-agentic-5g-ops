@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings, feature flags and presenter view | SPECTRUM presenter guide</title>
+<link rel="stylesheet" href="assets/guide.css">
+<script src="assets/guide.js" defer></script>
+</head>
+<body data-page="settings.html">
+<main class="content">
+
+  <header class="page-head">
+    <h1>Settings, feature flags and presenter view</h1>
+    <p class="lede">Two pages that judges rarely see but that decide whether the demo goes smoothly. The
+      Settings screen turns parts of the console on or off, shows where every panel gets its data, and
+      controls the simulation clock and the display. The presenter view is a separate full-screen page for a
+      second laptop: it shows the script for each beat, a 7-minute timer and a preflight check, and it drives
+      the projector console from there.</p>
+    <div class="meta">
+      <span>Routes <code>/settings</code> and <code>/presenter</code></span>
+      <span>Go to Settings with <kbd>g</kbd> then <kbd>,</kbd> (the presenter view has no hotkey: type the URL)</span>
+      <span>Appears in no demo beat</span>
+    </div>
+  </header>
+
+  <h2 id="intro">What these two pages are for</h2>
+  <p>The other screens show SPECTRUM doing its job. These two show how the console itself is put together and
+    how you run the demo with it.</p>
+  <ul>
+    <li><strong>Settings</strong> (<code>/settings</code>) belongs to no plane. It is a control room for the
+      console: 36 feature flags, the list of registered screens, where the data comes from (mock or AWS), the
+      simulation speed, and display options.</li>
+    <li><strong>Presenter view</strong> (<code>/presenter</code>) is a "bare" page: it does not draw the console
+      frame (no top bar, ribbon or rail). It is meant for a second laptop that faces the presenter, not the
+      audience.</li>
+  </ul>
+  <p>A <dfn>feature flag</dfn> is an on/off switch in the code. When a flag is off, the part of the screen it
+    guards is not drawn at all, and nothing else breaks. That is how the team can hide a half-finished panel or
+    the demo-only buttons without changing code.</p>
+  <div class="callout say">
+    <p class="title">The one-sentence story</p>
+    <p>"Every screen, the optional panels and the attack, tamper and poison controls sit behind a flag, so we can
+      switch them off live in a browser, or for everyone through remote config after a reload, and the console
+      tells you which source decided each one."</p>
+  </div>
+
+  <h2 id="in-the-demo">When these pages appear in the demo</h2>
+  <p>Neither page is the route of any of the 14 beats in <code>engine.py</code>. Use them like this:</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>When</th><th>Page</th><th>What you do there</th></tr></thead>
+      <tbody>
+        <tr><th>Before the demo</th><td>Settings</td><td>Check the flag count reads "36 of 36 effectively on" and the Demo (judges) preset shows Active. Check Mode, WebSocket and the simulation is running at 1×. Pick the theme for the room.</td></tr>
+        <tr><th>Before the demo</th><td>Presenter view</td><td>Open it on the second laptop. Check the five preflight rows. Press Restart timer.</td></tr>
+        <tr><th>During beats 1 to 14</th><td>Presenter view</td><td>Press <kbd>→</kbd> or the clicker to fire each beat. Read the "Say this" note. Watch the timer and the drift against plan.</td></tr>
+        <tr><th>If a judge asks "is this modular?" or "what is real?"</th><td>Settings</td><td>Show the flags table, the modules table and the Data source panel. See the <a href="#walkthrough">60-second walkthrough</a>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ================================================================== SETTINGS SCREENSHOT -->
+  <h2 id="settings-shot">The Settings screen at a glance</h2>
+  <p>Full-height capture before the demo, dark theme. The numbers match the cards below. The console frame
+    around it (top bar, ribbon, rail, stream drawer) is explained on
+    <a href="shell.html">Console frame &amp; controls</a>.</p>
+
+  <ol class="comp-list">
+    <li><span class="comp-num">1</span><a href="#c-1">Feature flags panel</a></li>
+    <li><span class="comp-num">2</span><a href="#c-2">How a flag's value is decided</a></li>
+    <li><span class="comp-num">3</span><a href="#c-3">Presets</a></li>
+    <li><span class="comp-num">4</span><a href="#c-4">Filter bar and flag count</a></li>
+    <li><span class="comp-num">5</span><a href="#c-5">Flags table</a></li>
+    <li><span class="comp-num">6</span><a href="#c-6">Registered feature modules</a></li>
+    <li><span class="comp-num">7</span><a href="#c-7">Adding or removing a screen</a></li>
+    <li><span class="comp-num">8</span><a href="#c-8">Data source</a></li>
+    <li><span class="comp-num">9</span><a href="#c-9">Simulation</a></li>
+    <li><span class="comp-num">10</span><a href="#c-10">Display</a></li>
+  </ol>
+
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/screen-settings.jpg" width="1440" height="2402"
+           alt="Settings and feature flags screen: the feature flags panel with the resolution steps, four presets, a filter bar and the start of the flags table; below it the registered modules table and the add-a-screen panel; at the bottom the Data source, Simulation and Display panels">
+      <span class="box" data-target="c-1" style="left:6.11%;top:7.99%;width:92.22%;height:42.55%"></span>
+      <span class="box" data-target="c-2" style="left:7.2%;top:10.1%;width:43%;height:5%"></span>
+      <span class="box" data-target="c-3" style="left:50.5%;top:10.1%;width:46.8%;height:6%"></span>
+      <span class="box" data-target="c-4" style="left:6.11%;top:16.6%;width:92.22%;height:2.2%"></span>
+      <span class="box" data-target="c-5" style="left:6.11%;top:18.9%;width:92.22%;height:31.6%"></span>
+      <span class="box" data-target="c-6" style="left:6.11%;top:51.21%;width:53.33%;height:29.64%"></span>
+      <span class="box" data-target="c-7" style="left:60.56%;top:51.21%;width:37.78%;height:16.24%"></span>
+      <span class="box" data-target="c-8" style="left:6.11%;top:81.52%;width:30%;height:15.82%"></span>
+      <span class="box" data-target="c-9" style="left:37.22%;top:81.52%;width:30%;height:10.57%"></span>
+      <span class="box" data-target="c-10" style="left:68.33%;top:81.52%;width:30%;height:13.28%"></span>
+      <a class="pin" href="#c-1" style="left:7.6%;top:8.9%">1</a>
+      <a class="pin" href="#c-2" style="left:7.6%;top:12.1%">2</a>
+      <a class="pin" href="#c-3" style="left:52%;top:12.1%">3</a>
+      <a class="pin" href="#c-4" style="left:7.6%;top:17.7%">4</a>
+      <a class="pin" href="#c-5" style="left:7.6%;top:21%">5</a>
+      <a class="pin" href="#c-6" style="left:7.6%;top:53.2%">6</a>
+      <a class="pin" href="#c-7" style="left:62.06%;top:53.2%">7</a>
+      <a class="pin" href="#c-8" style="left:7.6%;top:83.5%">8</a>
+      <a class="pin" href="#c-9" style="left:38.72%;top:83.5%">9</a>
+      <a class="pin" href="#c-10" style="left:69.83%;top:83.5%">10</a>
+    </div>
+    <figcaption>Settings and feature flags, pre-demo, full height. The flags table scrolls inside its panel, so
+      only the Screens and Shell groups are visible here. This capture came from an isolated test instance, which
+      is why the Backend row reads <code>127.0.0.1:5183</code>. Hover a number to outline that part; click it to
+      jump to its card; click the image to enlarge it.</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#c-1"><span class="n">1</span><span>Feature flags panel</span></a></li>
+      <li><a href="#c-2"><span class="n">2</span><span>Value resolution</span></a></li>
+      <li><a href="#c-3"><span class="n">3</span><span>Presets</span></a></li>
+      <li><a href="#c-4"><span class="n">4</span><span>Filter bar</span></a></li>
+      <li><a href="#c-5"><span class="n">5</span><span>Flags table</span></a></li>
+      <li><a href="#c-6"><span class="n">6</span><span>Registered modules</span></a></li>
+      <li><a href="#c-7"><span class="n">7</span><span>Adding a screen</span></a></li>
+      <li><a href="#c-8"><span class="n">8</span><span>Data source</span></a></li>
+      <li><a href="#c-9"><span class="n">9</span><span>Simulation</span></a></li>
+      <li><a href="#c-10"><span class="n">10</span><span>Display</span></a></li>
+    </ul>
+  </figure>
+
+  <p>The page header at the top reads "Settings &amp; feature flags" with one line underneath: "Turn features on
+    or off without touching the rest of the console. Flags resolve from code defaults, remote config, this
+    browser and the URL." Both strings come from <code>features/settings/manifest.ts</code>. The screen has no
+    track tags and no header buttons.</p>
+
+  <!-- ================================================================== SETTINGS CARDS -->
+  <h2 id="settings-components">The Settings screen, part by part</h2>
+
+  <!-- ---------------------------------------------------------------- c-1 -->
+  <article class="comp" id="c-1">
+    <header>
+      <span class="comp-num">1</span>
+      <h3>Feature flags panel</h3>
+      <span class="where">panel <code>flags</code>, file <code>features/settings/SettingsPage.tsx</code> (<code>FlagsPanel</code>)</span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The full-width panel at the top of the page. It lists every feature flag in the console, shows its
+        current value and which source decided that value, and lets you change it for this browser. Cards 2 to 5
+        are the four parts inside it.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Example in the capture</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr><th>Title</th><td>"Feature flags"</td><td>The panel name.</td></tr>
+            <tr><th>Subtitle</th><td>"36 flags, changes apply live"</td><td>How many flags are defined in code. "Apply live" means a toggle redraws the console at once, with no reload.</td></tr>
+            <tr><th>Source chip (top right)</th><td>A flask icon and "AWS AppConfig"</td><td>The AWS service this panel maps to. The flask means the data is not from AWS right now. Hover it: "flags.json + this browser now. In AWS mode this panel reads from AWS AppConfig." See Watch out for the honest detail.</td></tr>
+            <tr><th>Upper band</th><td>Four numbered boxes on the left, four preset buttons on the right</td><td>Cards <a href="#c-2">2</a> and <a href="#c-3">3</a>.</td></tr>
+            <tr><th>Filter row</th><td>Search box, stage tabs, "36 of 36 effectively on"</td><td>Card <a href="#c-4">4</a>.</td></tr>
+            <tr><th>Table</th><td>Grouped rows starting with "Screens"</td><td>Card <a href="#c-5">5</a>. It scrolls inside the panel (at most 760 px tall) with its header row pinned.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Flag list</dt><dd><code>FLAGS</code> in <code>core/flags.tsx</code>: 36 entries, each with an id, label, description, stage, default (all <code>true</code>), group and optional <code>dependsOn</code>.</dd>
+        <dt>Store</dt><dd>A zustand store <code>useFlags</code> with three maps: <code>remote</code>, <code>local</code>, <code>url</code>.</dd>
+        <dt>Remote source</dt><dd><code>GET /api/config/flags</code>, fetched once when the app loads (<code>App()</code> in <code>app/Shell.tsx</code>).</dd>
+        <dt>Saved in</dt><dd>Browser overrides go to <code>localStorage</code> key <code>spectrum.flags</code>.</dd>
+        <dt>Backend effect</dt><dd>None. Flags never call the backend or write a ledger record.</dd>
+      </dl>
+      <ol class="flow" aria-label="How a flag hides a part of the console">
+        <li class="src"><b>Flag value</b><span>default, remote, browser, URL</span></li>
+        <li><b><code>isOn(id)</code></b><span>value and every dependency on</span></li>
+        <li><b><code>&lt;Gate flag&gt;</code> or <code>useFlag</code></b><span>in the shell and pages</span></li>
+        <li class="ui"><b>Part drawn or not</b><span>no gap left in the grid</span></li>
+      </ol>
+      <p>Each part of the console asks <code>isOn(flagId)</code>. Screens use their manifest id as their flag
+        (for example <code>screen.swarm</code>), so the router, the rail and the command palette all hide a
+        gated-off screen together. Panels are wrapped in <code>&lt;Gate flag="…"&gt;</code>, which renders
+        nothing when the flag is off. Buttons check <code>useFlag("…")</code>. Because every reader subscribes to
+        the same store, a toggle here redraws every part of this tab at once. Other tabs pick it up when reloaded.</p>
+      <p>The full list of flags and what each one hides in this build is in
+        <a href="#flags-table">All 36 flags</a>.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>The panel frame has none. Its controls are in cards 3, 4 and 5. Hovering the source chip shows its tooltip.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Healthy for the demo: the subtitle says 36 flags, the count says "36 of 36 effectively on", the Demo
+          (judges) preset is Active, and every row reads "Code default" except two that read "Remote config".</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Press <kbd>g</kbd> then <kbd>,</kbd>.</li>
+          <li>Scroll the table to the Federation group and switch off "Homomorphic encryption panel".</li>
+          <li>Press <kbd>g</kbd> <kbd>f</kbd>: the panel is gone from the Federation Center and the grid closed the gap. Come back and click Reset on that row.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Every screen and every optional panel is behind a flag. Turning one off removes it
+          cleanly, and this column tells you whether the value came from code, remote config, this browser or the URL."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How would you run this in production without the demo buttons?"</strong> Turn off the demo-only
+          flags (the Ops preset), or serve them from remote config. That removes the Demo Director, the tamper,
+          poison and telemetry attack buttons and the privileged view. It does not remove the scenario
+          injection buttons on Swarm Tower (Fibre cut + stadium surge, Interference, Power outage) or the palette's
+          Inject incident and Inject fault commands, which have no flag. This backs the production-readiness part of
+          Track 1. The screen itself has no track tag.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The flag system is real code: turning a flag off really removes that part of the console. Only the "AWS AppConfig" link is not live yet (see Watch out).</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>In both mock and AWS mode, <code>GET /api/config/flags</code> in <code>main.py</code> reads
+          <code>backend/spectrum/flags.json</code> from disk. An <code>AppConfigFlags</code> adapter with the right
+          AWS call shape exists in <code>adapters/aws.py</code>, but this endpoint does not call it yet. Say "maps
+          to AppConfig", not "served from AppConfig".</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- c-2 -->
+  <article class="comp" id="c-2">
+    <header>
+      <span class="comp-num">2</span>
+      <h3>How a flag's value is decided</h3>
+      <span class="where">inside panel <code>flags</code>, upper left</span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Explains, with live counts, the four places a flag's value can come from, and that the last one wins.
+        It answers "why is this flag on?" before anyone has to ask.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>A label, "How a flag's value is decided (last one wins)", then four boxes in order, each with a number,
+        a name and a live count. Under them, one line of rules.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Box</th><th>Count in the capture</th><th>What the count means</th></tr></thead>
+          <tbody>
+            <tr><th>1 Code default</th><td>"36 defined in code"</td><td>Every flag has a default in <code>core/flags.tsx</code>. All 36 defaults are on.</td></tr>
+            <tr><th>2 Remote config</th><td>"2 from /api/config/flags"</td><td>Flags whose value came from the backend file. Today <code>flags.json</code> sets <code>fl.he</code> and <code>demo.tamper</code> to <code>true</code>, so the count is 2.</td></tr>
+            <tr><th>3 This browser</th><td>"0 overridden here"</td><td>Flags you toggled in this browser (saved in <code>localStorage</code>).</td></tr>
+            <tr><th>4 URL</th><td>"0 via ?ff="</td><td>Flags set by the <code>?ff=</code> part of the address this tab was opened with.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The rule line reads: "A flag is only effective when every flag it depends on is also on. Turning off a
+        screen hides its route, nav item, palette commands and panels together."</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Function</dt><dd><code>rawValue(id)</code> in <code>core/flags.tsx</code> returns a value and its source.</dd>
+        <dt>Counts</dt><dd>Computed in <code>FlagsPanel</code> by counting rows whose source is remote, local or URL.</dd>
+        <dt>Changes when</dt><dd>You toggle a flag, apply a preset, open a URL with <code>?ff=</code>, or reload after editing <code>flags.json</code>.</dd>
+      </dl>
+      <ol class="flow" aria-label="Flag resolution order">
+        <li class="src"><b>1 Code default</b><span><code>FLAGS[].default</code></span></li>
+        <li><b>2 Remote config</b><span><code>/api/config/flags</code></span></li>
+        <li><b>3 This browser</b><span><code>spectrum.flags</code></span></li>
+        <li><b>4 URL</b><span><code>?ff=a:on,b:off</code></span></li>
+        <li class="ui"><b>Dependency check</b><span>effective value</span></li>
+      </ol>
+      <p>In code, <code>rawValue</code> checks the sources from the strongest down: if the URL set the flag, that
+        wins; otherwise this browser; otherwise remote; otherwise the code default. Then <code>isOn</code> walks
+        the <code>dependsOn</code> list: the flag counts as on only if its own value is on and every flag it
+        depends on is effectively on too (it follows chains, for example <code>demo.privileged_view</code> needs
+        <code>fl.secagg_viz</code>, which needs <code>screen.federation</code>). The full rules, with examples, are
+        in <a href="#flag-resolution">How flag resolution works</a>.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Read it left to right; anything further right overrides anything to its left. For the demo, boxes 3 and
+          4 should both read 0, so nobody's local experiments leak onto the projector.</p>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"A flag starts from its code default, remote config can override it, an operator can
+          override it in their browser, and a URL can override everything for one session."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Can you roll a feature out to some users and not others?"</strong> Per device or per link, yes:
+          an operator can override a flag in their browser, and a URL can override it for one session. Targeting by
+          user or percentage would come from AWS AppConfig, which this build maps to but does not call yet. Track 1,
+          production readiness.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The counts are computed from the live flag store; the remote layer is the real backend file.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>The remote count of 2 does not change anything you can see: both remote values are <code>true</code>,
+          the same as the defaults. Do not claim remote config is "turning something on".</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- c-3 -->
+  <article class="comp" id="c-3">
+    <header>
+      <span class="comp-num">3</span>
+      <h3>Presets</h3>
+      <span class="where">inside panel <code>flags</code>, upper right; <code>PRESETS</code> in <code>core/flags.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>One-click flag sets for common situations, so you do not have to flip 36 switches by hand.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Four buttons in a two-by-two grid, each with a name and a one-line description. The button that matches
+        this browser's overrides has a stronger border and a green "Active" pill. In the capture, "Demo (judges)"
+        is active.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Button</th><th>Description on screen</th><th>What it writes to this browser</th><th class="num">Effectively on</th></tr></thead>
+          <tbody>
+            <tr><th>Demo (judges)</th><td>"Everything on, demo controls visible"</td><td>Nothing: it clears every browser override, so code defaults and remote config decide.</td><td class="num">36 of 36</td></tr>
+            <tr><th>Full</th><td>"Every flag on"</td><td>All 36 flags set to on in this browser, so remote config can no longer turn anything off.</td><td class="num">36 of 36</td></tr>
+            <tr><th>Minimal</th><td>"Core screens only"</td><td>The 16 stable flags on, the other 20 (beta, experimental, demo-only) off.</td><td class="num">16 of 36</td></tr>
+            <tr><th>Ops</th><td>"No demo-only controls"</td><td>The 6 demo-only flags off; nothing else is written.</td><td class="num">30 of 36</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The full effect of each preset is in <a href="#presets">Presets in detail</a>.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Action</dt><dd><code>applyPreset(values)</code> replaces the whole <code>local</code> map and saves it to <code>spectrum.flags</code>.</dd>
+        <dt>Active pill</dt><dd>Shown when the preset's values are exactly equal to this browser's overrides (compared as JSON).</dd>
+        <dt>Backend effect</dt><dd>None.</dd>
+      </dl>
+      <p>A preset is a starting point, not a mode. It replaces this browser's overrides with its own list. The URL
+        layer still wins over it, and remote config still applies to any flag the preset leaves unset (only Demo
+        and Ops leave flags unset).</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click Demo (judges)</th><td>Clears all browser overrides.</td><td>Every row's "Value from" goes back to Code default or Remote config. Same as "Clear N browser overrides" in card 4. No backend call.</td></tr>
+            <tr><th>Click Full</th><td>Pins every flag on in this browser.</td><td>Every row reads "This browser"; box 3 reads "36 overridden here".</td></tr>
+            <tr><th>Click Minimal</th><td>Keeps only stable features.</td><td>Count drops to 16 of 36; beta panels, the Demo Director and the demo-only buttons disappear across the console.</td></tr>
+            <tr><th>Click Ops</th><td>Hides demo-only controls.</td><td>Count drops to 30 of 36; the Demo Director, Tamper panel, Poison and telemetry attack buttons disappear. The Swarm Tower injection buttons stay.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>The green Active pill tells you which preset this browser matches. No pill at all means someone toggled
+          single flags after a preset.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Click Ops. Point at the count: 30 of 36.</li>
+          <li>Press <kbd>g</kbd> <kbd>a</kbd>: the Tamper simulation panel is gone from Audit &amp; Proof.</li>
+          <li>Come back with <kbd>g</kbd> <kbd>,</kbd> and click Demo (judges) to restore everything.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"This is the operator's view: one click and the attack, tamper, poison and Director
+          controls are gone. Nothing else changes, because each feature only knows about its own flag."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Are the attack and tamper buttons part of the product?"</strong> No. They are demo-only flags,
+          and the Ops preset turns all six off. Track 1 and Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> Presets write real browser overrides; the console really changes.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Never leave Minimal or Ops on before the demo. Minimal hides the Secure aggregation, Negotiation and
+          Provenance panels, which beats 3, 8 and 11 spotlight, and both hide the Demo Director. Always finish on
+          Demo (judges). Presets are per browser: setting one on the presenter laptop does not change the
+          projector machine.</p>
+        <p>Ops does not hide the scenario injection buttons on Swarm Tower (Fibre cut + stadium surge, Interference,
+          Power outage) or the palette's Inject incident and Inject fault commands. They have no flag.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- c-4 -->
+  <article class="comp" id="c-4">
+    <header>
+      <span class="comp-num">4</span>
+      <h3>Filter bar and flag count</h3>
+      <span class="where">inside panel <code>flags</code>, above the table</span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Finds a flag quickly and tells you, in one line, how many flags are really on.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Example</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr><th>Search box</th><td>"Filter flags" placeholder</td><td>Type part of a flag's id, label or description.</td></tr>
+            <tr><th>Stage tabs</th><td>All · Stable · Beta · Experimental · Demo only</td><td>Show only flags at one maturity stage. "All" is selected in the capture.</td></tr>
+            <tr><th>Count (right)</th><td>"36 of 36 effectively on"</td><td>Flags that are on after the dependency check. If any are switched on but blocked by a parent, it adds ", N blocked by a dependency".</td></tr>
+            <tr><th>Clear button</th><td>Not shown in the capture</td><td>"Clear N browser override(s)" with a reset icon. It appears only when this browser has at least one override.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Filter</dt><dd>Case-insensitive substring match on <code>id + label + description</code>, combined with the stage tab.</dd>
+        <dt>Count</dt><dd>Always counts all 36 flags, not only the filtered ones.</dd>
+        <dt>Saved</dt><dd>The search text and tab live only in the page; they reset when you leave.</dd>
+      </dl>
+      <p>The filter only hides rows; it never changes a flag. When nothing matches, the table says "No flags match
+        this filter." The clear button calls the same function as the Demo (judges) preset with an empty list,
+        which removes every override saved in this browser.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Type in "Filter flags"</th><td>Narrows the table.</td><td>Only matching rows and their group headings stay. No backend call.</td></tr>
+            <tr><th>Stage tab</th><td>Shows one stage.</td><td>For example "Demo only" leaves the 6 demo flags.</td></tr>
+            <tr><th>Clear N browser overrides</th><td>Removes all overrides in this browser.</td><td><code>spectrum.flags</code> becomes <code>{}</code>; rows fall back to remote or default; the button disappears.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>"36 of 36 effectively on" with no blocked suffix is the clean demo state. A blocked suffix means a parent
+          flag (usually a screen) is off.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Click the "Demo only" tab: six rows remain.</li>
+          <li>Say these are the controls that exist only for the demo.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Six of the 36 flags are demo-only: the Director, spotlight, tamper, poison, attacks and
+          the privileged view of secure aggregation."</p></blockquote>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> Counts come from the live flag store.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Keys like <kbd>g</kbd> and <kbd>t</kbd> are ignored while the cursor is in the search box. Click outside
+          it before using console shortcuts.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- c-5 -->
+  <article class="comp" id="c-5">
+    <header>
+      <span class="comp-num">5</span>
+      <h3>Flags table</h3>
+      <span class="where">inside panel <code>flags</code>; rows from <code>FlagRow</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>One row per flag: what it controls, how mature it is, what it depends on, which source decided it, and a
+        switch to change it in this browser.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Rows are grouped under shaded headings in this order: Screens, Shell, Demo, Federation, Verification,
+        Release, Swarm, Oversight, Audit, Observability. The columns:</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Column</th><th>Example</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr><th>Flag</th><td>"Mission Control" over <code>screen.mission</code></td><td>Label, and the flag id in monospace. The id is what you type in <code>?ff=</code>.</td></tr>
+            <tr><th>Stage</th><td>Green "Stable" badge</td><td>Maturity: Stable (green), Beta (blue), Experimental (orange), Demo only (grey, with a flask icon).</td></tr>
+            <tr><th>What it controls</th><td>"Overview and cold open"</td><td>The flag's description from code.</td></tr>
+            <tr><th>Depends on</th><td>"—" for screens; <code>screen.federation</code> for Federation panels</td><td>Parent flags. A grey chip is fine. A red chip with a broken-link icon means that parent is off, so this flag has no effect (hover: "… is off, so this flag has no effect").</td></tr>
+            <tr><th>Value from</th><td>"Code default" (muted)</td><td>Which source won: Code default, Remote config, This browser or URL. Anything other than Code default is shown in bold.</td></tr>
+            <tr><th>On</th><td>Blue switch</td><td>The flag's own value (before the dependency check). Blue is on, grey is off. Red "blocked" text appears next to it when it is on but a parent is off.</td></tr>
+            <tr><th>(last column)</th><td>Empty in the capture</td><td>A small "Reset" link with a reset icon, only when this browser overrides the flag.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>A row whose flag is not effectively on turns grey, so off and blocked rows stand out at a glance.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Per row</dt><dd><code>rawValue</code> gives the switch position and "Value from"; <code>isOn</code> gives the effective state; <code>blockedBy</code> lists direct parents that are off.</dd>
+        <dt>Toggle</dt><dd><code>setLocal(id, value)</code> writes the flag into <code>local</code> and saves <code>spectrum.flags</code>.</dd>
+        <dt>Reset</dt><dd><code>setLocal(id, null)</code> deletes that one override.</dd>
+        <dt>Backend effect</dt><dd>None, and no ledger record.</dd>
+      </dl>
+      <ol class="flow states" aria-label="Row states">
+        <li><b>Code default</b><span>muted</span></li>
+        <li><b>Remote config</b><span>from flags.json</span></li>
+        <li><b>This browser</b><span>Reset link shown</span></li>
+        <li class="ui"><b>URL</b><span>switch locked</span></li>
+      </ol>
+      <p>Flipping a switch always creates a browser override, even if the value had come from remote config. If the
+        URL set the flag, the switch is faded and cannot be clicked (hover: "Set by the URL (?ff=), which overrides
+        this browser"), because a browser override would have no effect. If you switch off a parent, every child
+        row turns grey and shows its parent as a red chip, for example switching off <code>screen.federation</code>
+        blocks the six <code>fl.*</code> flags and <code>demo.poison</code>, and <code>demo.privileged_view</code>
+        shows <code>fl.secagg_viz</code> in red.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Switch in "On"</th><td>Turns the flag on or off for this browser.</td><td>The guarded screen, panel or button appears or disappears at once; "Value from" becomes "This browser"; box 3 in card 2 counts up. No backend call.</td></tr>
+            <tr><th>Reset</th><td>Removes this browser's override.</td><td>The row falls back to Remote config or Code default; the link disappears.</td></tr>
+            <tr><th>Hover a red chip</th><td>Explains the block.</td><td>Tooltip naming the parent that is off.</td></tr>
+            <tr><th>Hover a locked switch</th><td>Explains the lock.</td><td>Tooltip saying the URL set this flag.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Good: every switch blue, no red chips, no bold "Value from" except the two Remote config rows. Bad: grey
+          rows, red "blocked" text, or "This browser" on rows you did not mean to change.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Switch off "Federation Center" (<code>screen.federation</code>).</li>
+          <li>Point at the Federation group: rows turn grey with red <code>screen.federation</code> chips; the count adds "8 blocked by a dependency"; the rail loses the Federation icon.</li>
+          <li>Click Reset on the Federation Center row.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Dependencies are explicit. Switch off the federation screen and all its panels go
+          with it, and the table shows exactly which ones are blocked and why."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"If one module breaks on stage, can you remove it without breaking the rest?"</strong> Yes: switch
+          its flag off and the grid closes up. Track 1.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> Every switch really gates code in the console.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Do not switch off "Settings &amp; Flags" (<code>screen.settings</code>): <code>/settings</code> then
+          redirects to <code>/</code> and you lose this page. Recover by opening
+          <code>/settings?ff=screen.settings:on</code>, clicking the Demo (judges) preset, and reloading without <code>?ff=</code>. Do not switch off "Mission Control" either: every gated-off
+          route redirects to <code>/</code>, which is Mission Control. The "Spotlight" flag
+          (<code>demo.spotlight</code>) is not read anywhere in this build; use <kbd>s</kbd> or the Director's
+          Spotlight switch instead.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- c-6 -->
+  <article class="comp" id="c-6">
+    <header>
+      <span class="comp-num">6</span>
+      <h3>Registered feature modules</h3>
+      <span class="where">panel <code>modules</code>, <code>ModulesPanel</code>; data from <code>features/index.ts</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Lists every screen module the console knows about, with its route, plane, hotkey, the flag that gates it,
+        and whether it is mounted right now. It shows that screens are plug-ins, not hard-wired pages.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Subtitle "from src/features/index.ts". Thirteen rows, sorted by each module's nav order: the ten console
+        screens, then Incident dossier, Presenter and Mobile approvals.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Column</th><th>Example</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr><th>Module</th><td>Icon, "Swarm Tower", "gate screen.swarm"</td><td>The rail icon and label, and the flag that gates it. If a module registered palette commands, the count would follow ("…, N commands"); none do in this build.</td></tr>
+            <tr><th>Route</th><td><code>/swarm</code>; <code>/presenter</code> "outside the shell"</td><td>The address. "Outside the shell" marks bare pages that draw no top bar, ribbon or rail.</td></tr>
+            <tr><th>Plane</th><td>A green dot and "operate"</td><td>The lifecycle plane, with its colour. Mission Control and Observability read "all planes"; Settings and the bare pages show "—".</td></tr>
+            <tr><th>Hotkey</th><td><code>g s</code></td><td>Press <kbd>g</kbd> then the letter to go there. Bare pages have none.</td></tr>
+            <tr><th>State</th><td>Green "Mounted"</td><td>"Mounted" when its flag is effectively on, grey "Gated off" when not.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <table class="compact">
+          <caption>The 13 modules as registered</caption>
+          <thead><tr><th>Module</th><th>Route</th><th>Plane</th><th>Hotkey</th><th>Gate flag</th></tr></thead>
+          <tbody>
+            <tr><td>Mission Control</td><td><code>/</code></td><td>all planes</td><td><kbd>g</kbd> <kbd>m</kbd></td><td><code>screen.mission</code></td></tr>
+            <tr><td>Federation Center</td><td><code>/federation</code></td><td>learn</td><td><kbd>g</kbd> <kbd>f</kbd></td><td><code>screen.federation</code></td></tr>
+            <tr><td>Proving Ground</td><td><code>/proving</code></td><td>verify</td><td><kbd>g</kbd> <kbd>p</kbd></td><td><code>screen.proving</code></td></tr>
+            <tr><td>Release Center</td><td><code>/release</code></td><td>release</td><td><kbd>g</kbd> <kbd>r</kbd></td><td><code>screen.release</code></td></tr>
+            <tr><td>Swarm Tower</td><td><code>/swarm</code></td><td>operate</td><td><kbd>g</kbd> <kbd>s</kbd></td><td><code>screen.swarm</code></td></tr>
+            <tr><td>Oversight Desk</td><td><code>/oversight</code></td><td>operate</td><td><kbd>g</kbd> <kbd>o</kbd></td><td><code>screen.oversight</code></td></tr>
+            <tr><td>Trust Center</td><td><code>/trust</code></td><td>prove</td><td><kbd>g</kbd> <kbd>t</kbd></td><td><code>screen.trust</code></td></tr>
+            <tr><td>Audit &amp; Proof</td><td><code>/audit</code></td><td>prove</td><td><kbd>g</kbd> <kbd>a</kbd></td><td><code>screen.audit</code></td></tr>
+            <tr><td>Observability</td><td><code>/observability</code></td><td>all planes</td><td><kbd>g</kbd> <kbd>b</kbd></td><td><code>screen.observability</code></td></tr>
+            <tr><td>Settings &amp; Flags</td><td><code>/settings</code></td><td>—</td><td><kbd>g</kbd> <kbd>,</kbd></td><td><code>screen.settings</code></td></tr>
+            <tr><td>Incident dossier</td><td><code>/dossier/:incident</code> (outside the shell)</td><td>—</td><td>—</td><td><code>audit.dossier</code></td></tr>
+            <tr><td>Presenter</td><td><code>/presenter</code> (outside the shell)</td><td>—</td><td>—</td><td><code>demo.director</code></td></tr>
+            <tr><td>Mobile approvals</td><td><code>/m/approve</code> (outside the shell)</td><td>—</td><td>—</td><td><code>oversight.mobile</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Source</dt><dd>The <code>features</code> array in <code>features/index.ts</code>: one import line per module. Each module's <code>manifest.ts</code> supplies id, route, nav (label, icon, plane, hotkey, order), title, description and the lazy-loaded page.</dd>
+        <dt>State</dt><dd><code>isOn(module.id)</code>; the module id doubles as its flag.</dd>
+        <dt>Changes when</dt><dd>A flag changes (card 5 or a preset).</dd>
+      </dl>
+      <p>The shell builds its routes, rail items, palette "go to" entries and <kbd>g</kbd> hotkeys from this same
+        array. For a console screen whose flag is off, the route redirects to <code>/</code>, the rail hides its
+        icon and the palette drops it. Bare pages are routed separately and are not checked against their flag.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data. Change a module's state with its flag in the table above.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>All 13 green "Mounted" is the normal state. A grey "Gated off" means its flag, or a parent flag, is off.</p>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Each screen is a module with a small manifest. The shell builds the routes, the
+          navigation, the palette and the hotkeys from this list, so screens can be built and shipped independently."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How did a small team build this many screens?"</strong> Each screen is an independent module
+          behind one flag, so people worked in parallel. See <a href="feature-map.html">Feature map &amp; parallel build plan</a>.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The table is the live module registry of the running console.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>For the three bare pages, "Gated off" is only a label: <code>/presenter</code>, <code>/m/approve</code>
+          and <code>/dossier/…</code> still open if you type the address. Switching off <code>audit.dossier</code>
+          does hide the Incident dossier button and card on Audit &amp; Proof.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- c-7 -->
+  <article class="comp" id="c-7">
+    <header>
+      <span class="comp-num">7</span>
+      <h3>Adding or removing a screen</h3>
+      <span class="where">panel <code>add-feature</code>, <code>AddFeaturePanel</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A short recipe, printed on screen, for adding a new screen without touching any other file. It is
+        documentation for developers and a talking point for judges about modularity.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Subtitle "no other file changes". Three numbered steps:</p>
+      <ol>
+        <li>Create <code>src/features/&lt;name&gt;/manifest.ts</code> and its page.</li>
+        <li>Add one import line to <code>src/features/index.ts</code>.</li>
+        <li>Add its flag to <code>src/core/flags.tsx</code>. Route, nav, palette and hotkey appear automatically.</li>
+      </ol>
+      <p>Then a code block with an example manifest for a "Capacity planning" screen: id
+        <code>screen.capacity</code>, route <code>/capacity</code>, plane operate, hotkey <kbd>c</kbd>, order 11, and
+        one palette command "Run capacity forecast". A footnote says panels are wrapped in
+        <code>&lt;Gate flag=…&gt;</code> and a gated-off panel leaves no gap in the grid.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The text is fixed in the page; nothing is fetched. It describes the real pattern: <code>defineFeature</code>
+        in <code>core/features.ts</code> types the manifest, and the shell reads the <code>features</code> array (see
+        card <a href="#c-6">6</a>). Removing a screen is the reverse: delete its folder and its one line in
+        <code>features/index.ts</code>.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays text.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Adding a screen is a folder, one import line and one flag. Routing, navigation,
+          the command palette and the hotkey come for free."</p></blockquote>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The three steps are how the code really works. The Capacity screen in the code block is an example only: there is no <code>/capacity</code> route in this build.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Do not present Capacity planning as a feature. If asked, say it is the worked example of the recipe.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- c-8 -->
+  <article class="comp" id="c-8">
+    <header>
+      <span class="comp-num">8</span>
+      <h3>Data source</h3>
+      <span class="where">panel <code>datasource</code>, <code>DataSourcePanel</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Says plainly where every panel reads from: the mock engine or AWS, which backend address, whether the
+        live connection is healthy, and which AWS service each internal "seam" maps to.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Row</th><th>Example</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr><th>Mode</th><td>Grey "MOCK" chip, "set by SPECTRUM_MODE on the backend"</td><td>Mock means the in-memory simulation; a blue "AWS" chip would mean the AWS adapters are loaded.</td></tr>
+            <tr><th>Region</th><td><code>us-west-2</code></td><td>The AWS region the console is configured for. It is a fixed value in <code>/api/config</code>.</td></tr>
+            <tr><th>Backend</th><td><code>127.0.0.1:5183/api, /ws</code></td><td>The host this browser loaded the console from, plus the REST and WebSocket paths. On the demo laptop it reads <code>localhost:5173</code>.</td></tr>
+            <tr><th>WebSocket</th><td>Green dot, "live, 4 events/s"</td><td>Connection state and how many events arrived in the last second. States: grey connecting, green live, amber lagging (no message for 2.5 s), red offline.</td></tr>
+            <tr><th>Adapter seams</th><td>Nine rows, e.g. "ledger: in-memory (maps to DynamoDB)"</td><td>Each place where a mock part can be swapped for an AWS service.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <table class="compact">
+          <caption>The nine seams in mock mode</caption>
+          <thead><tr><th>Seam</th><th>Shown text</th></tr></thead>
+          <tbody>
+            <tr><td><code>ledger</code></td><td>in-memory (maps to DynamoDB)</td></tr>
+            <tr><td><code>anchors</code></td><td>in-memory (maps to S3 Object Lock)</td></tr>
+            <tr><td><code>signer</code></td><td>Ed25519 keyring (maps to AWS KMS)</td></tr>
+            <tr><td><code>policy</code></td><td>Cedar mirror (maps to Verified Permissions)</td></tr>
+            <tr><td><code>guardrails</code></td><td>pattern filter (maps to Bedrock Guardrails)</td></tr>
+            <tr><td><code>approvals</code></td><td>in-memory queue (maps to Step Functions + SNS)</td></tr>
+            <tr><td><code>metrics</code></td><td>in-memory frames (maps to CloudWatch + X-Ray)</td></tr>
+            <tr><td><code>flags</code></td><td>flags.json (maps to AWS AppConfig)</td></tr>
+            <tr><td><code>telemetry</code></td><td>twin simulator (maps to Kinesis)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>GET /api/config</code> in <code>main.py</code> returns mode, seed, version, warm-up time, <code>adapters.describe()</code> and region.</dd>
+        <dt>Arrives by</dt><dd>Fetched once by <code>startLive()</code> in <code>core/ws.ts</code> when the console loads.</dd>
+        <dt>Store slice</dt><dd><code>config</code>, plus <code>conn</code> and <code>msgPerSec</code> from the connection monitor.</dd>
+        <dt>Changes when</dt><dd>WebSocket row: every second. Everything else: only on reload.</dd>
+      </dl>
+      <ol class="flow" aria-label="Where the Data source panel gets its values">
+        <li class="src"><b><code>SPECTRUM_MODE</code></b><span>mock (default) or aws</span></li>
+        <li><b><code>load_adapters(mode)</code></b><span><code>adapters/mock.py</code> or <code>aws.py</code></span></li>
+        <li><b><code>GET /api/config</code></b><span>includes <code>describe()</code></span></li>
+        <li class="ui"><b>Panel rows</b><span>mode, region, seams</span></li>
+      </ol>
+      <p>Each seam's text is the <code>backing</code> label of the adapter object loaded at start-up. The
+        connection monitor in <code>ws.ts</code> runs once a second: it counts events received in that second and
+        checks how long since the last message. The stream always ticks at least once a second, so silence for
+        2.5 s means trouble.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data. Mode is chosen when the backend starts (environment variable
+        <code>SPECTRUM_MODE</code>), not here.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p><span class="pill good">Live</span> and a few events per second is healthy. <span class="pill warn">Lagging</span> while the simulation is running, or <span class="pill critical">Offline</span>, means check the backend before going on stage. Lagging while the simulation is paused is normal.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Scroll to the bottom of Settings.</li>
+          <li>Point at "MOCK", then run your finger down the nine seams.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"We are honest about what is live. Today this runs on the mock engine; each of these
+          seams is where an AWS service plugs in; eight have AWS adapter stubs today, and telemetry to Kinesis is
+          mapped but not stubbed: DynamoDB for the ledger, S3 Object Lock for anchors, KMS for
+          signing, Verified Permissions for policy."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"What is real and what is simulated?"</strong> This panel, plus the source chip on every panel.
+          Trust, and Track 1 production readiness.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The values are the backend's real configuration. The AWS adapters are typed stubs that the adapters module itself describes as not yet wired into the engines and untested against a live account.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Do not imply AWS mode runs end to end. Also: in mock mode the ledger signing, secure aggregation, signed
+          agent messages and policy checks are still real code (see <a href="concepts.html#real-vs-simulated">Real and simulated at a glance</a>);
+          only the storage behind them is in memory.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- c-9 -->
+  <article class="comp" id="c-9">
+    <header>
+      <span class="comp-num">9</span>
+      <h3>Simulation</h3>
+      <span class="where">panel <code>simulation</code>, <code>SimulationPanel</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Shows how the mock world was built and lets you speed it up, slow it down or pause it. Its subtitle reads "mock engine clock".</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Example</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr><th>Seed</th><td><code>7</code></td><td>The random seed. The same seed gives the same scenario every time, so rehearsals match the real demo.</td></tr>
+            <tr><th>Warm-up</th><td>"1884 ms to the pre-demo state"</td><td>How long the engine took, at start-up or the last reset, to fast-forward the scenario to its opening state (12 federated rounds done, signed history in the ledger). It varies a little per machine.</td></tr>
+            <tr><th>Scenario day</th><td>"Saturday 31 Oct 2026, from 21:30 PDT"</td><td>When the story takes place. The top bar clock counts from 21:30 PDT.</td></tr>
+            <tr><th>Speed</th><td>0.5× · 1× · 2× · 5×, with 1× selected</td><td>How fast simulated time runs compared with real time.</td></tr>
+            <tr><th>Run the simulation</th><td>Blue switch (on)</td><td>On means the clock is running; off means paused.</td></tr>
+            <tr><th>Note</th><td>"Reset lives in the Demo Director (hold R or the Reset button) so it can't be hit by accident."</td><td>Why there is no reset button here.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Clock</code> in <code>core.py</code> (speed, paused); <code>POST /api/sim</code> in <code>main.py</code>.</dd>
+        <dt>Arrives by</dt><dd>Seed and warm-up from <code>GET /api/config</code>; speed and paused from the <code>sim.clock</code> WebSocket event.</dd>
+        <dt>Store slice</dt><dd><code>clock</code> and <code>config</code>.</dd>
+        <dt>Changes when</dt><dd>Anyone, on any device, changes speed or pause (including the <kbd>p</kbd> key).</dd>
+      </dl>
+      <ol class="flow" aria-label="Changing the simulation speed">
+        <li class="ui"><b>Click 2×</b><span>or flip the switch</span></li>
+        <li class="src"><b><code>POST /api/sim</code></b><span><code>{"speed": 2}</code> or <code>{"paused": true}</code></span></li>
+        <li><b>Clock updated</b><span>speed limited to 0.25–10</span></li>
+        <li><b><code>sim.clock</code> event</b><span>"simulation running at 2.0×"</span></li>
+        <li class="ui"><b>Every console updates</b><span>top bar shows "2×" or "Paused"</span></li>
+      </ol>
+      <p>Each engine tick advances simulated time by real elapsed time multiplied by the speed; when paused it
+        advances by zero, so charts, training and the twin all freeze together. The change goes through the server,
+        so the projector, the presenter laptop and phones all see the same clock. The <code>sim.clock</code> event
+        appears in the live stream as a notice. It does not write a ledger record.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Speed 0.5× / 1× / 2× / 5×</th><td>Sets how fast simulated time runs.</td><td><code>POST /api/sim {"speed": n}</code>; <code>sim.clock</code> event; a "n×" tag appears next to the top bar clock when not 1×.</td></tr>
+            <tr><th>Run the simulation</th><td>Pauses or resumes.</td><td><code>POST /api/sim {"paused": …}</code>; amber "Paused" tag in the top bar. Same as pressing <kbd>p</kbd>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Demo state: speed 1×, switch on, seed 7.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Only if asked: click 5×. Charts and the top bar clock move five times faster.</li>
+          <li>Click 1× again before continuing.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"The network is a seeded simulation, so every run is repeatable. We can speed it up
+          or pause it, and every screen follows the same clock."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Is the demo scripted or live?"</strong> Live and deterministic: a seeded simulation running in
+          real time. Observability and Track 1.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The world these controls drive is the mock simulation; the controls themselves really change the server clock.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Speed and pause are global: changing them on the presenter laptop changes the projector too. Leave the
+          speed at 1× during the beats, because beat durations assume real time.</p>
+        <p>While paused the server sends no events, so the WebSocket row here, the presenter's Live dot and its
+          Preflight WebSocket row all turn amber "lagging" after 2.5 s without a message. That is expected. Resume and they go
+          green.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- c-10 -->
+  <article class="comp" id="c-10">
+    <header>
+      <span class="comp-num">10</span>
+      <h3>Display</h3>
+      <span class="where">panel <code>display</code>, <code>DisplayPanel</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Adjusts how the console looks on this browser (for the room and the projector), and shows version
+        information.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Subtitle "saved in this browser". Three switches with two options each, then an About block.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Row</th><th>Options (capture)</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr><th>Theme</th><td>Ops (dark) · Projector (light); Ops selected</td><td>Dark for a dim room or screen share; light for a washed-out projector.</td></tr>
+            <tr><th>Density</th><td>Comfortable · Compact</td><td>Compact tightens panel padding, header height and grid gaps, for small projectors such as 1280×720.</td></tr>
+            <tr><th>Motion</th><td>Follow system · Reduced</td><td>"Follow system" respects the computer's reduce-motion setting; "Reduced" turns CSS animations and transitions off, and stops the swarm and consortium animations.</td></tr>
+            <tr><th>About: Console</th><td>"SPECTRUM 0.1.0 (prototype)"</td><td>Fixed text in the page.</td></tr>
+            <tr><th>About: Backend API</th><td>"0.1.0"</td><td>The version reported by <code>GET /api/config</code>.</td></tr>
+            <tr><th>About: Event schema</th><td>"envelope v1 (seq, ts, sim_t, plane, type, severity)"</td><td>The fields every WebSocket event carries. Fixed text.</td></tr>
+            <tr><th>About: Ledger format</th><td>"SHA-256 chain, Ed25519, Merkle anchor every 32"</td><td>How the audit ledger is built. Fixed text.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Store</dt><dd><code>useUi</code> in <code>core/ui-store.ts</code>; <code>set()</code> saves theme, motion and density (with Director, notes and spotlight settings) to <code>localStorage</code> key <code>spectrum.ui</code>.</dd>
+        <dt>Applied by</dt><dd><code>useThemeAttrs()</code> in <code>app/Shell.tsx</code> writes <code>data-theme</code>, <code>data-motion</code> and <code>data-density</code> on the page root; CSS in <code>index.css</code> does the rest.</dd>
+        <dt>Backend effect</dt><dd>None.</dd>
+      </dl>
+      <p>These settings are per browser. The same theme switch is the sun/moon button in the top bar and the
+        <kbd>t</kbd> key. The presenter view reads the saved theme from the same browser when it opens. More on the
+        shell side: <a href="shell.html#c-14">Display: theme, density, motion</a>.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Theme</th><td>Switches dark or light.</td><td>The whole console recolours at once; saved in <code>spectrum.ui</code>. No backend call.</td></tr>
+            <tr><th>Density</th><td>Switches spacing.</td><td>Tighter panels and gaps on every screen.</td></tr>
+            <tr><th>Motion</th><td>Allows or removes animation.</td><td>CSS transitions such as spotlight fades become instant, and the moving messages in the Swarm graph and the packets on the Mission Control consortium map stop. The lifecycle ribbon pulse still plays.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>The highlighted option in each row is the current one.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>At the venue, try Projector (light) on the real projector before judges arrive.</li>
+          <li>If panels are cut off at 1280×720, pick Compact.</li>
+        </ol>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> Browser settings only; they do not touch data.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Set the theme on the projector machine itself; changing it on the presenter laptop does not reach the
+          projector.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ================================================================== ALL FLAGS -->
+  <h2 id="flags-table">All 36 flags</h2>
+  <p>Every flag in <code>core/flags.tsx</code>, in table order. Every default is on. "What it gates in this
+    build" was checked against the code that reads each flag; where a flag does less than its description
+    suggests, the table says so.</p>
+  <div class="table-wrap wide">
+    <table class="compact">
+      <thead><tr><th>Key</th><th>Label</th><th>Stage</th><th>Default</th><th>Depends on</th><th>What it gates in this build</th></tr></thead>
+      <tbody>
+        <tr><th colspan="6">Screens (each hides the route, rail icon and palette entry; a gated-off route redirects to <code>/</code>)</th></tr>
+        <tr><td><code>screen.mission</code></td><td>Mission Control</td><td>Stable</td><td>on</td><td>—</td><td>Mission Control at <code>/</code>. Keep it on: <code>/</code> is where every gated-off route lands.</td></tr>
+        <tr><td><code>screen.federation</code></td><td>Federation Center</td><td>Stable</td><td>on</td><td>—</td><td><code>/federation</code>, and through dependencies every <code>fl.*</code> flag and <code>demo.poison</code>, and through <code>fl.secagg_viz</code>, <code>demo.privileged_view</code>.</td></tr>
+        <tr><td><code>screen.proving</code></td><td>Proving Ground</td><td>Stable</td><td>on</td><td>—</td><td><code>/proving</code> and the three <code>eval.*</code> flags.</td></tr>
+        <tr><td><code>screen.release</code></td><td>Release Center</td><td>Stable</td><td>on</td><td>—</td><td><code>/release</code> and <code>release.dialects</code>.</td></tr>
+        <tr><td><code>screen.swarm</code></td><td>Swarm Tower</td><td>Stable</td><td>on</td><td>—</td><td><code>/swarm</code>, the two <code>swarm.*</code> flags and <code>demo.attacks</code>.</td></tr>
+        <tr><td><code>screen.oversight</code></td><td>Oversight Desk</td><td>Stable</td><td>on</td><td>—</td><td><code>/oversight</code> and <code>oversight.mobile</code>.</td></tr>
+        <tr><td><code>screen.trust</code></td><td>Trust Center</td><td>Stable</td><td>on</td><td>—</td><td><code>/trust</code>.</td></tr>
+        <tr><td><code>screen.audit</code></td><td>Audit &amp; Proof</td><td>Stable</td><td>on</td><td>—</td><td><code>/audit</code>, the two <code>audit.*</code> flags and <code>demo.tamper</code>.</td></tr>
+        <tr><td><code>screen.observability</code></td><td>Observability</td><td>Stable</td><td>on</td><td>—</td><td><code>/observability</code> and <code>obs.heatmap</code>.</td></tr>
+        <tr><td><code>screen.settings</code></td><td>Settings &amp; Flags</td><td>Stable</td><td>on</td><td>—</td><td><code>/settings</code> (this page). Turning it off locks you out; see <a href="#copy-paste">recovery</a>.</td></tr>
+        <tr><th colspan="6">Shell</th></tr>
+        <tr><td><code>shell.ribbon</code></td><td>Lifecycle Ribbon</td><td>Stable</td><td>on</td><td>—</td><td>The five-plane ribbon under the top bar.</td></tr>
+        <tr><td><code>shell.stream</code></td><td>Live stream drawer</td><td>Stable</td><td>on</td><td>—</td><td>The bottom event stream drawer.</td></tr>
+        <tr><td><code>shell.palette</code></td><td>Command palette</td><td>Stable</td><td>on</td><td>—</td><td>Only the search button in the top bar. <kbd>Cmd</kbd> <kbd>K</kbd> still opens the palette.</td></tr>
+        <tr><td><code>shell.killswitch</code></td><td>Kill switch</td><td>Stable</td><td>on</td><td>—</td><td>The Freeze / "Frozen: resume" button in the top bar.</td></tr>
+        <tr><th colspan="6">Demo</th></tr>
+        <tr><td><code>demo.director</code></td><td>Demo Director</td><td>Demo only</td><td>on</td><td>—</td><td>The floating Demo Director panel and the palette command "Reset scenario to the pre-demo state". Beat keys (<kbd>→</kbd>, <kbd>1</kbd>–<kbd>9</kbd>, hold <kbd>r</kbd>) still work, and <code>/presenter</code> still opens.</td></tr>
+        <tr><td><code>demo.spotlight</code></td><td>Spotlight</td><td>Demo only</td><td>on</td><td><code>demo.director</code></td><td>Nothing: no code reads this flag. Spotlight follows the <kbd>s</kbd> key and the Director's Spotlight switch.</td></tr>
+        <tr><td><code>demo.tamper</code></td><td>Tamper simulation</td><td>Demo only</td><td>on (also set in <code>flags.json</code>)</td><td><code>screen.audit</code></td><td>The Tamper simulation panel on Audit &amp; Proof and the palette commands "Simulate tampering of a ledger record" and "Restore tampered records". Beat 12 still tampers on the server.</td></tr>
+        <tr><td><code>demo.poison</code></td><td>Poison injection</td><td>Demo only</td><td>on</td><td><code>screen.federation</code></td><td>The Poison button on each row of the Client fleet panel. Beat 4 still poisons on the server.</td></tr>
+        <tr><td><code>demo.attacks</code></td><td>Attack scenarios</td><td>Demo only</td><td>on</td><td><code>screen.swarm</code></td><td>"Telemetry injection" on Swarm Tower, "Inject regression (demo)" on Release Center, and the palette command "Attack: telemetry prompt injection on site-17". Beat 10 still runs on the server.</td></tr>
+        <tr><td><code>demo.privileged_view</code></td><td>Privileged SecAgg view</td><td>Demo only</td><td>on</td><td><code>fl.secagg_viz</code></td><td>The "Show true updates" button on the Secure aggregation panel.</td></tr>
+        <tr><th colspan="6">Federation</th></tr>
+        <tr><td><code>fl.controls</code></td><td>Training controls</td><td>Stable</td><td>on</td><td><code>screen.federation</code></td><td>Federation header buttons: Start / Pause / Resume, Next round now, Stop, Training settings.</td></tr>
+        <tr><td><code>fl.secagg_viz</code></td><td>Secure aggregation visualizer</td><td>Beta</td><td>on</td><td><code>screen.federation</code></td><td>The Secure aggregation panel (lit in beat 3).</td></tr>
+        <tr><td><code>fl.he</code></td><td>Homomorphic encryption panel</td><td>Experimental</td><td>on (also set in <code>flags.json</code>)</td><td><code>screen.federation</code></td><td>The Homomorphic encryption panel.</td></tr>
+        <tr><td><code>fl.attestation</code></td><td>Enclave attestation</td><td>Beta</td><td>on</td><td><code>screen.federation</code></td><td>The Enclave attestation panel.</td></tr>
+        <tr><td><code>fl.sovereignty</code></td><td>Data sovereignty flows</td><td>Beta</td><td>on</td><td><code>screen.federation</code></td><td>The Data sovereignty panel.</td></tr>
+        <tr><td><code>fl.checkpoints</code></td><td>Checkpoint rail</td><td>Stable</td><td>on</td><td><code>screen.federation</code></td><td>The Checkpoints panel.</td></tr>
+        <tr><th colspan="6">Verification</th></tr>
+        <tr><td><code>eval.parallel</code></td><td>Parallel coordinates</td><td>Beta</td><td>on</td><td><code>screen.proving</code></td><td>The Model comparison panel.</td></tr>
+        <tr><td><code>eval.fed_eval</code></td><td>Federated evaluation</td><td>Beta</td><td>on</td><td><code>screen.proving</code></td><td>The Federated evaluation panel.</td></tr>
+        <tr><td><code>eval.scaling</code></td><td>Scaling curve</td><td>Beta</td><td>on</td><td><code>screen.proving</code></td><td>The NLM scaling panel.</td></tr>
+        <tr><th colspan="6">Release</th></tr>
+        <tr><td><code>release.dialects</code></td><td>Vendor dialect check</td><td>Beta</td><td>on</td><td><code>screen.release</code></td><td>The Vendor dialect check panel.</td></tr>
+        <tr><th colspan="6">Swarm</th></tr>
+        <tr><td><code>swarm.negotiation</code></td><td>Negotiation panel</td><td>Beta</td><td>on</td><td><code>screen.swarm</code></td><td>The Negotiation panel (lit in beat 8).</td></tr>
+        <tr><td><code>swarm.autonomy</code></td><td>Autonomy controls</td><td>Beta</td><td>on</td><td><code>screen.swarm</code></td><td>The Autonomy panel.</td></tr>
+        <tr><th colspan="6">Oversight</th></tr>
+        <tr><td><code>oversight.mobile</code></td><td>Mobile approvals</td><td>Beta</td><td>on</td><td><code>screen.oversight</code></td><td>Only the module's State label. The phone page <code>/m/approve</code> still opens when it is off.</td></tr>
+        <tr><th colspan="6">Audit</th></tr>
+        <tr><td><code>audit.provenance</code></td><td>Provenance explorer</td><td>Beta</td><td>on</td><td><code>screen.audit</code></td><td>The Provenance panel (lit in beat 11).</td></tr>
+        <tr><td><code>audit.dossier</code></td><td>Incident dossier</td><td>Beta</td><td>on</td><td><code>screen.audit</code></td><td>The "Incident dossier" header button and the Incident dossier card on Audit &amp; Proof. <code>/dossier/…</code> still opens directly.</td></tr>
+        <tr><th colspan="6">Observability</th></tr>
+        <tr><td><code>obs.heatmap</code></td><td>Latency heatmap</td><td>Beta</td><td>on</td><td><code>screen.observability</code></td><td>The Latency panel on Observability.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Totals: 16 stable, 13 beta, 1 experimental, 6 demo-only. Hotkeys (<code>app/hotkeys.ts</code>) never look at
+    flags: <kbd>g</kbd> plus a letter still navigates to a gated-off screen (which then redirects to
+    <code>/</code>), and the beat keys still fire beats.</p>
+
+  <!-- ================================================================== RESOLUTION -->
+  <h2 id="flag-resolution">How flag resolution works</h2>
+  <p>Each flag has up to four values, one per source. The strongest source that has a value wins. Then the
+    dependency check decides whether the flag is effectively on.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Order</th><th>Source</th><th>Where it lives</th><th>When it is read</th><th>Lasts</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><th>Code default</th><td><code>FLAGS[].default</code> in <code>frontend/src/core/flags.tsx</code></td><td>Build time</td><td>Until the code changes</td></tr>
+        <tr><td class="num">2</td><th>Remote config</th><td><code>GET /api/config/flags</code>, which returns <code>backend/spectrum/flags.json</code>. Keys starting with <code>_</code> (such as <code>_comment</code>) are ignored.</td><td>Once, when the console loads in that tab</td><td>For everyone who loads the console after the file changes</td></tr>
+        <tr><td class="num">3</td><th>This browser</th><td><code>localStorage["spectrum.flags"]</code>, written by switches and presets</td><td>On load and on every change</td><td>In this browser until cleared</td></tr>
+        <tr><td class="num">4</td><th>URL</th><td><code>?ff=key:on,key:off</code> in the address</td><td>Once, when the page loads</td><td>For this tab until you reload without it</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li><strong>URL syntax.</strong> Comma-separated <code>key:value</code> pairs. The value counts as off only if it
+      is <code>off</code>, <code>0</code> or <code>false</code>; anything else, or no value at all
+      (<code>?ff=fl.he</code>), means on.</li>
+    <li><strong>The URL is read once.</strong> It is parsed when the page loads and kept in memory, so it stays in
+      force when you move to other screens even though the address bar no longer shows it. It is never saved: a
+      reload without <code>?ff=</code> drops it. A URL-set flag has its switch locked in the table.</li>
+    <li><strong>Remote is read once per page load.</strong> The backend reads <code>flags.json</code> on every
+      request, so no backend restart is needed, but each browser must reload to pick up a change.</li>
+    <li><strong>Dependencies.</strong> A flag is effectively on only if its own value is on and every flag in its
+      <code>dependsOn</code> list is effectively on, following chains.</li>
+  </ul>
+
+  <h3 id="copy-paste">Copy-paste examples</h3>
+  <p>Replace <code>localhost:5173</code> with the address you use (for example <code>localhost:8787</code> after
+    <code>make demo</code>). The <code>?ff=</code> part goes after the route.</p>
+  <div class="table-wrap wide">
+    <table class="compact">
+      <thead><tr><th>Goal</th><th>Do this</th></tr></thead>
+      <tbody>
+        <tr><th>Example from the README</th><td><code>http://localhost:5173/?ff=fl.he:off,demo.tamper:on</code></td></tr>
+        <tr><th>Projector without the Demo Director panel (drive from <code>/presenter</code>)</th><td><code>http://localhost:5173/?ff=demo.director:off</code></td></tr>
+        <tr><th>Hide the experimental HE panel for one session</th><td><code>http://localhost:5173/federation?ff=fl.he:off</code></td></tr>
+        <tr><th>Operator look, no demo-only controls, one session</th><td><code>http://localhost:5173/?ff=demo.director:off,demo.tamper:off,demo.poison:off,demo.attacks:off,demo.privileged_view:off</code> (or click the Ops preset, which is saved in the browser)</td></tr>
+        <tr><th>Get Settings back after switching it off</th><td><code>http://localhost:5173/settings?ff=screen.settings:on</code>, then click the Demo (judges) preset (it clears this browser's overrides; the row's own Reset link is hidden while the URL sets the flag) and reload without <code>?ff=</code></td></tr>
+        <tr><th>Wipe this browser's overrides from the browser console</th><td><code>localStorage.removeItem('spectrum.flags'); location.reload()</code></td></tr>
+        <tr><th>Change a flag for every browser (remote)</th><td>Edit <code>backend/spectrum/flags.json</code>, e.g. <code>"fl.he": false</code>, then reload each browser. Browsers that override the flag locally or by URL ignore it.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <pre><code>{
+  "_comment": "Remote feature flags (AWS mode: served from AWS AppConfig). Keys override frontend defaults.",
+  "fl.he": true,
+  "demo.tamper": true
+}</code></pre>
+  <p class="muted">The current <code>backend/spectrum/flags.json</code>. Despite the comment, the endpoint reads this file in AWS mode too.</p>
+
+  <h3 id="presets">Presets in detail</h3>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Preset</th><th>Turns off</th><th>Use it when</th></tr></thead>
+      <tbody>
+        <tr><th>Demo (judges)</th><td>Nothing. Clears overrides, so code defaults and <code>flags.json</code> decide.</td><td>Always, right before the demo, on every machine.</td></tr>
+        <tr><th>Full</th><td>Nothing. Pins all 36 on in this browser, so a remote <code>false</code> cannot hide anything.</td><td>You want to be sure nothing is hidden, whatever <code>flags.json</code> says.</td></tr>
+        <tr><th>Minimal</th><td>All 13 beta, 1 experimental and 6 demo-only flags: Secure aggregation, HE, Attestation, Sovereignty, Model comparison, Federated evaluation, NLM scaling, Vendor dialect check, Negotiation, Autonomy, Provenance, Incident dossier, Latency, Mobile approvals (state label only), the Demo Director and all demo-only buttons.</td><td>Showing the stable core only. Not for the scripted demo.</td></tr>
+        <tr><th>Ops</th><td>The 6 demo-only flags: Demo Director, Spotlight (no effect), Tamper, Poison, Attacks, Privileged view.</td><td>Showing what a real operator would see.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ================================================================== PRESENTER -->
+  <h2 id="presenter">The presenter view (<code>/presenter</code>)</h2>
+  <p>A full-screen page for a second laptop that only the presenter looks at. It shows the current beat's script
+    in large type, the next beat, a talk timer, the full beat list and a short preflight check. Pressing
+    <kbd>→</kbd>, a clicker's PageDown, or the big Next button fires the next beat, and the projector console
+    follows on its own.</p>
+  <figure class="diagram wide">
+    <div class="diagram-frame">
+      <svg viewBox="0 0 760 200" role="img" aria-labelledby="st-pres-t">
+        <title id="st-pres-t">The presenter laptop posts a beat to the backend, which broadcasts it; the projector console navigates and lights panels</title>
+        <defs><marker id="st-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-arrow" d="M0 0L10 5L0 10z"/></marker></defs>
+        <rect class="d-node ext" x="20" y="60" width="190" height="80" rx="6"/>
+        <text class="d-label" x="115" y="92" text-anchor="middle">Presenter laptop</text>
+        <text class="d-sub" x="115" y="110" text-anchor="middle">/presenter, does not navigate</text>
+        <rect class="d-node" x="285" y="60" width="190" height="80" rx="6"/>
+        <text class="d-label" x="380" y="92" text-anchor="middle">Backend engine</text>
+        <text class="d-sub" x="380" y="110" text-anchor="middle">runs the beat action</text>
+        <rect class="d-node ext" x="550" y="60" width="190" height="80" rx="6"/>
+        <text class="d-label" x="645" y="92" text-anchor="middle">Projector console</text>
+        <text class="d-sub" x="645" y="110" text-anchor="middle">goes to route, lights panels</text>
+        <path class="d-edge strong" d="M210 100H283" marker-end="url(#st-arr)"/>
+        <text class="d-sub" x="247" y="88" text-anchor="middle">POST beat/N</text>
+        <path class="d-edge strong" d="M475 100H548" marker-end="url(#st-arr)"/>
+        <text class="d-sub" x="512" y="88" text-anchor="middle">director.beat</text>
+        <path class="d-edge dashed" d="M380 140V170H115V142" marker-end="url(#st-arr)"/>
+        <text class="d-sub" x="247" y="188" text-anchor="middle">same event updates the presenter's beat list and script</text>
+      </svg>
+    </div>
+    <figcaption>The Director state lives on the server, so any number of screens stay in step. The presenter view
+      only sends the beat; it never changes its own route.</figcaption>
+  </figure>
+
+  <h3 id="presenter-shot">The presenter view at a glance</h3>
+  <ol class="comp-list">
+    <li><span class="comp-num">1</span><a href="#p-1">Presenter bar</a></li>
+    <li><span class="comp-num">2</span><a href="#p-2">Talk timer</a></li>
+    <li><span class="comp-num">3</span><a href="#p-3">Beat heading</a></li>
+    <li><span class="comp-num">4</span><a href="#p-4">Say this card and projector line</a></li>
+    <li><span class="comp-num">5</span><a href="#p-5">Next and Back controls</a></li>
+    <li><span class="comp-num">6</span><a href="#p-6">Beat list</a></li>
+    <li><span class="comp-num">7</span><a href="#p-7">Preflight</a></li>
+  </ol>
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/screen-presenter.jpg" width="1440" height="900"
+           alt="Presenter view before the demo: a header with Live status, the 21:31:23 PDT clock and a 0:00 of 7:00 timer; the heading Cold open is next with its speaker note; a large Next: Cold open button; on the right the list of 14 beats and a preflight checklist">
+      <span class="box" data-target="p-1" style="left:0%;top:0%;width:26%;height:5.33%"></span>
+      <span class="box" data-target="p-2" style="left:79.4%;top:0%;width:20.6%;height:5.33%"></span>
+      <span class="box" data-target="p-3" style="left:2.22%;top:8.6%;width:70.56%;height:7.8%"></span>
+      <span class="box" data-target="p-4" style="left:2.22%;top:18.89%;width:33.58%;height:18.89%"></span>
+      <span class="box" data-target="p-5" style="left:2.22%;top:78.44%;width:70.56%;height:18%"></span>
+      <span class="box" data-target="p-6" style="left:75.07%;top:5.33%;width:24.93%;height:78.56%"></span>
+      <span class="box" data-target="p-7" style="left:75.07%;top:83.89%;width:24.93%;height:16.11%"></span>
+      <a class="pin" href="#p-1" style="left:1.5%;top:2.7%">1</a>
+      <a class="pin" href="#p-2" style="left:80.4%;top:2.7%">2</a>
+      <a class="pin" href="#p-3" style="left:3.7%;top:10.6%">3</a>
+      <a class="pin" href="#p-4" style="left:3.72%;top:20.9%">4</a>
+      <a class="pin" href="#p-5" style="left:3.72%;top:80.4%">5</a>
+      <a class="pin" href="#p-6" style="left:76.57%;top:7.9%">6</a>
+      <a class="pin" href="#p-7" style="left:76.57%;top:85.9%">7</a>
+    </div>
+    <figcaption>Presenter view before the demo, dark theme. "Consoles connected" is amber because only this page
+      was connected when it was captured. The "Projector shows" line (card 4) and the drift pill (card 2) appear
+      only after the first beat.</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#p-1"><span class="n">1</span><span>Presenter bar</span></a></li>
+      <li><a href="#p-2"><span class="n">2</span><span>Talk timer</span></a></li>
+      <li><a href="#p-3"><span class="n">3</span><span>Beat heading</span></a></li>
+      <li><a href="#p-4"><span class="n">4</span><span>Say this</span></a></li>
+      <li><a href="#p-5"><span class="n">5</span><span>Next and Back</span></a></li>
+      <li><a href="#p-6"><span class="n">6</span><span>Beat list</span></a></li>
+      <li><a href="#p-7"><span class="n">7</span><span>Preflight</span></a></li>
+    </ul>
+  </figure>
+
+  <h3 id="presenter-components">The presenter view, part by part</h3>
+
+  <!-- ---------------------------------------------------------------- p-1 -->
+  <article class="comp" id="p-1">
+    <header>
+      <span class="comp-num">1</span>
+      <h3>Presenter bar</h3>
+      <span class="where">header of <code>features/presenter/PresenterPage.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Tells the presenter at a glance that this laptop is connected and what time it is in the scenario.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Example</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr><th>Wordmark</th><td>Five coloured bars and "SPECTRUM"</td><td>Same logo as the console.</td></tr>
+            <tr><th>Label</th><td>"Presenter"</td><td>Which page this is.</td></tr>
+            <tr><th>Connection dot</th><td>Green dot, "Live"</td><td>"Connecting" (grey) until the first data arrives, then Live (green), lagging (amber) or offline (red).</td></tr>
+            <tr><th>Scenario clock</th><td><code>21:31:23 PDT</code></td><td>The simulation time, the same clock as the console's top bar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Connection</dt><dd>The page calls <code>startLive()</code> itself, opening its own WebSocket <code>/ws</code> and loading <code>GET /api/snapshot</code>.</dd>
+        <dt>Store slices</dt><dd><code>ready</code>, <code>conn</code>, <code>clock</code>.</dd>
+        <dt>Clock</dt><dd><code>useSimNow(2)</code>: between the server's clock updates, the time is worked out locally twice a second from the last sync, the speed and the paused flag.</dd>
+      </dl>
+      <p>The page is outside the console frame, so it has no top bar, theme button or hotkeys of its own beyond the
+        beat keys. It applies the theme saved in this browser.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p><span class="pill good">Live</span> means beats you fire will reach the server. Anything else: fix it before you start.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> Real connection state; the clock is the simulation's clock.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>To change this page's theme, open the console in the same browser, switch the theme (<kbd>t</kbd>), then
+          reopen <code>/presenter</code>.</p>
+        <p>The dot turns amber "lagging" 2.5 s after the simulation is paused, because the server sends no
+          events while paused. That is not a fault; resume and it goes green.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- p-2 -->
+  <article class="comp" id="p-2">
+    <header>
+      <span class="comp-num">2</span>
+      <h3>Talk timer</h3>
+      <span class="where">right side of the presenter header</span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Keeps the talk inside the 7-minute slot and shows whether you are ahead of or behind the plan.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Example</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr><th>Timer</th><td>A stopwatch icon and "0:00"</td><td>Real time since the talk started, in minutes and seconds. White until 6:30, amber from 6:30, red from 7:00.</td></tr>
+            <tr><th>Target</th><td>"of 7:00"</td><td>The slot length.</td></tr>
+            <tr><th>Drift pill</th><td>"+0:20 vs plan" (after beat 1)</td><td>Elapsed time minus the planned start of the current beat. "+" means behind plan, "−" ahead. Amber background when more than 15 s behind.</td></tr>
+            <tr><th>Restart timer</th><td>Button with a reset icon</td><td>Sets the timer back to 0:00 now.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Start</dt><dd>The timer starts when beat 1 fires (the server's <code>director.started_at</code> changes while the beat is 1), or when you click Restart timer.</dd>
+        <dt>Saved in</dt><dd><code>localStorage["spectrum.presenter.t0"]</code>, so a page reload keeps the time.</dd>
+        <dt>Plan</dt><dd>The planned start of beat N is the sum of the suggested durations of beats 1 to N−1 (from <code>engine.py</code> BEATS). All 14 add up to 6:45.</dd>
+        <dt>Updates</dt><dd>Twice a second, from the wall clock (not the simulation clock).</dd>
+      </dl>
+      <p>Example: you fire beat 5 at 2:20. Beats 1 to 4 are planned at 30 + 40 + 25 + 25 = 120 s, so the pill
+        reads "+0:20 vs plan" on an amber background.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Restart timer</th><td>Resets the timer to now.</td><td>Timer shows 0:00; saved in this browser only. No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>White timer and a grey pill: on track. Amber pill: you are more than 15 s behind; shorten the next beat.
+          Amber timer: 30 s left. Red: over time.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> Wall-clock time on this laptop.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>The start time survives from your last rehearsal. If the timer shows a large number before you begin,
+          click Restart timer. Firing beat 1 again, from any device, also restarts it, so do not press <kbd>1</kbd>
+          to recover in the middle of the talk. Opening or reloading <code>/presenter</code> while the scenario sits on
+          beat 1 restarts it too.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- p-3 -->
+  <article class="comp" id="p-3">
+    <header>
+      <span class="comp-num">3</span>
+      <h3>Beat heading</h3>
+      <span class="where">top of the main column</span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Says which beat is on now, where the projector is, and its title in large type.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>A small status line and a 40 px heading.</p>
+      <ul>
+        <li>Before the demo: "Ready. Press → or the clicker to start." and "Cold open is next".</li>
+        <li>During the demo: "Beat 7 of 14, on /swarm" and the beat title, for example "Incident hits".</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Store slice</dt><dd><code>director</code>: <code>beat</code> (0 before the demo) and <code>beats</code> (the 14 entries sent by the server in the snapshot).</dd>
+        <dt>Changes when</dt><dd>A <code>director.beat</code> event arrives, from this laptop or any other device.</dd>
+      </dl>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The server's current beat.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>If it says a beat number before you have started, someone fired a beat. Reset the scenario (hold <kbd>r</kbd> on the console or hold Reset in the Demo Director) before judges arrive.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- p-4 -->
+  <article class="comp" id="p-4">
+    <header>
+      <span class="comp-num">4</span>
+      <h3>Say this card and projector line</h3>
+      <span class="where">main column</span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Gives the presenter the line to say for the current beat, in type large enough to read at a glance, and
+        confirms what the projector is showing.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li>"Say this" label and the beat's presenter note in 22 px type. Before the demo it shows beat 1's note:
+          "Every operator has outages and learns alone, because nobody can share data. Five operators fix that
+          here." If the engine has not sent the beats yet: "Waiting for the engine…".</li>
+        <li>"Suggested 30s": the beat's planned duration (only once a beat is active).</li>
+        <li>Under the card, once a beat is active: "Projector shows <code>/swarm</code> with the spotlight on
+          <code>twin</code> <code>swarm</code>", that is the beat's route and the panel ids it lights.</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>All text comes from the beat's entry in <code>engine.py</code> BEATS (<code>note</code>, <code>dur</code>,
+        <code>route</code>, <code>spotlight</code>), delivered in the <code>director</code> slice. The same notes
+        appear in the Demo Director on the console (<a href="shell.html#c-8">Presenter notes</a>). Each beat's
+        script, with what to point at, is in the <a href="demo-playbook.html">Demo playbook</a>.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The script as stored on the server.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>"Spotlight on …" lists the beat's panels. The projector only dims the rest if spotlight is switched on
+          in the projector's own browser (<kbd>s</kbd> there).</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- p-5 -->
+  <article class="comp" id="p-5">
+    <header>
+      <span class="comp-num">5</span>
+      <h3>Next and Back controls</h3>
+      <span class="where">bottom of the main column</span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Drives the demo. Big targets for a trackpad, keys for a clicker.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li>"Next: Cold open on /": the following beat and its route.</li>
+        <li>Back button (faded when on beat 1 or before the start).</li>
+        <li>A wide Next button labelled "Next: &lt;title&gt;", or "End of script" (disabled) after beat 14.</li>
+        <li>Key hints: <kbd>→</kbd> <kbd>PageDown</kbd> next, <kbd>←</kbd> <kbd>PageUp</kbd> back, <kbd>1–9</kbd> jump.</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <ol class="flow" aria-label="Firing a beat from the presenter view">
+        <li class="ui"><b>Press <kbd>→</kbd></b><span>or click Next</span></li>
+        <li class="src"><b><code>POST /api/director/beat/N</code></b><span><code>fireBeat(N)</code> without navigating</span></li>
+        <li><b><code>Engine.beat(N)</code></b><span>runs the beat's action</span></li>
+        <li><b><code>director.beat</code> event</b><span>to every client</span></li>
+        <li class="ui"><b>Projector follows</b><span>route, spotlight, scroll</span></li>
+      </ol>
+      <p>The server records the beat number and start time, runs the beat's action (for example beat 7 starts the
+        incident, beat 12 tampers with a ledger record) and broadcasts the event. Every console tab inside the console
+        frame (not the phone, presenter or dossier pages) navigates to the beat's route, lights its panels if
+        spotlight is on there, and scrolls the beat's first panel into view either way. Keys pressed with <kbd>Cmd</kbd>, <kbd>Ctrl</kbd> or
+        <kbd>Alt</kbd> are ignored.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Next, <kbd>→</kbd>, <kbd>PageDown</kbd>, <kbd>Space</kbd></th><td>Fires the next beat.</td><td><code>POST /api/director/beat/N+1</code>; <code>director.beat</code> event; the beat's own server action and any ledger records it writes.</td></tr>
+            <tr><th>Back, <kbd>←</kbd>, <kbd>PageUp</kbd></th><td>Fires the previous beat again.</td><td><code>POST /api/director/beat/N−1</code>; that beat's action runs again.</td></tr>
+            <tr><th><kbd>1</kbd>–<kbd>9</kbd></th><td>Jumps to beat 1 to 9.</td><td>Same call for that beat. Beats 10 to 14: use Next or the beat list.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Plug the clicker into the presenter laptop.</li>
+          <li>Press PageDown once per beat; glance at card 4 for the line.</li>
+        </ol>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The beat control is real; what each beat changes is mostly the simulation, except ledger, signing and policy effects, which are real code.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Back is not undo. It re-runs the earlier beat's action, which can change state again (for example a
+          second tamper or poison). Prefer moving forward. The presenter's own beat keys work even when the
+          <code>demo.director</code> flag is off.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- p-6 -->
+  <article class="comp" id="p-6">
+    <header>
+      <span class="comp-num">6</span>
+      <h3>Beat list</h3>
+      <span class="where">right column</span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The whole run of show in one column: what is done, what is on, what is coming. Also a way to jump to any
+        beat, including 10 to 14.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Fourteen rows. Each has the beat number, a status icon, the title and "route, duration", for example
+        "Incident hits" with "/swarm, 30s".</p>
+      <ul>
+        <li>Green check: done (before the current beat).</li>
+        <li>Filled dot and a shaded row: current beat.</li>
+        <li>Dashed circle: not yet fired. In the capture, all 14 are dashed.</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>Built from <code>director.beats</code> and coloured by <code>director.beat</code>. The list scrolls if it
+        does not fit (beat 14 is partly cut off in the capture).</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click a row</th><td>Fires that beat.</td><td><code>POST /api/director/beat/N</code>; the projector follows.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The server's beat list and position.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>A click fires the beat immediately; there is no confirmation.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------------------------------------------------------------- p-7 -->
+  <article class="comp" id="p-7">
+    <header>
+      <span class="comp-num">7</span>
+      <h3>Preflight</h3>
+      <span class="where"><code>Preflight</code> in <code>PresenterPage.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Five quick go/no-go checks for the presenter laptop, kept on screen for the whole talk.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Row</th><th>Capture</th><th>Green when</th></tr></thead>
+          <tbody>
+            <tr><th>Backend</th><td>"reachable"</td><td>The preflight request succeeded. Otherwise "unreachable".</td></tr>
+            <tr><th>WebSocket</th><td>"live"</td><td>This page's connection state is live.</td></tr>
+            <tr><th>Ledger clean</th><td>"3,458 records"</td><td>The latest full verification of the signed ledger passed.</td></tr>
+            <tr><th>Consoles connected</th><td>Amber, "1 clients"</td><td>More than one WebSocket client is connected, so the projector console is listening as well as this page.</td></tr>
+            <tr><th>Training</th><td>"ready, round 12"</td><td>Federated training is "ready" or "running".</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Each row has a green check when it passes and an amber dashed circle when it does not.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>GET /api/director/preflight</code> in <code>main.py</code>: backend flag, ledger clean and height, number of WebSocket subscribers, training state and round.</dd>
+        <dt>Refresh</dt><dd>Polled every 3 s.</dd>
+        <dt>Ledger check</dt><dd>Reuses the last full verification while the chain has not grown; otherwise verifies again without emitting an event.</dd>
+      </dl>
+      <p>This is a shorter version of the Preflight tab in the Demo Director, which also has the phone QR code.
+        See <a href="shell.html#c-6">Preflight checklist and phone QR</a>.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Five green checks: go. Consoles connected amber: open the console on the projector machine.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> Live checks against the backend, including a real ledger verification.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>"Consoles connected" counts every connection: a phone or a spare browser tab also turns it green. Look at
+          the projector itself. "Ledger clean" goes amber after beat 12 (the tamper test), which is expected. The WebSocket row also goes
+          amber "lagging" while the simulation is paused, because the server sends no events; resume and it turns
+          green.</p>
+      </div>
+    </div>
+  </article>
+
+  <h3 id="presenter-setup">Setting up the second laptop</h3>
+  <ol class="steps">
+    <li>On the laptop that runs the backend and drives the projector, start the console (<code>make dev</code>, or
+      <code>make demo</code> for the single-process build on <code>:8787</code>) and open it on the projector.</li>
+    <li>Find that laptop's network address. The Demo Director's Preflight tab shows it in the phone QR link.</li>
+    <li>On the second laptop, open <code>http://&lt;laptop-LAN-IP&gt;:5173/presenter</code> (or
+      <code>:8787/presenter</code> after <code>make demo</code>). Vite is configured with <code>host: true</code>, so
+      other devices on the same network can reach it.</li>
+    <li>Check that all five preflight rows are green, then click Restart timer.</li>
+    <li>On the projector, press <kbd>d</kbd> to hide the Demo Director, or load it with
+      <code>?ff=demo.director:off</code>. Check spotlight is on there (<kbd>s</kbd>).</li>
+    <li>Plug the clicker into the second laptop and press PageDown to start.</li>
+  </ol>
+  <div class="callout warn">
+    <p class="title">Each browser has its own settings</p>
+    <p>Flags, theme, density, spotlight and the timer are stored per browser. Set the projector's look on the
+      projector machine. Simulation speed, pause and the current beat are shared, because they live on the server.</p>
+  </div>
+
+  <!-- ================================================================== WALKTHROUGH -->
+  <h2 id="walkthrough">60-second walkthrough</h2>
+  <p>If a judge asks "walk me through this page" on Settings:</p>
+  <div class="callout say">
+    <p>"This is how the console is built and run. Every screen, the optional and beta panels, and the attack,
+      tamper and poison controls are behind one of 36 feature flags. A flag's value comes from code, then remote config, then this browser, then the URL, and
+      this column shows which one won. Dependencies are explicit: switch off the federation screen and its panels
+      go with it. These presets give us the judge demo, a minimal core, or an operator view without the attack, tamper and Director controls.
+      Below, every screen is a module with a small manifest, which is how we built them in parallel. And here we
+      are honest about data: we run on the mock engine, and these seams are where DynamoDB, S3 Object Lock,
+      KMS, Verified Permissions and the other AWS services plug in. The simulation is seeded, so every run is
+      repeatable."</p>
+  </div>
+  <p>If asked about the presenter view:</p>
+  <div class="callout say">
+    <p>"The director state lives on the server. From this laptop I fire each beat; the server runs it and every
+      screen follows. I see the line to say, the next beat, a timer against our seven minutes, and a live
+      preflight check."</p>
+  </div>
+
+  <!-- ================================================================== RELATED -->
+  <h2 id="related">Related pages and how data flows</h2>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Page</th><th>Connection to this page</th></tr></thead>
+      <tbody>
+        <tr><th><a href="shell.html">Console frame &amp; controls</a></th><td>The ribbon, stream drawer, palette and Freeze button that the <code>shell.*</code> flags hide; the <a href="shell.html#c-5">Demo Director</a> that <code>demo.director</code> hides; <a href="shell.html#c-7">Spotlight</a>; <a href="shell.html#c-14">Display</a> settings; the <a href="shell.html#c-16">source chip</a> on every panel.</td></tr>
+        <tr><th><a href="demo-playbook.html">Demo playbook</a></th><td>The 14 beats the presenter view fires, with what to say and point at.</td></tr>
+        <tr><th><a href="federation.html">Federation Center</a></th><td>Six <code>fl.*</code> flags plus <code>demo.poison</code> and <code>demo.privileged_view</code>.</td></tr>
+        <tr><th><a href="proving.html">Proving Ground</a></th><td>Three <code>eval.*</code> panel flags.</td></tr>
+        <tr><th><a href="release.html">Release</a></th><td><code>release.dialects</code>; the "Inject regression (demo)" button under <code>demo.attacks</code>.</td></tr>
+        <tr><th><a href="swarm.html">Swarm Tower</a></th><td><code>swarm.negotiation</code>, <code>swarm.autonomy</code>, and the Telemetry injection button under <code>demo.attacks</code>.</td></tr>
+        <tr><th><a href="oversight.html">Human oversight &amp; phone approvals</a></th><td><code>screen.oversight</code> and <code>oversight.mobile</code>; phones share the same backend as the presenter laptop.</td></tr>
+        <tr><th><a href="audit.html">Audit, provenance &amp; dossier</a></th><td><code>audit.provenance</code>, <code>audit.dossier</code>, <code>demo.tamper</code>; the ledger behind "Ledger clean".</td></tr>
+        <tr><th><a href="observability.html">Observability</a></th><td><code>obs.heatmap</code>.</td></tr>
+        <tr><th><a href="architecture.html">Architecture</a></th><td>The adapter seams, the event bus and the server-side director in context.</td></tr>
+        <tr><th><a href="feature-map.html">Feature map &amp; parallel build plan</a></th><td>How the module and flag system let the team build screens independently.</td></tr>
+        <tr><th><a href="concepts.html">Concepts explained simply</a></th><td>Plain explanations of the terms used across the console.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+</body>
+</html>

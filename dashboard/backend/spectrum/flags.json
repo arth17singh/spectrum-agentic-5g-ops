@@ -1,0 +1,5 @@
+{
+  "_comment": "Remote feature flags (AWS mode: served from AWS AppConfig). Keys override frontend defaults.",
+  "fl.he": true,
+  "demo.tamper": true
+}

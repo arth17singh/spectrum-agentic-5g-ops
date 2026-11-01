@@ -1,0 +1,28 @@
+# Dependencies and build output (recreate with `make install` / `make demo`)
+node_modules/
+.venv/
+dist/
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Local environment and credentials: never commit these
+.env
+.env.*
+!.env.example
+*.pem
+
+# Model weights and checkpoints belong in S3, not git
+*.safetensors
+*.gguf
+*.pt
+*.ckpt

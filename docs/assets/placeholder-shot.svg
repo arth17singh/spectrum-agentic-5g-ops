@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" width="1440" height="900" font-family="system-ui, sans-serif">
+  <rect width="1440" height="900" fill="#0f1216"/>
+  <rect width="1440" height="48" fill="#141920"/>
+  <rect x="16" y="14" width="120" height="20" rx="3" fill="#252d38"/>
+  <rect x="1180" y="14" width="244" height="20" rx="3" fill="#252d38"/>
+  <g transform="translate(0 48)">
+    <rect width="288" height="36" fill="#9085e9"/>
+    <rect x="288" width="288" height="36" fill="#c98500"/>
+    <rect x="576" width="288" height="36" fill="#3987e5"/>
+    <rect x="864" width="288" height="36" fill="#199e70"/>
+    <rect x="1152" width="288" height="36" fill="#d95926"/>
+  </g>
+  <rect x="0" y="84" width="64" height="816" fill="#141920"/>
+  <g fill="#252d38"><rect x="18" y="104" width="28" height="28" rx="4"/><rect x="18" y="148" width="28" height="28" rx="4"/><rect x="18" y="192" width="28" height="28" rx="4"/><rect x="18" y="236" width="28" height="28" rx="4"/></g>
+  <g fill="#141920" stroke="#252d38">
+    <rect x="80" y="100" width="880" height="420" rx="6"/>
+    <rect x="976" y="100" width="448" height="420" rx="6"/>
+    <rect x="80" y="536" width="432" height="348" rx="6"/>
+    <rect x="528" y="536" width="432" height="348" rx="6"/>
+    <rect x="976" y="536" width="448" height="348" rx="6"/>
+  </g>
+  <text x="720" y="320" fill="#6f7a87" font-size="28" text-anchor="middle">Placeholder screenshot</text>
+  <text x="720" y="358" fill="#6f7a87" font-size="18" text-anchor="middle">Replace with a real capture from docs/img/</text>
+</svg>

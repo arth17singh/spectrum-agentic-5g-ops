@@ -1,0 +1,7963 @@
+{
+ "viewport": {
+  "width": 1440,
+  "height": 900,
+  "deviceScaleFactor": 2,
+  "mobile": {
+   "width": 390,
+   "height": 844
+  },
+  "format": "jpeg",
+  "quality": 82,
+  "theme": "ops (dark) unless noted",
+  "note": "Panel boxes are percentages of each image (x,y = left,top; w,h = width,height). Full-height shots have a taller viewport, recorded per image. kind: shell | page | panel | section | toast."
+ },
+ "images": {
+  "screen-audit.jpg": {
+   "route": "/audit",
+   "viewport": {
+    "width": 1440,
+    "height": 2344,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Audit & Proof: signed ledger, anchors, provenance and tamper test (pre-demo, full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 2.05
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.58,
+     "w": 4.44,
+     "h": 95.05
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.63,
+     "w": 100,
+     "h": 1.37
+    },
+    {
+     "id": "page-header",
+     "title": "Audit & Proof",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 4.44,
+     "w": 92.22,
+     "h": 3.75
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 2.05,
+     "w": 100,
+     "h": 1.54
+    },
+    {
+     "id": "chain",
+     "title": "Hash chain",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 13.1,
+     "w": 92.22,
+     "h": 9.04
+    },
+    {
+     "id": "records",
+     "title": "Records",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 22.82,
+     "w": 53.33,
+     "h": 23.21
+    },
+    {
+     "id": "record",
+     "title": "Record #3,424",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 22.82,
+     "w": 37.78,
+     "h": 23.21
+    },
+    {
+     "id": "anchors",
+     "title": "Merkle anchors",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 46.72,
+     "w": 53.33,
+     "h": 19.37
+    },
+    {
+     "id": "proof",
+     "title": "Inclusion proof",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 46.72,
+     "w": 37.78,
+     "h": 19.37
+    },
+    {
+     "id": "provenance",
+     "title": "Provenance",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 66.77,
+     "w": 92.22,
+     "h": 22.74
+    },
+    {
+     "id": "tamper",
+     "title": "Tamper simulation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 90.19,
+     "w": 53.33,
+     "h": 7.08
+    },
+    {
+     "id": "dossier",
+     "title": "Incident dossier",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 90.19,
+     "w": 37.78,
+     "h": 7.08
+    }
+   ]
+  },
+  "screen-dossier.jpg": {
+   "route": "/dossier/INC-2040",
+   "viewport": {
+    "width": 1440,
+    "height": 2344,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Incident dossier for the pre-warmed prior incident INC-2040 (printable evidence pack)",
+   "panels": [
+    {
+     "id": "dossier-toolbar",
+     "title": "Dossier toolbar: ledger record and Print or save as PDF",
+     "kind": "section",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 2.09
+    },
+    {
+     "id": "dossier-header",
+     "title": "INC-2040: Cell outage s-11",
+     "kind": "section",
+     "lit": false,
+     "x": 25.42,
+     "y": 5.5,
+     "w": 49.17,
+     "h": 5.97
+    },
+    {
+     "id": "section-1",
+     "title": "Verification",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 12.16,
+     "w": 51.39,
+     "h": 8.28
+    },
+    {
+     "id": "section-2",
+     "title": "Merkle anchors covering this incident",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 20.52,
+     "w": 51.39,
+     "h": 7
+    },
+    {
+     "id": "section-3",
+     "title": "Human decisions",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 27.6,
+     "w": 51.39,
+     "h": 2.94
+    },
+    {
+     "id": "section-4",
+     "title": "Policies applied",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 30.63,
+     "w": 51.39,
+     "h": 5.46
+    },
+    {
+     "id": "section-5",
+     "title": "Models",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 36.18,
+     "w": 51.39,
+     "h": 2.94
+    },
+    {
+     "id": "section-6",
+     "title": "Timeline",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 39.21,
+     "w": 51.39,
+     "h": 57.38
+    }
+   ]
+  },
+  "screen-federation.jpg": {
+   "route": "/federation",
+   "viewport": {
+    "width": 1440,
+    "height": 2847,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Federation Center: federated fine-tuning across five operators (pre-demo, full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.69
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 2.95,
+     "w": 4.44,
+     "h": 95.93
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.88,
+     "w": 100,
+     "h": 1.12
+    },
+    {
+     "id": "page-header",
+     "title": "Federated fine-tuning",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 3.65,
+     "w": 92.22,
+     "h": 3.09
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 1.69,
+     "w": 100,
+     "h": 1.26
+    },
+    {
+     "id": "run",
+     "title": "fl-2026-10-31-a",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 6.74,
+     "w": 92.22,
+     "h": 4.99
+    },
+    {
+     "id": "round-timeline",
+     "title": "Round timeline",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 12.29,
+     "w": 53.33,
+     "h": 9.27
+    },
+    {
+     "id": "convergence",
+     "title": "Convergence",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 12.29,
+     "w": 37.78,
+     "h": 15.88
+    },
+    {
+     "id": "privacy",
+     "title": "Privacy budget",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 28.73,
+     "w": 37.78,
+     "h": 12.36
+    },
+    {
+     "id": "dp",
+     "title": "DP-SGD internals",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 28.73,
+     "w": 53.33,
+     "h": 15.45
+    },
+    {
+     "id": "secagg",
+     "title": "Secure aggregation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 44.75,
+     "w": 53.33,
+     "h": 13.91
+    },
+    {
+     "id": "update-norms",
+     "title": "Client update norms",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 44.75,
+     "w": 37.78,
+     "h": 11.17
+    },
+    {
+     "id": "fleet",
+     "title": "Client fleet",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 59.22,
+     "w": 92.22,
+     "h": 10.12
+    },
+    {
+     "id": "checkpoints",
+     "title": "Checkpoints",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 69.9,
+     "w": 53.33,
+     "h": 11.54
+    },
+    {
+     "id": "attestation",
+     "title": "Enclave attestation",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 69.9,
+     "w": 37.78,
+     "h": 9.13
+    },
+    {
+     "id": "sovereignty",
+     "title": "Data sovereignty",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 82,
+     "w": 53.33,
+     "h": 11.52
+    },
+    {
+     "id": "he",
+     "title": "Homomorphic encryption",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 82,
+     "w": 37.78,
+     "h": 13.14
+    },
+    {
+     "id": "fl-log",
+     "title": "Training log",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 95.7,
+     "w": 92.22,
+     "h": 2.04
+    }
+   ]
+  },
+  "screen-mission.jpg": {
+   "route": "/",
+   "viewport": {
+    "width": 1440,
+    "height": 1312,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Mission Control: one-screen summary of all five planes (pre-demo, full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 3.66
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 6.4,
+     "w": 4.44,
+     "h": 91.16
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 97.56,
+     "w": 100,
+     "h": 2.44
+    },
+    {
+     "id": "page-header",
+     "title": "Mission Control",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 7.93,
+     "w": 92.22,
+     "h": 6.71
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.66,
+     "w": 100,
+     "h": 2.74
+    },
+    {
+     "id": "health",
+     "title": "Network health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 14.63,
+     "w": 37.78,
+     "h": 22.56
+    },
+    {
+     "id": "consortium",
+     "title": "Consortium",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 14.63,
+     "w": 53.33,
+     "h": 33.16
+    },
+    {
+     "id": "tile-learn",
+     "title": "Plane tile: LearnRound12 of 30readyHighest ε2.59target 3, δ 1e-5Validation loss0.704accura",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 49.01,
+     "w": 17.56,
+     "h": 19.44
+    },
+    {
+     "id": "tile-verify",
+     "title": "Plane tile: VerifyIn productionnlm-v6accuracy 84%Candidatenoneawaiting checkpointSafety0.9",
+     "kind": "panel",
+     "lit": false,
+     "x": 24.78,
+     "y": 49.01,
+     "w": 17.56,
+     "h": 19.44
+    },
+    {
+     "id": "tile-release",
+     "title": "Plane tile: ReleaseServingnlm-v64 targets, 2 vendorsRolloutnonestableGuard p95449 mserrors",
+     "kind": "panel",
+     "lit": false,
+     "x": 43.44,
+     "y": 49.01,
+     "w": 17.56,
+     "h": 19.44
+    },
+    {
+     "id": "tile-operate",
+     "title": "Plane tile: OperateAgents46 activenone quarantinedIncidentnonelast MTTR 3m07sAutonomysite ",
+     "kind": "panel",
+     "lit": false,
+     "x": 62.11,
+     "y": 49.01,
+     "w": 17.56,
+     "h": 19.44
+    },
+    {
+     "id": "tile-prove",
+     "title": "Plane tile: ProveLedger#3,434every record signedChainnot yet verifiedrun verify in AuditLa",
+     "kind": "panel",
+     "lit": false,
+     "x": 80.78,
+     "y": 49.01,
+     "w": 17.56,
+     "h": 19.44
+    },
+    {
+     "id": "mini-twin",
+     "title": "Network twin",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 69.66,
+     "w": 53.33,
+     "h": 25.46
+    },
+    {
+     "id": "critical",
+     "title": "Needs attention",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 69.66,
+     "w": 37.78,
+     "h": 10.52
+    }
+   ]
+  },
+  "screen-mobile.jpg": {
+   "route": "/m/approve",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Phone approval page (/m/approve) at 390x844 with no pending requests",
+   "panels": [
+    {
+     "id": "mobile-header",
+     "title": "SPECTRUM wordmark and live status",
+     "kind": "section",
+     "lit": false,
+     "x": 4.1,
+     "y": 1.9,
+     "w": 91.79,
+     "h": 2.37
+    },
+    {
+     "id": "signing-as",
+     "title": "Signing as (choose the approver)",
+     "kind": "section",
+     "lit": false,
+     "x": 4.1,
+     "y": 6.16,
+     "w": 91.79,
+     "h": 4.98
+    },
+    {
+     "id": "page-header",
+     "title": "Nothing waiting",
+     "kind": "page",
+     "lit": false,
+     "x": 4.1,
+     "y": 13.51,
+     "w": 91.79,
+     "h": 3.32
+    }
+   ]
+  },
+  "screen-observability.jpg": {
+   "route": "/observability",
+   "viewport": {
+    "width": 1440,
+    "height": 2764,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Observability: plane health, traces, cost and logs (pre-demo, full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.74
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.04,
+     "w": 4.44,
+     "h": 95.8
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.84,
+     "w": 100,
+     "h": 1.16
+    },
+    {
+     "id": "page-header",
+     "title": "Observability",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 3.76,
+     "w": 92.22,
+     "h": 3.18
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 1.74,
+     "w": 100,
+     "h": 1.3
+    },
+    {
+     "id": "golden",
+     "title": "Golden signals",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 8.76,
+     "w": 92.22,
+     "h": 14.22
+    },
+    {
+     "id": "trace",
+     "title": "Trace",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 23.55,
+     "w": 92.22,
+     "h": 19.32
+    },
+    {
+     "id": "cost",
+     "title": "Tokens and cost",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 43.45,
+     "w": 92.22,
+     "h": 14.11
+    },
+    {
+     "id": "latency",
+     "title": "Latency",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 58.14,
+     "w": 92.22,
+     "h": 12.95
+    },
+    {
+     "id": "slo",
+     "title": "Service level objectives",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 71.67,
+     "w": 37.78,
+     "h": 13.26
+    },
+    {
+     "id": "infra",
+     "title": "Infrastructure",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 71.67,
+     "w": 53.33,
+     "h": 12.66
+    },
+    {
+     "id": "agent-health",
+     "title": "Agent health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 85.51,
+     "w": 92.22,
+     "h": 5.39
+    },
+    {
+     "id": "logs",
+     "title": "Log search",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 91.48,
+     "w": 92.22,
+     "h": 6.19
+    }
+   ]
+  },
+  "screen-oversight.jpg": {
+   "route": "/oversight",
+   "viewport": {
+    "width": 1440,
+    "height": 1292,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Oversight Desk: human approval queue and decision history (pre-demo, full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 3.72
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 6.5,
+     "w": 4.44,
+     "h": 91.02
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 97.52,
+     "w": 100,
+     "h": 2.48
+    },
+    {
+     "id": "page-header",
+     "title": "Oversight Desk",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 8.05,
+     "w": 92.22,
+     "h": 6.81
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.72,
+     "w": 100,
+     "h": 2.79
+    },
+    {
+     "id": "queue",
+     "title": "Queue",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 22.76,
+     "w": 30,
+     "h": 14.55
+    },
+    {
+     "id": "decision",
+     "title": "APR-316High risk",
+     "kind": "panel",
+     "lit": false,
+     "x": 37.22,
+     "y": 22.76,
+     "w": 61.11,
+     "h": 36.46
+    },
+    {
+     "id": "ladder",
+     "title": "Escalation ladder",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 60.45,
+     "w": 92.22,
+     "h": 14.09
+    },
+    {
+     "id": "history",
+     "title": "Decision history",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 75.77,
+     "w": 92.22,
+     "h": 19.27
+    }
+   ]
+  },
+  "screen-presenter.jpg": {
+   "route": "/presenter",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Presenter view (/presenter): speaker notes and beat timer for a second screen, pre-demo",
+   "panels": [
+    {
+     "id": "presenter-header",
+     "title": "Presenter bar: sim clock, 7:00 timer, drift vs plan, restart timer",
+     "kind": "section",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "beat-title",
+     "title": "Cold open is next",
+     "kind": "section",
+     "lit": false,
+     "x": 2.22,
+     "y": 11.11,
+     "w": 70.56,
+     "h": 5.11
+    },
+    {
+     "id": "say-this",
+     "title": "Say this (speaker note for the current beat)",
+     "kind": "section",
+     "lit": false,
+     "x": 2.22,
+     "y": 18.89,
+     "w": 33.58,
+     "h": 18.89
+    },
+    {
+     "id": "next-controls",
+     "title": "Next beat and Back/Next buttons",
+     "kind": "section",
+     "lit": false,
+     "x": 2.22,
+     "y": 78.44,
+     "w": 70.56,
+     "h": 18
+    },
+    {
+     "id": "beat-list",
+     "title": "Beat list (14 beats, click to jump)",
+     "kind": "section",
+     "lit": false,
+     "x": 75.07,
+     "y": 5.33,
+     "w": 24.93,
+     "h": 78.56
+    },
+    {
+     "id": "preflight",
+     "title": "Preflight checks",
+     "kind": "section",
+     "lit": false,
+     "x": 75.07,
+     "y": 83.89,
+     "w": 24.93,
+     "h": 16.11
+    }
+   ]
+  },
+  "screen-proving.jpg": {
+   "route": "/proving",
+   "viewport": {
+    "width": 1440,
+    "height": 2735,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Proving Ground: evaluation pipeline, scorecard and deploy gate (pre-demo, full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.76
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.07,
+     "w": 4.44,
+     "h": 95.76
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.83,
+     "w": 100,
+     "h": 1.17
+    },
+    {
+     "id": "page-header",
+     "title": "Proving Ground",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 3.8,
+     "w": 92.22,
+     "h": 3.22
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 1.76,
+     "w": 100,
+     "h": 1.32
+    },
+    {
+     "id": "pipeline",
+     "title": "Verification pipeline",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 7.02,
+     "w": 92.22,
+     "h": 6.22
+    },
+    {
+     "id": "scorecard",
+     "title": "Scorecard",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 13.82,
+     "w": 92.22,
+     "h": 6.58
+    },
+    {
+     "id": "pareto",
+     "title": "Pareto frontier",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 20.99,
+     "w": 37.78,
+     "h": 13.6
+    },
+    {
+     "id": "parallel",
+     "title": "Model comparison",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 20.99,
+     "w": 53.33,
+     "h": 13.09
+    },
+    {
+     "id": "tasks",
+     "title": "Task accuracy",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 35.17,
+     "w": 45.56,
+     "h": 12.8
+    },
+    {
+     "id": "redteam",
+     "title": "Safety red-team",
+     "kind": "panel",
+     "lit": false,
+     "x": 52.78,
+     "y": 35.17,
+     "w": 45.56,
+     "h": 13.53
+    },
+    {
+     "id": "latency",
+     "title": "Performance",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 49.29,
+     "w": 53.33,
+     "h": 12.36
+    },
+    {
+     "id": "fed-eval",
+     "title": "Federated evaluation",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 49.29,
+     "w": 37.78,
+     "h": 15.54
+    },
+    {
+     "id": "scaling",
+     "title": "NLM scaling",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 65.41,
+     "w": 37.78,
+     "h": 13.89
+    },
+    {
+     "id": "gate",
+     "title": "Deploy gate",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 65.41,
+     "w": 53.33,
+     "h": 15.8
+    },
+    {
+     "id": "aibom",
+     "title": "AI-BOM",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 81.79,
+     "w": 92.22,
+     "h": 15.87
+    }
+   ]
+  },
+  "screen-release.jpg": {
+   "route": "/release",
+   "viewport": {
+    "width": 1440,
+    "height": 1567,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Release Center: shadow, canary and full rollout across targets (pre-demo, full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 3.06
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.36,
+     "w": 4.44,
+     "h": 92.6
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 97.96,
+     "w": 100,
+     "h": 2.04
+    },
+    {
+     "id": "page-header",
+     "title": "Release Center",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 6.64,
+     "w": 92.22,
+     "h": 5.62
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.06,
+     "w": 100,
+     "h": 2.3
+    },
+    {
+     "id": "rollout",
+     "title": "Rollout",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 12.25,
+     "w": 92.22,
+     "h": 13.91
+    },
+    {
+     "id": "targets",
+     "title": "Deployment targets",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 27.19,
+     "w": 92.22,
+     "h": 18.32
+    },
+    {
+     "id": "agreement",
+     "title": "Shadow agreement",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 46.52,
+     "w": 53.33,
+     "h": 12.38
+    },
+    {
+     "id": "disagreements",
+     "title": "Where they disagree",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 46.52,
+     "w": 37.78,
+     "h": 11.68
+    },
+    {
+     "id": "timeline",
+     "title": "Version history",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 59.92,
+     "w": 37.78,
+     "h": 15.95
+    },
+    {
+     "id": "manifest",
+     "title": "Deployment manifest",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 59.92,
+     "w": 53.33,
+     "h": 19.66
+    },
+    {
+     "id": "dialects",
+     "title": "Vendor dialect check",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 80.6,
+     "w": 92.22,
+     "h": 15.32
+    }
+   ]
+  },
+  "screen-settings.jpg": {
+   "route": "/settings",
+   "viewport": {
+    "width": 1440,
+    "height": 2402,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Settings & feature flags (pre-demo, full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 2
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.5,
+     "w": 4.44,
+     "h": 95.17
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.67,
+     "w": 100,
+     "h": 1.33
+    },
+    {
+     "id": "page-header",
+     "title": "Settings & feature flags",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 4.33,
+     "w": 92.22,
+     "h": 3.66
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 2,
+     "w": 100,
+     "h": 1.5
+    },
+    {
+     "id": "flags",
+     "title": "Feature flags",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 7.99,
+     "w": 92.22,
+     "h": 42.55
+    },
+    {
+     "id": "modules",
+     "title": "Registered feature modules",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 51.21,
+     "w": 53.33,
+     "h": 29.64
+    },
+    {
+     "id": "add-feature",
+     "title": "Adding or removing a screen",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 51.21,
+     "w": 37.78,
+     "h": 16.24
+    },
+    {
+     "id": "datasource",
+     "title": "Data source",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 81.52,
+     "w": 30,
+     "h": 15.82
+    },
+    {
+     "id": "simulation",
+     "title": "Simulation",
+     "kind": "panel",
+     "lit": false,
+     "x": 37.22,
+     "y": 81.52,
+     "w": 30,
+     "h": 10.57
+    },
+    {
+     "id": "display",
+     "title": "Display",
+     "kind": "panel",
+     "lit": false,
+     "x": 68.33,
+     "y": 81.52,
+     "w": 30,
+     "h": 13.28
+    }
+   ]
+  },
+  "screen-swarm.jpg": {
+   "route": "/swarm",
+   "viewport": {
+    "width": 1440,
+    "height": 2082,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Swarm Tower: network twin, agent swarm and A2A messages (pre-demo, full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 2.31
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 4.03,
+     "w": 4.44,
+     "h": 94.43
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.46,
+     "w": 100,
+     "h": 1.54
+    },
+    {
+     "id": "page-header",
+     "title": "Swarm Tower",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 5,
+     "w": 92.22,
+     "h": 6.15
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 2.31,
+     "w": 100,
+     "h": 1.73
+    },
+    {
+     "id": "twin",
+     "title": "Network twin",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 16.23,
+     "w": 37.78,
+     "h": 23.1
+    },
+    {
+     "id": "swarm",
+     "title": "Swarm",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 16.23,
+     "w": 30,
+     "h": 27.09
+    },
+    {
+     "id": "incident",
+     "title": "Incident",
+     "kind": "panel",
+     "lit": false,
+     "x": 76.11,
+     "y": 16.23,
+     "w": 22.22,
+     "h": 17.34
+    },
+    {
+     "id": "negotiation",
+     "title": "Negotiation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 44.09,
+     "w": 37.78,
+     "h": 9.32
+    },
+    {
+     "id": "plan",
+     "title": "Plan and pre-flight",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 44.09,
+     "w": 53.33,
+     "h": 9.32
+    },
+    {
+     "id": "messages",
+     "title": "Agent-to-agent messages",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 54.18,
+     "w": 61.11,
+     "h": 19.31
+    },
+    {
+     "id": "breakers",
+     "title": "Circuit breakers",
+     "kind": "panel",
+     "lit": false,
+     "x": 68.33,
+     "y": 54.18,
+     "w": 30,
+     "h": 13.74
+    },
+    {
+     "id": "roster",
+     "title": "Agent roster",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 74.26,
+     "w": 61.11,
+     "h": 22.19
+    },
+    {
+     "id": "autonomy",
+     "title": "Autonomy",
+     "kind": "panel",
+     "lit": false,
+     "x": 68.33,
+     "y": 74.26,
+     "w": 30,
+     "h": 22.67
+    }
+   ]
+  },
+  "screen-trust.jpg": {
+   "route": "/trust",
+   "viewport": {
+    "width": 1440,
+    "height": 2242,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Trust Center: identities, policies and policy test bench (pre-demo, full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 2.14
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.75,
+     "w": 4.44,
+     "h": 94.83
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.57,
+     "w": 100,
+     "h": 1.43
+    },
+    {
+     "id": "page-header",
+     "title": "Trust Center",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 4.64,
+     "w": 92.22,
+     "h": 3.93
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 2.14,
+     "w": 100,
+     "h": 1.61
+    },
+    {
+     "id": "policy",
+     "title": "Policy store",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 13.56,
+     "w": 92.22,
+     "h": 21.94
+    },
+    {
+     "id": "decisions",
+     "title": "Policy decisions",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 36.22,
+     "w": 53.33,
+     "h": 29.62
+    },
+    {
+     "id": "denied",
+     "title": "Top denied",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 36.22,
+     "w": 37.78,
+     "h": 8.65
+    },
+    {
+     "id": "delegation",
+     "title": "Delegation-chain checks",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 45.58,
+     "w": 37.78,
+     "h": 11.86
+    },
+    {
+     "id": "identities",
+     "title": "Agent identities",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 66.55,
+     "w": 53.33,
+     "h": 18.82
+    },
+    {
+     "id": "guardrails",
+     "title": "Guardrails",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 66.55,
+     "w": 37.78,
+     "h": 6.96
+    },
+    {
+     "id": "attestation-chain",
+     "title": "Enclave attestation chain",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 86.08,
+     "w": 92.22,
+     "h": 11.06
+    }
+   ]
+  },
+  "shell-director.jpg": {
+   "route": "/",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Demo Director open on the Script tab over Mission Control",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "director",
+     "title": "Demo Director",
+     "kind": "shell",
+     "lit": false,
+     "x": 5.56,
+     "y": 37.78,
+     "w": 23.61,
+     "h": 45.33
+    },
+    {
+     "id": "page-header",
+     "title": "Mission Control",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "health",
+     "title": "Network health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 21.33,
+     "w": 37.78,
+     "h": 32.89
+    },
+    {
+     "id": "consortium",
+     "title": "Consortium",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 21.33,
+     "w": 53.33,
+     "h": 48.33
+    },
+    {
+     "id": "tile-learn",
+     "title": "Plane tile: LearnRound12 of 30readyHighest ε2.59target 3, δ 1e-5Validation loss0.704accura",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-verify",
+     "title": "Plane tile: VerifyIn productionnlm-v6accuracy 84%Candidatenoneawaiting checkpointSafety0.9",
+     "kind": "panel",
+     "lit": false,
+     "x": 24.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-release",
+     "title": "Plane tile: ReleaseServingnlm-v64 targets, 2 vendorsRolloutnonestableGuard p95481 mserrors",
+     "kind": "panel",
+     "lit": false,
+     "x": 43.44,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-operate",
+     "title": "Plane tile: OperateAgents46 activenone quarantinedIncidentnonelast MTTR 3m07sAutonomysite ",
+     "kind": "panel",
+     "lit": false,
+     "x": 62.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-prove",
+     "title": "Plane tile: ProveLedger#3,468every record signedChainverified3,460 records checkedLast anc",
+     "kind": "panel",
+     "lit": false,
+     "x": 80.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    }
+   ]
+  },
+  "shell-help.jpg": {
+   "route": "/",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Keyboard shortcuts overlay (?)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "help",
+     "title": "Keyboard shortcuts",
+     "kind": "shell",
+     "lit": false,
+     "x": 30.56,
+     "y": 23.22,
+     "w": 38.89,
+     "h": 53.56
+    },
+    {
+     "id": "page-header",
+     "title": "Mission Control",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "health",
+     "title": "Network health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 21.33,
+     "w": 37.78,
+     "h": 32.89
+    },
+    {
+     "id": "consortium",
+     "title": "Consortium",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 21.33,
+     "w": 53.33,
+     "h": 48.33
+    },
+    {
+     "id": "tile-learn",
+     "title": "Plane tile: LearnRound12 of 30readyHighest ε2.59target 3, δ 1e-5Validation loss0.704accura",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-verify",
+     "title": "Plane tile: VerifyIn productionnlm-v6accuracy 84%Candidatenoneawaiting checkpointSafety0.9",
+     "kind": "panel",
+     "lit": false,
+     "x": 24.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-release",
+     "title": "Plane tile: ReleaseServingnlm-v64 targets, 2 vendorsRolloutnonestableGuard p95483 mserrors",
+     "kind": "panel",
+     "lit": false,
+     "x": 43.44,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-operate",
+     "title": "Plane tile: OperateAgents46 activenone quarantinedIncidentnonelast MTTR 3m07sAutonomysite ",
+     "kind": "panel",
+     "lit": false,
+     "x": 62.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-prove",
+     "title": "Plane tile: ProveLedger#3,478every record signedChainverified3,468 records checkedLast anc",
+     "kind": "panel",
+     "lit": false,
+     "x": 80.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    }
+   ]
+  },
+  "shell-inspector.jpg": {
+   "route": "/audit",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Inspector drawer open on a ledger record from Audit & Proof",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "inspector",
+     "title": "Ledger record3456",
+     "kind": "shell",
+     "lit": false,
+     "x": 69.44,
+     "y": 9.33,
+     "w": 30.56,
+     "h": 87.11
+    },
+    {
+     "id": "page-header",
+     "title": "Audit & Proof",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "chain",
+     "title": "Hash chain",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 34.11,
+     "w": 92.22,
+     "h": 23.56
+    },
+    {
+     "id": "records",
+     "title": "Records",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 59.44,
+     "w": 53.33,
+     "h": 40.56
+    },
+    {
+     "id": "record",
+     "title": "Record #3,456",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 59.44,
+     "w": 37.78,
+     "h": 40.56
+    }
+   ]
+  },
+  "shell-palette.jpg": {
+   "route": "/",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Command palette (Ctrl/Cmd+K) open over Mission Control",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "palette",
+     "title": "Command palette",
+     "kind": "shell",
+     "lit": false,
+     "x": 28.47,
+     "y": 12,
+     "w": 43.06,
+     "h": 57.67
+    },
+    {
+     "id": "page-header",
+     "title": "Mission Control",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "health",
+     "title": "Network health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 21.33,
+     "w": 37.78,
+     "h": 32.89
+    },
+    {
+     "id": "consortium",
+     "title": "Consortium",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 21.33,
+     "w": 53.33,
+     "h": 48.33
+    },
+    {
+     "id": "tile-learn",
+     "title": "Plane tile: LearnRound12 of 30readyHighest ε2.59target 3, δ 1e-5Validation loss0.704accura",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-verify",
+     "title": "Plane tile: VerifyIn productionnlm-v6accuracy 84%Candidatenoneawaiting checkpointSafety0.9",
+     "kind": "panel",
+     "lit": false,
+     "x": 24.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-release",
+     "title": "Plane tile: ReleaseServingnlm-v64 targets, 2 vendorsRolloutnonestableGuard p95467 mserrors",
+     "kind": "panel",
+     "lit": false,
+     "x": 43.44,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-operate",
+     "title": "Plane tile: OperateAgents46 activenone quarantinedIncidentnonelast MTTR 3m07sAutonomysite ",
+     "kind": "panel",
+     "lit": false,
+     "x": 62.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-prove",
+     "title": "Plane tile: ProveLedger#3,471every record signedChainverified3,468 records checkedLast anc",
+     "kind": "panel",
+     "lit": false,
+     "x": 80.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    }
+   ]
+  },
+  "shell-preflight.jpg": {
+   "route": "/",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Demo Director on the Preflight tab: checks for backend reachable, WebSocket live, ledger verified clean, scenario reset (beat 0), fonts loaded, theme chosen, approval phones connected, plus a QR code for the phone approval page",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "director",
+     "title": "Demo Director",
+     "kind": "shell",
+     "lit": false,
+     "x": 5.56,
+     "y": 37.78,
+     "w": 23.61,
+     "h": 49.44
+    },
+    {
+     "id": "page-header",
+     "title": "Mission Control",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "health",
+     "title": "Network health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 21.33,
+     "w": 37.78,
+     "h": 32.89
+    },
+    {
+     "id": "consortium",
+     "title": "Consortium",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 21.33,
+     "w": 53.33,
+     "h": 48.33
+    },
+    {
+     "id": "tile-learn",
+     "title": "Plane tile: LearnRound12 of 30readyHighest ε2.59target 3, δ 1e-5Validation loss0.704accura",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-verify",
+     "title": "Plane tile: VerifyIn productionnlm-v6accuracy 84%Candidatenoneawaiting checkpointSafety0.9",
+     "kind": "panel",
+     "lit": false,
+     "x": 24.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-release",
+     "title": "Plane tile: ReleaseServingnlm-v64 targets, 2 vendorsRolloutnonestableGuard p95450 mserrors",
+     "kind": "panel",
+     "lit": false,
+     "x": 43.44,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-operate",
+     "title": "Plane tile: OperateAgents46 activenone quarantinedIncidentnonelast MTTR 3m07sAutonomysite ",
+     "kind": "panel",
+     "lit": false,
+     "x": 62.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-prove",
+     "title": "Plane tile: ProveLedger#3,470every record signedChainverified3,460 records checkedLast anc",
+     "kind": "panel",
+     "lit": false,
+     "x": 80.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    }
+   ]
+  },
+  "shell-projector.jpg": {
+   "route": "/",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Mission Control in the light Projector theme (T)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "page-header",
+     "title": "Mission Control",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "health",
+     "title": "Network health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 21.33,
+     "w": 37.78,
+     "h": 32.89
+    },
+    {
+     "id": "consortium",
+     "title": "Consortium",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 21.33,
+     "w": 53.33,
+     "h": 48.33
+    },
+    {
+     "id": "tile-learn",
+     "title": "Plane tile: LearnRound12 of 30readyHighest ε2.59target 3, δ 1e-5Validation loss0.704accura",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-verify",
+     "title": "Plane tile: VerifyIn productionnlm-v6accuracy 84%Candidatenoneawaiting checkpointSafety0.9",
+     "kind": "panel",
+     "lit": false,
+     "x": 24.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-release",
+     "title": "Plane tile: ReleaseServingnlm-v64 targets, 2 vendorsRolloutnonestableGuard p95480 mserrors",
+     "kind": "panel",
+     "lit": false,
+     "x": 43.44,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-operate",
+     "title": "Plane tile: OperateAgents46 activenone quarantinedIncidentnonelast MTTR 3m07sAutonomysite ",
+     "kind": "panel",
+     "lit": false,
+     "x": 62.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-prove",
+     "title": "Plane tile: ProveLedger#3,479every record signedChainverified3,468 records checkedLast anc",
+     "kind": "panel",
+     "lit": false,
+     "x": 80.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    }
+   ]
+  },
+  "shell-rail.jpg": {
+   "route": "/",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Screens rail expanded on hover, showing every screen name",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 15.28,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "page-header",
+     "title": "Mission Control",
+     "kind": "page",
+     "lit": false,
+     "x": 16.94,
+     "y": 11.56,
+     "w": 81.39,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "health",
+     "title": "Network health",
+     "kind": "panel",
+     "lit": false,
+     "x": 16.94,
+     "y": 21.33,
+     "w": 33.26,
+     "h": 32.89
+    },
+    {
+     "id": "consortium",
+     "title": "Consortium",
+     "kind": "panel",
+     "lit": false,
+     "x": 51.32,
+     "y": 21.33,
+     "w": 47.01,
+     "h": 48.33
+    },
+    {
+     "id": "tile-learn",
+     "title": "Plane tile: LearnRound12 of 30readyHighest ε2.59target 3, δ 1e-5Validation loss0.704accura",
+     "kind": "panel",
+     "lit": false,
+     "x": 16.94,
+     "y": 71.44,
+     "w": 15.39,
+     "h": 28.33
+    },
+    {
+     "id": "tile-verify",
+     "title": "Plane tile: VerifyIn productionnlm-v6accuracy 84%Candidatenoneawaiting checkpointSafety0.9",
+     "kind": "panel",
+     "lit": false,
+     "x": 33.44,
+     "y": 71.44,
+     "w": 15.39,
+     "h": 28.33
+    },
+    {
+     "id": "tile-release",
+     "title": "Plane tile: ReleaseServingnlm-v64 targets, 2 vendorsRolloutnonestableGuard p95488 mserrors",
+     "kind": "panel",
+     "lit": false,
+     "x": 49.94,
+     "y": 71.44,
+     "w": 15.39,
+     "h": 28.33
+    },
+    {
+     "id": "tile-operate",
+     "title": "Plane tile: OperateAgents46 activenone quarantinedIncidentnonelast MTTR 3m07sAutonomysite ",
+     "kind": "panel",
+     "lit": false,
+     "x": 66.44,
+     "y": 71.44,
+     "w": 15.39,
+     "h": 28.33
+    },
+    {
+     "id": "tile-prove",
+     "title": "Plane tile: ProveLedger#3,481every record signedChainverified3,468 records checkedLast anc",
+     "kind": "panel",
+     "lit": false,
+     "x": 82.94,
+     "y": 71.44,
+     "w": 15.39,
+     "h": 28.33
+    }
+   ]
+  },
+  "shell-spotlight.jpg": {
+   "route": "/",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 1",
+   "beat": 1,
+   "description": "Spotlight active during beat 1 (ribbon and consortium lit, rest dimmed) with the Demo Director showing the beat note",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "director",
+     "title": "Demo Director",
+     "kind": "shell",
+     "lit": false,
+     "x": 5.56,
+     "y": 37.78,
+     "w": 23.61,
+     "h": 54.11
+    },
+    {
+     "id": "page-header",
+     "title": "Mission Control",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": true,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "health",
+     "title": "Network health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 21.33,
+     "w": 37.78,
+     "h": 32.89
+    },
+    {
+     "id": "consortium",
+     "title": "Consortium",
+     "kind": "panel",
+     "lit": true,
+     "x": 45,
+     "y": 21.33,
+     "w": 53.33,
+     "h": 48.33
+    },
+    {
+     "id": "tile-learn",
+     "title": "Plane tile: LearnRound12 of 30readyHighest ε2.59target 3, δ 1e-5Validation loss0.704accura",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-verify",
+     "title": "Plane tile: VerifyIn productionnlm-v6accuracy 84%Candidatenoneawaiting checkpointSafety0.9",
+     "kind": "panel",
+     "lit": false,
+     "x": 24.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-release",
+     "title": "Plane tile: ReleaseServingnlm-v64 targets, 2 vendorsRolloutnonestableGuard p95486 mserrors",
+     "kind": "panel",
+     "lit": false,
+     "x": 43.44,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-operate",
+     "title": "Plane tile: OperateAgents46 activenone quarantinedIncidentnonelast MTTR 3m07sAutonomysite ",
+     "kind": "panel",
+     "lit": false,
+     "x": 62.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-prove",
+     "title": "Plane tile: ProveLedger#3,436every record signedChainnot yet verifiedrun verify in AuditLa",
+     "kind": "panel",
+     "lit": false,
+     "x": 80.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    }
+   ]
+  },
+  "shell-stream.jpg": {
+   "route": "/",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "pre-demo",
+   "beat": null,
+   "description": "Live stream drawer open (L) at the bottom of Mission Control",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 59.56
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 68.89,
+     "w": 100,
+     "h": 31.11
+    },
+    {
+     "id": "page-header",
+     "title": "Mission Control",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "health",
+     "title": "Network health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 21.33,
+     "w": 37.78,
+     "h": 32.89
+    },
+    {
+     "id": "consortium",
+     "title": "Consortium",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 21.33,
+     "w": 53.33,
+     "h": 48.33
+    },
+    {
+     "id": "tile-learn",
+     "title": "Plane tile: LearnRound12 of 30readyHighest ε2.59target 3, δ 1e-5Validation loss0.704accura",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-verify",
+     "title": "Plane tile: VerifyIn productionnlm-v6accuracy 84%Candidatenoneawaiting checkpointSafety0.9",
+     "kind": "panel",
+     "lit": false,
+     "x": 24.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-release",
+     "title": "Plane tile: ReleaseServingnlm-v64 targets, 2 vendorsRolloutnonestableGuard p95463 mserrors",
+     "kind": "panel",
+     "lit": false,
+     "x": 43.44,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-operate",
+     "title": "Plane tile: OperateAgents46 activenone quarantinedIncidentnonelast MTTR 3m07sAutonomysite ",
+     "kind": "panel",
+     "lit": false,
+     "x": 62.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-prove",
+     "title": "Plane tile: ProveLedger#3,475every record signedChainverified3,468 records checkedLast anc",
+     "kind": "panel",
+     "lit": false,
+     "x": 80.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    }
+   ]
+  },
+  "beat-01-full.jpg": {
+   "route": "/",
+   "viewport": {
+    "width": 1440,
+    "height": 1312,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 1",
+   "beat": 1,
+   "beatTitle": "Cold open",
+   "description": "Cold open: Mission Control with the lifecycle ribbon and consortium panel spotlit (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 3.66
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 6.4,
+     "w": 4.44,
+     "h": 91.16
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 97.56,
+     "w": 100,
+     "h": 2.44
+    },
+    {
+     "id": "page-header",
+     "title": "Mission Control",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 7.93,
+     "w": 92.22,
+     "h": 6.71
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": true,
+     "x": 0,
+     "y": 3.66,
+     "w": 100,
+     "h": 2.74
+    },
+    {
+     "id": "health",
+     "title": "Network health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 14.63,
+     "w": 37.78,
+     "h": 22.56
+    },
+    {
+     "id": "consortium",
+     "title": "Consortium",
+     "kind": "panel",
+     "lit": true,
+     "x": 45,
+     "y": 14.63,
+     "w": 53.33,
+     "h": 33.16
+    },
+    {
+     "id": "tile-learn",
+     "title": "Plane tile: LearnRound12 of 30readyHighest ε2.59target 3, δ 1e-5Validation loss0.704accura",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 49.01,
+     "w": 17.56,
+     "h": 19.44
+    },
+    {
+     "id": "tile-verify",
+     "title": "Plane tile: VerifyIn productionnlm-v6accuracy 84%Candidatenoneawaiting checkpointSafety0.9",
+     "kind": "panel",
+     "lit": false,
+     "x": 24.78,
+     "y": 49.01,
+     "w": 17.56,
+     "h": 19.44
+    },
+    {
+     "id": "tile-release",
+     "title": "Plane tile: ReleaseServingnlm-v64 targets, 2 vendorsRolloutnonestableGuard p95485 mserrors",
+     "kind": "panel",
+     "lit": false,
+     "x": 43.44,
+     "y": 49.01,
+     "w": 17.56,
+     "h": 19.44
+    },
+    {
+     "id": "tile-operate",
+     "title": "Plane tile: OperateAgents46 activenone quarantinedIncidentnonelast MTTR 3m07sAutonomysite ",
+     "kind": "panel",
+     "lit": false,
+     "x": 62.11,
+     "y": 49.01,
+     "w": 17.56,
+     "h": 19.44
+    },
+    {
+     "id": "tile-prove",
+     "title": "Plane tile: ProveLedger#3,435every record signedChainnot yet verifiedrun verify in AuditLa",
+     "kind": "panel",
+     "lit": false,
+     "x": 80.78,
+     "y": 49.01,
+     "w": 17.56,
+     "h": 19.44
+    },
+    {
+     "id": "mini-twin",
+     "title": "Network twin",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 69.66,
+     "w": 53.33,
+     "h": 25.46
+    },
+    {
+     "id": "critical",
+     "title": "Needs attention",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 69.66,
+     "w": 37.78,
+     "h": 10.52
+    }
+   ]
+  },
+  "beat-01.jpg": {
+   "route": "/",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 1",
+   "beat": 1,
+   "beatTitle": "Cold open",
+   "description": "Cold open: Mission Control with the lifecycle ribbon and consortium panel spotlit",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "page-header",
+     "title": "Mission Control",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": true,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "health",
+     "title": "Network health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 21.33,
+     "w": 37.78,
+     "h": 32.89
+    },
+    {
+     "id": "consortium",
+     "title": "Consortium",
+     "kind": "panel",
+     "lit": true,
+     "x": 45,
+     "y": 21.33,
+     "w": 53.33,
+     "h": 48.33
+    },
+    {
+     "id": "tile-learn",
+     "title": "Plane tile: LearnRound12 of 30readyHighest ε2.59target 3, δ 1e-5Validation loss0.704accura",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-verify",
+     "title": "Plane tile: VerifyIn productionnlm-v6accuracy 84%Candidatenoneawaiting checkpointSafety0.9",
+     "kind": "panel",
+     "lit": false,
+     "x": 24.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-release",
+     "title": "Plane tile: ReleaseServingnlm-v64 targets, 2 vendorsRolloutnonestableGuard p95475 mserrors",
+     "kind": "panel",
+     "lit": false,
+     "x": 43.44,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-operate",
+     "title": "Plane tile: OperateAgents46 activenone quarantinedIncidentnonelast MTTR 3m07sAutonomysite ",
+     "kind": "panel",
+     "lit": false,
+     "x": 62.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-prove",
+     "title": "Plane tile: ProveLedger#3,435every record signedChainnot yet verifiedrun verify in AuditLa",
+     "kind": "panel",
+     "lit": false,
+     "x": 80.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    }
+   ]
+  },
+  "beat-02-full.jpg": {
+   "route": "/federation",
+   "viewport": {
+    "width": 1440,
+    "height": 2907,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 2",
+   "beat": 2,
+   "beatTitle": "Federated round, live",
+   "description": "Federated round 13 training live: round timeline, privacy budget and convergence spotlit (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.62
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 2.86,
+     "w": 4.44,
+     "h": 96.01
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.86,
+     "w": 100,
+     "h": 1.1
+    },
+    {
+     "id": "page-header",
+     "title": "Federated fine-tuning",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 3.54,
+     "w": 92.22,
+     "h": 3.03
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 1.62,
+     "w": 100,
+     "h": 1.24
+    },
+    {
+     "id": "run",
+     "title": "fl-2026-10-31-a",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 6.57,
+     "w": 92.22,
+     "h": 4.88
+    },
+    {
+     "id": "round-timeline",
+     "title": "Round timeline",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 12.01,
+     "w": 53.33,
+     "h": 9.08
+    },
+    {
+     "id": "convergence",
+     "title": "Convergence",
+     "kind": "panel",
+     "lit": true,
+     "x": 60.56,
+     "y": 12.01,
+     "w": 37.78,
+     "h": 15.55
+    },
+    {
+     "id": "privacy",
+     "title": "Privacy budget",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 28.1,
+     "w": 37.78,
+     "h": 12.11
+    },
+    {
+     "id": "dp",
+     "title": "DP-SGD internals",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 28.1,
+     "w": 53.33,
+     "h": 15.14
+    },
+    {
+     "id": "secagg",
+     "title": "Secure aggregation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 43.79,
+     "w": 53.33,
+     "h": 13.62
+    },
+    {
+     "id": "update-norms",
+     "title": "Client update norms",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 43.79,
+     "w": 37.78,
+     "h": 10.94
+    },
+    {
+     "id": "fleet",
+     "title": "Client fleet",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 57.96,
+     "w": 92.22,
+     "h": 9.91
+    },
+    {
+     "id": "checkpoints",
+     "title": "Checkpoints",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 68.42,
+     "w": 53.33,
+     "h": 11.3
+    },
+    {
+     "id": "attestation",
+     "title": "Enclave attestation",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 68.42,
+     "w": 37.78,
+     "h": 8.94
+    },
+    {
+     "id": "sovereignty",
+     "title": "Data sovereignty",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 80.27,
+     "w": 53.33,
+     "h": 11.28
+    },
+    {
+     "id": "he",
+     "title": "Homomorphic encryption",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 80.27,
+     "w": 37.78,
+     "h": 12.87
+    },
+    {
+     "id": "fl-log",
+     "title": "Training log",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 93.69,
+     "w": 92.22,
+     "h": 4.06
+    }
+   ]
+  },
+  "beat-02.jpg": {
+   "route": "/federation",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 2",
+   "beat": 2,
+   "beatTitle": "Federated round, live",
+   "description": "Federated round 13 training live: round timeline, privacy budget and convergence spotlit",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.22
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.22,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.33,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "page-header",
+     "title": "Federated fine-tuning",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 10.78,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.22,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "run",
+     "title": "fl-2026-10-31-a",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 20.56,
+     "w": 92.22,
+     "h": 15.78
+    },
+    {
+     "id": "round-timeline",
+     "title": "Round timeline",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 38.11,
+     "w": 53.33,
+     "h": 29.33
+    },
+    {
+     "id": "convergence",
+     "title": "Convergence",
+     "kind": "panel",
+     "lit": true,
+     "x": 60.56,
+     "y": 38.11,
+     "w": 37.78,
+     "h": 50.22
+    },
+    {
+     "id": "privacy",
+     "title": "Privacy budget",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 90.11,
+     "w": 37.78,
+     "h": 9.89
+    },
+    {
+     "id": "dp",
+     "title": "DP-SGD internals",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 90.11,
+     "w": 53.33,
+     "h": 9.89
+    }
+   ]
+  },
+  "beat-03-full.jpg": {
+   "route": "/federation",
+   "viewport": {
+    "width": 1440,
+    "height": 2907,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 3",
+   "beat": 3,
+   "beatTitle": "What the aggregator sees",
+   "description": "Secure aggregation reveal: what the aggregator sees from each operator (masked noise) (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.62
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 2.86,
+     "w": 4.44,
+     "h": 96.01
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.86,
+     "w": 100,
+     "h": 1.1
+    },
+    {
+     "id": "page-header",
+     "title": "Federated fine-tuning",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 3.54,
+     "w": 92.22,
+     "h": 3.03
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 1.62,
+     "w": 100,
+     "h": 1.24
+    },
+    {
+     "id": "run",
+     "title": "fl-2026-10-31-a",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 6.57,
+     "w": 92.22,
+     "h": 4.88
+    },
+    {
+     "id": "round-timeline",
+     "title": "Round timeline",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 12.01,
+     "w": 53.33,
+     "h": 9.08
+    },
+    {
+     "id": "convergence",
+     "title": "Convergence",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 12.01,
+     "w": 37.78,
+     "h": 15.55
+    },
+    {
+     "id": "privacy",
+     "title": "Privacy budget",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 28.1,
+     "w": 37.78,
+     "h": 12.11
+    },
+    {
+     "id": "dp",
+     "title": "DP-SGD internals",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 28.1,
+     "w": 53.33,
+     "h": 15.14
+    },
+    {
+     "id": "secagg",
+     "title": "Secure aggregation",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 43.79,
+     "w": 53.33,
+     "h": 13.62
+    },
+    {
+     "id": "update-norms",
+     "title": "Client update norms",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 43.79,
+     "w": 37.78,
+     "h": 10.94
+    },
+    {
+     "id": "fleet",
+     "title": "Client fleet",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 57.96,
+     "w": 92.22,
+     "h": 10.46
+    },
+    {
+     "id": "checkpoints",
+     "title": "Checkpoints",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 68.97,
+     "w": 53.33,
+     "h": 11.3
+    },
+    {
+     "id": "attestation",
+     "title": "Enclave attestation",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 68.97,
+     "w": 37.78,
+     "h": 8.94
+    },
+    {
+     "id": "sovereignty",
+     "title": "Data sovereignty",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 80.82,
+     "w": 53.33,
+     "h": 11.28
+    },
+    {
+     "id": "he",
+     "title": "Homomorphic encryption",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 80.82,
+     "w": 37.78,
+     "h": 12.87
+    },
+    {
+     "id": "fl-log",
+     "title": "Training log",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 94.24,
+     "w": 92.22,
+     "h": 4.06
+    }
+   ]
+  },
+  "beat-03.jpg": {
+   "route": "/federation",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 3",
+   "beat": 3,
+   "beatTitle": "What the aggregator sees",
+   "description": "Secure aggregation reveal: what the aggregator sees from each operator (masked noise)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.22
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.22,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.33,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.22,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "privacy",
+     "title": "Privacy budget",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 0,
+     "w": 37.78,
+     "h": 19.22
+    },
+    {
+     "id": "dp",
+     "title": "DP-SGD internals",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 0,
+     "w": 53.33,
+     "h": 29
+    },
+    {
+     "id": "secagg",
+     "title": "Secure aggregation",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 30.78,
+     "w": 53.33,
+     "h": 44
+    },
+    {
+     "id": "update-norms",
+     "title": "Client update norms",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 30.78,
+     "w": 37.78,
+     "h": 35.33
+    },
+    {
+     "id": "fleet",
+     "title": "Client fleet",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 76.56,
+     "w": 92.22,
+     "h": 23.44
+    }
+   ]
+  },
+  "beat-04-armed.jpg": {
+   "route": "/federation",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 4",
+   "beat": 4,
+   "description": "Operator E flagged as compromised right after beat 4; the poisoned update has not been aggregated yet",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.22
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.22,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.33,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.22,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "privacy",
+     "title": "Privacy budget",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 0,
+     "w": 37.78,
+     "h": 23.56
+    },
+    {
+     "id": "dp",
+     "title": "DP-SGD internals",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 0,
+     "w": 53.33,
+     "h": 33.33
+    },
+    {
+     "id": "secagg",
+     "title": "Secure aggregation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 35.11,
+     "w": 53.33,
+     "h": 44
+    },
+    {
+     "id": "update-norms",
+     "title": "Client update norms",
+     "kind": "panel",
+     "lit": true,
+     "x": 60.56,
+     "y": 35.11,
+     "w": 37.78,
+     "h": 35.33
+    },
+    {
+     "id": "fleet",
+     "title": "Client fleet",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 80.89,
+     "w": 92.22,
+     "h": 19.11
+    }
+   ]
+  },
+  "beat-04-full.jpg": {
+   "route": "/federation",
+   "viewport": {
+    "width": 1440,
+    "height": 3051,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 4",
+   "beat": 4,
+   "beatTitle": "Poisoned update",
+   "description": "Poisoned update from Operator E rejected by robust aggregation (Op-E round 13: update norm 14.2× median, rejected by robust aggregation in the enclave) (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.54
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 2.72,
+     "w": 4.44,
+     "h": 96.2
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.92,
+     "w": 100,
+     "h": 1.05
+    },
+    {
+     "id": "toast-1",
+     "title": "Op-E round 13: update norm 14.2× median, rejected by robust aggregation in the enclaveInsp",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 96.66,
+     "w": 26.39,
+     "h": 1.77
+    },
+    {
+     "id": "toast-2",
+     "title": "Op-E at 90% of privacy budget (ε 2.70 of 3.0)Open",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 95.15,
+     "w": 26.39,
+     "h": 1.25
+    },
+    {
+     "id": "page-header",
+     "title": "Federated fine-tuning",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 3.38,
+     "w": 92.22,
+     "h": 2.88
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 1.54,
+     "w": 100,
+     "h": 1.18
+    },
+    {
+     "id": "run",
+     "title": "fl-2026-10-31-a",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 6.26,
+     "w": 92.22,
+     "h": 4.65
+    },
+    {
+     "id": "round-timeline",
+     "title": "Round timeline",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.44,
+     "w": 53.33,
+     "h": 8.65
+    },
+    {
+     "id": "convergence",
+     "title": "Convergence",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 11.44,
+     "w": 37.78,
+     "h": 14.81
+    },
+    {
+     "id": "privacy",
+     "title": "Privacy budget",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 26.78,
+     "w": 37.78,
+     "h": 11.54
+    },
+    {
+     "id": "dp",
+     "title": "DP-SGD internals",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 26.78,
+     "w": 53.33,
+     "h": 14.42
+    },
+    {
+     "id": "secagg",
+     "title": "Secure aggregation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 41.72,
+     "w": 53.33,
+     "h": 12.98
+    },
+    {
+     "id": "update-norms",
+     "title": "Client update norms",
+     "kind": "panel",
+     "lit": true,
+     "x": 60.56,
+     "y": 41.72,
+     "w": 37.78,
+     "h": 12.32
+    },
+    {
+     "id": "fleet",
+     "title": "Client fleet",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 55.23,
+     "w": 92.22,
+     "h": 9.44
+    },
+    {
+     "id": "checkpoints",
+     "title": "Checkpoints",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 65.19,
+     "w": 53.33,
+     "h": 10.77
+    },
+    {
+     "id": "attestation",
+     "title": "Enclave attestation",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 65.19,
+     "w": 37.78,
+     "h": 8.52
+    },
+    {
+     "id": "sovereignty",
+     "title": "Data sovereignty",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 76.48,
+     "w": 53.33,
+     "h": 10.75
+    },
+    {
+     "id": "he",
+     "title": "Homomorphic encryption",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 76.48,
+     "w": 37.78,
+     "h": 12.26
+    },
+    {
+     "id": "fl-log",
+     "title": "Training log",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 89.27,
+     "w": 92.22,
+     "h": 8.59
+    }
+   ]
+  },
+  "beat-04.jpg": {
+   "route": "/federation",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 4",
+   "beat": 4,
+   "beatTitle": "Poisoned update",
+   "description": "Poisoned update from Operator E rejected by robust aggregation (Op-E round 13: update norm 14.2× median, rejected by robust aggregation in the enclave)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.22
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.22,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.33,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "toast-1",
+     "title": "Op-E round 13: update norm 14.2× median, rejected by robust aggregation in the enclaveInsp",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 88.67,
+     "w": 26.39,
+     "h": 6
+    },
+    {
+     "id": "toast-2",
+     "title": "Op-E at 90% of privacy budget (ε 2.70 of 3.0)Open",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 83.56,
+     "w": 26.39,
+     "h": 4.22
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.22,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "privacy",
+     "title": "Privacy budget",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 0,
+     "w": 37.78,
+     "h": 23.56
+    },
+    {
+     "id": "dp",
+     "title": "DP-SGD internals",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 0,
+     "w": 53.33,
+     "h": 33.33
+    },
+    {
+     "id": "secagg",
+     "title": "Secure aggregation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 35.11,
+     "w": 53.33,
+     "h": 44
+    },
+    {
+     "id": "update-norms",
+     "title": "Client update norms",
+     "kind": "panel",
+     "lit": true,
+     "x": 60.56,
+     "y": 35.11,
+     "w": 37.78,
+     "h": 41.78
+    },
+    {
+     "id": "fleet",
+     "title": "Client fleet",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 80.89,
+     "w": 92.22,
+     "h": 19.11
+    }
+   ]
+  },
+  "beat-05-full.jpg": {
+   "route": "/proving",
+   "viewport": {
+    "width": 1440,
+    "height": 2786,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 5",
+   "beat": 5,
+   "beatTitle": "Proving Ground gate",
+   "description": "Proving Ground gate result: nlm-v7 gate PASS: eligible for shadow (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.72
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.02,
+     "w": 4.44,
+     "h": 95.84
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.85,
+     "w": 100,
+     "h": 1.15
+    },
+    {
+     "id": "toast-1",
+     "title": "nlm-v7 gate PASS: eligible for shadowOpen",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 96.91,
+     "w": 26.39,
+     "h": 1.36
+    },
+    {
+     "id": "page-header",
+     "title": "Proving Ground",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 3.73,
+     "w": 92.22,
+     "h": 3.16
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 1.72,
+     "w": 100,
+     "h": 1.29
+    },
+    {
+     "id": "pipeline",
+     "title": "Verification pipeline",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 6.89,
+     "w": 92.22,
+     "h": 6.89
+    },
+    {
+     "id": "scorecard",
+     "title": "Scorecard",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 14.36,
+     "w": 92.22,
+     "h": 6.46
+    },
+    {
+     "id": "pareto",
+     "title": "Pareto frontier",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 21.39,
+     "w": 37.78,
+     "h": 13.35
+    },
+    {
+     "id": "parallel",
+     "title": "Model comparison",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 21.39,
+     "w": 53.33,
+     "h": 12.85
+    },
+    {
+     "id": "tasks",
+     "title": "Task accuracy",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 35.32,
+     "w": 45.56,
+     "h": 13.5
+    },
+    {
+     "id": "redteam",
+     "title": "Safety red-team",
+     "kind": "panel",
+     "lit": false,
+     "x": 52.78,
+     "y": 35.32,
+     "w": 45.56,
+     "h": 16.73
+    },
+    {
+     "id": "latency",
+     "title": "Performance",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 52.62,
+     "w": 53.33,
+     "h": 12.85
+    },
+    {
+     "id": "fed-eval",
+     "title": "Federated evaluation",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 52.62,
+     "w": 37.78,
+     "h": 9.73
+    },
+    {
+     "id": "scaling",
+     "title": "NLM scaling",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 66.04,
+     "w": 37.78,
+     "h": 13.64
+    },
+    {
+     "id": "gate",
+     "title": "Deploy gate",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 66.04,
+     "w": 53.33,
+     "h": 15.51
+    },
+    {
+     "id": "aibom",
+     "title": "AI-BOM",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 82.12,
+     "w": 92.22,
+     "h": 15.58
+    }
+   ]
+  },
+  "beat-05-running.jpg": {
+   "route": "/proving",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 5",
+   "beat": 5,
+   "description": "Proving Ground pipeline mid-run on the new checkpoint",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "page-header",
+     "title": "Proving Ground",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "pipeline",
+     "title": "Verification pipeline",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 21.33,
+     "w": 92.22,
+     "h": 20.67
+    },
+    {
+     "id": "scorecard",
+     "title": "Scorecard",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 43.78,
+     "w": 92.22,
+     "h": 20
+    },
+    {
+     "id": "pareto",
+     "title": "Pareto frontier",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 65.56,
+     "w": 37.78,
+     "h": 34.44
+    },
+    {
+     "id": "parallel",
+     "title": "Model comparison",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 65.56,
+     "w": 53.33,
+     "h": 34.44
+    }
+   ]
+  },
+  "beat-05.jpg": {
+   "route": "/proving",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 5",
+   "beat": 5,
+   "beatTitle": "Proving Ground gate",
+   "description": "Proving Ground gate result: nlm-v7 gate PASS: eligible for shadow",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "toast-1",
+     "title": "nlm-v7 gate PASS: eligible for shadowOpen",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 90.44,
+     "w": 26.39,
+     "h": 4.22
+    },
+    {
+     "id": "page-header",
+     "title": "Proving Ground",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "pipeline",
+     "title": "Verification pipeline",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 21.33,
+     "w": 92.22,
+     "h": 21.33
+    },
+    {
+     "id": "scorecard",
+     "title": "Scorecard",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 44.44,
+     "w": 92.22,
+     "h": 20
+    },
+    {
+     "id": "pareto",
+     "title": "Pareto frontier",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 66.22,
+     "w": 37.78,
+     "h": 33.78
+    },
+    {
+     "id": "parallel",
+     "title": "Model comparison",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 66.22,
+     "w": 53.33,
+     "h": 33.78
+    }
+   ]
+  },
+  "beat-06-full.jpg": {
+   "route": "/release",
+   "viewport": {
+    "width": 1440,
+    "height": 1685,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 6",
+   "beat": 6,
+   "beatTitle": "Shadow, then canary",
+   "description": "Release: candidate in shadow then 10% canary across four targets with guard metrics (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 2.85
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 4.99,
+     "w": 4.44,
+     "h": 93.12
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.1,
+     "w": 100,
+     "h": 1.9
+    },
+    {
+     "id": "page-header",
+     "title": "Release Center",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 6.17,
+     "w": 92.22,
+     "h": 5.22
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 2.85,
+     "w": 100,
+     "h": 2.14
+    },
+    {
+     "id": "rollout",
+     "title": "Rollout",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 11.39,
+     "w": 92.22,
+     "h": 10.8
+    },
+    {
+     "id": "targets",
+     "title": "Deployment targets",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 23.15,
+     "w": 92.22,
+     "h": 17.03
+    },
+    {
+     "id": "agreement",
+     "title": "Shadow agreement",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 41.13,
+     "w": 53.33,
+     "h": 18.87
+    },
+    {
+     "id": "disagreements",
+     "title": "Where they disagree",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 41.13,
+     "w": 37.78,
+     "h": 13.41
+    },
+    {
+     "id": "timeline",
+     "title": "Version history",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 60.95,
+     "w": 37.78,
+     "h": 20.06
+    },
+    {
+     "id": "manifest",
+     "title": "Deployment manifest",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 60.95,
+     "w": 53.33,
+     "h": 18.28
+    },
+    {
+     "id": "dialects",
+     "title": "Vendor dialect check",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 81.96,
+     "w": 92.22,
+     "h": 14.24
+    }
+   ]
+  },
+  "beat-06.jpg": {
+   "route": "/release",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 6",
+   "beat": 6,
+   "beatTitle": "Shadow, then canary",
+   "description": "Release: candidate in shadow then 10% canary across four targets with guard metrics",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "page-header",
+     "title": "Release Center",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "rollout",
+     "title": "Rollout",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 21.33,
+     "w": 92.22,
+     "h": 20.22
+    },
+    {
+     "id": "targets",
+     "title": "Deployment targets",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 43.33,
+     "w": 92.22,
+     "h": 31.89
+    },
+    {
+     "id": "agreement",
+     "title": "Shadow agreement",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 77,
+     "w": 53.33,
+     "h": 23
+    },
+    {
+     "id": "disagreements",
+     "title": "Where they disagree",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 77,
+     "w": 37.78,
+     "h": 23
+    }
+   ]
+  },
+  "beat-07-full.jpg": {
+   "route": "/swarm",
+   "viewport": {
+    "width": 1440,
+    "height": 2082,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 7",
+   "beat": 7,
+   "beatTitle": "Incident hits",
+   "description": "Incident INC-2041 (fibre cut T3 during stadium let-out) opened: twin shows the cut and the swarm waking up (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 2.26
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.99,
+     "w": 4.44,
+     "h": 94.43
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.41,
+     "w": 100,
+     "h": 1.54
+    },
+    {
+     "id": "toast-1",
+     "title": "INC-2041 opened: fibre cut T3 during stadium let-outOpen",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 95.1,
+     "w": 26.39,
+     "h": 2.59
+    },
+    {
+     "id": "page-header",
+     "title": "Swarm Tower",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 4.95,
+     "w": 92.22,
+     "h": 6.15
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 2.26,
+     "w": 100,
+     "h": 1.73
+    },
+    {
+     "id": "twin",
+     "title": "Network twin",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 16.19,
+     "w": 37.78,
+     "h": 25.02
+    },
+    {
+     "id": "swarm",
+     "title": "Swarm",
+     "kind": "panel",
+     "lit": true,
+     "x": 45,
+     "y": 16.19,
+     "w": 30,
+     "h": 27.09
+    },
+    {
+     "id": "incident",
+     "title": "Incident",
+     "kind": "panel",
+     "lit": false,
+     "x": 76.11,
+     "y": 16.19,
+     "w": 22.22,
+     "h": 26.18
+    },
+    {
+     "id": "negotiation",
+     "title": "Negotiation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 44.04,
+     "w": 37.78,
+     "h": 9.32
+    },
+    {
+     "id": "plan",
+     "title": "Plan and pre-flight",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 44.04,
+     "w": 53.33,
+     "h": 9.32
+    },
+    {
+     "id": "messages",
+     "title": "Agent-to-agent messages",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 54.13,
+     "w": 61.11,
+     "h": 19.31
+    },
+    {
+     "id": "breakers",
+     "title": "Circuit breakers",
+     "kind": "panel",
+     "lit": false,
+     "x": 68.33,
+     "y": 54.13,
+     "w": 30,
+     "h": 13.74
+    },
+    {
+     "id": "roster",
+     "title": "Agent roster",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 74.21,
+     "w": 61.11,
+     "h": 22.19
+    },
+    {
+     "id": "autonomy",
+     "title": "Autonomy",
+     "kind": "panel",
+     "lit": false,
+     "x": 68.33,
+     "y": 74.21,
+     "w": 30,
+     "h": 22.67
+    }
+   ]
+  },
+  "beat-07.jpg": {
+   "route": "/swarm",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 7",
+   "beat": 7,
+   "beatTitle": "Incident hits",
+   "description": "Incident INC-2041 (fibre cut T3 during stadium let-out) opened: twin shows the cut and the swarm waking up",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.22
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.22,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.33,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "toast-1",
+     "title": "INC-2041 opened: fibre cut T3 during stadium let-outOpen",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 88.67,
+     "w": 26.39,
+     "h": 6
+    },
+    {
+     "id": "page-header",
+     "title": "Swarm Tower",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 0,
+     "w": 92.22,
+     "h": 12
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.22,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "twin",
+     "title": "Network twin",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 23.78,
+     "w": 37.78,
+     "h": 57.89
+    },
+    {
+     "id": "swarm",
+     "title": "Swarm",
+     "kind": "panel",
+     "lit": true,
+     "x": 45,
+     "y": 23.78,
+     "w": 30,
+     "h": 62.67
+    },
+    {
+     "id": "incident",
+     "title": "Incident",
+     "kind": "panel",
+     "lit": false,
+     "x": 76.11,
+     "y": 23.78,
+     "w": 22.22,
+     "h": 60.56
+    },
+    {
+     "id": "negotiation",
+     "title": "Negotiation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 88.22,
+     "w": 37.78,
+     "h": 11.78
+    },
+    {
+     "id": "plan",
+     "title": "Plan and pre-flight",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 88.22,
+     "w": 53.33,
+     "h": 11.78
+    }
+   ]
+  },
+  "beat-08-full.jpg": {
+   "route": "/swarm",
+   "viewport": {
+    "width": 1440,
+    "height": 2398,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 8",
+   "beat": 8,
+   "beatTitle": "Agents negotiate",
+   "description": "Agents negotiate: Energy vs Experience, coordinator compromise and twin pre-flight prediction (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.96
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.46,
+     "w": 4.44,
+     "h": 95.16
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.62,
+     "w": 100,
+     "h": 1.33
+    },
+    {
+     "id": "toast-1",
+     "title": "APR-317 needs a human: Wake 3 cells, boost 6, load-balance stadium (12.5% of cells)Review",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 95.75,
+     "w": 26.39,
+     "h": 2.25
+    },
+    {
+     "id": "page-header",
+     "title": "Swarm Tower",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 4.3,
+     "w": 92.22,
+     "h": 5.34
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 1.96,
+     "w": 100,
+     "h": 1.5
+    },
+    {
+     "id": "twin",
+     "title": "Network twin",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 14.05,
+     "w": 37.78,
+     "h": 21.73
+    },
+    {
+     "id": "swarm",
+     "title": "Swarm",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 14.05,
+     "w": 30,
+     "h": 23.52
+    },
+    {
+     "id": "incident",
+     "title": "Incident",
+     "kind": "panel",
+     "lit": false,
+     "x": 76.11,
+     "y": 14.05,
+     "w": 22.22,
+     "h": 22.73
+    },
+    {
+     "id": "negotiation",
+     "title": "Negotiation",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 38.24,
+     "w": 37.78,
+     "h": 21.27
+    },
+    {
+     "id": "plan",
+     "title": "Plan and pre-flight",
+     "kind": "panel",
+     "lit": true,
+     "x": 45,
+     "y": 38.24,
+     "w": 53.33,
+     "h": 16.51
+    },
+    {
+     "id": "messages",
+     "title": "Agent-to-agent messages",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 60.18,
+     "w": 61.11,
+     "h": 16.76
+    },
+    {
+     "id": "breakers",
+     "title": "Circuit breakers",
+     "kind": "panel",
+     "lit": false,
+     "x": 68.33,
+     "y": 60.18,
+     "w": 30,
+     "h": 11.93
+    },
+    {
+     "id": "roster",
+     "title": "Agent roster",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 77.61,
+     "w": 61.11,
+     "h": 19.27
+    },
+    {
+     "id": "autonomy",
+     "title": "Autonomy",
+     "kind": "panel",
+     "lit": false,
+     "x": 68.33,
+     "y": 77.61,
+     "w": 30,
+     "h": 19.68
+    }
+   ]
+  },
+  "beat-08.jpg": {
+   "route": "/swarm",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 8",
+   "beat": 8,
+   "beatTitle": "Agents negotiate",
+   "description": "Agents negotiate: Energy vs Experience, coordinator compromise and twin pre-flight prediction",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.22
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.22,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.33,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "toast-1",
+     "title": "APR-317 needs a human: Wake 3 cells, boost 6, load-balance stadium (12.5% of cells)Review",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 88.67,
+     "w": 26.39,
+     "h": 6
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.22,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "twin",
+     "title": "Network twin",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 0,
+     "w": 37.78,
+     "h": 26.11
+    },
+    {
+     "id": "swarm",
+     "title": "Swarm",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 0,
+     "w": 30,
+     "h": 30.89
+    },
+    {
+     "id": "incident",
+     "title": "Incident",
+     "kind": "panel",
+     "lit": false,
+     "x": 76.11,
+     "y": 0,
+     "w": 22.22,
+     "h": 28.78
+    },
+    {
+     "id": "negotiation",
+     "title": "Negotiation",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 32.67,
+     "w": 37.78,
+     "h": 56.67
+    },
+    {
+     "id": "plan",
+     "title": "Plan and pre-flight",
+     "kind": "panel",
+     "lit": true,
+     "x": 45,
+     "y": 32.67,
+     "w": 53.33,
+     "h": 44
+    },
+    {
+     "id": "messages",
+     "title": "Agent-to-agent messages",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 91.11,
+     "w": 61.11,
+     "h": 8.89
+    },
+    {
+     "id": "breakers",
+     "title": "Circuit breakers",
+     "kind": "panel",
+     "lit": false,
+     "x": 68.33,
+     "y": 91.11,
+     "w": 30,
+     "h": 8.89
+    }
+   ]
+  },
+  "beat-09-approved.jpg": {
+   "route": "/oversight",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 9",
+   "beat": 9,
+   "description": "Oversight Desk right after the phone approval: decision recorded and signed",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.22
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.22,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.33,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "page-header",
+     "title": "Oversight Desk",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.44,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.22,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "queue",
+     "title": "Queue",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 32.56,
+     "w": 30,
+     "h": 20.89
+    },
+    {
+     "id": "decision",
+     "title": "APR-317High risk",
+     "kind": "panel",
+     "lit": true,
+     "x": 37.22,
+     "y": 32.56,
+     "w": 61.11,
+     "h": 67.44
+    }
+   ]
+  },
+  "beat-09-full.jpg": {
+   "route": "/oversight",
+   "viewport": {
+    "width": 1440,
+    "height": 1602,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 9",
+   "beat": 9,
+   "beatTitle": "Human approval",
+   "description": "Human approval: APR-317 Wake 3 cells, boost 6, load-balance stadium (12.5% of cells) pending on the Oversight Desk (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 2.93
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.18,
+     "w": 4.44,
+     "h": 92.76
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 97.94,
+     "w": 100,
+     "h": 2
+    },
+    {
+     "id": "page-header",
+     "title": "Oversight Desk",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 6.43,
+     "w": 92.22,
+     "h": 5.49
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 2.93,
+     "w": 100,
+     "h": 2.25
+    },
+    {
+     "id": "queue",
+     "title": "Queue",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 18.29,
+     "w": 30,
+     "h": 12.05
+    },
+    {
+     "id": "decision",
+     "title": "APR-317High risk",
+     "kind": "panel",
+     "lit": true,
+     "x": 37.22,
+     "y": 18.29,
+     "w": 61.11,
+     "h": 48.75
+    },
+    {
+     "id": "ladder",
+     "title": "Escalation ladder",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 68.04,
+     "w": 92.22,
+     "h": 11.36
+    },
+    {
+     "id": "history",
+     "title": "Decision history",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 80.4,
+     "w": 92.22,
+     "h": 15.54
+    }
+   ]
+  },
+  "beat-09-mobile-signed.jpg": {
+   "route": "/m/approve",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 9 approval",
+   "beat": 9,
+   "description": "Phone page right after tapping Approve: decision signed by J. Okafor on mobile",
+   "panels": [
+    {
+     "id": "mobile-header",
+     "title": "SPECTRUM wordmark and live status",
+     "kind": "section",
+     "lit": false,
+     "x": 4.1,
+     "y": 1.9,
+     "w": 91.79,
+     "h": 2.37
+    },
+    {
+     "id": "signing-as",
+     "title": "Signing as (choose the approver)",
+     "kind": "section",
+     "lit": false,
+     "x": 4.1,
+     "y": 6.16,
+     "w": 91.79,
+     "h": 4.98
+    },
+    {
+     "id": "card-1",
+     "title": "Signed from a phone",
+     "kind": "section",
+     "lit": false,
+     "x": 4.1,
+     "y": 26.78,
+     "w": 91.79,
+     "h": 6.87
+    },
+    {
+     "id": "page-header",
+     "title": "Nothing waiting",
+     "kind": "page",
+     "lit": false,
+     "x": 4.1,
+     "y": 13.51,
+     "w": 91.79,
+     "h": 3.32
+    }
+   ]
+  },
+  "beat-09-mobile.jpg": {
+   "route": "/m/approve",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 9",
+   "beat": 9,
+   "description": "Phone approval page showing the pending incident approval card",
+   "panels": [
+    {
+     "id": "mobile-header",
+     "title": "SPECTRUM wordmark and live status",
+     "kind": "section",
+     "lit": false,
+     "x": 4.1,
+     "y": 1.9,
+     "w": 91.79,
+     "h": 2.37
+    },
+    {
+     "id": "signing-as",
+     "title": "Signing as (choose the approver)",
+     "kind": "section",
+     "lit": false,
+     "x": 4.1,
+     "y": 6.16,
+     "w": 91.79,
+     "h": 4.98
+    },
+    {
+     "id": "card-1",
+     "title": "Wake 3 cells, boost 6, load-balance stadium (12.5% of cells)",
+     "kind": "section",
+     "lit": false,
+     "x": 4.1,
+     "y": 18.25,
+     "w": 91.79,
+     "h": 65.88
+    },
+    {
+     "id": "page-header",
+     "title": "1 decision waiting",
+     "kind": "page",
+     "lit": false,
+     "x": 4.1,
+     "y": 13.51,
+     "w": 91.79,
+     "h": 3.32
+    }
+   ]
+  },
+  "beat-09-resolved.jpg": {
+   "route": "/swarm",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 9",
+   "beat": 9,
+   "description": "Swarm Tower after the approved plan executed: INC-2041 resolved in 0m33s, field tech dispatched to T3 (spotlight cleared with Esc)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.22
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.22,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.33,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "page-header",
+     "title": "Swarm Tower",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.44,
+     "w": 92.22,
+     "h": 14.22
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.22,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "twin",
+     "title": "Network twin",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 37.44,
+     "w": 37.78,
+     "h": 57.89
+    },
+    {
+     "id": "swarm",
+     "title": "Swarm",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 37.44,
+     "w": 30,
+     "h": 62.56
+    },
+    {
+     "id": "incident",
+     "title": "Incident",
+     "kind": "panel",
+     "lit": false,
+     "x": 76.11,
+     "y": 37.44,
+     "w": 22.22,
+     "h": 60.56
+    }
+   ]
+  },
+  "beat-09.jpg": {
+   "route": "/oversight",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 9",
+   "beat": 9,
+   "beatTitle": "Human approval",
+   "description": "Human approval: APR-317 Wake 3 cells, boost 6, load-balance stadium (12.5% of cells) pending on the Oversight Desk",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.22
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.22,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.33,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.22,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "queue",
+     "title": "Queue",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 9.22,
+     "w": 30,
+     "h": 21.44
+    },
+    {
+     "id": "decision",
+     "title": "APR-317High risk",
+     "kind": "panel",
+     "lit": true,
+     "x": 37.22,
+     "y": 9.22,
+     "w": 61.11,
+     "h": 86.78
+    },
+    {
+     "id": "ladder",
+     "title": "Escalation ladder",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 97.78,
+     "w": 92.22,
+     "h": 2.22
+    }
+   ]
+  },
+  "beat-10-foureyes.jpg": {
+   "route": "/oversight",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 10",
+   "beat": 10,
+   "description": "Oversight Desk: four-eyes request to release site-17 from quarantine (needs two approvers) (spotlight cleared with Esc)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.22
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.22,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.33,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "page-header",
+     "title": "Oversight Desk",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.44,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.22,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "queue",
+     "title": "Queue",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 32.56,
+     "w": 30,
+     "h": 21.44
+    },
+    {
+     "id": "decision",
+     "title": "APR-318Critical, four-eyes",
+     "kind": "panel",
+     "lit": false,
+     "x": 37.22,
+     "y": 32.56,
+     "w": 61.11,
+     "h": 66.22
+    }
+   ]
+  },
+  "beat-10-full.jpg": {
+   "route": "/swarm",
+   "viewport": {
+    "width": 1440,
+    "height": 2398,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 10",
+   "beat": 10,
+   "beatTitle": "Prompt-injection attack",
+   "description": "Prompt-injection attack: site-17 fooled by a syslog line, blocked by policy, messages rejected and quarantined (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.96
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.46,
+     "w": 4.44,
+     "h": 95.16
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.62,
+     "w": 100,
+     "h": 1.33
+    },
+    {
+     "id": "toast-1",
+     "title": "prompt attack blocked from site-17Inspect",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 96.41,
+     "w": 26.39,
+     "h": 1.58
+    },
+    {
+     "id": "toast-2",
+     "title": "Quarantined site-17: authority mismatch in A2A messages + prompt attackInspect",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 93.83,
+     "w": 26.39,
+     "h": 2.25
+    },
+    {
+     "id": "toast-3",
+     "title": "APR-318 needs a human: Release site-17 from quarantineReview",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 91.24,
+     "w": 26.39,
+     "h": 2.25
+    },
+    {
+     "id": "page-header",
+     "title": "Swarm Tower",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 4.3,
+     "w": 92.22,
+     "h": 5.34
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 1.96,
+     "w": 100,
+     "h": 1.5
+    },
+    {
+     "id": "twin",
+     "title": "Network twin",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 14.05,
+     "w": 37.78,
+     "h": 21.73
+    },
+    {
+     "id": "swarm",
+     "title": "Swarm",
+     "kind": "panel",
+     "lit": true,
+     "x": 45,
+     "y": 14.05,
+     "w": 30,
+     "h": 23.52
+    },
+    {
+     "id": "incident",
+     "title": "Incident",
+     "kind": "panel",
+     "lit": false,
+     "x": 76.11,
+     "y": 14.05,
+     "w": 22.22,
+     "h": 22.73
+    },
+    {
+     "id": "negotiation",
+     "title": "Negotiation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 38.24,
+     "w": 37.78,
+     "h": 21.27
+    },
+    {
+     "id": "plan",
+     "title": "Plan and pre-flight",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 38.24,
+     "w": 53.33,
+     "h": 15.85
+    },
+    {
+     "id": "messages",
+     "title": "Agent-to-agent messages",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 60.18,
+     "w": 61.11,
+     "h": 16.76
+    },
+    {
+     "id": "breakers",
+     "title": "Circuit breakers",
+     "kind": "panel",
+     "lit": false,
+     "x": 68.33,
+     "y": 60.18,
+     "w": 30,
+     "h": 11.93
+    },
+    {
+     "id": "roster",
+     "title": "Agent roster",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 77.61,
+     "w": 61.11,
+     "h": 19.27
+    },
+    {
+     "id": "autonomy",
+     "title": "Autonomy",
+     "kind": "panel",
+     "lit": false,
+     "x": 68.33,
+     "y": 77.61,
+     "w": 30,
+     "h": 19.68
+    }
+   ]
+  },
+  "beat-10-trust.jpg": {
+   "route": "/trust",
+   "viewport": {
+    "width": 1440,
+    "height": 2242,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 10",
+   "beat": 10,
+   "description": "Trust Center after the attack: denied decisions and the revoked identity (full height, spotlight cleared with Esc)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 2.1
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.7,
+     "w": 4.44,
+     "h": 94.83
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.53,
+     "w": 100,
+     "h": 1.43
+    },
+    {
+     "id": "page-header",
+     "title": "Trust Center",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 4.59,
+     "w": 92.22,
+     "h": 3.93
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 2.1,
+     "w": 100,
+     "h": 1.61
+    },
+    {
+     "id": "policy",
+     "title": "Policy store",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 13.51,
+     "w": 92.22,
+     "h": 21.94
+    },
+    {
+     "id": "decisions",
+     "title": "Policy decisions",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 36.17,
+     "w": 53.33,
+     "h": 29.62
+    },
+    {
+     "id": "denied",
+     "title": "Top denied",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 36.17,
+     "w": 37.78,
+     "h": 5.08
+    },
+    {
+     "id": "delegation",
+     "title": "Delegation-chain checks",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 41.97,
+     "w": 37.78,
+     "h": 6.87
+    },
+    {
+     "id": "identities",
+     "title": "Agent identities",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 66.5,
+     "w": 53.33,
+     "h": 18.82
+    },
+    {
+     "id": "guardrails",
+     "title": "Guardrails",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 66.5,
+     "w": 37.78,
+     "h": 16.95
+    },
+    {
+     "id": "attestation-chain",
+     "title": "Enclave attestation chain",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 86.04,
+     "w": 92.22,
+     "h": 11.06
+    }
+   ]
+  },
+  "beat-10.jpg": {
+   "route": "/swarm",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 10",
+   "beat": 10,
+   "beatTitle": "Prompt-injection attack",
+   "description": "Prompt-injection attack: site-17 fooled by a syslog line, blocked by policy, messages rejected and quarantined",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.22
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.22,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.33,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "toast-1",
+     "title": "prompt attack blocked from site-17Inspect",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 90.44,
+     "w": 26.39,
+     "h": 4.22
+    },
+    {
+     "id": "toast-2",
+     "title": "Quarantined site-17: authority mismatch in A2A messages + prompt attackInspect",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 83.56,
+     "w": 26.39,
+     "h": 6
+    },
+    {
+     "id": "toast-3",
+     "title": "APR-318 needs a human: Release site-17 from quarantineReview",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 76.67,
+     "w": 26.39,
+     "h": 6
+    },
+    {
+     "id": "page-header",
+     "title": "Swarm Tower",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 0,
+     "w": 92.22,
+     "h": 9.67
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.22,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "twin",
+     "title": "Network twin",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 21.44,
+     "w": 37.78,
+     "h": 57.89
+    },
+    {
+     "id": "swarm",
+     "title": "Swarm",
+     "kind": "panel",
+     "lit": true,
+     "x": 45,
+     "y": 21.44,
+     "w": 30,
+     "h": 62.67
+    },
+    {
+     "id": "incident",
+     "title": "Incident",
+     "kind": "panel",
+     "lit": false,
+     "x": 76.11,
+     "y": 21.44,
+     "w": 22.22,
+     "h": 60.56
+    },
+    {
+     "id": "negotiation",
+     "title": "Negotiation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 85.89,
+     "w": 37.78,
+     "h": 14.11
+    },
+    {
+     "id": "plan",
+     "title": "Plan and pre-flight",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 85.89,
+     "w": 53.33,
+     "h": 14.11
+    }
+   ]
+  },
+  "beat-11-full.jpg": {
+   "route": "/audit",
+   "viewport": {
+    "width": 1440,
+    "height": 2360,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 11",
+   "beat": 11,
+   "beatTitle": "Provenance",
+   "description": "Provenance graph: from the latest executed action (load_balance) back through policy decision, approver, agents, model nlm-v7, AI-BOM, deploy gate, checkpoint and federated round (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.99
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.52,
+     "w": 4.44,
+     "h": 95.08
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.6,
+     "w": 100,
+     "h": 1.36
+    },
+    {
+     "id": "page-header",
+     "title": "Audit & Proof",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 4.36,
+     "w": 92.22,
+     "h": 3.73
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 1.99,
+     "w": 100,
+     "h": 1.53
+    },
+    {
+     "id": "chain",
+     "title": "Hash chain",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 12.97,
+     "w": 92.22,
+     "h": 8.98
+    },
+    {
+     "id": "records",
+     "title": "Records",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 22.63,
+     "w": 53.33,
+     "h": 23.05
+    },
+    {
+     "id": "record",
+     "title": "Record #3,520",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 22.63,
+     "w": 37.78,
+     "h": 23.05
+    },
+    {
+     "id": "anchors",
+     "title": "Merkle anchors",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 46.36,
+     "w": 53.33,
+     "h": 19.24
+    },
+    {
+     "id": "proof",
+     "title": "Inclusion proof",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 46.36,
+     "w": 37.78,
+     "h": 19.24
+    },
+    {
+     "id": "provenance",
+     "title": "Provenance",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 66.27,
+     "w": 92.22,
+     "h": 22.58
+    },
+    {
+     "id": "tamper",
+     "title": "Tamper simulation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 89.53,
+     "w": 53.33,
+     "h": 7.03
+    },
+    {
+     "id": "dossier",
+     "title": "Incident dossier",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 89.53,
+     "w": 37.78,
+     "h": 7.71
+    }
+   ]
+  },
+  "beat-11.jpg": {
+   "route": "/audit",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 11",
+   "beat": 11,
+   "beatTitle": "Provenance",
+   "description": "Provenance graph: from the latest executed action (load_balance) back through policy decision, approver, agents, model nlm-v7, AI-BOM, deploy gate, checkpoint and federated round",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.22
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.22,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.33,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.22,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "anchors",
+     "title": "Merkle anchors",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 0,
+     "w": 53.33,
+     "h": 21.33
+    },
+    {
+     "id": "proof",
+     "title": "Inclusion proof",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 0,
+     "w": 37.78,
+     "h": 21.33
+    },
+    {
+     "id": "provenance",
+     "title": "Provenance",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 23.11,
+     "w": 92.22,
+     "h": 59.22
+    },
+    {
+     "id": "tamper",
+     "title": "Tamper simulation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 84.11,
+     "w": 53.33,
+     "h": 15.89
+    },
+    {
+     "id": "dossier",
+     "title": "Incident dossier",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 84.11,
+     "w": 37.78,
+     "h": 15.89
+    }
+   ]
+  },
+  "beat-12-full.jpg": {
+   "route": "/audit",
+   "viewport": {
+    "width": 1440,
+    "height": 2575,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 12",
+   "beat": 12,
+   "beatTitle": "Tamper test",
+   "description": "Tamper test: one ledger record edited, verification breaks at that record (chain broken at #3503: payload modified after signing) (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.86
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 3.26,
+     "w": 4.44,
+     "h": 95.5
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.76,
+     "w": 100,
+     "h": 1.24
+    },
+    {
+     "id": "toast-1",
+     "title": "chain broken at #3503: payload modified after signingOpen",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 96.04,
+     "w": 26.39,
+     "h": 2.1
+    },
+    {
+     "id": "page-header",
+     "title": "Audit & Proof",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 4.04,
+     "w": 92.22,
+     "h": 3.42
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 1.86,
+     "w": 100,
+     "h": 1.4
+    },
+    {
+     "id": "chain",
+     "title": "Hash chain",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 11.92,
+     "w": 92.22,
+     "h": 16.58
+    },
+    {
+     "id": "records",
+     "title": "Records",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 29.13,
+     "w": 53.33,
+     "h": 21.13
+    },
+    {
+     "id": "record",
+     "title": "Record #3,520",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 29.13,
+     "w": 37.78,
+     "h": 21.13
+    },
+    {
+     "id": "anchors",
+     "title": "Merkle anchors",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 50.87,
+     "w": 53.33,
+     "h": 17.63
+    },
+    {
+     "id": "proof",
+     "title": "Inclusion proof",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 50.87,
+     "w": 37.78,
+     "h": 17.63
+    },
+    {
+     "id": "provenance",
+     "title": "Provenance",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 69.13,
+     "w": 92.22,
+     "h": 20.7
+    },
+    {
+     "id": "tamper",
+     "title": "Tamper simulation",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 90.45,
+     "w": 53.33,
+     "h": 6.45
+    },
+    {
+     "id": "dossier",
+     "title": "Incident dossier",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 90.45,
+     "w": 37.78,
+     "h": 7.07
+    }
+   ]
+  },
+  "beat-12.jpg": {
+   "route": "/audit",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 12",
+   "beat": 12,
+   "beatTitle": "Tamper test",
+   "description": "Tamper test: one ledger record edited, verification breaks at that record (chain broken at #3503: payload modified after signing)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "toast-1",
+     "title": "chain broken at #3503: payload modified after signingOpen",
+     "kind": "toast",
+     "lit": false,
+     "x": 72.5,
+     "y": 88.67,
+     "w": 26.39,
+     "h": 6
+    },
+    {
+     "id": "page-header",
+     "title": "Audit & Proof",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "chain",
+     "title": "Hash chain",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 34.11,
+     "w": 92.22,
+     "h": 47.44
+    },
+    {
+     "id": "records",
+     "title": "Records",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 83.33,
+     "w": 53.33,
+     "h": 16.67
+    },
+    {
+     "id": "record",
+     "title": "Record #3,520",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 83.33,
+     "w": 37.78,
+     "h": 16.67
+    }
+   ]
+  },
+  "beat-13-full.jpg": {
+   "route": "/observability",
+   "viewport": {
+    "width": 1440,
+    "height": 2987,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 13",
+   "beat": 13,
+   "beatTitle": "Cost and traces",
+   "description": "Observability: cost comparison and the INC-2041 agent trace (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.57
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 2.78,
+     "w": 4.44,
+     "h": 96.12
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 98.9,
+     "w": 100,
+     "h": 1.07
+    },
+    {
+     "id": "page-header",
+     "title": "Observability",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 3.45,
+     "w": 92.22,
+     "h": 2.95
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 1.57,
+     "w": 100,
+     "h": 1.21
+    },
+    {
+     "id": "golden",
+     "title": "Golden signals",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 8.07,
+     "w": 92.22,
+     "h": 13.16
+    },
+    {
+     "id": "trace",
+     "title": "Trace",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 21.76,
+     "w": 92.22,
+     "h": 18.21
+    },
+    {
+     "id": "cost",
+     "title": "Tokens and cost",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 40.51,
+     "w": 92.22,
+     "h": 13.73
+    },
+    {
+     "id": "latency",
+     "title": "Latency",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 54.77,
+     "w": 92.22,
+     "h": 11.99
+    },
+    {
+     "id": "slo",
+     "title": "Service level objectives",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 67.29,
+     "w": 37.78,
+     "h": 12.27
+    },
+    {
+     "id": "infra",
+     "title": "Infrastructure",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 67.29,
+     "w": 53.33,
+     "h": 11.72
+    },
+    {
+     "id": "agent-health",
+     "title": "Agent health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 80.1,
+     "w": 92.22,
+     "h": 6.23
+    },
+    {
+     "id": "logs",
+     "title": "Log search",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 86.86,
+     "w": 92.22,
+     "h": 10.95
+    }
+   ]
+  },
+  "beat-13.jpg": {
+   "route": "/observability",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 13",
+   "beat": 13,
+   "beatTitle": "Cost and traces",
+   "description": "Observability: cost comparison and the INC-2041 agent trace",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.22
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.22,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.33,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.22,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "trace",
+     "title": "Trace",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 0,
+     "w": 92.22,
+     "h": 29.33
+    },
+    {
+     "id": "cost",
+     "title": "Tokens and cost",
+     "kind": "panel",
+     "lit": true,
+     "x": 6.11,
+     "y": 31.11,
+     "w": 92.22,
+     "h": 45.56
+    },
+    {
+     "id": "latency",
+     "title": "Latency",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 78.44,
+     "w": 92.22,
+     "h": 21.56
+    }
+   ]
+  },
+  "beat-14-dossier.jpg": {
+   "route": "/dossier/INC-2041",
+   "viewport": {
+    "width": 1440,
+    "height": 2642,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 14 (ledger still tampered from beat 12)",
+   "beat": 14,
+   "description": "Incident dossier for INC-2041 after the demo (ledger tamper from beat 12 not restored)",
+   "panels": [
+    {
+     "id": "dossier-toolbar",
+     "title": "Dossier toolbar: ledger record and Print or save as PDF",
+     "kind": "section",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.85
+    },
+    {
+     "id": "dossier-header",
+     "title": "INC-2041: Fibre cut T3 during stadium let-out",
+     "kind": "section",
+     "lit": false,
+     "x": 25.42,
+     "y": 4.88,
+     "w": 49.17,
+     "h": 5.3
+    },
+    {
+     "id": "section-1",
+     "title": "Verification",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 10.79,
+     "w": 51.39,
+     "h": 7.34
+    },
+    {
+     "id": "section-2",
+     "title": "Merkle anchors covering this incident",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 18.21,
+     "w": 51.39,
+     "h": 6.21
+    },
+    {
+     "id": "section-3",
+     "title": "Plan executed",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 24.49,
+     "w": 51.39,
+     "h": 6.74
+    },
+    {
+     "id": "section-4",
+     "title": "Pre-flight prediction (network twin)",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 31.3,
+     "w": 51.39,
+     "h": 8.63
+    },
+    {
+     "id": "section-5",
+     "title": "Agent negotiation and dissent",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 40.01,
+     "w": 51.39,
+     "h": 7.65
+    },
+    {
+     "id": "section-6",
+     "title": "Human decisions",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 47.73,
+     "w": 51.39,
+     "h": 3.9
+    },
+    {
+     "id": "section-7",
+     "title": "Policies applied",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 51.7,
+     "w": 51.39,
+     "h": 7.68
+    },
+    {
+     "id": "section-8",
+     "title": "Models",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 59.46,
+     "w": 51.39,
+     "h": 2.61
+    },
+    {
+     "id": "section-9",
+     "title": "Timeline",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 62.15,
+     "w": 51.39,
+     "h": 34.82
+    }
+   ]
+  },
+  "beat-14-full.jpg": {
+   "route": "/",
+   "viewport": {
+    "width": 1440,
+    "height": 1459,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after beat 14",
+   "beat": 14,
+   "beatTitle": "Close the loop",
+   "description": "Close the loop: incident queued as private training data for the next round (full height)",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 3.29
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.76,
+     "w": 4.44,
+     "h": 92.05
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 97.81,
+     "w": 100,
+     "h": 2.19
+    },
+    {
+     "id": "page-header",
+     "title": "Mission Control",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 7.13,
+     "w": 92.22,
+     "h": 6.03
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": true,
+     "x": 0,
+     "y": 3.29,
+     "w": 100,
+     "h": 2.47
+    },
+    {
+     "id": "health",
+     "title": "Network health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 13.16,
+     "w": 37.78,
+     "h": 20.29
+    },
+    {
+     "id": "consortium",
+     "title": "Consortium",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 13.16,
+     "w": 53.33,
+     "h": 29.81
+    },
+    {
+     "id": "tile-learn",
+     "title": "Plane tile: LearnRound18 of 30aggregateHighest ε3.00target 3, δ 1e-5Validation loss0.616ac",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 44.07,
+     "w": 17.56,
+     "h": 17.48
+    },
+    {
+     "id": "tile-verify",
+     "title": "Plane tile: VerifyIn productionnlm-v6accuracy 84%Candidatenlm-v7gate passedSafety0.969$0.0",
+     "kind": "panel",
+     "lit": false,
+     "x": 24.78,
+     "y": 44.07,
+     "w": 17.56,
+     "h": 17.48
+    },
+    {
+     "id": "tile-release",
+     "title": "Plane tile: ReleaseServingnlm-v64 targets, 2 vendorsRolloutnlm-v7Canary 10%Guard p95479 ms",
+     "kind": "panel",
+     "lit": false,
+     "x": 43.44,
+     "y": 44.07,
+     "w": 17.56,
+     "h": 17.48
+    },
+    {
+     "id": "tile-operate",
+     "title": "Plane tile: OperateAgents45 active1 quarantinedIncidentnonelast MTTR 33sAutonomysite L3coo",
+     "kind": "panel",
+     "lit": false,
+     "x": 62.11,
+     "y": 44.07,
+     "w": 17.56,
+     "h": 17.48
+    },
+    {
+     "id": "tile-prove",
+     "title": "Plane tile: ProveLedger#3,540every record signedChainbroken at #35033,531 records checkedL",
+     "kind": "panel",
+     "lit": false,
+     "x": 80.78,
+     "y": 44.07,
+     "w": 17.56,
+     "h": 17.48
+    },
+    {
+     "id": "mini-twin",
+     "title": "Network twin",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 62.65,
+     "w": 53.33,
+     "h": 22.89
+    },
+    {
+     "id": "critical",
+     "title": "Needs attention",
+     "kind": "panel",
+     "lit": false,
+     "x": 60.56,
+     "y": 62.65,
+     "w": 37.78,
+     "h": 32.97
+    }
+   ]
+  },
+  "beat-14.jpg": {
+   "route": "/",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after beat 14",
+   "beat": 14,
+   "beatTitle": "Close the loop",
+   "description": "Close the loop: incident queued as private training data for the next round",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "page-header",
+     "title": "Mission Control",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": true,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "health",
+     "title": "Network health",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 21.33,
+     "w": 37.78,
+     "h": 32.89
+    },
+    {
+     "id": "consortium",
+     "title": "Consortium",
+     "kind": "panel",
+     "lit": false,
+     "x": 45,
+     "y": 21.33,
+     "w": 53.33,
+     "h": 48.33
+    },
+    {
+     "id": "tile-learn",
+     "title": "Plane tile: LearnRound18 of 30trainHighest ε3.00target 3, δ 1e-5Validation loss0.616accura",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-verify",
+     "title": "Plane tile: VerifyIn productionnlm-v6accuracy 84%Candidatenlm-v7gate passedSafety0.969$0.0",
+     "kind": "panel",
+     "lit": false,
+     "x": 24.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-release",
+     "title": "Plane tile: ReleaseServingnlm-v64 targets, 2 vendorsRolloutnlm-v7Canary 10%Guard p95480 ms",
+     "kind": "panel",
+     "lit": false,
+     "x": 43.44,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-operate",
+     "title": "Plane tile: OperateAgents45 active1 quarantinedIncidentnonelast MTTR 33sAutonomysite L3coo",
+     "kind": "panel",
+     "lit": false,
+     "x": 62.11,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    },
+    {
+     "id": "tile-prove",
+     "title": "Plane tile: ProveLedger#3,540every record signedChainbroken at #35033,531 records checkedL",
+     "kind": "panel",
+     "lit": false,
+     "x": 80.78,
+     "y": 71.44,
+     "w": 17.56,
+     "h": 28.33
+    }
+   ]
+  },
+  "post-dossier.jpg": {
+   "route": "/dossier/INC-2041",
+   "viewport": {
+    "width": 1440,
+    "height": 2642,
+    "deviceScaleFactor": 2
+   },
+   "full": true,
+   "state": "after the demo, ledger restored",
+   "beat": null,
+   "description": "Incident dossier for INC-2041 after restoring the tampered record",
+   "panels": [
+    {
+     "id": "dossier-toolbar",
+     "title": "Dossier toolbar: ledger record and Print or save as PDF",
+     "kind": "section",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 1.85
+    },
+    {
+     "id": "dossier-header",
+     "title": "INC-2041: Fibre cut T3 during stadium let-out",
+     "kind": "section",
+     "lit": false,
+     "x": 25.42,
+     "y": 4.88,
+     "w": 49.17,
+     "h": 5.3
+    },
+    {
+     "id": "section-1",
+     "title": "Verification",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 10.79,
+     "w": 51.39,
+     "h": 7.34
+    },
+    {
+     "id": "section-2",
+     "title": "Merkle anchors covering this incident",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 18.21,
+     "w": 51.39,
+     "h": 6.21
+    },
+    {
+     "id": "section-3",
+     "title": "Plan executed",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 24.49,
+     "w": 51.39,
+     "h": 6.74
+    },
+    {
+     "id": "section-4",
+     "title": "Pre-flight prediction (network twin)",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 31.3,
+     "w": 51.39,
+     "h": 8.63
+    },
+    {
+     "id": "section-5",
+     "title": "Agent negotiation and dissent",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 40.01,
+     "w": 51.39,
+     "h": 7.65
+    },
+    {
+     "id": "section-6",
+     "title": "Human decisions",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 47.73,
+     "w": 51.39,
+     "h": 3.9
+    },
+    {
+     "id": "section-7",
+     "title": "Policies applied",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 51.7,
+     "w": 51.39,
+     "h": 7.68
+    },
+    {
+     "id": "section-8",
+     "title": "Models",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 59.46,
+     "w": 51.39,
+     "h": 2.61
+    },
+    {
+     "id": "section-9",
+     "title": "Timeline",
+     "kind": "section",
+     "lit": false,
+     "x": 24.31,
+     "y": 62.15,
+     "w": 51.39,
+     "h": 34.82
+    }
+   ]
+  },
+  "post-foureyes-1of2.jpg": {
+   "route": "/oversight",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after the demo (beat 14, ledger restored): four-eyes 1 of 2",
+   "beat": null,
+   "description": "Four-eyes request APR-318: first approval by A. Rivera recorded, waiting for a different second approver",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "page-header",
+     "title": "Oversight Desk",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "queue",
+     "title": "Queue",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 32.67,
+     "w": 30,
+     "h": 21.44
+    },
+    {
+     "id": "decision",
+     "title": "APR-318Critical, four-eyes",
+     "kind": "panel",
+     "lit": false,
+     "x": 37.22,
+     "y": 32.67,
+     "w": 61.11,
+     "h": 67.33
+    }
+   ]
+  },
+  "post-foureyes-done.jpg": {
+   "route": "/oversight",
+   "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+   },
+   "full": false,
+   "state": "after the demo (beat 14, ledger restored): four-eyes 2 of 2",
+   "beat": null,
+   "description": "Four-eyes request APR-318 approved by two different people; site-17 released; the ribbon still reads \"chain broken at #3503\" because no verification has been run since the ledger restore",
+   "panels": [
+    {
+     "id": "topbar",
+     "title": "Top bar",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 0,
+     "w": 100,
+     "h": 5.33
+    },
+    {
+     "id": "rail",
+     "title": "Screens rail",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 9.33,
+     "w": 4.44,
+     "h": 87.11
+    },
+    {
+     "id": "stream",
+     "title": "Live stream drawer",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 96.44,
+     "w": 100,
+     "h": 3.56
+    },
+    {
+     "id": "page-header",
+     "title": "Oversight Desk",
+     "kind": "page",
+     "lit": false,
+     "x": 6.11,
+     "y": 11.56,
+     "w": 92.22,
+     "h": 9.78
+    },
+    {
+     "id": "ribbon",
+     "title": "Lifecycle ribbon: Learn | Verify | Release | Operate | Prove (status per plane)",
+     "kind": "shell",
+     "lit": false,
+     "x": 0,
+     "y": 5.33,
+     "w": 100,
+     "h": 4
+    },
+    {
+     "id": "queue",
+     "title": "Queue",
+     "kind": "panel",
+     "lit": false,
+     "x": 6.11,
+     "y": 32.67,
+     "w": 30,
+     "h": 20.89
+    },
+    {
+     "id": "decision",
+     "title": "APR-318Critical, four-eyes",
+     "kind": "panel",
+     "lit": false,
+     "x": 37.22,
+     "y": 32.67,
+     "w": 61.11,
+     "h": 67.33
+    }
+   ]
+  }
+ }
+}

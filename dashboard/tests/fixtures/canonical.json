@@ -1,0 +1,146 @@
+{
+ "note": "Ledger records produced by the Python engine (seed 7). frontend/scripts/check-canonical.mjs recomputes each hash in JS and must match.",
+ "records": [
+  {
+   "seq": 2,
+   "ts": "2026-10-31T19:40:40.000-07:00",
+   "type": "approval.decision",
+   "actor": "human:a.rivera",
+   "plane": "operate",
+   "payload": {
+    "approval": "APR-311",
+    "decision": "approved",
+    "by": "a.rivera",
+    "device": "console",
+    "changes": {},
+    "reason": ""
+   },
+   "key_id": "kms:spectrum/human/a.rivera",
+   "prev_hash": "4d649f33ba81ccf85adbdfb9959dc7be0491e0e747b6d3daef362e3be4d174f5",
+   "hash": "169ddb1662d55ed4b331df9cc9738675decc8f91ac8a9db36bb5c478d3a2e97b",
+   "alg": "Ed25519",
+   "sig": "a6355cc002ce70cdd295f25ec39c8f32f4209d0598c26932a5fb731849ac554f131e8c7d793b4564fc3581660eec1b58d1d49e96326a725261408b5252b06105"
+  },
+  {
+   "seq": 13,
+   "ts": "2026-10-31T19:26:44.557-07:00",
+   "type": "tool.call",
+   "actor": "site-12",
+   "plane": "operate",
+   "payload": {
+    "tool": "set_handover_offset",
+    "params": {
+     "cells": [
+      "s-12-0"
+     ],
+     "offset_db": "1"
+    },
+    "resource": "s-12-0",
+    "decision": "permit",
+    "policies": [
+     "P-002"
+    ],
+    "human_approved": false,
+    "blast_radius_pct": "0.8"
+   },
+   "key_id": "kms:spectrum/agent/site-12",
+   "prev_hash": "7a22419803e251d12c2a48c84ab7d79f51e8fb6444c5e2e3f3d28ae9d9b43469",
+   "hash": "028c7332535eb83be9af813af7f23bdc43328cd14b7854b25a7ea0dc8cc4e3b5",
+   "alg": "Ed25519",
+   "sig": "24e1584052eadc2421c022b987305a8d4cc7bbe4e756b3576d6f959567e85d62e56a7c949d8ececb02a5c39f126862c0be4d240da49d22a0b755e6db5dd31501"
+  },
+  {
+   "seq": 15,
+   "ts": "2026-10-31T19:26:46.854-07:00",
+   "type": "a2a.message",
+   "actor": "site-29",
+   "plane": "operate",
+   "payload": {
+    "id": "msg-513abdf529",
+    "from": "site-29",
+    "to": "coordinator",
+    "intent": "inform",
+    "digest": "513abdf529250708c9a27683c415bb6f56f0ca7fa4a2a2585a3087b675a3b505",
+    "verdict": "delivered",
+    "authority_ok": true
+   },
+   "key_id": "kms:spectrum/agent/site-29",
+   "prev_hash": "3e1733eb111930739db0be8df5af255e157fe14c59a690674638d8609398cadf",
+   "hash": "53301b44e6faf03fda2815bd51d2361ae38f3a6ba25c3608d79c12821ada26bf",
+   "alg": "Ed25519",
+   "sig": "13619a8b39fb69881b1faea7b09794bd8915071f3e80377586631d56c1d1ab501db9e8bb30671958a59f15e5b6e994914a3a088601dff1f040d97d6ad8d8ee08"
+  },
+  {
+   "seq": 3409,
+   "ts": "2026-10-31T21:25:05.500-07:00",
+   "type": "fl.round",
+   "actor": "aggregator",
+   "plane": "learn",
+   "payload": {
+    "run": "fl-2026-10-31-a",
+    "round": 1,
+    "participants": [
+     "op-a",
+     "op-b",
+     "op-c",
+     "op-d",
+     "op-e"
+    ],
+    "val_loss": "1.9533",
+    "accuracy": "0.4076",
+    "decisions": {
+     "op-a": "accepted",
+     "op-b": "accepted",
+     "op-c": "accepted",
+     "op-d": "accepted",
+     "op-e": "accepted"
+    },
+    "strategy": "trimmed_mean",
+    "secagg_mode": "enclave",
+    "eps": {
+     "op-a": "0.2842",
+     "op-b": "0.4322",
+     "op-c": "0.5623",
+     "op-d": "0.2314",
+     "op-e": "0.7471"
+    },
+    "sigma": "1.1",
+    "clip": "1",
+    "commitments": {
+     "op-a": "8fc63c2595458e1f1fe850e639105bc95b32b098d69b4fb207db9f70c78f2dbe",
+     "op-b": "c9a6dd52cd92c81afffb5b4d2731cb5331033ef26367bce2496d790822b54e26",
+     "op-c": "bdf3cb15eab17042e05f42b08046866e3322fbf93513a9d78b3f7ade1fcf466a",
+     "op-d": "6c3e96cb4139e7714831131541756d12896702078675f039afb6565249ff4bae",
+     "op-e": "a9b3a012f571086a1da6859ec031e84b5f207507e79b649153673e3c759736c3"
+    },
+    "attestation_pcr0": "verified"
+   },
+   "key_id": "kms:spectrum/aggregator",
+   "prev_hash": "876461f4e112406d7880d5a6d50e12b620970a0d4daddc73e4f69903eccdc0fe",
+   "hash": "ddbf6d9b26a411570bd749d21e1b4bb7650b94dabcbe4dc4c76399eaa3b60627",
+   "alg": "Ed25519",
+   "sig": "894171856b34c0877ae87d2f770ed9a26985c55963a0a107929cded3b5ccacf8c5eb6d150c34be220566774ab7d3506a728c30656f0fddd7120b13fcd8f4ed04"
+  },
+  {
+   "seq": 3411,
+   "ts": "2026-10-31T21:25:31.000-07:00",
+   "type": "fl.checkpoint",
+   "actor": "aggregator",
+   "plane": "learn",
+   "payload": {
+    "id": "ckpt-r02",
+    "round": 2,
+    "val_loss": "1.6737",
+    "accuracy": "0.4913",
+    "eps_max": "1.057",
+    "adapter_hash": "f4e755c5cee6f367fb290142144e9a13db8d87ea7fe7da2b9409928007709cff",
+    "s3_uri": "s3://spectrum-fl-checkpoints/fl-2026-10-31-a/r02/adapter.safetensors"
+   },
+   "key_id": "kms:spectrum/aggregator",
+   "prev_hash": "2f25928fc00a2a9bebb78877647e8071c2632d04600cc0609f3ce2b5ba62511e",
+   "hash": "a8b1c13e2f91a808ca2d8e405cf526b8ded3ccd6edbc8de980aeb4f5ca86d854",
+   "alg": "Ed25519",
+   "sig": "4285cf071c1ee9e08c183ef8611d856ec25cb0318290f59b6b031efcfc18274a6b35b7c9d2876836ded291b38d4fe5cc00dd959d861a5774b3019d1ccfb7ca09"
+  }
+ ]
+}

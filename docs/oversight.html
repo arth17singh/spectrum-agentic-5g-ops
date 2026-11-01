@@ -1,0 +1,2155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Human oversight and phone approvals | SPECTRUM presenter guide</title>
+<link rel="stylesheet" href="assets/guide.css">
+<script src="assets/guide.js" defer></script>
+</head>
+<body data-page="oversight.html">
+<main class="content">
+
+  <header class="page-head">
+    <span class="plane-tag" data-plane="operate">Operate plane</span>
+    <h1>Human oversight and phone approvals</h1>
+    <p class="lede">The Oversight Desk is where a person decides the things the agents are not allowed to decide alone.
+      Each request arrives with the plan, the predicted impact from the network twin, the policy that stopped it, the
+      agent that objected, and a countdown. The decision is signed with that person's key and written to the ledger.
+      The same requests also appear on a phone page, <code>/m/approve</code>, so a second person can approve from the room.</p>
+    <div class="meta">
+      <span>Route <code>/oversight</code> (desk) and <code>/m/approve</code> (phone)</span>
+      <span>Go to it with <kbd>g</kbd> then <kbd>o</kbd></span>
+      <span class="beat-chips">Appears in demo beats <a class="chip" href="demo-playbook.html#beat-9">9</a></span>
+    </div>
+  </header>
+
+  <div class="callout tip">
+    <p class="title">If you have 10 minutes</p>
+    <ol>
+      <li><a href="#intro">What this screen is for</a>.</li>
+      <li><a href="#beat-9-stage">Beat 9 on stage</a> and <a href="#beat-9-recovery">If beat 9 goes wrong</a>.</li>
+      <li>The "How to demo it" and "What to say" parts of cards <a href="#c-4">4</a>, <a href="#c-5">5</a>, <a href="#c-6">6</a>, <a href="#c-7">7</a> and <a href="#c-12">12</a>.</li>
+      <li><a href="#connect-phones">Getting phones connected</a>, done at setup, not on stage.</li>
+    </ol>
+    <p>Everything else is reference for judge questions.</p>
+  </div>
+  <div class="callout warn">
+    <p class="title">Before the demo: phone checklist</p>
+    <ul>
+      <li>Laptop and phone on the same Wi-Fi, or the laptop on a phone hotspot.</li>
+      <li>Console open at <code>localhost</code>, not <code>127.0.0.1</code>. Press <kbd>d</kbd>, open the Preflight tab, scan the QR code with the phone.</li>
+      <li>The phone shows the green Live dot and Signing as J. Okafor, L2.</li>
+      <li>Agree who taps Approve on beat 9: the phone holder, and nobody else.</li>
+    </ul>
+    <p>Full steps: <a href="#connect-phones">Getting phones connected</a>.</p>
+  </div>
+
+  <h2 id="intro">What this screen is for</h2>
+  <p>The agent swarm on <a href="swarm.html">Swarm Tower</a> fixes network problems on its own, but only small ones.
+    A policy rule, <code>P-003</code>, says any radio change that touches more than 5% of the network's cells needs a
+    human. When a plan breaks that rule, the swarm does not act. It files a request here and waits.</p>
+  <p>The one-sentence story: <strong>the agents propose, the policy stops them, a named person decides with all the
+    evidence in front of them, and that decision is signed and provable later.</strong></p>
+  <h3 id="words" data-toc-label="Words used here">Words used on this page</h3>
+  <div class="terms">
+    <div class="term" id="term-blast-radius">
+      <dfn>Blast radius</dfn>
+      <p class="plain">The share of the network's cells a plan would change. 15 cells out of 120 is 12.5%.</p>
+      <p class="where">More: <a href="concepts.html#term-blast-radius">Concepts</a></p>
+    </div>
+    <div class="term" id="term-sla">
+      <dfn>SLA (service level agreement)</dfn>
+      <p class="plain">How long the assigned person has to answer before the request moves up to the next person.</p>
+      <p class="where">More: <a href="concepts.html#term-sla-escalation">Concepts</a></p>
+    </div>
+    <div class="term" id="term-ladder">
+      <dfn>Escalation ladder</dfn>
+      <p class="plain">The fixed order of people a request climbs: L1 NOC engineer, then L2 on-call lead, then L3 duty manager.</p>
+      <p class="where">Where you see it: <a href="#c-14">card 14</a></p>
+    </div>
+    <div class="term" id="term-noc">
+      <dfn>NOC</dfn>
+      <p class="plain">Network operations centre: the team that watches the network day and night.</p>
+    </div>
+    <div class="term" id="term-four-eyes">
+      <dfn>Four-eyes</dfn>
+      <p class="plain">A rule that two different people must approve. Here it applies to every request marked critical.</p>
+      <p class="where">More: <a href="concepts.html#term-four-eyes">Concepts</a></p>
+    </div>
+    <div class="term" id="term-preflight">
+      <dfn>Twin pre-flight</dfn>
+      <p class="plain">The plan is first run on a copy of the simulated network, and the before and after numbers are shown to the approver.</p>
+      <p class="where">More: <a href="concepts.html#term-preflight">Concepts</a></p>
+    </div>
+    <div class="term" id="term-kpi">
+      <dfn>KPI</dfn>
+      <p class="plain">A key network number, such as stadium congestion or dropped calls.</p>
+    </div>
+    <div class="term" id="term-cedar">
+      <dfn>Cedar policy</dfn>
+      <p class="plain">AWS's language for writing access rules. Here a rule written in it decides when a plan needs a human.</p>
+      <p class="where">More: <a href="concepts.html#term-cedar-gateway">Concepts</a></p>
+    </div>
+    <div class="term" id="term-ed25519">
+      <dfn>Ed25519 signature</dfn>
+      <p class="plain">A digital signature that proves which person's key signed a record, and that the record has not changed since.</p>
+      <p class="where">More: <a href="concepts.html#term-ed25519">Concepts</a></p>
+    </div>
+    <div class="term" id="term-ledger">
+      <dfn>Ledger and hash chain</dfn>
+      <p class="plain">The ledger is the list of signed records. Each record includes the previous record's fingerprint (hash), so editing one record breaks every link after it.</p>
+      <p class="where">More: <a href="concepts.html#term-hash-chain">Concepts</a></p>
+    </div>
+    <div class="term" id="term-anchor">
+      <dfn>Anchor</dfn>
+      <p class="plain">Every 32 records, one combined fingerprint of the batch is stored where it cannot be changed (S3 Object Lock in AWS mode; simulated in mock mode).</p>
+      <p class="where">More: <a href="concepts.html#term-object-lock">Concepts</a></p>
+    </div>
+    <div class="term" id="term-canonical">
+      <dfn>Canonical form</dfn>
+      <p class="plain">One exact text form of the decision, with its keys sorted, so anyone who recomputes the fingerprint gets the same bytes.</p>
+      <p class="where">More: <a href="concepts.html#term-canonical-json">Concepts</a></p>
+    </div>
+    <div class="term" id="term-inclusion-proof">
+      <dfn>Inclusion proof</dfn>
+      <p class="plain">A short list of fingerprints that shows one record is part of an anchored batch.</p>
+      <p class="where">More: <a href="concepts.html#term-inclusion-proof">Concepts</a></p>
+    </div>
+    <div class="term" id="term-tracks">
+      <dfn>Track T1, track T3</dfn>
+      <p class="plain">Hackathon tracks. Track T1 is NLM training, scaling and production readiness. Track T3 is multi-agent swarms: policy, audit, human oversight. Do not confuse track T3 with fibre link T3, the cable cut in the incident.</p>
+      <p class="where">More: <a href="index.html">Start here</a></p>
+    </div>
+    <div class="term" id="term-aws">
+      <dfn>AWS services named on this screen</dfn>
+      <p class="plain">In AWS mode, Cognito would sign approvers in, KMS would hold each person's signing key, Step Functions task tokens would hold each waiting request, and SNS and Incident Manager would page the next person. In mock mode none of them is called.</p>
+    </div>
+    <div class="term" id="term-snapshot">
+      <dfn>Snapshot and store slice</dfn>
+      <p class="plain">When a page connects it fetches the whole current state once (the snapshot), then applies live events from the WebSocket. A "store slice" is the part of that state a panel reads, such as <code>oversight.items</code>. Both words only appear under "Code references".</p>
+    </div>
+  </div>
+
+  <h3 id="request-lifecycle" data-toc-label="Life of a request">The life of one request</h3>
+  <p>Every request on this page follows the same path through <code>backend/spectrum/engines/oversight.py</code>.</p>
+  <ol class="flow states" aria-label="Request states">
+    <li class="src"><b>Requested</b><span><code>approval.requested</code></span></li>
+    <li><b>Pending at L1</b><span>A. Rivera, 2 min</span></li>
+    <li><b>Pending at L2</b><span>J. Okafor, 5 min</span></li>
+    <li><b>Pending at L3</b><span>M. Chen, 10 min</span></li>
+    <li class="ui"><b>Approved, rejected or expired</b></li>
+  </ol>
+  <ul>
+    <li>A request is created by <code>Oversight.create</code>. It gets the next id (<code>APR-311</code> upward), a tier (<code>high</code> or <code>critical</code>), and a ledger record <code>approval.requested</code>.</li>
+    <li>It moves up one level when its SLA runs out (checked 10 times a second by <code>Oversight.tick</code>) or when someone presses Escalate.</li>
+    <li>It becomes <strong>approved</strong> when it has enough approvals: one for <code>high</code>, two different people for <code>critical</code>.</li>
+    <li>It becomes <strong>rejected</strong> as soon as anyone rejects it.</li>
+    <li>It becomes <strong>expired</strong> if the L3 SLA also runs out. Nothing is executed. The agents never act on silence.
+      Expiry is silent in the current code: no event and no ledger record, so the console keeps showing the request as
+      pending ("escalating…") until the page reloads, and the incident is never executed or closed. For APR-317 that
+      takes 17 minutes, so it will not happen on stage.</li>
+  </ul>
+
+  <h2 id="in-the-demo">When this screen appears in the demo</h2>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Beat</th><th>Where you are</th><th>What happens to the oversight queue</th></tr></thead>
+      <tbody>
+        <tr><th><a href="demo-playbook.html#beat-7">7</a> Incident hits</th><td><code>/swarm</code></td><td>The fibre-cut incident starts. 12.2 seconds later the coordinator agent files <code>APR-317</code> "Wake 3 cells, boost 6, load-balance stadium (12.5% of cells)". A "Review" toast pops up, the flag counter in the top bar goes to 1 and the Oversight icon in the left rail gets a dot. Its 2-minute L1 timer starts now.</td></tr>
+        <tr><th><a href="demo-playbook.html#beat-9">9</a> Human approval</th><td><code>/oversight</code></td><td>The console opens this page and selects the newest pending request. If spotlight is on, the decision panel is outlined and the rest fades. The server does nothing new on this beat. You approve on the console, or a teammate approves on the phone. The plan then executes on Swarm Tower and the incident resolves a few seconds later.</td></tr>
+        <tr><th><a href="demo-playbook.html#beat-10">10</a> Prompt-injection attack</th><td><code>/swarm</code></td><td>About 3.4 seconds into the attack, the sentinel agent files <code>APR-318</code> "Release site-17 from quarantine". It is critical, so it needs two different approvers. Its timer is 10 times longer (20 minutes at L1), so it can wait. The beat stays on Swarm Tower: click the toast's "Review" button or press <kbd>g</kbd> <kbd>o</kbd> to show it.</td></tr>
+        <tr><th><a href="demo-playbook.html#beat-11">11</a> Provenance</th><td><code>/audit</code></td><td>The provenance graph links the executed action back to the person who approved it on this page.</td></tr>
+        <tr><th><a href="demo-playbook.html#beat-12">12</a> Tamper test</th><td><code>/audit</code></td><td>The tamper button edits the most recent <a href="#term-anchor">anchored</a> <code>approval.decision</code> record, which is normally your beat 9 approval. It flips "approved" to "rejected", and verification breaks at exactly that record.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <article class="beat" id="beat-9-stage" data-plane="operate">
+    <header>
+      <span class="beat-num">9</span>
+      <h3>Beat 9 on stage</h3>
+      <div class="beat-meta"><code>/oversight</code><span class="dur">25 s</span></div>
+    </header>
+    <dl class="beat-grid">
+      <dt>Do</dt>
+      <dd><ol class="steps">
+        <li>Driver presses <kbd>→</kbd> from beat 8 (or <kbd>9</kbd>). The desk opens with APR-317 selected.</li>
+        <li>Narrator points and talks (see Point at and Say).</li>
+        <li>Phone holder taps Approve on the phone. It signs as J. Okafor. One approval is enough.</li>
+        <li>Fallback, only if the phone is not live: the driver clicks Approve on the console (signs as A. Rivera). Never both.</li>
+        <li>Optional: driver presses <kbd>g</kbd> <kbd>s</kbd> to show the plan running on Swarm Tower.</li>
+      </ol></dd>
+      <dt>See</dt>
+      <dd><p>A countdown under 2:00 (about 1:10 to 1:50, because it started at beat 7), the twin bars, <code>P-003</code> under "Why
+        it needs you" and the energy agent's dissent. After the tap: the green "Approved and signed by J. Okafor" box on
+        the phone and a new "Approved by J. Okafor" line marked "on mobile" on the console. If the console approved, you
+        see the signing ceremony instead. About 5 seconds later the incident resolves on Swarm Tower.</p></dd>
+      <dt class="hood">Under the hood</dt>
+      <dd><p>Beat 9 sends nothing new to the simulation; the browser opens this page and selects the newest pending
+        request. The tap sends <code>POST /api/approvals/APR-317/approve</code>. The server signs the decision with the
+        approver's key and appends it to the ledger, then the swarm runs steps 2 to 4 through the policy gateway with
+        <code>human_approved: true</code>.</p></dd>
+      <dt class="say">Say</dt>
+      <dd><blockquote class="say"><p>"This change touches 12.5% of cells, over our 5% rule, so the swarm has to ask. The
+        twin predicts congestion drops from 93 to 55 percent, the energy agent objects, and the clock is running. My
+        colleague approves from her phone: signed with her key, in the ledger."</p></blockquote></dd>
+      <dt>Point at</dt>
+      <dd><ol>
+        <li>The title (<a href="#c-4">card 4</a>).</li>
+        <li>Predicted impact: Stadium congestion, then Energy draw (<a href="#c-5">card 5</a>).</li>
+        <li>Why it needs you: <code>P-003</code> (<a href="#c-6">card 6</a>).</li>
+        <li>Dissent: energy (<a href="#c-7">card 7</a>).</li>
+        <li>The Approve button, or the phone held up (<a href="#c-12">card 12</a>, <a href="#m-5">phone part 5</a>).</li>
+      </ol></dd>
+      <dt class="recovery">Recovery</dt>
+      <dd><p>See <a href="#beat-9-recovery">If beat 9 goes wrong</a>, just below. The playbook has the same beat in the
+        <a href="demo-playbook.html#beat-9">full run of show</a>.</p></dd>
+    </dl>
+  </article>
+
+  <h3 id="beat-9-recovery" data-toc-label="If beat 9 goes wrong">If beat 9 goes wrong</h3>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>What you see</th><th>Why</th><th>Do this</th></tr></thead>
+      <tbody>
+        <tr><td>The desk shows APR-316 "decided approved" and the Pending tab is empty</td><td>Beat 7 was not fired, or was fired less than about 12 seconds ago, so APR-317 does not exist yet.</td><td>Press <kbd>7</kbd>, wait about 12 seconds, press <kbd>9</kbd>.</td></tr>
+        <tr><td>Phone tap does nothing: no green "Approved and signed" box after a second or two</td><td>The request did not reach the laptop. The phone page shows no error when that happens.</td><td>Do not keep tapping. The driver approves on the console.</td></tr>
+        <tr><td>Red toast "Decision failed: …" on the console</td><td>The backend could not be reached. Nothing was signed.</td><td>Check the Live dot in the top bar, then press Approve again.</td></tr>
+        <tr><td>The Reject form opened by mistake</td><td>Nothing is sent until "Reject plan" is pressed.</td><td>Click Cancel.</td></tr>
+        <tr><td>The header reads "L2, assigned to J. Okafor"</td><td>The 2-minute L1 timer ran out before you reached this screen.</td><td>Approve anyway: any of the three people can approve at any level. Say "and that is the escalation ladder working".</td></tr>
+        <tr><td>"Reject plan" was pressed on APR-317</td><td>The incident stays "mitigating" and never resolves. There is no undo.</td><td>Before the next run, reset (hold <kbd>r</kbd> for one second) and replay from beat 7 off stage.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="walkthrough">90-second walkthrough (only if a judge asks)</h2>
+  <p>Use this if a judge says "walk me through this page". Point at each numbered part as you go. Do not use it during
+    the timed run; use <a href="#beat-9-stage">Beat 9 on stage</a> instead.</p>
+  <blockquote class="say"><p>"This is the Oversight Desk. The agents may only make small changes alone; anything that
+    touches more than 5% of the cells comes here, and the agents wait. <a href="#c-3">On the left</a> is the queue, most
+    urgent first. <a href="#c-4">On the right</a> is the request: wake three cells, boost six, move stadium load.
+    <a href="#c-5">Here</a> is the twin's prediction: congestion drops from 93 to 55 percent, but energy goes up.
+    <a href="#c-6">This</a> is the policy that stopped it, and <a href="#c-7">this</a> is the energy agent objecting.
+    <a href="#c-9">Here</a> is the plan: the reroute already ran on its own; the radio steps need me.
+    <a href="#c-4">The clock</a> started when the request was filed, and there are under two minutes left. If nobody
+    answers, <a href="#c-14">it climbs</a> to the on-call lead, then the duty manager. When I approve, my decision is
+    signed with my own key and written to the ledger, and <a href="#c-15">it shows up here</a> with its record number."</p></blockquote>
+
+  <h2 id="screenshots">Annotated screenshots</h2>
+  <p>Two states of the desk. The first is before the demo starts: six old decisions, nothing waiting. The second is
+    during beat 9, with the incident request open. Pin numbers match the cards below. Panel outlines come from
+    <code>img/manifest.json</code>; outlines for the blocks inside the decision panel and the stats strip are measured
+    from the images.</p>
+
+  <h3 id="shot-pre-demo" data-toc-label="Before the demo">Before the demo</h3>
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/screen-oversight.jpg" width="1440" height="1292"
+           alt="Oversight Desk before the demo: five stat tiles, an empty pending queue, the decided request APR-316 open on the right, the escalation ladder with three people and a decision history of six approvals">
+      <span class="box" data-target="c-1" style="left:6.11%;top:8.05%;width:92.22%;height:6.81%"></span>
+      <span class="box" data-target="c-2" style="left:6.1%;top:14.9%;width:92.2%;height:6.6%"></span>
+      <span class="box" data-target="c-3" style="left:6.11%;top:22.76%;width:30%;height:14.55%"></span>
+      <span class="box" data-target="c-4" style="left:37.22%;top:22.76%;width:61.11%;height:36.46%"></span>
+      <span class="box" data-target="c-5" style="left:38.4%;top:32.6%;width:28.6%;height:6.6%"></span>
+      <span class="box" data-target="c-6" style="left:68.6%;top:32.6%;width:28.5%;height:3.4%"></span>
+      <span class="box" data-target="c-7" style="left:68.6%;top:37.6%;width:28.5%;height:3.3%"></span>
+      <span class="box" data-target="c-8" style="left:68.6%;top:42.2%;width:28.5%;height:3.2%"></span>
+      <span class="box" data-target="c-10" style="left:38.4%;top:46.6%;width:20%;height:1.6%"></span>
+      <span class="box" data-target="c-11" style="left:38.4%;top:50.6%;width:58.7%;height:3%"></span>
+      <span class="box" data-target="c-13" style="left:38.4%;top:54.6%;width:58.7%;height:2.8%"></span>
+      <span class="box" data-target="c-14" style="left:6.11%;top:60.45%;width:92.22%;height:14.09%"></span>
+      <span class="box" data-target="c-15" style="left:6.11%;top:75.77%;width:92.22%;height:19.27%"></span>
+      <a class="pin" href="#c-1" style="left:47%;top:9.2%">1</a>
+      <a class="pin" href="#c-2" style="left:21.5%;top:17.8%">2</a>
+      <a class="pin" href="#c-3" style="left:14%;top:24.4%">3</a>
+      <a class="pin" href="#c-4" style="left:58%;top:24.4%">4</a>
+      <a class="pin" href="#c-5" style="left:62%;top:33.2%">5</a>
+      <a class="pin" href="#c-6" style="left:86%;top:33.2%">6</a>
+      <a class="pin" href="#c-7" style="left:80%;top:38.2%">7</a>
+      <a class="pin" href="#c-8" style="left:82%;top:42.8%">8</a>
+      <a class="pin" href="#c-10" style="left:61%;top:47.4%">10</a>
+      <a class="pin" href="#c-11" style="left:52.5%;top:52.3%">11</a>
+      <a class="pin" href="#c-13" style="left:76%;top:55.9%">13</a>
+      <a class="pin" href="#c-14" style="left:23.5%;top:62.1%">14</a>
+      <a class="pin" href="#c-15" style="left:35%;top:77.4%">15</a>
+    </div>
+    <figcaption>Pre-demo state after a reset. The queue's Pending tab is empty, so the desk shows the newest decided request, APR-316. Its plan has no steps, so there is no plan table (card 9) and no twin numbers. It is already decided, so there are no decision buttons (card 12) and no Signing as switch. Hover a number to outline that part; click it to jump to its card.</figcaption>
+  </figure>
+
+  <h3 id="shot-beat-9" data-toc-label="During beat 9">During beat 9</h3>
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/beat-09-full.jpg" width="1440" height="1602"
+           alt="Oversight Desk during beat 9: APR-317 pending with a 1:51 countdown, twin pre-flight bars, policy P-003, dissent from the energy agent, two model opinions, a four-step plan and the Approve, Approve with changes, Reject and Escalate to L2 buttons">
+      <span class="box" data-target="c-1" style="left:6.11%;top:6.43%;width:92.22%;height:5.49%"></span>
+      <span class="box" data-target="c-2" style="left:6.1%;top:11.9%;width:92.1%;height:5.35%"></span>
+      <span class="box" data-target="c-3" style="left:6.11%;top:18.29%;width:30%;height:12.05%"></span>
+      <span class="box" data-target="c-4" style="left:37.22%;top:18.29%;width:61.11%;height:48.75%"></span>
+      <span class="box" data-target="c-5" style="left:38.4%;top:30%;width:28.5%;height:13.9%"></span>
+      <span class="box" data-target="c-6" style="left:68.6%;top:30%;width:28.5%;height:3%"></span>
+      <span class="box" data-target="c-7" style="left:68.6%;top:34%;width:28.5%;height:3.6%"></span>
+      <span class="box" data-target="c-8" style="left:68.6%;top:38.75%;width:28.5%;height:4%"></span>
+      <span class="box" data-target="c-9" style="left:38.4%;top:45.25%;width:58.7%;height:10.2%"></span>
+      <span class="box" data-target="c-10" style="left:38.4%;top:56.5%;width:41%;height:1.4%"></span>
+      <span class="box" data-target="c-11" style="left:38.4%;top:60.2%;width:58.7%;height:2%"></span>
+      <span class="box" data-target="c-12" style="left:38.4%;top:62.7%;width:36%;height:2.4%"></span>
+      <span class="box" data-target="c-14" style="left:6.11%;top:68.04%;width:92.22%;height:11.36%"></span>
+      <span class="box" data-target="c-15" style="left:6.11%;top:80.4%;width:92.22%;height:15.54%"></span>
+      <a class="pin" href="#c-1" style="left:47%;top:7.4%">1</a>
+      <a class="pin" href="#c-2" style="left:21.5%;top:14.6%">2</a>
+      <a class="pin" href="#c-3" style="left:14%;top:19.6%">3</a>
+      <a class="pin" href="#c-4" style="left:60%;top:19.6%">4</a>
+      <a class="pin" href="#c-5" style="left:56%;top:30.6%">5</a>
+      <a class="pin" href="#c-6" style="left:92%;top:30.4%">6</a>
+      <a class="pin" href="#c-7" style="left:74.5%;top:33.8%">7</a>
+      <a class="pin" href="#c-8" style="left:92%;top:39.2%">8</a>
+      <a class="pin" href="#c-9" style="left:43%;top:45.7%">9</a>
+      <a class="pin" href="#c-10" style="left:82%;top:57.2%">10</a>
+      <a class="pin" href="#c-11" style="left:48.5%;top:61.2%">11</a>
+      <a class="pin" href="#c-12" style="left:77%;top:63.9%">12</a>
+      <a class="pin" href="#c-14" style="left:23.5%;top:69.3%">14</a>
+      <a class="pin" href="#c-15" style="left:35%;top:81.7%">15</a>
+    </div>
+    <figcaption>Beat 9 with spotlight on: the decision panel has a green outline and the other panels are faded. The request is still pending, so there is no signed approval yet (card 13 appears after you approve).</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#c-1"><span class="n">1</span><span>Page header and on-duty chip</span></a></li>
+      <li><a href="#c-2"><span class="n">2</span><span>Stats strip</span></a></li>
+      <li><a href="#c-3"><span class="n">3</span><span>Queue</span></a></li>
+      <li><a href="#c-4"><span class="n">4</span><span>Decision panel header</span></a></li>
+      <li><a href="#c-5"><span class="n">5</span><span>Predicted impact</span></a></li>
+      <li><a href="#c-6"><span class="n">6</span><span>Why it needs you</span></a></li>
+      <li><a href="#c-7"><span class="n">7</span><span>Dissent</span></a></li>
+      <li><a href="#c-8"><span class="n">8</span><span>What the models proposed</span></a></li>
+      <li><a href="#c-9"><span class="n">9</span><span>Plan</span></a></li>
+      <li><a href="#c-10"><span class="n">10</span><span>Evidence links</span></a></li>
+      <li><a href="#c-11"><span class="n">11</span><span>Four-eyes slots and signing as</span></a></li>
+      <li><a href="#c-12"><span class="n">12</span><span>Decision buttons</span></a></li>
+      <li><a href="#c-13"><span class="n">13</span><span>Signing ceremony and signed approvals</span></a></li>
+      <li><a href="#c-14"><span class="n">14</span><span>Escalation ladder</span></a></li>
+      <li><a href="#c-15"><span class="n">15</span><span>Decision history</span></a></li>
+    </ul>
+  </figure>
+
+  <h3 id="shot-approved" data-toc-label="Right after approval">Right after approval</h3>
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/beat-09-approved.jpg" width="1440" height="900"
+           alt="Oversight Desk seconds after APR-317 was approved from a phone: queue empty, Signed decisions tile now 7, decision panel header shows a green Approved pill">
+      <span class="box" data-target="c-2" style="left:6.1%;top:21.2%;width:92.2%;height:9.6%"></span>
+      <span class="box" data-target="c-3" style="left:6.11%;top:32.56%;width:30%;height:20.89%"></span>
+      <span class="box" data-target="c-4" style="left:37.22%;top:32.56%;width:61.11%;height:67.44%"></span>
+      <a class="pin" href="#c-2" style="left:21.5%;top:25%">2</a>
+      <a class="pin" href="#c-3" style="left:14%;top:34.9%">3</a>
+      <a class="pin" href="#c-4" style="left:60%;top:34.9%">4</a>
+    </div>
+    <figcaption>After J. Okafor approved APR-317 on the phone. The pending count is 0, Signed decisions went from 6 to 7, the median time to decision moved to 1m00s (because this approval was fast) and the header pill reads Approved. The plan rows further down still read "Needs you"; see the watch-out in card 9.</figcaption>
+  </figure>
+
+  <h2 id="desk-components">Component cards: Oversight Desk</h2>
+  <p>One card per part of <code>frontend/src/features/oversight/OversightPage.tsx</code> and the shared pieces in
+    <code>parts.tsx</code>. Each card explains what the part is for and how it works first, then how to present it.</p>
+  <ol class="comp-list">
+    <li><span class="comp-num">1</span><a href="#c-1">Page header and on-duty chip</a></li>
+    <li><span class="comp-num">2</span><a href="#c-2">Stats strip</a></li>
+    <li><span class="comp-num">3</span><a href="#c-3">Queue</a></li>
+    <li><span class="comp-num">4</span><a href="#c-4">Decision panel header, title and summary</a></li>
+    <li><span class="comp-num">5</span><a href="#c-5">Predicted impact (twin pre-flight)</a></li>
+    <li><span class="comp-num">6</span><a href="#c-6">Why it needs you</a></li>
+    <li><span class="comp-num">7</span><a href="#c-7">Dissent</a></li>
+    <li><span class="comp-num">8</span><a href="#c-8">What the models proposed</a></li>
+    <li><span class="comp-num">9</span><a href="#c-9">Plan</a></li>
+    <li><span class="comp-num">10</span><a href="#c-10">Evidence links</a></li>
+    <li><span class="comp-num">11</span><a href="#c-11">Four-eyes slots and signing as</a></li>
+    <li><span class="comp-num">12</span><a href="#c-12">Decision buttons</a></li>
+    <li><span class="comp-num">13</span><a href="#c-13">Signing ceremony and signed approvals</a></li>
+    <li><span class="comp-num">14</span><a href="#c-14">Escalation ladder</a></li>
+    <li><span class="comp-num">15</span><a href="#c-15">Decision history</a></li>
+  </ol>
+
+  <!-- ============================== 1 ============================== -->
+  <article class="comp" id="c-1">
+    <header><span class="comp-num">1</span><h3>Page header and on-duty chip</h3><span class="where">file <code>OversightPage.tsx</code>, <code>manifest.ts</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Names the screen, says in one line what it is for, tags which hackathon themes it covers, and shows who is
+        on duty, meaning the person who receives new requests first.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Example</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Title</th><td>Oversight Desk</td><td>The screen name from the manifest. The left rail calls it the same.</td></tr>
+            <tr><th>Track chips</th><td>T3, Trust</td><td>The hackathon themes this screen answers: track T3 is the multi-agent swarms track (policy, audit, human oversight); Trust is the cross-cutting trust theme. See <a href="#term-tracks">tracks</a>.</td></tr>
+            <tr><th>Description</th><td>"Decisions agents are not allowed to make alone…"</td><td>One-line purpose, from <code>manifest.ts</code>.</td></tr>
+            <tr><th>On-duty chip</th><td>green dot, On duty A. Rivera, L1 NOC engineer</td><td>The person at the first rung of the escalation ladder. The green dot only means "on duty"; it does not change colour.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The server keeps a fixed list of three people and names one of them as on duty; the chip shows that person.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd><code>engines/oversight.py</code>: the fixed <code>HUMANS</code> table (three people) and <code>on_duty = "a.rivera"</code>.</dd>
+          <dt>Arrives by</dt><dd>The <code>oversight</code> part of <code>GET /api/snapshot</code> when the page connects.</dd>
+          <dt>Store slice</dt><dd><code>oversight.on_duty</code> and <code>oversight.humans</code>.</dd>
+          <dt>Changes when</dt><dd>Never during the demo. No code changes who is on duty.</dd>
+        </dl>
+      </details>
+      <p>The chip looks up the on-duty id in the humans table and prints name, level and role. If the snapshot has not
+        arrived yet the chip is hidden.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>"On duty A. Rivera L1" means requests start with the NOC engineer and climb from there. Match it with the
+          first box of the <a href="#c-14">escalation ladder</a>.</p>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"This is where the agents stop and ask a person. Right now A. Rivera, the NOC engineer, is first in line."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Who is accountable when the agents act?"</strong> A named person on a named rung, every time. Maps to track T3 and Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The three people and the duty roster are fixed demo data. In AWS mode, approvers would sign in through Cognito.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 2 ============================== -->
+  <article class="comp" id="c-2">
+    <header><span class="comp-num">2</span><h3>Stats strip</h3><span class="where">function <code>Stats</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Five numbers that sum up the human side of the system at a glance: how much is waiting, how fast people decide,
+        how often requests had to climb the ladder, and how many decisions are signed.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Tile</th><th class="num">Example (pre-demo)</th><th>How it is counted</th><th>Small line under it</th></tr></thead>
+          <tbody>
+            <tr><th>Waiting for a human</th><td class="num">0</td><td>Requests with status pending.</td><td>"oldest first by SLA" when some wait, "queue clear" when none.</td></tr>
+            <tr><th>In review</th><td class="num">0</td><td>Pending requests that already have at least one approval. In practice, a four-eyes request with one of two approvals in.</td><td>"four-eyes, one approval in"</td></tr>
+            <tr><th>Median time to decision</th><td class="num">1m10s</td><td>For every approved request, the seconds from request to final approval (<code>ttd_s</code>). The list is sorted and the middle item is taken (for an even count, the upper of the two middle values).</td><td>"N decided today": every request that is no longer pending, including rejected and expired ones.</td></tr>
+            <tr><th>Escalations</th><td class="num">0</td><td>Count of "escalated to …" lines in every request's history. Both automatic (SLA ran out) and manual escalations count.</td><td>"auto on SLA breach or by hand"</td></tr>
+            <tr><th>Signed decisions</th><td class="num">6</td><td>Total number of approvals across all requests. A four-eyes request adds 2.</td><td>"Ed25519, one key per person"</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Pre-demo values come from six old approvals created at start-up (<code>APR-311</code> to <code>APR-316</code>),
+        decided in 40, 50, 60, 70, 80 and 90 seconds. That is why the median reads 1m10s. After the beat 9 approval Signed decisions reads 7. The median only moves if
+        the approval took less than 70 seconds (the "Right after approval" capture shows 1m00s after a fast approval); otherwise it stays at 1m10s.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>All five numbers are computed in the browser from the list of requests. The server does not send totals.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd><code>engines/oversight.py</code> stores each request with <code>approvals</code>, <code>history</code> and <code>ttd_s</code>.</dd>
+          <dt>Arrives by</dt><dd>Snapshot, then WebSocket events <code>approval.requested</code>, <code>approval.decision</code> and <code>escalation</code>, each carrying the whole updated request.</dd>
+          <dt>Store slice</dt><dd><code>oversight.items</code>. <code>approval.requested</code> puts the new request first; the other two replace the matching request in place.</dd>
+          <dt>Changes when</dt><dd>A request is filed, decided or escalated.</dd>
+        </dl>
+      </details>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Good: Waiting 0 or 1, Escalations 0, Signed decisions going up by one per approval. A rising Escalations
+          count means nobody answered in time.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>On beat 9, point at the first tile under the page title, "Waiting for a human", which reads 1. It is dimmed when spotlight is on.</li>
+          <li>After approving, point at Signed decisions going from 6 to 7.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"One decision waiting. Six earlier decisions, all signed, median a little over a minute."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Does a human in the loop slow everything down?"</strong> The median time to decision is on screen, about a minute. Maps to Trust and Observability.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The counts are real arithmetic over the live queue. The six earlier decisions are seeded history.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Signed decisions counts approvals only. Rejections and manual escalations are also signed into the ledger,
+          but they do not raise this number. Do not say "every signed decision is counted here".</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 3 ============================== -->
+  <article class="comp" id="c-3">
+    <header><span class="comp-num">3</span><h3>Queue</h3><span class="where">panel <code>queue</code>, function <code>Queue</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The inbox of requests. It shows what is waiting, in the order that matters (whose time runs out first), and
+        lets you open any request, including past ones.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Two tabs with counts: <strong>Pending</strong> and <strong>Decided</strong>. Each row is one request:</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Example (beat 9)</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Request id</th><td><code>APR-317</code></td><td>Sequential id given by the server.</td></tr>
+            <tr><th>Tier pill</th><td>High risk (amber) or Critical, four-eyes (red)</td><td>How dangerous the change is. Critical needs two different approvers.</td></tr>
+            <tr><th>Countdown</th><td>clock icon 1:51</td><td>Minutes and seconds left at the current level. Normal text colour (white in the dark theme) above 60 s, amber under 60 s, red under 15 s, then "escalating…". On an approved row it reads "decided in 1m30s"; on a rejected row it reads "rejected".</td></tr>
+            <tr><th>Title</th><td>Wake 3 cells, boost 6, load-balance stadium (12.5% of cells)</td><td>What the agents want to do, up to two lines.</td></tr>
+            <tr><th>from</th><td><code>coordinator</code></td><td>The agent that filed it: <code>coordinator</code> for the incident plan, <code>sentinel</code> for the quarantine release.</td></tr>
+            <tr><th>blast radius</th><td>12.5%</td><td>Share of cells the plan would touch.</td></tr>
+            <tr><th>approvals</th><td>0/1</td><td>Approvals so far out of approvals needed. 0/2 for critical.</td></tr>
+            <tr><th>Level and assignee</th><td>L1, A. Rivera</td><td>Who must answer now. On decided rows this is replaced by an Approved or Rejected pill.</td></tr>
+            <tr><th>Thin bar at the bottom</th><td>green, nearly full</td><td>Time left as a share of this level's SLA. Same colours as the countdown, but green (the Operate colour) when more than 60 s remain.</td></tr>
+            <tr><th>Left accent line</th><td>green line on the selected row</td><td>The row that is open on the right.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The source chip in the panel header reads "Step Functions task tokens" with a flask icon. The flask means mock
+        mode: the queue is simulated here and would be AWS Step Functions in AWS mode.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The server keeps the list of requests and their timers; the browser sorts them by whose time runs out first and runs the countdowns itself.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd><code>Oversight.create</code>, <code>decide</code>, <code>tick</code> and <code>view</code> in <code>engines/oversight.py</code>. <code>view</code> adds <code>level</code>, <code>assignee</code>, <code>sla_s</code> and <code>sla_deadline_t</code> (when this level's time runs out, on the simulation clock).</dd>
+          <dt>Arrives by</dt><dd>Snapshot, then <code>approval.requested</code>, <code>approval.decision</code>, <code>escalation</code>.</dd>
+          <dt>Store slice</dt><dd><code>oversight.items</code></dd>
+          <dt>Changes when</dt><dd>Beat 7 (+12.2 s) and beat 10 (+3.4 s) file requests; decisions and escalations update them; the countdown moves every 250 ms.</dd>
+        </dl>
+      </details>
+      <ol class="flow" aria-label="Data path">
+        <li class="src"><b>Engine files request</b><span><code>approval.requested</code></span></li>
+        <li><b>WebSocket batch</b><span>every 100 ms</span></li>
+        <li><b>Store prepends it</b><span><code>oversight.items</code></span></li>
+        <li class="ui"><b>Queue sorts by deadline</b><span>soonest first</span></li>
+      </ol>
+      <p>Pending rows are sorted by <code>sla_deadline_t</code>, so the request that will escalate first is on top.
+        Decided rows keep the server's order, newest first.</p>
+      <p>The countdown does not wait for the server. The browser keeps its own copy of the simulation clock, synced from
+        the server's <code>sim.clock</code> event once a second, and recomputes "deadline minus now" four times a second.
+        So pausing the simulation (<kbd>p</kbd>) freezes every countdown, and 2× or 5× speed in the Demo Director makes
+        them run faster.</p>
+      <p>Selection rule: the right-hand panel follows the newest pending request automatically, unless you clicked a
+        row yourself. Firing beat 9 clears your manual pick and jumps back to the newest pending request.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Pending / Decided tabs</th><td>Switches the list.</td><td>Browser only. No backend call.</td></tr>
+            <tr><th>Click a row</th><td>Opens that request on the right and pins your choice.</td><td>The decision panel, ladder and evidence switch to it. New requests no longer steal the selection until beat 9 fires again or you leave the page. No backend call.</td></tr>
+            <tr><th>Hover the source chip</th><td>Explains the data source.</td><td>Tooltip: simulated now, read from Step Functions in AWS mode.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Top row = most urgent. A green bar is fine, amber means under a minute, red means it is about to climb to the
+          next person.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Fire beat 9 (<kbd>→</kbd> from beat 8, or <kbd>9</kbd>).</li>
+          <li>Point at the single pending row and its countdown.</li>
+          <li>Optional: click the Decided tab to show the six earlier approvals, then click Pending again.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"The queue is ordered by whose clock runs out first. This one came from the coordinator agent during the incident, and it has under two minutes left before it goes to the on-call lead."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"What happens if nobody is watching?"</strong> The clock runs out and the request climbs the ladder; it is never auto-approved. Maps to track T3.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The queue logic, ordering and timers really run in the backend. The queue itself is in memory instead of Step Functions task tokens.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>APR-317's two-minute timer starts during beat 7, not beat 9. If you spend long on beats 7 and 8, it can
+          escalate to J. Okafor before you reach this screen. That is still a good story ("watch, it climbed"), but know
+          it can happen. Press <kbd>p</kbd> to pause the clock if you need time. Pausing freezes the whole simulation,
+          not just this timer: press <kbd>p</kbd> again to resume before you approve, or the plan steps wait.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 4 ============================== -->
+  <article class="comp" id="c-4">
+    <header><span class="comp-num">4</span><h3>Decision panel header, title and summary</h3><span class="where">panel <code>decision</code>, function <code>Workspace</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The top of the big right-hand panel says which request you are looking at, how risky it is, who must answer,
+        how long they have, and, in plain sentences, what the agents want to do and why.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Example (beat 9)</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Id and tier pill</th><td><code>APR-317</code> High risk</td><td>Same as the queue row.</td></tr>
+            <tr><th>Subtitle</th><td>L1, assigned to A. Rivera</td><td>Current level and assignee. After a decision: "decided approved", "decided rejected", or "decided expired" (only after a reload; see <a href="#request-lifecycle">the life of one request</a>).</td></tr>
+            <tr><th>Big countdown</th><td>1:51</td><td>Same colours as the queue: normal text colour, amber under 60 s, red under 15 s. Replaced by an Approved or Rejected pill once decided.</td></tr>
+            <tr><th>Source chip</th><td>Step Functions task tokens</td><td>Simulated now, Step Functions in AWS mode.</td></tr>
+            <tr><th>Title</th><td>Wake 3 cells, boost 6, load-balance stadium (12.5% of cells)</td><td>The action in one line.</td></tr>
+            <tr><th>Summary</th><td>"Fibre T3 is cut during the stadium let-out… Predicted congestion drops to ~55%."</td><td>The situation and the proposed fix, written by the agent that filed the request. The congestion figure is filled in from the twin pre-flight.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The agent that files the request writes the title and summary; the request's tier sets how many approvals it needs and how long each person has.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd>For APR-317: <code>Swarm._request_approval</code> in <code>engines/swarm.py</code> builds the title and summary from the pre-flight result and calls <code>Oversight.create</code> with tier <code>high</code>. For APR-318: <code>Swarm.telemetry_injection</code> step 3 files tier <code>critical</code> with <code>sla_scale=10</code>.</dd>
+          <dt>Arrives by</dt><dd>Snapshot and the three oversight events.</dd>
+          <dt>Store slice</dt><dd><code>oversight.items</code>, the selected item.</dd>
+          <dt>Changes when</dt><dd>The selection changes, the request is decided or escalated, and the countdown every 250 ms.</dd>
+        </dl>
+      </details>
+      <p>Tier decides the number of approvals: <code>required = 2</code> if the tier is critical, otherwise 1. The SLA
+        for the current level is the ladder value times the request's <code>sla_scale</code>: 120 s for APR-317 at L1,
+        1,200 s (20 min) for APR-318 at L1.</p>
+      <p>If nothing has ever been filed, the panel reads "Nothing waiting. Agents are acting within their autonomy
+        level." In practice the six seeded decisions mean there is always something to show.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Hover the countdown</th><td>Explains the timer.</td><td>Tooltip "SLA at L1: 120s, then auto-escalates".</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Read the title and the last sentence of the summary aloud. That is the decision in plain words.</p>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"The swarm wants to wake three sleeping cells, boost six, and shift stadium load. That touches 12.5% of the cells, so it is my call, and the clock has been running since it was filed: under two minutes left."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Does the human get enough context, or just a yes/no button?"</strong> The request carries the situation, the plan and the predicted outcome in words. Maps to track T3.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The incident and the agents' text are scripted. The timer and tier rules are real backend logic.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 5 ============================== -->
+  <article class="comp" id="c-5">
+    <header><span class="comp-num">5</span><h3>Predicted impact (twin pre-flight)</h3><span class="where">component <code>ImpactBars</code> and blast-radius meter</span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Shows the approver what will happen to the network if they say yes, before anything is changed. It is the
+        "what if" answer from the digital twin.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Up to five metric rows, each with two bars and numbers. The incident id (<code>INC-2041</code>) sits on the
+        right of the block title.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Row</th><th>Example (now → predicted, change)</th><th>Better when</th></tr></thead>
+          <tbody>
+            <tr><th>Stadium congestion</th><td>93.5 → 55.2% −38.3</td><td>lower</td></tr>
+            <tr><th>Dropped calls</th><td>1.27 → 0.00% −1.27</td><td>lower</td></tr>
+            <tr><th>Network health</th><td>80.0 → 100.0% +20.0</td><td>higher</td></tr>
+            <tr><th>Throughput</th><td>20.2 → 19.5 Gbps −0.8</td><td>higher</td></tr>
+            <tr><th>Energy draw</th><td>363.8 → 373.0 kW +9.2</td><td>lower</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li><strong>Grey bar</strong>: the value now.</li>
+        <li><strong>Coloured bar</strong>: the value the twin predicts after the plan. Green if it gets better, red if it gets worse, grey if unchanged.</li>
+        <li><strong>Change number</strong>: green or red the same way. In the example, three rows improve and two get worse: that trade-off is the point.</li>
+        <li>Percent rows are drawn on a 0 to 100 scale. Gbps and kW rows are scaled to the larger of the two values, so their bars look long even for a small change.</li>
+        <li><strong>Blast radius meter</strong> under the bars: "Blast radius, share of cells touched 12.5% (rule: 5% without a human)". The bar runs 0 to 25%, has a tick at 5%, turns amber at 5% and red at 20%. Below 5% it is blue.</li>
+      </ul>
+      <p>When a request has no twin numbers (the seeded old ones, and APR-318), the block reads "No twin pre-flight was
+        recorded for this request" and only the meter is shown.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>Before filing, the swarm tries the plan on a copy of the simulated network, reads the numbers, then throws the copy away. The before and after numbers are stored on the request.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd><code>Twin.preflight</code> in <code>engines/twin.py</code>, called by <code>Swarm._preflight</code> during beat 7.</dd>
+          <dt>Arrives by</dt><dd>Stored on the request as <code>preflight</code> (<code>before</code>, <code>after</code>, <code>blast_radius_pct</code>).</dd>
+          <dt>Store slice</dt><dd><code>oversight.items[].preflight</code></dd>
+          <dt>Changes when</dt><dd>Fixed once the request is filed. It is a prediction taken at that moment.</dd>
+        </dl>
+      </details>
+      <ol class="flow" aria-label="Pre-flight steps">
+        <li class="src"><b>Save the twin</b><span>sites, hubs, links</span></li>
+        <li><b>Apply pending steps</b><span>silently, no events</span></li>
+        <li><b>Read KPIs</b><span>after values</span></li>
+        <li><b>Restore the twin</b><span>nothing really changed</span></li>
+        <li class="ui"><b>Bars and meter</b><span>before vs after</span></li>
+      </ol>
+      <p><code>Twin.preflight</code> reads the KPIs, saves a copy of the twin's state, applies the plan's pending steps
+        without emitting any events, recomputes, reads the KPIs again, then puts the saved state back. The blast radius
+        is <code>100 × cells touched ÷ (sites × 3)</code>. For APR-317 that is 3 woken cells + 6 boosted cells + 6
+        neighbour sites taking load = 15, out of 40 sites × 3 cells = 120, so 12.5%.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Hover a bar</th><td>Shows the raw number.</td><td>Tooltip "before: 93.5" or "after: 55.2".</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Compare each pair of bars. Green coloured bar = better, red = worse. The meter tells you how far over the 5% line the plan goes.</p>
+        <p><span class="pill good">Improves</span> <span class="pill critical">Gets worse</span> <span class="pill neutral">Unchanged</span></p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>On beat 9, point at Stadium congestion: 93.5 to 55.2.</li>
+          <li>Then point at Energy draw going up in red, and connect it to the <a href="#c-7">dissent</a>.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Before I approve, the twin has already run this plan on a copy of the network. Congestion drops from 93 to 55 percent, dropped calls go to zero, but we pay about 9 kilowatts more. Nothing has touched the real network yet."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How does the human know the plan is safe?"</strong> A simulated what-if runs before the request is even filed. Maps to tracks T3 and T1 (the model's plan is checked before production).</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The twin and all its KPIs are a simulation. The save-apply-restore mechanism is real code; the numbers are not from a real network.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>The legend under the bars always shows a green swatch for "predicted by the twin after the plan", even for
+          rows where the predicted bar is red. Explain colour by direction, not by the legend.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 6 ============================== -->
+  <article class="comp" id="c-6">
+    <header><span class="comp-num">6</span><h3>Why it needs you</h3><span class="where">block in <code>Workspace</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Says exactly which policy rule sent this request to a human, so the approver knows why they are being asked.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>One line per rule: a policy id chip and a reason.</p>
+      <ul>
+        <li>APR-317: <code>P-003</code> "blast radius 12.5% &gt; 5% needs a human". P-003 is the policy "Large radio changes need a human".</li>
+        <li>APR-318: <code>P-008</code> "quarantined identity: restoring requires two approvers". P-008 is "Quarantined identities can do nothing".</li>
+        <li>Seeded old requests: <code>P-003</code> "blast radius &gt; 5%".</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The request carries the id of the rule that requires a human and a one-line reason. For APR-317 the rule is checked by the policy evaluator, outside the model.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd>APR-317: <code>Swarm._request_approval</code> calls <code>Trust.authorize</code> in <code>engines/trust.py</code> for each pending step, then passes a fixed P-003 reason to <code>Oversight.create</code>. APR-318: <code>Swarm.telemetry_injection</code> passes a fixed P-008 reason; no policy check runs for it.</dd>
+          <dt>Arrives by</dt><dd>The request's <code>reasons</code> list. The policy text comes from the <code>trust.policies</code> slice.</dd>
+          <dt>Store slice</dt><dd><code>oversight.items[].reasons</code>, <code>trust.policies</code></dd>
+          <dt>Changes when</dt><dd>Fixed once filed.</dd>
+        </dl>
+      </details>
+      <p>For APR-317 the coordinator checks each pending radio step with the policy evaluator
+        (<code>Trust.authorize</code>). The coordinator is allowed to run radio changes for a plan (<code>P-005</code>),
+        but the evaluator then checks: is the blast radius over 5% and is there no human approval yet? If yes, the
+        verdict is <code>needs_human</code> and the deciding policy is <code>P-003</code>. The request is filed with that
+        reason. (In the current code the request is filed whatever the check returns; the check itself is what Trust Center
+        logs.) The <a href="#term-cedar">Cedar</a> text shown for P-003 is:</p>
+      <pre><code>forbid (principal, action in ActionGroup::"radio_changes", resource)
+when { context.blast_radius_pct &gt; 5 &amp;&amp; !context.human_approved };</code></pre>
+      <p>After approval, the steps go through the full policy gateway with <code>human_approved: true</code> and the
+        list of approvers attached. That is where P-003 is actually enforced: without approval the gateway would not run
+        them.</p>
+      <p>For APR-318 the P-008 reason is written by the sentinel agent when it files the request, and the two-person rule
+        comes from the request's critical tier, not from P-008. P-008's own Cedar text only says a quarantined identity can
+        do nothing.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click the policy chip (<code>P-003</code>)</th><td>Opens the policy in the inspector drawer.</td><td>The right-hand inspector shows the Cedar policy, its name and version. No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Click <code>P-003</code>. The inspector opens with the Cedar rule.</li>
+          <li>Read the <code>when</code> line, then close the drawer with its close button. <kbd>Esc</kbd> also closes it, but it clears the beat 9 spotlight at the same time.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"It is here because of this rule: radio changes over 5% of cells need a human. That rule runs outside the model, so no prompt can talk its way past it."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"What stops the coordinator agent itself from going rogue?"</strong> The same policy applies to it; large changes always need a human, whoever asks. Maps to track T3 and Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The P-003 check is a deterministic evaluator that mirrors the Cedar policies shown, and it really blocks the radio steps until a human approves. The reason text on each request is fixed in the scenario. In AWS mode, Amazon Verified Permissions would make the policy decision.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 7 ============================== -->
+  <article class="comp" id="c-7">
+    <header><span class="comp-num">7</span><h3>Dissent</h3><span class="where">block in <code>Workspace</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Shows which agent disagreed with the plan and why. This guards against agents agreeing with each other on a bad
+        plan: the human sees the objection, not just the consensus.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>An amber-edged box per objection: the agent name, then its reason.</p>
+      <ul>
+        <li>APR-317: <code>energy</code>: "Objects: +3.4 kWh over 45 minutes versus option D". Option C is this plan
+          ("Wake 3 cells for 45 min + boost 6"). Option D was "Boost 6 cells only", which the energy agent preferred. Both
+          come from the negotiation on <a href="swarm.html">Swarm Tower</a>.</li>
+        <li>APR-318: <code>sentinel</code>: "Recommend keeping quarantine until the gNB is re-imaged". (A gNB is a 5G base station.)</li>
+        <li>No objections: "No agent objected."</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The objection is copied from the agents' negotiation into the request when it is filed, and stays with it.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd><code>Swarm._mediate</code> in <code>engines/swarm.py</code> records the dissent when the coordinator settles the Energy vs Experience negotiation on option C (beat 7 to 8).</dd>
+          <dt>Arrives by</dt><dd>The request's <code>dissent</code> list, copied from the negotiation.</dd>
+          <dt>Store slice</dt><dd><code>oversight.items[].dissent</code></dd>
+          <dt>Changes when</dt><dd>Fixed once filed.</dd>
+        </dl>
+      </details>
+      <p>The negotiation on <a href="swarm.html">Swarm Tower</a> ends with option C, and the energy agent's objection is
+        kept on the record instead of being dropped. The request carries it here unchanged.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click the agent name</th><td>Opens that agent in the inspector.</td><td>Inspector drawer shows the agent's details. No backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"The agents did not all agree. The energy agent objected, and its objection travels with the request, so I decide with the disagreement in front of me."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"What if the agents collude or reach a wrong consensus?"</strong> Dissent is preserved and shown to the human. Maps to track T3 (oversight of agent-to-agent collaboration).</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The negotiation and the objection text are scripted.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>The "+9.2 kW" in <a href="#c-5">card 5</a> is the twin's predicted extra power draw right now. The "+3.4 kWh"
+          here is the energy agent's own estimate of energy over the 45 minutes. They measure different things; do not
+          compare them.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 8 ============================== -->
+  <article class="comp" id="c-8">
+    <header><span class="comp-num">8</span><h3>What the models proposed</h3><span class="where">block in <code>Workspace</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Shows what the production model and the new shadow model each suggested, so the approver can see whether the
+        two model versions agree.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Model</th><th>Role</th><th>Proposal (APR-317)</th></tr></thead>
+          <tbody>
+            <tr><td><code>nlm-v6</code></td><td>production</td><td>option C (this plan)</td></tr>
+            <tr><td><code>nlm-v7</code></td><td>shadow</td><td>option C with 4 border cells instead of 6</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>"Production" is the model currently serving; "shadow" is the newly trained model that runs alongside without
+        acting (see <a href="release.html">Release</a>). Requests not written by a model read "Not model-generated."</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The coordinator copies two fixed lines into the request when it files it; nothing is asked of the models at decision time.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd><code>Swarm._request_approval</code> passes a fixed <code>model_opinions</code> list.</dd>
+          <dt>Arrives by</dt><dd>The request's <code>model_opinions</code>.</dd>
+          <dt>Store slice</dt><dd><code>oversight.items[].model_opinions</code></dd>
+          <dt>Changes when</dt><dd>Fixed once filed.</dd>
+        </dl>
+      </details>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"The production model proposed this plan. The new model, still in shadow, would boost four cells instead of six. The request records both, so I can see whether the two versions agree."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How do you trust a new model version in production?"</strong> Its opinion is shown next to the production model's before it is allowed to act. Maps to track T1.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The two opinions are fixed text in the scenario, not live model output.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Do not claim the models were queried live for this decision. Say "the request records what each model proposed".</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 9 ============================== -->
+  <article class="comp" id="c-9">
+    <header><span class="comp-num">9</span><h3>Plan</h3><span class="where">block in <code>Workspace</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Lists every step of the plan, which agent will run it, which policy covers it, and whether it already ran on its
+        own or is waiting for you. It shows that the swarm already did the safe part and only the risky part waits.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>One row per step: number, tool name, target and agent, policy id, status pill.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>#</th><th>Tool</th><th>Target, by agent</th><th>Policy</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td class="num">1</td><td><code>reroute</code></td><td>T3 → MW3 by transport</td><td><code>P-004</code></td><td><span class="pill good">Done, auto</span></td></tr>
+            <tr><td class="num">2</td><td><code>cell_wake</code></td><td>3 cells by coordinator</td><td><code>P-003</code></td><td><span class="pill warn">Needs you</span></td></tr>
+            <tr><td class="num">3</td><td><code>set_tx_power</code></td><td>6 border cells by coordinator</td><td><code>P-003</code></td><td><span class="pill warn">Needs you</span></td></tr>
+            <tr><td class="num">4</td><td><code>load_balance</code></td><td>6 stadium sites → 6 neighbours by coordinator</td><td><code>P-003</code></td><td><span class="pill warn">Needs you</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li>Step 1 moved traffic from the cut fibre link T3 to the microwave link MW3. The transport agent owns backhaul (<code>P-004</code>), so it ran automatically.</li>
+        <li>Steps 2 to 4 are the radio changes that add up to 12.5% of cells. They wait under <code>P-003</code>.</li>
+        <li>APR-318 has one step: <code>reissue_identity</code> on site-17 by sentinel, under <code>P-008</code>.</li>
+        <li>Pill words: "Done, auto" (ran on its own), "Done" (ran after approval), "Needs you" (waiting for a human).</li>
+      </ul>
+      <p>The block is hidden when a plan has no steps, as with the six seeded requests.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The plan travels inside the request. When the last approval arrives, the server calls the swarm back and the waiting steps run one by one.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd><code>Swarm.plan_steps</code> in <code>engines/swarm.py</code> defines the four steps; <code>Swarm._on_decided</code> runs them after approval.</dd>
+          <dt>Arrives by</dt><dd>The request's <code>plan.steps</code>, sent with each oversight event.</dd>
+          <dt>Store slice</dt><dd><code>oversight.items[].plan</code></dd>
+          <dt>Changes when</dt><dd>Only after a page reload once the request is approved (see watch-out).</dd>
+        </dl>
+      </details>
+      <ol class="flow" aria-label="After approval">
+        <li class="src"><b>Approval complete</b><span><code>_on_decided</code></span></li>
+        <li><b>Steps run</b><span>0.8 s apart, through the policy gateway</span></li>
+        <li><b>Verify KPIs</b><span>3.6 s after approval</span></li>
+        <li class="ui"><b>Incident resolved</b><span>1.4 s later, on Swarm Tower</span></li>
+      </ol>
+      <p>When the request reaches its required approvals, the backend calls the swarm back. Each pending step goes through
+        the policy gateway again, now with <code>human_approved: true</code> and the approvers' ids, then is marked done and
+        announced as <code>plan.step</code>. The incident then verifies its <a href="#term-kpi">KPIs</a>, dispatches a field technician to fibre link T3 and
+        closes with <code>incident.resolved</code>. If the request is rejected instead, the incident switches to
+        "mitigating": the automatic reroute stays in place and nothing else runs.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data. Approve with changes in <a href="#c-12">card 12</a> records narrower limits, but read its watch-out first.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Green rows already happened. Amber rows are what you are approving.</p>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"The safe part already happened: the transport agent rerouted traffic onto the microwave backup by itself. The three radio steps are what needs me."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Does every action need a human? That won't scale."</strong> No. Low-risk steps run on their own; only steps over the line wait. Maps to tracks T3 and T1.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The gateway checks on each step are real policy evaluations and are signed into the ledger. The steps act on the simulated twin.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>After you approve, the rows on this page still say "Needs you". Step execution updates the swarm part of the
+          state, not this request, and no further oversight events arrive for an approved request, so these rows only
+          update after a page reload. APR-318's <code>reissue_identity</code> row always stays "Needs you", even after a
+          reload. Show the executed steps, the resolved incident and site-17 back to active on
+          <a href="swarm.html">Swarm Tower</a> instead.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 10 ============================== -->
+  <article class="comp" id="c-10">
+    <header><span class="comp-num">10</span><h3>Evidence links</h3><span class="where">row in <code>Workspace</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>One-click links from the request to the proof behind it: the signed ledger record, the incident, its trace and
+        the raw data.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>"Evidence" followed by up to four links, each with a small arrow icon:</p>
+      <ul>
+        <li><strong>request record #3496</strong>: the ledger record written when the request was filed (<code>approval.requested</code>).</li>
+        <li><strong>INC-2041 in Swarm Tower</strong>: only when the request belongs to an incident.</li>
+        <li><strong>trace 982599ae</strong>: the first 8 characters of the incident's trace id. Only when there is an incident with a trace.</li>
+        <li><strong>raw request</strong>: always shown.</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>Filing the request already wrote a signed ledger record; these links open that record, the incident, its trace and the raw data.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd><code>Oversight.create</code> appends <code>approval.requested</code> to the ledger and stores its number as the first history entry. The trace id comes from the swarm's active incident.</dd>
+          <dt>Arrives by</dt><dd><code>history[0].ledger_seq</code> on the request; <code>swarm.incident.trace_id</code>.</dd>
+          <dt>Store slice</dt><dd><code>oversight.items</code>, <code>swarm.incident</code></dd>
+          <dt>Changes when</dt><dd>Fixed once filed.</dd>
+        </dl>
+      </details>
+      <p>The ledger record opens in the inspector, which fetches it with <code>GET /api/ledger/{seq}</code> and its
+        inclusion proof with <code>GET /api/ledger/proof/{seq}</code>. The browser also recomputes the record's hash
+        itself, so the check does not just trust the server.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>request record #N</th><td>Opens the ledger record.</td><td>Inspector shows the record, step-by-step verification, payload and raw tabs. Read-only <code>GET</code> calls.</td></tr>
+            <tr><th>INC-… in Swarm Tower</th><td>Goes to the incident.</td><td>Navigates to <code>/swarm</code>.</td></tr>
+            <tr><th>trace …</th><td>Goes to the traces.</td><td>Navigates to <code>/observability</code>.</td></tr>
+            <tr><th>raw request</th><td>Shows the full request as JSON.</td><td>Opens the inspector drawer labelled "Approval", showing the whole request as JSON, exactly as received.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Click "request record #…". Point at the verification steps.</li>
+          <li>Close the inspector and continue.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"The request itself is already a signed record in the ledger, before anyone has decided."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Can you prove the request was what you say it was?"</strong> It is <a href="#term-ledger">hash-chained</a> and signed at the moment it was filed. Maps to Trust and track T3 (traceability).</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The ledger record, its hash chain and signature are real cryptography even in mock mode.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 11 ============================== -->
+  <article class="comp" id="c-11">
+    <header><span class="comp-num">11</span><h3>Four-eyes slots and signing as</h3><span class="where">component <code>FourEyes</code>, approver switch in the decision bar</span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Shows how many approvals the request needs and who has given them, and sets which person you are acting as when
+        you press a decision button.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li><strong>Slots</strong>, on the left of the decision bar: one per required approval. An empty slot is dashed with a person icon: "Approver", or for the second slot "Second approver, different person". A filled slot has a green check and the name and device, for example "A. Rivera (console)".</li>
+        <li><strong>Signing as</strong>, on the right: three buttons, A. Rivera, J. Okafor, M. Chen. Hovering one shows level and role, for example "L2 On-call network lead". It disappears once the request is decided.</li>
+      </ul>
+      <p>High-risk requests have one slot. Critical requests have two.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The request says how many approvals it needs; the server counts approvals by person and refuses the same person twice.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd><code>Oversight.decide</code>: refuses a second approval from the same person; marks the request approved when <code>approvals ≥ required</code>.</dd>
+          <dt>Arrives by</dt><dd><code>required</code> and <code>approvals</code> on the request.</dd>
+          <dt>Store slice</dt><dd><code>oversight.items[].approvals</code>, <code>oversight.humans</code></dd>
+          <dt>Changes when</dt><dd>Each approval, from the console or a phone.</dd>
+        </dl>
+      </details>
+      <p>Four-eyes is enforced in two places. In the browser, the Approve button is disabled for a person who has already
+        approved. On the server, if the same person's approval arrives again, <code>decide</code> returns the request
+        unchanged and writes nothing. Only a different person fills the second slot.</p>
+      <p>The person you pick in Signing as is sent as <code>by</code> with the decision. It decides whose key signs the
+        record. It starts as A. Rivera every time the page loads.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Signing as: A. Rivera / J. Okafor / M. Chen</th><td>Chooses who you act as.</td><td>The Approve button label changes ("Approve", "Approve (1 of 2)", or "J. Okafor already approved"). No backend call until you press a decision button.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>All slots green = fully approved. One green, one dashed = waiting for a second, different person.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Open APR-318 (after beat 10). Point at the two dashed slots.</li>
+          <li>Approve as A. Rivera. The first slot fills; the button now reads "A. Rivera already approved".</li>
+          <li>Have the teammate with the phone tap Approve (it signs as J. Okafor). Two real people make the claim honest. See <a href="#four-eyes">Four-eyes, step by step</a>.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Releasing a compromised agent is critical, so it needs two different people. I have approved. Watch: the button will not let me approve twice."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Can one person push a dangerous change through alone?"</strong> No. The server refuses a second approval from the same identity. Maps to Trust and track T3.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The two-person rule is really enforced by the backend. The identities are three demo people picked from a switch, with no login.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>There is no sign-in in mock mode: anyone at the keyboard can pick any name. If a judge asks, say that in AWS
+          mode approvers authenticate with Cognito and sign with their own KMS key, and this switch stands in for that.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 12 ============================== -->
+  <article class="comp" id="c-12">
+    <header><span class="comp-num">12</span><h3>Decision buttons</h3><span class="where">decision bar in <code>Workspace</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The four things a human can do with a request: approve it, approve a smaller version, reject it with a reason,
+        or pass it up to the next level with a reason.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>While the request is pending, four buttons:</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Button</th><th>Look</th><th>Disabled when</th></tr></thead>
+          <tbody>
+            <tr><th>Approve</th><td>Solid, check icon. Reads "Approve (1 of 2)" on a critical request with no approvals yet.</td><td>The selected person already approved; then it reads "A. Rivera already approved".</td></tr>
+            <tr><th>Approve with changes</th><td>Outline, pen icon.</td><td>The selected person already approved, or no step has a list of cells (tooltip "This plan has no adjustable steps"). Disabled on APR-318.</td></tr>
+            <tr><th>Reject</th><td>Red outline, cross icon.</td><td>Never.</td></tr>
+            <tr><th>Escalate to L2</th><td>Plain, double-chevron icon. Names the next level.</td><td>The request is already at L3 (label "Escalate to —").</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Each of the last three opens a small form in place of the buttons:</p>
+      <ul>
+        <li><strong>Approve with changes</strong>: "Limit how many cells each step may touch. The change is signed with your approval." One slider per step that has cells: on APR-317, step 2 <code>cell_wake</code> (1 to 3 cells) and step 3 <code>set_tx_power</code> (1 to 6 cells), with "k of N cells" next to each. Buttons "Approve with these limits" and "Cancel". Step 4 has no slider because it lists sites, not cells.</li>
+        <li><strong>Reject</strong>: "Why are you rejecting this plan? The reason is signed and kept in the ledger." Three quick reasons ("Blast radius too large for tonight", "Wait for the field team", "Prediction does not match what I see"), a text box "Reason (required)", and "Reject plan" / "Cancel". Reject plan stays disabled until a reason is filled.</li>
+        <li><strong>Escalate</strong>: "Why does this need the next level? They are paged immediately." Quick reasons "Needs on-call review", "Touches a life-safety site", "Outside my authority", the same required text box, and "Escalate to L2" / "Cancel".</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>Each button sends one request to the server, which signs the decision with the chosen person's key and writes it to the ledger.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Endpoint</dt><dd><code>POST /api/approvals/{id}/{decision}</code> with <code>decision</code> = <code>approve</code>, <code>approve_with_changes</code>, <code>reject</code> or <code>escalate</code>, and body <code>{by, device: "console", reason, changes}</code>.</dd>
+          <dt>Backend</dt><dd><code>main.py</code> maps it to <code>Oversight.decide</code> in <code>engines/oversight.py</code>.</dd>
+          <dt>Events back</dt><dd><code>approval.decision</code>; also <code>escalation</code> for an escalate.</dd>
+          <dt>Ledger</dt><dd><code>approval.decision</code> signed with <code>kms:spectrum/human/&lt;id&gt;</code>; an escalate also writes <code>escalation</code>.</dd>
+        </dl>
+      </details>
+      <p>What the server does for each choice:</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Choice</th><th>Server action</th></tr></thead>
+          <tbody>
+            <tr><th>Approve</th><td>If this person has not approved yet: builds the decision payload (request id, "approved", person, device, changes, reason), hashes its <a href="#term-canonical">canonical</a> JSON, signs the hash with that person's Ed25519 key, appends a signed <code>approval.decision</code> record, and adds the approval. If the approvals now meet the requirement, the status becomes approved, the time to decision is stored and the swarm executes the plan.</td></tr>
+            <tr><th>Approve with changes</th><td>Same as Approve. The slider limits travel as <code>changes</code>, for example <code>step_3: {cells: [four cell ids]}</code>, inside the signed payload.</td></tr>
+            <tr><th>Reject</th><td>Appends a signed <code>approval.decision</code> with "rejected" and the reason. Status becomes rejected at once, whatever the tier. For APR-317, the incident switches to mitigating: the reroute stays and the radio steps never run.</td></tr>
+            <tr><th>Escalate</th><td>Appends a signed <code>approval.decision</code> with "escalated" and the reason, then moves the request up one level: new assignee, fresh SLA timer for that level, and an <code>escalation</code> record. A critical-severity <code>escalation</code> event raises a "Review" toast naming the new assignee, on top of the console's own "escalated and signed into the ledger" toast.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Approving the quarantine request (any plan id starting with <code>restore-</code>) also makes <code>main.py</code>
+        release the agent: site-17 becomes active with a new key id, its trust score is set to 60 and an
+        <code>identity.reissued</code> record is written.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Approve</th><td>Signs your approval.</td><td><code>POST …/approve</code>. Ledger: <code>approval.decision</code>. Signing ceremony shows (card 13). Plan executes if this was the last approval needed.</td></tr>
+            <tr><th>Approve with changes, sliders, Approve with these limits</th><td>Approves with smaller cell lists.</td><td><code>POST …/approve_with_changes</code> with <code>changes</code>. Ledger: <code>approval.decision</code> including the limits.</td></tr>
+            <tr><th>Reject, reason chip or text, Reject plan</th><td>Rejects with a reason.</td><td><code>POST …/reject</code>. Ledger: <code>approval.decision</code> "rejected". Toast "APR-… rejected and signed into the ledger".</td></tr>
+            <tr><th>Escalate to L2, reason, Escalate to L2</th><td>Hands it to the next level now.</td><td><code>POST …/escalate</code>. Ledger: <code>approval.decision</code> "escalated", then <code>escalation</code>. Ladder moves. Two toasts: "APR-… escalated and signed into the ledger" and a "Review" toast naming the new assignee.</td></tr>
+            <tr><th>Cancel</th><td>Closes the form.</td><td>Browser only.</td></tr>
+            <tr><th>Any decision, backend unreachable</th><td>The request fails.</td><td>The ceremony box closes and a red "Decision failed: …" toast appears. Nothing was signed. Check the Live dot in the top bar and try again.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>On beat 9, with Signing as on A. Rivera, click Approve. Or let the teammate with the phone tap Approve as J. Okafor.</li>
+          <li>Watch the signing ceremony, then press <kbd>g</kbd> <kbd>s</kbd> to show the plan running on Swarm Tower.</li>
+          <li>If a judge asks about saying no: click Reject, point at the line "The reason is signed and kept in the ledger" and the greyed-out "Reject plan" button (it needs a reason), then click Cancel. Never press Reject plan on APR-317 during the run.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"I can approve, reject with a reason, or pass it up to the next level. Whatever I choose is signed with my key and goes in the ledger, including a rejection."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Is the human just a rubber stamp?"</strong> They can reject with a reason or escalate, and every choice carries their name and signature. Maps to track T3 and Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The decision logic, Ed25519 signatures and ledger records are real. The paging on escalate is not: there is no SNS message in mock mode.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <ul>
+          <li>Approve with changes records the limits in the signed decision, but in the current code the swarm still executes the original steps: the changes are keyed <code>step_3</code> while the swarm matches on <code>3</code>. Say "the narrowed limits are signed into the decision", not "the swarm will touch fewer cells".</li>
+          <li>Do not reject APR-317 during the main demo. The incident stays unresolved, and beats 11 and 14 tell a better story with an approved plan.</li>
+          <li>The backend does not check that the signer is the assigned level. Any of the three people can approve at any level.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 13 ============================== -->
+  <article class="comp" id="c-13">
+    <header><span class="comp-num">13</span><h3>Signing ceremony and signed approvals</h3><span class="where">function <code>Ceremony</code> and approvals list in the decision bar</span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Makes the act of signing visible: it shows the three things that happen to a decision on the server, then leaves a
+        permanent line per approval with its signature and ledger number.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Right after you press Approve, a green box headed "Signing as A. Rivera…", then "Signed by A. Rivera", with three
+        lines that tick off one by one:</p>
+      <ol>
+        <li>Canonicalising the decision</li>
+        <li>Signing with <code>kms:spectrum/human/a.rivera</code> (Ed25519)</li>
+        <li>Appended to the ledger as record #3,503</li>
+      </ol>
+      <p>After about 6 seconds the box is replaced by the approvals list. Each line has a green shield, "Approved by A.
+        Rivera", "on console, 21:01:30" (device and simulation time), a signature badge "Signed human/a.rivera" and the
+        ledger number, for example <code>#12</code>. For a decided request with no approvals (a rejection), a single line
+        shows the last history entry, such as "rejected by A. Rivera: Wait for the field team".</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The server does the signing in one step; the ceremony replays its three parts slowly so the audience can follow, using the real record number.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd><code>Oversight.decide</code>: canonical JSON of the payload, SHA-256, Ed25519 signature with the person's key, then <code>Ledger.append</code>, which chains the record to the previous hash and signs it again.</dd>
+          <dt>Arrives by</dt><dd>The <code>POST</code> response (for the ceremony) and the <code>approval.decision</code> event (for the list).</dd>
+          <dt>Store slice</dt><dd><code>oversight.items[].approvals</code> (<code>by</code>, <code>name</code>, <code>at</code>, <code>device</code>, <code>sig</code>, <code>ledger_seq</code>)</dd>
+          <dt>Changes when</dt><dd>Each approval.</dd>
+        </dl>
+      </details>
+      <ol class="flow" aria-label="Signing a decision">
+        <li class="src"><b>Canonical JSON</b><span>sorted keys, one exact form</span></li>
+        <li><b>SHA-256 hash</b></li>
+        <li><b>Ed25519 signature</b><span>person's own key</span></li>
+        <li class="ui"><b>Ledger record</b><span>chained to the previous hash</span></li>
+      </ol>
+      <p>"Canonical" means the decision is written in one exact text form, so anyone recomputing the hash gets the same
+        bytes. The server does all three steps in one request. The ceremony shows a spinner while the request is in flight,
+        then ticks the remaining lines at 380 ms and 760 ms so the audience can follow; the record number shown is the real
+        one returned by the server.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Signature badge (click or hover)</th><td>Hover shows algorithm, key id and ledger number. Click opens the record.</td><td>Inspector with the ledger record and its verification. Read-only <code>GET</code>.</td></tr>
+            <tr><th>Ledger number <code>#N</code></th><td>Opens the ledger record.</td><td>Same inspector view.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Approve. Let the three lines tick, and read the record number aloud.</li>
+          <li>After the box closes, click the ledger number to open the record.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"My approval is signed with my own key and added to the ledger as this record number. If anyone edits it later, verification breaks right here, and we will do exactly that in a minute."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Can someone change an approval after the fact?"</strong> Not without breaking the hash chain; beat 12 tampers this very record to prove it. Maps to Trust and track T3 (traceability).</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The Ed25519 signature and the hash-chained record are real. In mock mode the keys are generated from a fixed seed; <code>kms:</code> is the key's name, not a call to AWS KMS.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>The ceremony only appears on the console that pressed the button. An approval made on a phone shows up on the
+          console as a new line in the approvals list, with no ceremony. If the phone approved, point at the new "Approved
+          by J. Okafor" line marked "on mobile" and its record number instead.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 14 ============================== -->
+  <article class="comp" id="c-14">
+    <header><span class="comp-num">14</span><h3>Escalation ladder</h3><span class="where">panel <code>ladder</code>, function <code>Ladder</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Shows who is responsible for the selected request right now, how much time they have left, and who it goes to
+        next if nobody answers.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Three boxes joined by arrows, plus the subtitle "for APR-317" and a source chip "SNS + Incident Manager".</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Level</th><th>Person</th><th>Role</th><th>SLA</th></tr></thead>
+          <tbody>
+            <tr><th>L1</th><td>A. Rivera</td><td>NOC engineer</td><td>2m00s</td></tr>
+            <tr><th>L2</th><td>J. Okafor</td><td>On-call lead</td><td>5m00s</td></tr>
+            <tr><th>L3</th><td>M. Chen</td><td>Duty manager</td><td>10m00s</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li><strong>Current level</strong>: green border and an amber bell icon (meaning "paged"). Its bar fills as time is used: green, amber under 60 s left, red under 15 s. Right-hand text: "1m51s left", then "escalating".</li>
+        <li><strong>Passed levels</strong>: grey full bar and "escalated 21:33:10" (the time it moved on).</li>
+        <li><strong>Later levels</strong>: "standby".</li>
+        <li><strong>Decided request</strong>: levels it passed through still show "escalated" and the time; the rest show "—".</li>
+      </ul>
+      <p>The footnote: "Unanswered requests climb a level when the SLA runs out. Each step pages the next person (SNS /
+        Incident Manager) and writes a signed escalation record; the agents keep waiting, they never act on silence."</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>Ten times a second the server checks each waiting request. When the current person's time runs out, it moves the request to the next person and signs a record of that.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd><code>LADDER</code> and <code>Oversight.tick</code> / <code>_escalate</code> in <code>engines/oversight.py</code>.</dd>
+          <dt>Arrives by</dt><dd><code>oversight.ladder</code> in the snapshot; <code>level_index</code> and <code>level_started_t</code> on each request; <code>escalation</code> events.</dd>
+          <dt>Store slice</dt><dd><code>oversight.ladder</code>, <code>oversight.humans</code>, the selected item</dd>
+          <dt>Changes when</dt><dd>Every 250 ms (bar and time left), and on each escalation.</dd>
+        </dl>
+      </details>
+      <p>On every simulation tick (10 times a second) the backend checks each pending request: if the time since the
+        current level started is greater than that level's SLA times the request's <code>sla_scale</code>, it escalates.
+        Escalating raises <code>level_index</code>, restarts the level clock, appends a signed <code>escalation</code>
+        record (actor <code>oversight</code>), adds an "escalated to L2 (J. Okafor): SLA 120.0s breached" history line and
+        emits a critical <code>escalation</code> event, which raises a "Review" toast. If L3 also runs out, the status
+        becomes <code>expired</code> and nothing runs. Expiry is silent in the current code: no event, no ledger record and
+        no callback, so the console keeps showing the request as pending ("escalating…") until a reload, and the incident
+        stays open.</p>
+      <ol class="flow states" aria-label="Escalation timing for APR-317">
+        <li class="src"><b>L1 A. Rivera</b><span>0 to 2 min</span></li>
+        <li><b>L2 J. Okafor</b><span>next 5 min</span></li>
+        <li><b>L3 M. Chen</b><span>next 10 min</span></li>
+        <li class="ui"><b>Expired</b><span>never executed</span></li>
+      </ol>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data. To escalate by hand, use Escalate in <a href="#c-12">card 12</a>.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>The box with the bell is who is being asked now. Grey boxes on its left already timed out; "standby" boxes on its right are next in line.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>On beat 9, scroll down to the ladder and point at the L1 bar filling.</li>
+          <li>To show an escalation live without waiting: click Escalate to L2, pick "Needs on-call review", confirm. The bell moves to J. Okafor with a fresh 5-minute bar. Only do this outside the main run. It cannot be undone: the request stays at L2 and Escalations goes to 1. Reset the scenario afterwards (hold <kbd>r</kbd> for one second) before a real run.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"If I do nothing, this climbs: two minutes for me, then the on-call lead is paged, then the duty manager. The agents keep waiting. They never take silence as a yes."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"What if the approver is asleep?"</strong> SLA-based escalation to named people, each step signed, and no action on timeout. Maps to track T3 and Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The timers, escalation and signed escalation records really run. Paging is simulated (the source chip's tooltip says "Simulated paging"); in AWS mode it would be SNS and Incident Manager.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>For the four-eyes request APR-318, the ladder boxes use the base SLAs (2, 5, 10 minutes) for their labels, bars
+          and "left" text, but the real deadline is 10 times longer. After two minutes the L1 box can read "escalating"
+          while the countdown in the decision header still shows about 18 minutes. Trust the header countdown.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================== 15 ============================== -->
+  <article class="comp" id="c-15">
+    <header><span class="comp-num">15</span><h3>Decision history</h3><span class="where">panel <code>history</code>, function <code>History</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The audit list of every human decision and every automatic escalation, newest first, each tied to its signature
+        and ledger record.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Column</th><th>Example</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><th>Time</th><td>21:01:30</td><td>Simulation time of the decision.</td></tr>
+            <tr><th>Request</th><td><code>APR-316</code></td><td>Click to see the raw request.</td></tr>
+            <tr><th>Title</th><td>Wake 2 cells for a stadium warm-up event</td><td>The request title.</td></tr>
+            <tr><th>Decision</th><td><span class="pill good">approved</span></td><td>approved (green), rejected (red), escalated or auto-escalated (amber).</td></tr>
+            <tr><th>By</th><td>A. Rivera</td><td>The person. Automatic escalations show "SLA breach".</td></tr>
+            <tr><th>Device</th><td>console</td><td>console or mobile for approvals; "system" for automatic escalations.</td></tr>
+            <tr><th>Signature</th><td>green shield</td><td>Signature badge; hover for the key id, click for the record.</td></tr>
+            <tr><th>Ledger</th><td>#12</td><td>Ledger record number; click to open it.</td></tr>
+            <tr><th>Time to decide</th><td>1m30s</td><td>Request to final approval. Only on approved rows; "—" otherwise. For a four-eyes request, both approval rows show the same value: the time until the second approval.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Pre-demo it holds six approvals, APR-311 to APR-316, ledger records #2 to #12, decided in 40 s to 1m30s; one was
+        approved by J. Okafor, the rest by A. Rivera. The source chip reads "DynamoDB ledger + KMS"; its tooltip says
+        "Real Ed25519 signatures".</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The browser builds this table from the approvals and history already stored on each request; every row points to its ledger record.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd>The <code>approvals</code> and <code>history</code> lists that <code>Oversight.decide</code> and <code>_escalate</code> keep on each request.</dd>
+          <dt>Arrives by</dt><dd>Snapshot and the three oversight events.</dd>
+          <dt>Store slice</dt><dd><code>oversight.items</code></dd>
+          <dt>Changes when</dt><dd>Each decision or escalation.</dd>
+        </dl>
+      </details>
+      <p>The browser builds the rows: one per approval, plus one per history line that starts with "rejected" or
+        "escalated by" (a manual escalation), plus one per "escalated to …" line that mentions SLA (an automatic
+        escalation, signed with the <code>kms:spectrum/oversight</code> key). Rows are sorted by time, newest first.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Request id</th><td>Shows the request as raw JSON.</td><td>Opens the inspector drawer labelled "Approval", showing the whole request as JSON, exactly as received. No backend call.</td></tr>
+            <tr><th>Signature shield</th><td>Hover for the key; click opens the record.</td><td>Inspector with the ledger record. Read-only <code>GET</code>.</td></tr>
+            <tr><th>Ledger number</th><td>Opens the record.</td><td>Same.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Every row has a shield and a ledger number. A row without one would be a problem; there are none.</p>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Every human decision in the system, who made it, from which device, signed, with its ledger record. That is what an auditor asks for."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Who approved what, and when?"</strong> This table, backed by signed ledger records. Maps to Trust and track T3 (traceability).</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The signatures and ledger records are real. The six earliest rows are seeded at start-up.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <ul>
+          <li>Rejection and manual escalation rows show the person's id (<code>a.rivera</code>) in By, not the name, and always show "console" as the device, even if the rejection came from a phone. The ledger record has the correct device.</li>
+          <li>Expiry itself has no row, and it is not pushed to the screen live; the automatic escalations before it do appear as "auto-escalated". This cannot happen in a 7-minute run.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <h2 id="four-eyes">Four-eyes, step by step</h2>
+  <p>The second request in the demo, <code>APR-318</code> "Release site-17 from quarantine", is critical. It needs two
+    different people. It is filed by the sentinel agent during beat 10, after site-17 was fooled by a poisoned syslog
+    line and quarantined. Its timer is 20 minutes at L1, so you can show it any time after beat 10.</p>
+
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/beat-10-foureyes.jpg" width="1440" height="900"
+           alt="APR-318, Critical four-eyes, pending with a 19:46 countdown: two empty approver slots and an Approve (1 of 2) button">
+      <span class="box" data-target="c-3" style="left:6.11%;top:32.56%;width:30%;height:21.44%"></span>
+      <span class="box" data-target="c-4" style="left:37.22%;top:32.56%;width:61.11%;height:5%"></span>
+      <span class="box" data-target="c-11" style="left:39.6%;top:86.8%;width:56.4%;height:3.4%"></span>
+      <span class="box" data-target="c-12" style="left:39.6%;top:91.4%;width:38%;height:3.6%"></span>
+      <a class="pin" href="#c-3" style="left:14%;top:34.9%">3</a>
+      <a class="pin" href="#c-4" style="left:64%;top:34.9%">4</a>
+      <a class="pin" href="#c-11" style="left:64%;top:88.4%">11</a>
+      <a class="pin" href="#c-12" style="left:82%;top:93.2%">12</a>
+    </div>
+    <figcaption>Step 1: APR-318 just arrived. Two dashed slots ("Approver", "Second approver, different person"), queue row "0/2 approvals", button "Approve (1 of 2)". Approve with changes is disabled because the plan has no cell lists.</figcaption>
+  </figure>
+
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/post-foureyes-1of2.jpg" width="1440" height="900"
+           alt="APR-318 after the first approval: one green slot A. Rivera (console), one dashed slot, the Approve button disabled and reading A. Rivera already approved, In review tile showing 1">
+      <span class="box" data-target="c-2" style="left:6.1%;top:21.4%;width:92.2%;height:9.5%"></span>
+      <span class="box" data-target="c-11" style="left:39.6%;top:86.9%;width:56.4%;height:3.3%"></span>
+      <span class="box" data-target="c-12" style="left:39.6%;top:91.5%;width:41.6%;height:3.6%"></span>
+      <a class="pin" href="#c-2" style="left:38%;top:25%">2</a>
+      <a class="pin" href="#c-11" style="left:68%;top:88.6%">11</a>
+      <a class="pin" href="#c-12" style="left:84.5%;top:93.3%">12</a>
+    </div>
+    <figcaption>Step 2: A. Rivera approved. In review = 1, queue row "1/2 approvals", the first slot is green, and the Approve button is disabled with "A. Rivera already approved". The server would ignore a second approval from her anyway.</figcaption>
+  </figure>
+
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/post-foureyes-done.jpg" width="1440" height="900"
+           alt="APR-318 approved by two people: both slots green, A. Rivera (console) and J. Okafor (console), header pill Approved, two signed approval lines with ledger numbers 3,552 and 3,554">
+      <span class="box" data-target="c-4" style="left:79.6%;top:33.6%;width:6%;height:2.8%"></span>
+      <span class="box" data-target="c-11" style="left:39.6%;top:86.9%;width:20%;height:3.3%"></span>
+      <span class="box" data-target="c-13" style="left:39.6%;top:92%;width:46%;height:4.5%"></span>
+      <a class="pin" href="#c-4" style="left:78%;top:35%">4</a>
+      <a class="pin" href="#c-11" style="left:62.5%;top:88.4%">11</a>
+      <a class="pin" href="#c-13" style="left:77.5%;top:93.7%">13</a>
+    </div>
+    <figcaption>Step 3: J. Okafor gave the second approval. Both slots are green, the status is Approved, and each approval has its own signature line and ledger record. The ribbon's "chain broken at #3503" is left over from the beat 12 tamper test; it clears after the next verification on the Audit screen.</figcaption>
+  </figure>
+
+  <ol class="steps">
+    <li>Fire beat 10 (<kbd>→</kbd> from beat 9). It stays on Swarm Tower. About 3 seconds later the toast "APR-318 needs a human: Release site-17 from quarantine" appears.</li>
+    <li>Click the toast's Review button, or press <kbd>g</kbd> <kbd>o</kbd>. The desk opens APR-318 (the newest pending request).</li>
+    <li>With Signing as on A. Rivera, click "Approve (1 of 2)". The ceremony runs; the first slot turns green.</li>
+    <li>Point out that the button now reads "A. Rivera already approved" and is disabled.</li>
+    <li>For the second approval, have the teammate with the phone tap Approve (it signs as J. Okafor). Only in rehearsal, or if the phone fails, switch Signing as to J. Okafor and approve on the console; if you do that in front of judges, say plainly that in mock mode the name is chosen, not authenticated.</li>
+    <li>The request turns Approved. The backend releases site-17 with a new key id and writes an <code>identity.reissued</code> record. Show the agent back to active on <a href="swarm.html">Swarm Tower</a>.</li>
+  </ol>
+  <div class="callout warn">
+    <p class="title">Two details to know before a judge asks</p>
+    <ul>
+      <li>The <code>identity.reissued</code> record is written as <code>human:a.rivera</code> whoever the two approvers were. The two approvals themselves are signed by the right people.</li>
+      <li>Site agents stay at autonomy L3 after the release (the top bar still reads "Autonomy L3 site"). Releasing the agent does not restore its peers' autonomy. A human restores it in Swarm Tower's <a href="swarm.html#c-11">Autonomy panel</a>; that change is also a signed ledger record.</li>
+    </ul>
+  </div>
+
+  <h2 id="phone">Phone approvals: the mobile page</h2>
+  <p><code>/m/approve</code> is a phone-sized page in the same app (<code>frontend/src/features/mobile/MobileApprove.tsx</code>).
+    It shows only what is pending and two big buttons. Its job in the demo is to show that a second person, away from the
+    console, can approve with their own identity, and that the console sees it instantly.</p>
+  <p>It has no top bar, rail, ribbon or Director. It opens its own live connection (snapshot plus WebSocket), so it
+    updates the moment a request is filed. It reads the same <code>oversight</code> slice and calls the same endpoint as
+    the desk, with <code>device: "mobile"</code>.</p>
+  <p>By default it signs as J. Okafor (L2). The console defaults to A. Rivera. So console plus phone are two different
+    people out of the box, which is exactly what four-eyes needs.</p>
+
+  <div class="wide" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem;align-items:start">
+    <figure class="shot boxes-quiet" style="margin-top:0">
+      <div class="shot-frame">
+        <img src="img/screen-mobile.jpg" width="390" height="844"
+             alt="Phone page with nothing waiting: SPECTRUM wordmark, Live dot, Signing as J. Okafor L2, heading Nothing waiting">
+        <span class="box" data-target="m-1" style="left:4.1%;top:1.9%;width:91.79%;height:2.37%"></span>
+        <span class="box" data-target="m-2" style="left:4.1%;top:6.16%;width:91.79%;height:4.98%"></span>
+        <span class="box" data-target="m-3" style="left:4.1%;top:13.51%;width:91.79%;height:3.32%"></span>
+        <a class="pin" href="#m-1" style="left:62%;top:3.1%">1</a>
+        <a class="pin" href="#m-2" style="left:50%;top:8.6%">2</a>
+        <a class="pin" href="#m-3" style="left:86%;top:15.2%">3</a>
+      </div>
+      <figcaption>Before the demo: nothing waiting.</figcaption>
+    </figure>
+    <figure class="shot boxes-quiet" style="margin-top:0">
+      <div class="shot-frame">
+        <img src="img/beat-09-mobile.jpg" width="390" height="844"
+             alt="Phone page during beat 9: 1 decision waiting, a High risk APR-317 card with a 1:44 countdown, the plan summary, 12.5% blast radius, three impact bars, the energy agent's dissent and Approve and Reject buttons">
+        <span class="box" data-target="m-1" style="left:4.1%;top:1.9%;width:91.79%;height:2.37%"></span>
+        <span class="box" data-target="m-2" style="left:4.1%;top:6.16%;width:91.79%;height:4.98%"></span>
+        <span class="box" data-target="m-3" style="left:4.1%;top:13.51%;width:91.79%;height:3.32%"></span>
+        <span class="box" data-target="m-4" style="left:4.1%;top:18.25%;width:91.79%;height:55%"></span>
+        <span class="box" data-target="m-5" style="left:8.5%;top:75.5%;width:83%;height:6.6%"></span>
+        <a class="pin" href="#m-1" style="left:62%;top:3.1%">1</a>
+        <a class="pin" href="#m-2" style="left:50%;top:8.6%">2</a>
+        <a class="pin" href="#m-3" style="left:86%;top:15.2%">3</a>
+        <a class="pin" href="#m-4" style="left:62%;top:21.1%">4</a>
+        <a class="pin" href="#m-5" style="left:50%;top:73.6%">5</a>
+      </div>
+      <figcaption>Beat 9: one request with Approve and Reject.</figcaption>
+    </figure>
+    <figure class="shot boxes-quiet" style="margin-top:0">
+      <div class="shot-frame">
+        <img src="img/beat-09-mobile-signed.jpg" width="390" height="844"
+             alt="Phone page after approving: Nothing waiting, and a Signed from a phone list with APR-317, J. Okafor, record 3503">
+        <span class="box" data-target="m-1" style="left:4.1%;top:1.9%;width:91.79%;height:2.37%"></span>
+        <span class="box" data-target="m-2" style="left:4.1%;top:6.16%;width:91.79%;height:4.98%"></span>
+        <span class="box" data-target="m-3" style="left:4.1%;top:13.51%;width:91.79%;height:3.32%"></span>
+        <span class="box" data-target="m-6" style="left:4.1%;top:26.78%;width:91.79%;height:6.87%"></span>
+        <a class="pin" href="#m-1" style="left:62%;top:3.1%">1</a>
+        <a class="pin" href="#m-2" style="left:50%;top:8.6%">2</a>
+        <a class="pin" href="#m-3" style="left:86%;top:15.2%">3</a>
+        <a class="pin" href="#m-6" style="left:62%;top:31.6%">6</a>
+      </div>
+      <figcaption>After tapping Approve: signed from a phone, record #3503.</figcaption>
+    </figure>
+  </div>
+
+  <h3 id="phone-components" data-toc-label="Phone page parts">Phone page parts</h3>
+
+  <article class="comp" id="m-1">
+    <header><span class="comp-num">1</span><h3>Wordmark and live status</h3><span class="where">header in <code>MobileApprove.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Tells the person holding the phone that the page is connected to the live system.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>The SPECTRUM wordmark on the left. On the right, a dot and a word: "Connecting" before the first snapshot, then
+        "Live" (green), or "lagging" or "offline" if the stream stalls or drops.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The page starts its own connection when it opens. The server sends a clock event at least once a second, so
+        silence for 2.5 s means a network problem. The socket reconnects on its own with back-off.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Backend</dt><dd>The WebSocket <code>/ws</code> and <code>GET /api/snapshot</code>, the same as the console.</dd>
+          <dt>Store slice</dt><dd><code>ready</code>, <code>conn</code></dd>
+          <dt>Changes when</dt><dd>Checked every second: "live" if a message arrived in the last 2.5 s, "lagging" if not, "offline" if the socket is closed.</dd>
+        </dl>
+      </details>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>If the dot is not green before the demo, do not rely on the phone. Approve on the console instead.</p>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"This phone is connected live to the same system as the console."</p></blockquote>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The phone keeps its own live connection to the laptop's backend.</p>
+      </div>
+    </div>
+  </article>
+
+  <article class="comp" id="m-2">
+    <header><span class="comp-num">2</span><h3>Signing as</h3><span class="where">select in <code>MobileApprove.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Chooses whose identity, and so whose key, this phone signs with.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>"Signing as" and a drop-down with the three people as "name, level": A. Rivera, L1; J. Okafor, L2; M. Chen, L3.
+        Default: J. Okafor, L2.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The phone remembers which person it signs as and sends that name with each decision.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Data</dt><dd><code>oversight.humans</code> from the snapshot.</dd>
+          <dt>Saved in</dt><dd>The phone browser's local storage, key <code>spectrum.mobile.by</code>, so it survives reloads.</dd>
+          <dt>Sent as</dt><dd><code>by</code> in the decision request.</dd>
+        </dl>
+      </details>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Drop-down</th><td>Picks the signer.</td><td>Saved on the phone. No backend call until a decision.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Leave it on J. Okafor. If the phone is set to A. Rivera and the console approves as A. Rivera too, the phone
+          shows "A. Rivera already approved. A different person must give the second approval."</p>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"This phone signs as J. Okafor, the on-call lead: a different person from the console."</p></blockquote>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> The name is picked from a list; there is no sign-in. The key it selects is real.</p>
+      </div>
+    </div>
+  </article>
+
+  <article class="comp" id="m-3">
+    <header><span class="comp-num">3</span><h3>Waiting count heading</h3><span class="where">heading in <code>MobileApprove.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Tells the approver at a glance whether anything needs them.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>"1 decision waiting", "2 decisions waiting", or "Nothing waiting" with the line "When the swarm needs a human,
+        the request appears here and this phone vibrates."</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The phone counts the waiting requests in its own live copy of the queue.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Store slice</dt><dd><code>oversight.items</code> filtered to status pending.</dd>
+          <dt>Changes when</dt><dd>A request is filed or leaves pending.</dd>
+        </dl>
+      </details>
+      <p>When a new pending id appears that was not there before, the phone vibrates (two short buzzes). It does not
+        buzz for requests that were already waiting when the page loaded.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Vibration uses the browser vibration feature. Android Chrome supports it; iPhone Safari does not, so an iPhone
+          will not buzz. The request still appears.</p>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"The request just arrived on her phone."</p></blockquote>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The count comes from the live queue on the backend.</p>
+      </div>
+    </div>
+  </article>
+
+  <article class="comp" id="m-4">
+    <header><span class="comp-num">4</span><h3>Request card</h3><span class="where">function <code>Card</code> in <code>MobileApprove.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A short version of the desk's decision panel: enough to decide on a phone screen.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Element</th><th>Example (beat 9)</th><th>Same as on the desk</th></tr></thead>
+          <tbody>
+            <tr><th>Tier pill, id, countdown</th><td>High risk, APR-317, 1:44</td><td><a href="#c-3">Queue</a> row colours and timer.</td></tr>
+            <tr><th>Title and summary</th><td>Wake 3 cells, boost 6, load-balance stadium (12.5% of cells)</td><td><a href="#c-4">Decision header</a>.</td></tr>
+            <tr><th>Big blast radius</th><td>12.5% "of cells touched, rule is 5% without a human"</td><td>The meter in <a href="#c-5">Predicted impact</a>.</td></tr>
+            <tr><th>Impact bars</th><td>Stadium congestion, Dropped calls, Energy draw</td><td>Three of the five rows, without the legend.</td></tr>
+            <tr><th>Dissent</th><td>energy: Objects: +3.4 kWh over 45 minutes versus option D</td><td>Only the first objection.</td></tr>
+            <tr><th>Four-eyes line</th><td>"Four-eyes: 1 of 2 approvals, A. Rivera already signed."</td><td>Only on critical requests.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>It does not show the plan steps, policies, model opinions, evidence links or the ladder.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The card reuses the desk's own pieces (tier pill, countdown, impact bars), so colours and rules match exactly.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Store slice</dt><dd><code>oversight.items</code>, one card per pending request.</dd>
+          <dt>Shared code</dt><dd><code>TierPill</code>, <code>SlaCountdown</code> and <code>ImpactBars</code> from <code>features/oversight/parts.tsx</code>, so the colours and rules match the desk exactly.</dd>
+          <dt>Changes when</dt><dd>The countdown recomputes twice a second; the card disappears when the request leaves pending.</dd>
+        </dl>
+      </details>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None in the body. The buttons are part 5.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"My colleague gets the same request on her phone: the plan, the 12.5 percent, the predicted effect, and the agent that objected."</p></blockquote>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The live sync is real. The numbers are the same simulated twin numbers as on the desk.</p>
+      </div>
+    </div>
+  </article>
+
+  <article class="comp" id="m-5">
+    <header><span class="comp-num">5</span><h3>Approve and Reject buttons</h3><span class="where">footer of <code>Card</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Lets the person holding the phone make a signed decision with one tap.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li>A large <strong>Approve</strong> button and a red-outlined <strong>Reject</strong> button.</li>
+        <li>After Reject: "Pick a reason" with three choices, "Too large for tonight", "Wait for field team", "Prediction looks wrong", and Cancel. Tapping a reason sends the rejection at once.</li>
+        <li>After a decision: a green box "Approved and signed by J. Okafor" (or "Rejected and signed by …") with the ledger number.</li>
+        <li>If the selected person already approved this request: "J. Okafor already approved. A different person must give the second approval."</li>
+      </ul>
+      <p>There is no Approve with changes and no Escalate on the phone.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>A tap sends the same decision request as the console, marked as coming from a mobile device.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Endpoint</dt><dd><code>POST /api/approvals/{id}/approve</code> or <code>/reject</code> with <code>{by, device: "mobile", reason}</code>.</dd>
+          <dt>Backend</dt><dd><code>Oversight.decide</code>, exactly as for the console (see <a href="#c-12">card 12</a>).</dd>
+          <dt>Ledger</dt><dd>Signed <code>approval.decision</code> with <code>device: "mobile"</code>.</dd>
+          <dt>Events</dt><dd><code>approval.decision</code>, summary "APR-317 approved by J. Okafor on mobile".</dd>
+        </dl>
+      </details>
+      <ol class="flow" aria-label="Phone approval path">
+        <li class="src"><b>Tap Approve</b><span>phone</span></li>
+        <li><b>POST to the laptop</b><span>signed with J. Okafor's key</span></li>
+        <li><b>Ledger record</b><span><code>approval.decision</code></span></li>
+        <li class="ui"><b>Console updates</b><span>within about 100 ms</span></li>
+      </ol>
+      <p>The phone buzzes briefly when the server confirms. For a normal request the approval completes it, the card
+        disappears on the next event and the phone moves to "Signed from a phone". For a four-eyes request with one
+        approval in, the card stays and shows the green "signed" box.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Approve</th><td>Signs an approval as the selected person.</td><td><code>POST …/approve</code>, ledger <code>approval.decision</code>; the console's approvals list shows "on mobile"; the plan executes if this completes the request.</td></tr>
+            <tr><th>Reject, then a reason</th><td>Signs a rejection with that reason.</td><td><code>POST …/reject</code>, ledger <code>approval.decision</code> "rejected"; request status rejected.</td></tr>
+            <tr><th>Cancel</th><td>Back to the two buttons.</td><td>Phone only.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Before the demo, the teammate opens the page from the QR code and checks the Live dot.</li>
+          <li>On beat 9, say "my colleague approves from her phone". She taps Approve.</li>
+          <li>Point at the console: the approval line "Approved by J. Okafor on mobile" appears.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"She approved from her phone, with her own identity. It reached the console instantly and it is a signed ledger record, marked as coming from a mobile device."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"Does the approver have to be at the console?"</strong> No. Any device on the network can approve, and the device is recorded. Maps to track T3 and Trust.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The phone really calls the backend and the signature and ledger record are real. Identity is chosen, not authenticated.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <ul>
+          <li>Agree beforehand who taps. If the request is already approved when a second tap lands (phone and console at
+            almost the same moment), nothing new is signed, but the phone still shows "Approved and signed by J. Okafor"
+            with the earlier approver's record number, and the console ceremony would also claim a signature. On APR-318 a
+            late approval also releases site-17 a second time and writes an extra <code>identity.reissued</code> record.
+            Only one person approves a high-risk request.</li>
+          <li>If tapping Approve shows no green "Approved and signed" box within a second or two, the request did not get
+            through: the phone page shows no error. Do not tap again and again; the driver approves on the console.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <article class="comp" id="m-6">
+    <header><span class="comp-num">6</span><h3>Signed from a phone</h3><span class="where">list in <code>MobileApprove.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A short receipt list on the phone: proof that this device's approvals were recorded.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Up to three decided requests that have an approval made on a phone. Each line: a green shield, the request id
+        (<code>APR-317</code>), the approver's name (J. Okafor) and the ledger record number (<code>#3503</code>).</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The phone lists finished requests that include an approval made on a phone.</p>
+      <details class="more">
+        <summary>Code references</summary>
+        <dl class="facts">
+          <dt>Store slice</dt><dd><code>oversight.items</code> that are no longer pending and have an approval with <code>device: "mobile"</code>.</dd>
+          <dt>Changes when</dt><dd>A phone approval completes a request.</dd>
+        </dl>
+      </details>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>Rejections from a phone are not listed here, only approvals. The number is a good hook for beat 12: the tamper
+          test usually edits this exact record.</p>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"Here is her receipt: this record number. It is the record we will tamper with in a minute."</p></blockquote>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs real">Real</span> The record number is the real ledger record of her signed approval.</p>
+      </div>
+    </div>
+  </article>
+
+  <h2 id="connect-phones">Getting phones connected</h2>
+  <p>The phone does not talk to the internet. It talks straight to the presenter's laptop over the local network, so
+    both must be able to see each other. Do this during setup, not on stage.</p>
+
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/shell-preflight.jpg" width="1440" height="900"
+           alt="Demo Director on the Preflight tab: seven checks, the last one Approval phones connected with 0 other clients, and a Phone approvals box with a QR code and the URL">
+    </div>
+    <figcaption>Demo Director, Preflight tab. Bottom left: the last check, "Approval phones connected", and under it the "Phone approvals" box with the QR code and the URL it encodes. This capture came from an isolated instance that was either opened at 127.0.0.1 or had no network route, which is why the URL reads <code>127.0.0.1:5183</code>; on the presenter laptop it must show the laptop's network address.</figcaption>
+  </figure>
+
+  <h3 id="phone-steps" data-toc-label="Steps">Steps</h3>
+  <ol class="steps">
+    <li>Put the laptop and every approval phone on the same Wi-Fi. A phone hotspot that the laptop joins is the most reliable option at a venue.</li>
+    <li>Start the console as usual (<code>make dev</code>, or <code>make demo</code> on demo day) and open it on the laptop at <code>http://localhost:5173</code> (or <code>http://localhost:8787</code> with <code>make demo</code>). Use the word <code>localhost</code>, not <code>127.0.0.1</code>.</li>
+    <li>Press <kbd>d</kbd> to open the Demo Director and click the <strong>Preflight</strong> tab.</li>
+    <li>Check the URL under "Phone approvals". It must look like <code>http://192.168.x.x:5173/m/approve</code> (or <code>:8787</code> with <code>make demo</code>): the laptop's address on the network, not <code>127.0.0.1</code>.</li>
+    <li>Scan the QR code with the phone's camera and open the link.</li>
+    <li>On the phone, check the green Live dot and that Signing as reads J. Okafor, L2.</li>
+    <li>On the laptop, wait up to 10 seconds: the row "Approval phones connected" turns to a green check with "1 other client(s)".</li>
+    <li>If the phone cannot load the page, allow incoming connections when macOS asks: for <strong>Node</strong> with <code>make dev</code> (Vite serves port 5173) or for <strong>Python</strong> with <code>make demo</code> (port 8787). You can also check System Settings, Network, Firewall.</li>
+  </ol>
+
+  <h3 id="phone-how" data-toc-label="How the QR and check work">How the QR code and the check work</h3>
+  <dl class="facts">
+    <dt id="qr-box">QR code</dt><dd>Built in the browser from the current address. If the console is open at <code>localhost</code>, the host is replaced with <code>lan_ip</code> from <code>GET /api/director/preflight</code>; otherwise the host you typed is kept. The port is the current port. The path is <code>/m/approve</code>. The backend finds <code>lan_ip</code> by asking the operating system which network interface it would use to reach the network, and falls back to <code>127.0.0.1</code> if there is none.</dd>
+    <dt id="qr-row">Phones connected</dt><dd>The same preflight call returns <code>ws_clients</code>, the number of open WebSocket connections. The row is green when there is more than one, and shows "<code>ws_clients − 1</code> other client(s)". It refreshes every 10 seconds.</dd>
+    <dt>Dev mode path</dt><dd>Phone → laptop port 5173 (Vite is set to <code>host: true</code> so other devices can reach it) → Vite forwards <code>/api</code> and <code>/ws</code> to the backend on port 8787.</dd>
+    <dt>Demo-day path</dt><dd><code>make demo</code> serves the built UI and the API from one process on port 8787, listening on all network interfaces.</dd>
+  </dl>
+
+  <h3 id="phone-trouble" data-toc-label="Troubleshooting">Troubleshooting</h3>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>What you see</th><th>Likely cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>The QR URL starts with <code>127.0.0.1</code></td><td>The console was opened at <code>127.0.0.1</code>, or the laptop has no network connection.</td><td>Open the console at <code>localhost</code>; check the laptop's Wi-Fi.</td></tr>
+        <tr><td>The phone cannot open the page at all</td><td>Different network, or the firewall blocks Node or Python.</td><td>Same Wi-Fi or hotspot; allow incoming connections.</td></tr>
+        <tr><td>The page opens but stays "Connecting" or shows "offline"</td><td>The WebSocket is blocked. Some venue and guest Wi-Fi networks stop devices from talking to each other.</td><td>Switch both devices to a phone hotspot.</td></tr>
+        <tr><td>"Approval phones connected" is green but no phone is connected</td><td>The count includes every other connection: a second browser tab, the <code>/presenter</code> laptop.</td><td>Check the Live dot on the phone itself.</td></tr>
+        <tr><td>The phone did not buzz</td><td>iPhone Safari has no vibration support, or the request was already there when the page loaded.</td><td>Nothing to fix; the card still appears.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout tip">
+    <p class="title">Fallback</p>
+    <p>If the phone fails on stage, approve on the console as A. Rivera. For APR-317 one approval is enough. For the
+      four-eyes request, switch Signing as to J. Okafor only in rehearsal or as a last resort, and then say plainly that in
+      mock mode the name is chosen, not authenticated.</p>
+  </div>
+  <div class="callout warn">
+    <p class="title">About the feature flag</p>
+    <p>Settings lists a flag <code>oversight.mobile</code> ("/m/approve page and QR code", beta, on by default). In the current code the phone page and the QR code are always available; turning that flag off does not hide them. Turning off <code>screen.oversight</code> does remove the desk: <code>/oversight</code> then redirects to Mission Control.</p>
+  </div>
+
+  <h2 id="real-vs-simulated">What is real and what is simulated here</h2>
+  <div class="compare">
+    <div>
+      <h4>Real, even in mock mode</h4>
+      <ul>
+        <li>Ed25519 signatures on every human approval, rejection and manual escalation (one key per person); automatic escalations are signed with the oversight service key.</li>
+        <li>The hash-chained ledger records <code>approval.requested</code>, <code>approval.decision</code> and <code>escalation</code>.</li>
+        <li>The policy evaluator that blocks large radio changes until a human approves (<code>P-003</code>), outside the model.</li>
+        <li>The rules: four-eyes refusal of a repeat approver, SLA timers and escalation (expiry is enforced on the server but not announced or ledgered), no action on silence.</li>
+        <li>Live sync: each device keeps its own live WebSocket to the same backend.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Simulated, labelled as such</h4>
+      <ul>
+        <li>The three people and their roles; there is no sign-in.</li>
+        <li>The keys: generated from a fixed seed, named <code>kms:…</code>, not stored in AWS KMS.</li>
+        <li>The queue: in memory, instead of Step Functions task tokens.</li>
+        <li>Paging on escalation: no SNS or Incident Manager message is sent.</li>
+        <li>The twin pre-flight numbers, the incident, the dissent, the model opinions and the reason text on each request.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout real">
+    <p class="title">One honest sentence for judges</p>
+    <p>"The approval logic, the signatures and the ledger are real code running now; the people, the network and the paging are simulated, and in AWS mode they map to Cognito, Step Functions task tokens and SNS."</p>
+  </div>
+
+  <h2 id="related">Related screens and how data flows</h2>
+  <ol class="flow" aria-label="Where requests come from and go">
+    <li class="src"><b>Swarm Tower</b><span>plan and pre-flight</span></li>
+    <li><b>Policy gateway</b><span><code>P-003</code> says needs a human</span></li>
+    <li class="ui"><b>Oversight Desk and phone</b><span>signed decision</span></li>
+    <li><b>Swarm executes</b><span>with <code>human_approved</code></span></li>
+    <li><b>Audit</b><span>approver in the provenance graph</span></li>
+  </ol>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Screen</th><th>Link to this page</th></tr></thead>
+      <tbody>
+        <tr><th><a href="swarm.html">Swarm Tower</a></th><td>Data in: the incident, negotiation, dissent and pre-flight that build APR-317; the quarantine that builds APR-318. Data out: approved steps run and the incident resolves; site-17 comes back after four-eyes.</td></tr>
+        <tr><th><a href="trust.html">Trust Center</a></th><td>Holds the Cedar policies behind "Why it needs you" and logs the <code>needs_human</code> decisions and the re-checked steps after approval.</td></tr>
+        <tr><th><a href="audit.html">Audit, provenance and dossier</a></th><td>Every decision on this page is a ledger record there. Beat 11's provenance graph includes the approver; beat 12's tamper test edits the latest anchored approval; the incident dossier lists the approvals.</td></tr>
+        <tr><th><a href="observability.html">Observability</a></th><td>The "trace" evidence link goes to Observability, where the incident's trace is listed.</td></tr>
+        <tr><th><a href="mission.html">Mission Control</a></th><td>Its Network health panel shows "Waiting on a human", the same pending count.</td></tr>
+        <tr><th><a href="shell.html">Console frame and controls</a></th><td>The top bar flag counter (amber when any request has under 60 s left), the rail dot on Oversight, the "Review" toasts, and the Demo Director's Preflight tab with the QR code.</td></tr>
+        <tr><th><a href="settings.html">Settings, feature flags and presenter view</a></th><td>The <code>screen.oversight</code> and <code>oversight.mobile</code> flags.</td></tr>
+        <tr><th><a href="demo-playbook.html#beat-9">Demo playbook, beat 9</a></th><td>The full beat card with recovery steps.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+</body>
+</html>

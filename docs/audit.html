@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit, provenance and dossier | SPECTRUM presenter guide</title>
+<link rel="stylesheet" href="assets/guide.css">
+<script src="assets/guide.js" defer></script>
+<style>
+  /* dossier sections are table rows that the screenshot pins point at */
+  tr[id] { scroll-margin-top: 4rem; }
+  tr[id].is-hot > th, tr[id].is-hot > td { background: color-mix(in oklab, var(--focus) 14%, transparent); }
+  tr[id].is-flash > th, tr[id].is-flash > td { background: color-mix(in oklab, var(--focus) 22%, transparent); }
+</style>
+</head>
+<body data-page="audit.html">
+<main class="content">
+
+  <header class="page-head">
+    <span class="plane-tag" data-plane="prove">Prove plane</span>
+    <h1>Audit, provenance and dossier</h1>
+    <p class="lede">The Audit &amp; Proof screen is where SPECTRUM proves that its own history has not been
+      changed. Every important thing the system does is written as a signed, hash-linked record. This screen
+      lets you check the whole chain, edit one record on purpose to show the check catches it, trace a network
+      action back to the training round behind it, and print a signed incident report.</p>
+    <div class="meta">
+      <span>Route <code>/audit</code> (dossier: <code>/dossier/:incident</code>)</span>
+      <span>Go to it with <kbd>g</kbd> then <kbd>a</kbd></span>
+      <span class="beat-chips">Appears in demo beats
+        <a class="chip" href="demo-playbook.html#beat-11">11</a>
+        <a class="chip" href="demo-playbook.html#beat-12">12</a>
+      </span>
+    </div>
+  </header>
+
+  <h2 id="intro">What this screen is for</h2>
+  <p>The other screens show SPECTRUM doing things: training, testing, rolling out, fixing an outage. This
+    screen answers the question a regulator or a judge asks afterwards: "How do I know that is what really
+    happened, and that nobody edited the record later?"</p>
+  <p>It belongs to the <strong>Prove</strong> plane, the last of the five planes (orange in the ribbon). The
+    screen has a tag <code>Trust</code> next to its title; hovering it shows "Security &amp; traceability".</p>
+  <div class="callout say">
+    <p class="title">The one-sentence story</p>
+    <p>"Every action, message, approval and training round is signed into a hash chain, so if anyone edits
+      one record, verification breaks at exactly that record, and a fingerprint locked in S3 Object Lock proves it
+      was changed."</p>
+    <p>(In this demo the S3 bucket is simulated; the hashes, signatures and Merkle fingerprints are real.)</p>
+  </div>
+
+  <h3 id="ledger-basics">Three ideas you need first</h3>
+  <ul>
+    <li><strong>Hash.</strong> A fixed-length fingerprint of some data (here SHA-256, 64 hex characters).
+      Change one letter of the data and the fingerprint changes completely.</li>
+    <li><strong>Hash chain.</strong> Each record's fingerprint is computed over its own contents
+      <em>plus the previous record's fingerprint</em>. So every record "commits to" everything before it.</li>
+    <li><strong>Signature.</strong> A stamp made with a private key (here Ed25519) that anyone can check
+      with the matching public key. It proves who wrote the record's fingerprint.</li>
+  </ul>
+  <p>Two more ideas, the Merkle anchor and the inclusion proof, are explained in the cards that show them
+    (<a href="#c-6">Merkle anchors</a>, <a href="#c-7">Inclusion proof</a>). The
+    <a href="concepts.html">Concepts page</a> has plain-language versions of all of them.</p>
+
+  <figure class="diagram wide">
+    <div class="diagram-frame">
+      <svg viewBox="0 0 860 300" role="img" aria-labelledby="au-dg-t">
+        <title id="au-dg-t">How a ledger record is written: hashed with the previous hash, signed, and every 32 records rolled into a Merkle root stored in S3 Object Lock</title>
+        <defs><marker id="au-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-arrow" d="M0 0L10 5L0 10z"/></marker></defs>
+        <rect class="d-group" x="6" y="8" width="848" height="150" rx="8"/>
+        <text class="d-group-label" x="20" y="28">Ledger (in memory; DynamoDB is the planned AWS store)</text>
+        <rect class="d-node prove" x="24" y="46" width="170" height="92" rx="6"/>
+        <text class="d-label" x="109" y="70" text-anchor="middle">Record #3,502</text>
+        <text class="d-sub" x="109" y="90" text-anchor="middle">type, actor, payload…</text>
+        <text class="d-sub" x="109" y="108" text-anchor="middle">hash f4ba…fb3f</text>
+        <text class="d-sub" x="109" y="126" text-anchor="middle">Ed25519 signature</text>
+        <rect class="d-node prove" x="250" y="46" width="170" height="92" rx="6"/>
+        <text class="d-label" x="335" y="70" text-anchor="middle">Record #3,503</text>
+        <text class="d-sub" x="335" y="90" text-anchor="middle">prev = f4ba…fb3f</text>
+        <text class="d-sub" x="335" y="108" text-anchor="middle">hash 75bb…ee94</text>
+        <text class="d-sub" x="335" y="126" text-anchor="middle">Ed25519 signature</text>
+        <rect class="d-node prove" x="476" y="46" width="170" height="92" rx="6"/>
+        <text class="d-label" x="561" y="70" text-anchor="middle">Record #3,504</text>
+        <text class="d-sub" x="561" y="90" text-anchor="middle">prev = 75bb…ee94</text>
+        <text class="d-sub" x="561" y="108" text-anchor="middle">hash 859a…8450</text>
+        <text class="d-sub" x="561" y="126" text-anchor="middle">Ed25519 signature</text>
+        <text class="d-sub" x="740" y="96" text-anchor="middle">… every record,</text>
+        <text class="d-sub" x="740" y="112" text-anchor="middle">forever</text>
+        <path class="d-edge strong" d="M194 92H248" marker-end="url(#au-arr)"/>
+        <path class="d-edge strong" d="M420 92H474" marker-end="url(#au-arr)"/>
+        <path class="d-edge" d="M646 92H690" marker-end="url(#au-arr)"/>
+        <path class="d-edge dashed" d="M335 140V196" marker-end="url(#au-arr)"/>
+        <rect class="d-node prove" x="230" y="198" width="210" height="58" rx="6"/>
+        <text class="d-label" x="335" y="222" text-anchor="middle">Merkle root of 32 hashes</text>
+        <text class="d-sub" x="335" y="242" text-anchor="middle">records 3,489 to 3,520</text>
+        <path class="d-edge strong" d="M440 227H538" marker-end="url(#au-arr)"/>
+        <rect class="d-node ext" x="540" y="198" width="290" height="58" rx="6"/>
+        <text class="d-label" x="685" y="222" text-anchor="middle">Anchor #110 in S3 Object Lock</text>
+        <text class="d-sub" x="685" y="242" text-anchor="middle">COMPLIANCE mode, retained to 2033-10-29</text>
+        <text class="d-sub" x="430" y="286" text-anchor="middle">hash = SHA-256(canonical body ‖ previous hash) · signature = Ed25519(hash) · anchor every 32 records</text>
+      </svg>
+    </div>
+    <figcaption>How one record is written (code: <code>backend/spectrum/engines/ledger.py</code>, <code>Ledger.append</code> and <code>Ledger._anchor</code>). Record numbers and hashes are from the beat 12 screenshot.</figcaption>
+  </figure>
+
+  <h3 id="what-is-recorded">What gets written to the ledger</h3>
+  <p>Any engine can append a record. In the screenshots you will see these types most often (the type
+    filter in the <a href="#c-4">Records table</a> lists every type with its count):</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Record type</th><th>Written when</th><th>Written by (actor)</th></tr></thead>
+      <tbody>
+        <tr><td><code>tool.call</code></td><td>An agent calls a network tool and the policy gateway permits or denies it.</td><td>the agent, e.g. <code>site-34</code>, <code>coordinator</code></td></tr>
+        <tr><td><code>a2a.message</code></td><td>One agent sends a signed message to another.</td><td>the sending agent</td></tr>
+        <tr><td><code>approval.requested</code>, <code>approval.decision</code></td><td>A human approval is asked for, and a person decides.</td><td>the requester, then the person, e.g. <code>human:j.okafor</code></td></tr>
+        <tr><td><code>fl.round</code></td><td>A federated training round finishes (with each operator's ε and accept/reject decision).</td><td><code>aggregator</code></td></tr>
+        <tr><td><code>eval.gate</code></td><td>The Proving Ground deploy gate passes or blocks a model.</td><td><code>proving-ground</code></td></tr>
+        <tr><td><code>fl.checkpoint</code>, <code>release.stage</code></td><td>A trained checkpoint is saved and signed; a rollout moves a stage.</td><td><code>aggregator</code>, <code>release-controller</code></td></tr>
+        <tr><td><code>dossier.generated</code></td><td>Someone opens an incident dossier.</td><td><code>auditor</code></td></tr>
+        <tr><td><code>loop.enqueue</code></td><td>Beat 14 queues the incident as training data.</td><td><code>coordinator</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="in-the-demo">When this screen appears in the demo</h2>
+  <p>The screen is the stage for beats 11 and 12. Two other beats feed it, so it helps to know them.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Beat</th><th>Where</th><th>What happens on this screen</th></tr></thead>
+      <tbody>
+        <tr><td><a href="demo-playbook.html#beat-9">9</a> Human approval</td><td><code>/oversight</code></td><td>Not shown here, but the approval you give writes an <code>approval.decision</code> record (#3,503 in our run). Beat 11 traces back to it and beat 12 edits it.</td></tr>
+        <tr><td><a href="demo-playbook.html#beat-11">11</a> Provenance (30 s)</td><td><code>/audit</code></td><td>The console opens this screen, reloads the <a href="#c-8">Provenance graph</a> and scrolls it to the middle of the screen. With <a href="shell.html#c-7">spotlight</a> on (it dims everything except the panel that matters), that panel is lit.</td></tr>
+        <tr><td><a href="demo-playbook.html#beat-12">12</a> Tamper test (25 s)</td><td><code>/audit</code></td><td>The server edits one signed record. 1.2 seconds later the console runs Verify chain by itself. The <a href="#c-3">Hash chain</a> stops at that record and the <a href="#c-12">Break banner</a> shows what changed. With spotlight on, the chain panel is lit.</td></tr>
+        <tr><td><a href="demo-playbook.html#beat-14">14</a> Close the loop</td><td><code>/</code></td><td>Not shown here. It appends a <code>loop.enqueue</code> record, which you can then find in the Records table. After the demo, the <a href="#dossier-page">incident dossier</a> is the natural hand-out.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Beats 11 and 12 cannot be fired with the number keys (those only cover beats 1 to 9). Use
+    <kbd>→</kbd> or <kbd>Space</kbd> from the previous beat, or click the beat in the
+    <a href="shell.html#c-5">Demo Director</a> (<kbd>d</kbd>), the console's beat-by-beat control panel.</p>
+
+  <div class="callout tip">
+    <p class="title">Demo this screen in 2 minutes</p>
+    <ul>
+      <li><a href="#beat-12-stage">Beat 12 on stage</a>: what to press, what appears and what to say during the
+        25-second tamper test.</li>
+      <li><a href="#walkthrough">Walkthroughs</a>: two short spoken tours of the screen, one for right after beat
+        12 and one for a clean chain.</li>
+      <li><a href="#presenter-checklist">Presenter checklist</a>: the things to get right before and after
+        beats 11 and 12.</li>
+      <li><a href="#recovery">If something goes wrong</a>: symptom and fix, one line each.</li>
+    </ul>
+    <p>The component cards below explain every part in depth; read them when you have time.</p>
+  </div>
+
+  <h2 id="at-a-glance">The screen at a glance</h2>
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/screen-audit.jpg" width="1440" height="2344"
+           alt="Audit and Proof screen before the demo: stat strip, hash chain of seven blocks, records table, record detail with five green checks, Merkle anchors table, inclusion proof tree, provenance graph, tamper simulation and incident dossier panels">
+      <span class="box" data-target="c-1" style="left:6.11%;top:4.44%;width:92.22%;height:3.75%"></span>
+      <span class="box" data-target="c-2" style="left:6.11%;top:8.3%;width:92.22%;height:4.0%"></span>
+      <span class="box" data-target="c-3" style="left:6.11%;top:13.1%;width:92.22%;height:9.04%"></span>
+      <span class="box" data-target="c-4" style="left:6.11%;top:22.82%;width:53.33%;height:23.21%"></span>
+      <span class="box" data-target="c-5" style="left:60.56%;top:22.82%;width:37.78%;height:23.21%"></span>
+      <span class="box" data-target="c-6" style="left:6.11%;top:46.72%;width:53.33%;height:19.37%"></span>
+      <span class="box" data-target="c-7" style="left:60.56%;top:46.72%;width:37.78%;height:19.37%"></span>
+      <span class="box" data-target="c-8" style="left:6.11%;top:66.77%;width:92.22%;height:22.74%"></span>
+      <span class="box" data-target="c-9" style="left:6.11%;top:90.19%;width:53.33%;height:7.08%"></span>
+      <span class="box" data-target="c-10" style="left:60.56%;top:90.19%;width:37.78%;height:7.08%"></span>
+      <a class="pin" href="#c-1" style="left:60%;top:6.3%">1</a>
+      <a class="pin" href="#c-2" style="left:5.25%;top:9.6%">2</a>
+      <a class="pin" href="#c-3" style="left:5.25%;top:14.2%">3</a>
+      <a class="pin" href="#c-4" style="left:5.25%;top:24.0%">4</a>
+      <a class="pin" href="#c-5" style="left:60%;top:24.0%">5</a>
+      <a class="pin" href="#c-6" style="left:5.25%;top:47.9%">6</a>
+      <a class="pin" href="#c-7" style="left:60%;top:47.9%">7</a>
+      <a class="pin" href="#c-8" style="left:5.25%;top:68.0%">8</a>
+      <a class="pin" href="#c-9" style="left:5.25%;top:91.4%">9</a>
+      <a class="pin" href="#c-10" style="left:60%;top:91.4%">10</a>
+    </div>
+    <figcaption>Pre-demo state, full height (<code>img/screen-audit.jpg</code>). Ledger height 3,450, 107 anchors, verification not run yet. Hover a number to outline that panel; click it to jump to its card.</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#c-1"><span class="n">1</span><span>Page header and actions</span></a></li>
+      <li><a href="#c-2"><span class="n">2</span><span>Ledger status strip</span></a></li>
+      <li><a href="#c-3"><span class="n">3</span><span>Hash chain</span></a></li>
+      <li><a href="#c-4"><span class="n">4</span><span>Records</span></a></li>
+      <li><a href="#c-5"><span class="n">5</span><span>Record detail</span></a></li>
+      <li><a href="#c-6"><span class="n">6</span><span>Merkle anchors</span></a></li>
+      <li><a href="#c-7"><span class="n">7</span><span>Inclusion proof</span></a></li>
+      <li><a href="#c-8"><span class="n">8</span><span>Provenance</span></a></li>
+      <li><a href="#c-9"><span class="n">9</span><span>Tamper simulation</span></a></li>
+      <li><a href="#c-10"><span class="n">10</span><span>Incident dossier card</span></a></li>
+    </ul>
+  </figure>
+
+  <p>Two more parts appear only after you press Verify chain: the <a href="#c-11">verification progress
+    bar</a> and, if something was edited, the <a href="#c-12">Break banner</a>. They are pinned on the
+    <a href="#beat-12-screen">beat 12 screenshot</a>. The printable report has its own
+    <a href="#dossier-page">section</a> (one table of its sections, plus the Verification card).</p>
+
+  <ol class="comp-list">
+    <li><span class="comp-num">1</span><a href="#c-1">Page header and actions</a></li>
+    <li><span class="comp-num">2</span><a href="#c-2">Ledger status strip</a></li>
+    <li><span class="comp-num">3</span><a href="#c-3">Hash chain</a></li>
+    <li><span class="comp-num">4</span><a href="#c-4">Records</a></li>
+    <li><span class="comp-num">5</span><a href="#c-5">Record detail</a></li>
+    <li><span class="comp-num">6</span><a href="#c-6">Merkle anchors</a></li>
+    <li><span class="comp-num">7</span><a href="#c-7">Inclusion proof</a></li>
+    <li><span class="comp-num">8</span><a href="#c-8">Provenance</a></li>
+    <li><span class="comp-num">9</span><a href="#c-9">Tamper simulation</a></li>
+    <li><span class="comp-num">10</span><a href="#c-10">Incident dossier card</a></li>
+    <li><span class="comp-num">11</span><a href="#c-11">Verification progress bar</a></li>
+    <li><span class="comp-num">12</span><a href="#c-12">Break banner</a></li>
+  </ol>
+
+  <div class="callout real">
+    <p class="title">Real or simulated, for the whole screen</p>
+    <p>The cryptography on this screen is real, even in the demo's mock mode: SHA-256 hashes over canonical
+      JSON (one exact text form of a record, explained in <a href="#c-3">card 3</a>), Ed25519 signatures, Merkle roots every 32 records, and the browser's own SHA-256 recompute with
+      WebCrypto (the browser's built-in crypto library). What is simulated is the storage: the ledger lives in
+      the backend's memory instead of DynamoDB (AWS's managed database), the S3 bucket, object version and
+      Object Lock retention are not really written to AWS, and the signing keys are derived from a seed instead
+      of living in KMS (AWS's managed key store). The source chip in each panel header says this when you hover
+      it.</p>
+    <p>This is true in every mode. <code>backend/spectrum/adapters/aws.py</code> holds untested DynamoDB, S3
+      Object Lock and KMS stubs, but they are not wired into the ledger, so switching to AWS mode would not
+      move the records or anchors out of memory. When a source chip says "In AWS mode this panel reads
+      from…", it describes the target design, not something the demo does.</p>
+  </div>
+
+  <h2 id="components">Components</h2>
+  <p>One card per numbered part, in the order they sit on the screen. Each card first explains what the part
+    is and how it works, then how to present it.</p>
+
+  <!-- ======================= c-1 page header ======================= -->
+  <article class="comp" id="c-1">
+    <header><span class="comp-num">1</span><h3>Page header and actions</h3><span class="where">file <code>features/audit/AuditPage.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Names the screen, says in one line what it proves, and holds the two main actions: check the whole
+        chain, and open the incident report.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Element</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><th>Title "Audit &amp; Proof"</th><td>The screen name from <code>features/audit/manifest.ts</code>.</td></tr>
+          <tr><th><code>Trust</code> tag</th><td>The hackathon theme this screen serves. Hover it: "Security &amp; traceability".</td></tr>
+          <tr><th>Description</th><td>"A hash-chained, signed ledger anchored to S3 Object Lock. Verify it, tamper with it, and trace any action back to the training round behind it."</td></tr>
+          <tr><th>Verify chain (white, shield icon)</th><td>The primary button. Reads "Verifying…" and is greyed out while a check runs.</td></tr>
+          <tr><th>Incident dossier (document icon)</th><td>Opens the printable report. Only shown when the <code>audit.dossier</code> feature flag is on (it is by default).</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/ledger.py</code> <code>Ledger.verify()</code> for the check; <code>provenance.py</code> <code>dossier()</code> for the report.</dd>
+        <dt>Calls</dt><dd>Verify chain: <code>POST /api/ledger/verify</code>. Incident dossier: opens <code>/dossier/&lt;incident id&gt;</code> in a new tab.</dd>
+        <dt>Store slice</dt><dd><code>swarm.incident</code> decides which incident the dossier opens.</dd>
+      </dl>
+      <p>Verify chain does two things at once. The server walks every record in the ledger; at the same time
+        this browser recomputes the hashes of the 36 blocks shown in the <a href="#c-3">Hash chain</a>. The
+        full mechanism is in the <a href="#c-11">verification progress bar</a> card.</p>
+      <p>The dossier button reads the current incident id from the store. From beat 7 onwards, including
+        after the incident is resolved and after a reload, that is <code>INC-2041</code>. Before beat 7, or
+        after a scenario reset, the store has no incident and the button falls back to <code>INC-2040</code>,
+        one of the five resolved incidents the scenario is seeded with.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Verify chain</th><td>Checks every record's hash, link and signature (this decides the verdict), and recomputes every anchor root (only the count is shown).</td><td><code>POST /api/ledger/verify</code>, which emits a <code>ledger.verify</code> event. Progress bar and block ticks appear in the chain panel; the "Last verification" tile updates. No ledger record is written.</td></tr>
+          <tr><th>Incident dossier</th><td>Opens the report for the current incident in a new tab.</td><td>The new tab calls <code>GET /api/dossier/&lt;id&gt;</code>, which appends a <code>dossier.generated</code> record to the ledger.</td></tr>
+          <tr><th>Hover the <code>Trust</code> tag</th><td>Shows the theme name.</td><td>Nothing else.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>The header itself has no status. The result of Verify chain shows up in the strip below it and in the chain panel.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Press <kbd>g</kbd> then <kbd>a</kbd> to open the screen.</li><li>Click Verify chain. Watch the cursor sweep the chain and the tile turn green (or red "Broken at #N" if the beat 12 edit has not been restored).</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"This is the audit trail for everything you have seen. One button checks all of it."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Can you prove the log was not edited?"</strong> Yes: press Verify chain and every record is rechecked live. Theme: Trust, and <a href="index.html#why-judges-care">Track 3</a> (audit for multi-agent systems).</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs real">Real</span> The check runs real SHA-256 and Ed25519 verification over every record in the backend.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Before beat 7 the dossier button opens <code>INC-2040</code>. That incident was seeded without a ledger range, so its report shows the latest ledger activity, not the "Cell outage s-11" it is named after. Show the <code>INC-2041</code> dossier after beat 9 instead.</p></div>
+    </div>
+  </article>
+
+  <!-- ======================= c-2 status strip ======================= -->
+  <article class="comp" id="c-2">
+    <header><span class="comp-num">2</span><h3>Ledger status strip</h3><span class="where">component <code>LedgerStatus</code> in <code>AuditPage.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A five-number summary of the ledger's health: how big it is, what its latest fingerprint is, how much
+        of it is locked away in S3, whether it last checked out, and which algorithms protect it.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Tile</th><th>Big value</th><th>Small line</th><th>Example (pre-demo)</th></tr></thead>
+        <tbody>
+          <tr><th>Ledger height</th><td>Number of records in the ledger.</td><td>"records, every one signed"</td><td>3,450</td></tr>
+          <tr><th>Chain head</th><td>Shortened hash of the newest record. Because each hash includes the one before, this single value commits to the entire history.</td><td>A longer form of the same hash; click it to copy the full 64 characters.</td><td><code>8083958f6b…cfa272</code></td></tr>
+          <tr><th>Anchors</th><td>How many Merkle roots have been written to S3 Object Lock (a storage mode where nothing can be changed or deleted until a retention date; see <a href="#c-6">card 6</a>).</td><td>"last … ago, Object Lock COMPLIANCE", or "none yet".</td><td>107, "last 1 min ago"</td></tr>
+          <tr><th>Last verification</th><td>"Not run yet" (grey), "Running…", a green shield and "Intact", or a red shield and "Broken at #N".</td><td>"N records in X ms, HH:MM:SS", or "press Verify chain".</td><td>After beat 12: "Broken at #3,503", "3,531 records in 1127.1 ms, 21:32:30"</td></tr>
+          <tr><th>Algorithms</th><td>"SHA-256, Ed25519" (fixed text).</td><td>"Merkle roots every 32 records"</td><td>same always</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Ledger.snapshot()</code> gives <code>height</code>, <code>head</code>, <code>anchors_total</code>, <code>last_verify</code>.</dd>
+        <dt>Arrives by</dt><dd>The snapshot when the console connects, then WebSocket events <code>ledger.append</code> (height, head), <code>ledger.anchor</code> (anchor count) and <code>ledger.verify</code> (last verification).</dd>
+        <dt>Store slice</dt><dd><code>ledger</code></dd>
+        <dt>Changes when</dt><dd>Every new record (one every few seconds in normal running, in bursts during the incident), every 32nd record (new anchor), every verification.</dd>
+      </dl>
+      <p>Height and head change with every record any engine writes. The "last … ago" time uses the
+        simulation clock, not your laptop clock. The Last verification tile shows whatever the most recent
+        <code>ledger.verify</code> event said; it is not recomputed on its own. Generating a dossier also runs
+        a silent full check, which becomes the backend's stored last verification; you see that result only
+        after a reload.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Click the long chain-head hash</th><td>Copies the full hash.</td><td>A small check mark for one second. No backend call.</td></tr>
+          <tr><th>Hover the long hash</th><td>Shows the full hash in a tooltip.</td><td>Nothing else.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>Height climbing means the system is busy and recording. <span class="pill good">Intact</span> means the last full check passed. <span class="pill critical">Broken at #N</span> means record N no longer matches its signed hash.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Point at Ledger height while it ticks up.</li><li>After Verify chain, point at the Last verification tile.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Over three thousand records, every one signed. This one hash at the head stands for the entire history."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"How much is logged, and how fast is checking it?"</strong> Thousands of records, rechecked in about a second in the screenshot run. Theme: Trust.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs mixed">Partly real</span> Height, head and verification are real values from the hash chain; the "Object Lock COMPLIANCE" anchor storage is simulated in mock mode.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>After Restore originals the tile still says "Broken at #N", because restoring sends no new verification result. Press Verify chain once more to turn it green. The same applies to the Prove segment of the ribbon.</p></div>
+    </div>
+  </article>
+
+  <!-- ======================= c-3 hash chain ======================= -->
+  <article class="comp" id="c-3">
+    <header><span class="comp-num">3</span><h3>Hash chain</h3><span class="where">panel <code>chain</code>, chart <code>charts/ChainStrip.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Makes the hash chain visible: the newest records as blocks joined by arrows, appending live. It is
+        where you watch a verification sweep, and where a break shows up in red.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>A sideways-scrolling row of the newest 36 records, newest on the right. Each block is one signed record:</p>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Element</th><th>Meaning</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><th>Coloured line on top</th><td>The plane that wrote it (green Operate, violet Learn, amber Verify, blue Release, orange Prove).</td><td>green for <code>tool.call</code></td></tr>
+          <tr><th>#number</th><td>The record's sequence number.</td><td>#3,450</td></tr>
+          <tr><th>Anchor icon</th><td>Shown on every 32nd record: the one that closed a Merkle batch.</td><td>#3,424, #3,456</td></tr>
+          <tr><th>Shield on the right</th><td>Grey shield: signed, not checked yet. Spinner: being checked. Green shield: verified. Red shield with a cross: tampered. Hollow circle: not checked, because it comes after a break.</td><td>grey before Verify</td></tr>
+          <tr><th>Type with icon</th><td>Record type: wrench for <code>tool.call</code>, speech bubbles for <code>a2a.message</code>, person for approvals, network for <code>fl.*</code>, flask for <code>eval.*</code>, and so on.</td><td><code>a2a.message</code></td></tr>
+          <tr><th>Hash</th><td>The record's own fingerprint, shortened.</td><td><code>8083958f…a272</code></td></tr>
+          <tr><th>prev</th><td>The first 6 characters of the previous record's hash, which this record commits to (a display quirk then repeats the hash from the start). Compare those 6 characters with the hash of the block on the left: they match.</td><td><code>prev ecab37ecab3…</code></td></tr>
+          <tr><th>Arrows between blocks</th><td>The link. They turn red next to a broken block.</td><td></td></tr>
+          <tr><th>Header text</th><td>"newest on the right" normally; "around the break at #N" after a failed check.</td><td></td></tr>
+          <tr><th>Green dot "appending live"</th><td>The strip follows new records as they arrive.</td><td></td></tr>
+          <tr><th>Help line</th><td>Before any check: "Each block commits to the hash of the one before it. Changing any field of any record breaks every link after it." After a check it is replaced by the <a href="#c-11">progress bar</a>.</td><td></td></tr>
+          <tr><th>Source chip</th><td>"Amazon DynamoDB + KMS". Hover: "In-memory store, real SHA-256 + Ed25519 now".</td><td></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Ledger.append()</code> writes each record: <code>hash = SHA-256(canonical(body) ‖ prev_hash)</code>, then <code>sig = Ed25519_sign(key, hash)</code>.</dd>
+        <dt>Arrives by</dt><dd>Snapshot (last 150 records), then one <code>ledger.append</code> WebSocket event per record, batched every 100 ms.</dd>
+        <dt>Store slice</dt><dd><code>ledger.records</code> (keeps the last 600); the strip shows the last 36.</dd>
+        <dt>Changes when</dt><dd>A record is appended (it slides in from the right), Verify chain runs, or a break is found.</dd>
+      </dl>
+      <ol class="flow" aria-label="How a block gets onto the strip">
+        <li class="src"><b>Engine appends</b><span>e.g. an agent's <code>tool.call</code></span></li>
+        <li><b>Hash and sign</b><span>SHA-256, then Ed25519</span></li>
+        <li><b><code>ledger.append</code> event</b><span>WebSocket, 100 ms batch</span></li>
+        <li class="ui"><b>New block slides in</b><span>right end of the strip</span></li>
+      </ol>
+      <p>"Canonical" means the record is turned into JSON in exactly one way: keys sorted, no spaces. That
+        matters because the browser must produce byte-for-byte the same text as the Python backend to get the
+        same hash. Decimal numbers are stored as strings for the same reason.</p>
+      <p>The strip has two modes. <strong>Live</strong>: it shows the newest 36 records from the store and keeps
+        scrolling to the right. <strong>Focus</strong>: after a failed check, it shows the records from 5 before
+        to 5 after the broken one, fetched fresh from the server with <code>GET /api/ledger/{seq}</code>, and
+        stops following new records. The header then offers "Back to live".</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Click a block</th><td>Selects that record.</td><td>The block is shaded; <a href="#c-5">Record detail</a> and <a href="#c-7">Inclusion proof</a> switch to it (<code>GET /api/ledger/{seq}</code>, <code>GET /api/ledger/proof/{seq}</code>).</td></tr>
+          <tr><th>Hover a block</th><td>Tooltip with number, type, actor, full hash and full prev hash.</td><td>Nothing else.</td></tr>
+          <tr><th>Scroll sideways</th><td>See older blocks among the 36.</td><td>In live mode the strip jumps back to the right whenever a new record arrives, so click a block (it opens in Record detail) rather than parking the scroll.</td></tr>
+          <tr><th>Back to live (only after a break)</th><td>Leaves focus mode.</td><td>The strip shows the newest blocks again and the verify result is cleared from the panel. The status tile keeps its last value.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>All green borders and green shields after a check: every block on screen matched. One red block followed by hollow circles: that block was changed, and nothing after it can be trusted until it is fixed.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Point at the first six characters of one block's "prev" value, then at the hash of the block to its left: they match.</li><li>Click Verify chain and let the blue cursor sweep across.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Each block carries the fingerprint of the block before it. Change one, and the chain breaks right there."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"What stops an admin from quietly editing a log entry?"</strong> The edit changes what the record's contents hash to, so the recomputed hash no longer equals the stored, signed hash. To hide that, the attacker would need the private signing key, and every later link and the anchor would still not match. Theme: Trust, Track 3.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs real">Real</span> Every block is a real record with a real SHA-256 hash and a real Ed25519 signature; only the storage (memory instead of DynamoDB) is simulated.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>The strip only holds 36 blocks. During a live check, a tampered record older than that is not on the strip; the server still finds it and the strip jumps to it in focus mode.</p>
+        <div class="callout warn"><p class="title">Green first, then red, in beat 12</p><p>In beat 12 the edited block (#3,503) is on the strip, and the first sweep gives it a green tick. Then it turns red. The first sweep hashes the copy this browser already had, which was never edited. The server reads the datastore and finds the edit; the browser then re-reads that record and gets the red hash.</p><p>If a judge asks, say: "The browser checked its copy; the server checked the database; then the browser re-read the database and confirmed the break."</p></div></div>
+    </div>
+  </article>
+
+  <!-- ======================= c-4 records ======================= -->
+  <article class="comp" id="c-4">
+    <header><span class="comp-num">4</span><h3>Records</h3><span class="where">panel <code>records</code>, <code>RecordsTable</code> in <code>panels.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A searchable list of recent ledger records, so you can find a specific event (an approval, a policy
+        decision, a training round) and open its proof.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Header: "Records", then "N most recent in this console" (154 in the pre-demo shot), and the source
+        chip "Amazon DynamoDB + KMS". Below it a filter bar, then a table, newest first, at most 250 rows.</p>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Column</th><th>Meaning</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><th>#</th><td>Sequence number, with a dot in the colour of the plane that wrote it.</td><td>green dot, 3,450</td></tr>
+          <tr><th>Time</th><td>Simulation time with milliseconds (the demo story runs on Saturday 31 October 2026, from 21:30 PDT).</td><td>21:30:59.568</td></tr>
+          <tr><th>Type</th><td>Record type with its icon.</td><td><code>tool.call</code>, <code>a2a.message</code>, <code>fl.round</code></td></tr>
+          <tr><th>Actor</th><td>Who wrote it: an agent, a human (<code>human:…</code>), the aggregator, the Proving Ground.</td><td><code>site-19</code>, <code>core</code></td></tr>
+          <tr><th>Hash</th><td>The record hash, shortened.</td><td><code>ecab37f4…99fe</code></td></tr>
+          <tr><th>Signature</th><td>Green shield: the record carries an Ed25519 signature (hover for the key). A red "Tampered" pill: this record was edited with the tamper control.</td><td>green shield</td></tr>
+        </tbody>
+      </table></div>
+      <p>The filter bar: "All types" (each type with its count, most common first), "All planes" (Learn,
+        Verify, Release, Operate, Prove), a text box "Actor, e.g. coordinator", and "N shown" on the right.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Ledger.snapshot()</code>: last 150 records plus <code>type_counts</code> for the whole ledger.</dd>
+        <dt>Arrives by</dt><dd>Snapshot, then <code>ledger.append</code> events. <code>ledger.tamper</code> adds a number to the tampered list; <code>ledger.restore</code> empties it.</dd>
+        <dt>Store slice</dt><dd><code>ledger.records</code>, <code>ledger.type_counts</code>, <code>ledger.tampered</code></dd>
+        <dt>Changes when</dt><dd>Every new record; when you change a filter; when a record is tampered or restored.</dd>
+      </dl>
+      <p>Filtering happens in the browser. It walks the records from newest to oldest and keeps those that
+        match the type, the plane and the actor text (a case-insensitive "contains" match), stopping at 250.
+        The type counts in the drop-down cover the whole ledger, while the rows only cover the records this
+        browser holds (up to 600), so the two numbers can differ.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>All types</th><td>Show one record type only.</td><td>Rows and "N shown" update. Browser only.</td></tr>
+          <tr><th>All planes</th><td>Show one plane only.</td><td>Same. Browser only.</td></tr>
+          <tr><th>Actor box</th><td>Type part of an actor name, e.g. <code>okafor</code> or <code>coordinator</code>.</td><td>Same. Browser only.</td></tr>
+          <tr><th>Click a row</th><td>Select that record.</td><td>Row is shaded; <a href="#c-5">Record detail</a> and <a href="#c-7">Inclusion proof</a> load it from the server.</td></tr>
+          <tr><th>Hover the signature shield</th><td>Shows "Signed", "Ed25519" and the key id.</td><td>Nothing else.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>A column of green shields is normal. A red <span class="pill critical">Tampered</span> pill marks a record that was edited in the datastore.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Pick <code>approval.decision</code> in All types.</li><li>Click the row to show the human approval's proof in Record detail.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Every tool call, message, approval and training round lands here, signed by whoever did it. Let me find the human approval from a minute ago."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Who did what, and when?"</strong> Each row names the actor and the time, and is signed with that actor's own key. Theme: Track 3 (traceability).</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs mixed">Partly real</span> The records, hashes and signatures are real; the events they describe come from the simulated network and agents.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>The green shield means "this record is signed", not "checked just now". The live check is <a href="#c-5">Record detail</a> for one record, or Verify chain for all of them.</p><p>After using a filter, click an empty part of the page before the next beat: <kbd>→</kbd> and <kbd>Space</kbd> are ignored while a drop-down or the Actor box has focus.</p></div>
+    </div>
+  </article>
+
+  <!-- ======================= c-5 record detail ======================= -->
+  <article class="comp" id="c-5">
+    <header><span class="comp-num">5</span><h3>Record detail</h3><span class="where">panel <code>record</code>, <code>RecordDetail</code> in <code>panels.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Checks one record in five steps, the way an outside auditor would, and shows the exact text that was
+        hashed and signed. It turns "trust us" into "check it yourself".</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Title "Record #N" and the record type (pre-demo: "Record #3,424 fl.round"). On the right, a green
+        <span class="pill good">Verified</span> or red <span class="pill critical">Tampered</span> pill and an
+        arrow button. Then three blocks:</p>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Step</th><th>What it checks</th><th>Who checks it</th></tr></thead>
+        <tbody>
+          <tr><th>1. SHA-256 recomputed in this browser</th><td>The browser rebuilds the record's hash from its contents and the previous hash. The line under it is the result.</td><td>Your browser (WebCrypto)</td></tr>
+          <tr><th>2. Equals the stored hash</th><td>The recomputed hash equals the hash stored with the record.</td><td>Server, plus step 1 lets you compare by eye</td></tr>
+          <tr><th>3. Links to #N-1</th><td>The record's <code>prev</code> value equals the previous record's hash.</td><td>Server</td></tr>
+          <tr><th>4. Ed25519 signature verifies with &lt;key&gt;</th><td>The signature over the stored hash is valid for that actor's public key. The line under it is the key fingerprint, e.g. <code>SHA256:9902d031…</code></td><td>Server</td></tr>
+          <tr><th>5. Included in anchor #N in S3 Object Lock</th><td>The record's hash leads to the Merkle root stored in the anchor. If the batch is not closed yet: "Anchored at #X (N records to go)".</td><td>Server (its own Merkle comparison sets this shield). The <a href="#c-7">Inclusion proof</a> panel then repeats the hashing in this browser.</td></tr>
+        </tbody>
+      </table></div>
+      <p>Each step has a spinner while loading, then a green shield (passed) or a red shield with a cross
+        (failed). Below the steps: "Canonical body (sorted keys, no whitespace)" with the formula
+        <code>hash = SHA-256(body ‖ prev_hash)</code>, and the exact JSON that was hashed. Last, a list:
+        Actor, Time (full timestamp), Signing key (e.g. <code>kms:spectrum/aggregator</code>), Public key and
+        Signature (both shortened, click to copy).</p>
+      <p>Other states: "Select a record" with "Pick a block in the chain or a row in the table to see its
+        proof." (nothing selected), and "Fetching #N from the datastore…" while loading.</p>
+      <p>The <code>‖</code> sign means "joined end to end": the body text followed by the previous hash.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>GET /api/ledger/{seq}</code> returns the record, the server's <code>verify_record()</code> result (three checks) and the public key. <code>GET /api/ledger/proof/{seq}</code> gives step 5.</dd>
+        <dt>Browser</dt><dd><code>core/canonical.ts</code> <code>recordHash()</code>: builds the canonical body from seq, ts, type, actor, plane, payload and key_id, appends prev_hash, and hashes it with <code>crypto.subtle.digest('SHA-256')</code>.</dd>
+        <dt>Selected record</dt><dd>Whatever you clicked in the chain, the table or the anchors. If you have clicked nothing, it is the last record of the newest anchor, so step 5 is complete. That is why the pre-demo shot shows #3,424 while the ledger is at 3,450.</dd>
+        <dt>Reloads when</dt><dd>The selection changes, or a record is tampered or restored.</dd>
+      </dl>
+      <ol class="flow" aria-label="Five checks">
+        <li class="src"><b>Fetch record</b><span>from the datastore</span></li>
+        <li><b>Recompute hash</b><span>in the browser</span></li>
+        <li><b>Compare and link</b><span>stored hash, prev hash</span></li>
+        <li><b>Check signature</b><span>Ed25519, public key</span></li>
+        <li class="ui"><b>Check anchor</b><span>Merkle path to S3 root</span></li>
+      </ol>
+      <p>Step 1 is the important one for a sceptic: the browser does not take the server's word for the hash.
+        It recomputes it from the record it just fetched. The project ships a test,
+        <code>frontend/scripts/check-canonical.mjs</code>, that proves the browser and Python produce identical
+        hashes.</p>
+      <p>If the record was tampered with, steps 1, 2 and 5 turn red (the contents no longer produce the stored
+        hash or the anchored root), while steps 3 and 4 stay green: the link and the signature were never
+        touched. The <a href="#c-12">Break banner</a> card explains why.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Arrow button (top right)</th><td>Opens this record in the <a href="shell.html#c-10">Inspector</a> drawer on the right, with Proof, Payload and Raw tabs.</td><td>Browser only; the drawer refetches the record. See <a href="shell.html">Console frame &amp; controls</a>.</td></tr>
+          <tr><th>Click Public key or Signature</th><td>Copies the full value.</td><td>Check mark for one second.</td></tr>
+          <tr><th>Hover a hash</th><td>Shows the full value.</td><td>Nothing else.</td></tr>
+        </tbody>
+      </table></div>
+      <figure class="shot"><div class="shot-frame"><img src="img/shell-inspector.jpg" width="1440" height="900" alt="Inspector drawer open on ledger record 3456: Verified, a2a.message by site-30, five verification steps, signature and anchor details"></div><figcaption>The Inspector drawer opened from the arrow button (<code>img/shell-inspector.jpg</code>).</figcaption></figure>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>Five green shields and a green Verified pill: this record is exactly what was signed, linked into the chain and covered by an anchor. Any red step names what failed.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Click any row in Records.</li><li>Read the five steps top to bottom. Point at step 1: "computed right here in the browser".</li><li>Point at the canonical body: "this exact text is what was hashed".</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"An auditor does not need to trust our server. The browser recomputes the hash itself, and the public key is right here, so anyone can check the signature."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"How would a regulator check one entry independently?"</strong> Recompute SHA-256 over the canonical body and previous hash, check the Ed25519 signature with the published key, and follow the Merkle path to the anchor. Theme: Trust.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs real">Real</span> All five checks run real cryptography; only the keys (derived from a seed instead of KMS) and the S3 storage are simulated.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>In Record detail only step 1 runs in the browser; the browser's Merkle recompute is the = / ≠ in the Inclusion proof panel. Signature checks (step 4) run on the server; do not say the browser verifies signatures.</p></div>
+    </div>
+  </article>
+
+  <!-- ======================= c-6 anchors ======================= -->
+  <article class="comp" id="c-6">
+    <header><span class="comp-num">6</span><h3>Merkle anchors</h3><span class="where">panel <code>anchors</code>, <code>AnchorsTable</code> in <code>panels.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Lists the "anchors": every 32 records, one short fingerprint of the whole batch is written to S3 with
+        Object Lock, a storage mode where nobody, not even the AWS root account, can change or delete it until
+        a retention date. The hash chain shows an edit happened; the anchor holds a fingerprint of what the
+        records said before.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Header: "Merkle anchors", "N roots, one per 32 records" (107 pre-demo), source chip "Amazon S3 Object
+        Lock". Up to 40 rows, newest first:</p>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Column</th><th>Meaning</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><th>Anchor</th><td>Anchor number.</td><td>#107</td></tr>
+          <tr><th>Records</th><td>The 32 records it covers.</td><td>3,393–3,424</td></tr>
+          <tr><th>Merkle root</th><td>The single hash that sums up those 32 record hashes.</td><td><code>e16290…be3d</code></td></tr>
+          <tr><th>Object</th><td>The S3 object name; hover for the full path, e.g. <code>s3://spectrum-ledger-anchors-us-west-2/anchors/000107.json</code>.</td><td><code>…/anchors/00010…</code></td></tr>
+          <tr><th>Version</th><td>First 6 characters of the S3 object version id (hover for all of it).</td><td>29ef6d</td></tr>
+          <tr><th>Lock</th><td>Object Lock mode, always <code>COMPLIANCE</code>. Hover: "cannot be overwritten or deleted, even by the root account, until the retention date".</td><td>COMPLIANCE</td></tr>
+          <tr><th>Retain until</th><td>Retention date: the record's time plus 2,555 days, about 7 years.</td><td>2033-10-29</td></tr>
+          <tr><th>Written</th><td>How long ago, on the simulation clock.</td><td>1 min ago</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Ledger._anchor()</code>, called by <code>append()</code> whenever the record number is a multiple of 32.</dd>
+        <dt>Arrives by</dt><dd>Snapshot (last 60 anchors), then a <code>ledger.anchor</code> event per new anchor.</dd>
+        <dt>Store slice</dt><dd><code>ledger.anchors</code> (keeps 120), <code>ledger.anchors_total</code></dd>
+        <dt>Changes when</dt><dd>Every 32nd record. With agents busy that is every minute or two in the screenshots.</dd>
+      </dl>
+      <ol class="flow" aria-label="How an anchor is built">
+        <li class="src"><b>32 record hashes</b><span>e.g. #3,489 to #3,520</span></li>
+        <li><b>Hash in pairs</b><span>32, 16, 8, 4, 2, 1</span></li>
+        <li><b>Merkle root</b><span>one 64-character hash</span></li>
+        <li class="ui"><b>Anchor object</b><span>S3, Object Lock COMPLIANCE</span></li>
+      </ol>
+      <p>A Merkle tree is a way to fingerprint a list: hash neighbours in pairs, then hash those results in
+        pairs, until one hash is left, the root. If any one of the 32 records changes, the root changes. The
+        root is the only thing written to the locked bucket, so it is cheap, and it is enough to prove any
+        single record later (see <a href="#c-7">Inclusion proof</a>).</p>
+      <p>During Verify chain the server also rebuilds every anchor's root from the current records and
+        counts how many it checked ("… and 110 anchors" in the progress line). The screen shows only that
+        count: the Intact or Broken verdict comes from the record walk alone.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Click a row</th><td>Selects the last record of that anchor's range.</td><td><a href="#c-5">Record detail</a> and <a href="#c-7">Inclusion proof</a> load that record.</td></tr>
+          <tr><th>Hover Object, Version or Lock</th><td>Shows the full S3 path, full version id, or the Object Lock explanation.</td><td>Nothing else.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>A new row every 32 records, all <code>COMPLIANCE</code>, retention years ahead. There is no "bad" state in this table; the comparison happens in the Inclusion proof.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Hover the COMPLIANCE chip to show the explanation.</li><li>Click the top row to load its last record's proof.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Every 32 records, a fingerprint of the batch goes into S3 Object Lock in compliance mode. Not even the root account can change it for seven years. In this demo the bucket is simulated, but the Merkle roots are real."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"What if the attacker rewrites the whole chain and re-signs it?"</strong> The anchors already in the locked bucket would no longer match. Show it with the <a href="#c-7">Inclusion proof</a>: pick a record in an anchored batch, and the recomputed root differs from the locked one. Theme: Trust.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs mixed">Partly real</span> The Merkle roots are real; in mock mode the bucket, object version and retention are simulated (hover the source chip: "Simulated bucket, real Merkle roots").</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Do not claim anything is written to a real S3 bucket. <code>backend/spectrum/adapters/aws.py</code> contains untested S3 Object Lock, DynamoDB and KMS stubs, but they are not wired into the ledger in any mode, so records and anchors always stay in memory. The source chip's "In AWS mode this panel reads from…" describes the target design.</p></div>
+    </div>
+  </article>
+
+  <!-- ======================= c-7 inclusion proof ======================= -->
+  <article class="comp" id="c-7">
+    <header><span class="comp-num">7</span><h3>Inclusion proof</h3><span class="where">panel <code>proof</code>, chart <code>charts/MerkleTree.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Proves that one record is part of a locked anchor, using only 5 extra hashes instead of all 32
+        records. If the record was edited, the recomputed root no longer equals the locked one.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Header: "Inclusion proof", "record #N", source chip "Amazon S3 Object Lock". Then a small tree drawn
+        bottom to top:</p>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Element</th><th>Meaning</th><th>Example (pre-demo, #3,424)</th></tr></thead>
+        <tbody>
+          <tr><th>Top: two boxes with = or ≠</th><td>Left, "recomputed root": what this browser got. Right, "anchor #N (S3)": the root stored in the anchor. The left box's border turns green with "=" when they match, or red with "≠" when they differ; the anchor box on the right always has an orange border.</td><td><code>e16290…be3d</code> = <code>e16290…be3d</code></td></tr>
+          <tr><th>leaf #N (bottom, blue fill)</th><td>The record's hash.</td><td><code>499229…ac7c</code></td></tr>
+          <tr><th>Blue boxes, levels 1 to 4, root</th><td>The path: each is the hash of the box below and its neighbour.</td><td><code>801c62…edf2</code> at level 1</td></tr>
+          <tr><th>Grey boxes beside them</th><td>The sibling hashes supplied by the server, one per level (hover: "sibling (left)" or "(right)" with the full hash).</td><td><code>f22f14…a116</code></td></tr>
+          <tr><th>Caption</th><td>Match: "Recomputed in this browser from the record and 5 sibling hashes; equal to the root written to s3://…/anchors/000107.json under Object Lock." No match (red): "The record's current contents no longer hash to the root stored in S3 Object Lock. The anchor cannot be overwritten, so it still proves the original."</td><td></td></tr>
+        </tbody>
+      </table></div>
+      <p>Other states: "Select a record", "Fetching Merkle path…", and "Not anchored yet: Records are
+        anchored in batches of 32. This one is included in the next root at #X."</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Ledger.proof(seq)</code> via <code>GET /api/ledger/proof/{seq}</code>.</dd>
+        <dt>Browser</dt><dd><code>useMerkleLevels()</code> in <code>MerkleTree.tsx</code> hashes up the path with WebCrypto.</dd>
+        <dt>Reloads when</dt><dd>The selected record changes, a record is tampered or restored, or a new anchor is written.</dd>
+      </dl>
+      <ol class="flow" aria-label="Inclusion proof">
+        <li class="src"><b>Server recomputes leaf</b><span>from the record's current contents</span></li>
+        <li><b>Server sends path</b><span>5 sibling hashes, left or right</span></li>
+        <li><b>Browser hashes up</b><span>SHA-256 of each pair, 5 times</span></li>
+        <li class="ui"><b>Compare</b><span>with the anchor's stored root</span></li>
+      </ol>
+      <p>The server does not send the stored hash as the leaf. It recomputes the leaf from the record's
+        current contents, as an auditor would. For an untouched record that equals the stored hash, so the
+        root matches. For an edited record the leaf is different, so every box above it is different, and
+        the top shows "≠". The anchor root itself came from the locked bucket and was not changed.</p>
+      <p>32 leaves need 5 levels (32, 16, 8, 4, 2, 1), so every proof has exactly 5 sibling hashes. At each
+        level the browser joins the two 32-byte hashes in the right order (sibling on the left or right) and
+        hashes the 64 bytes.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Hover a box</th><td>Shows the full hash and its role (leaf, level, root, sibling).</td><td>Nothing else.</td></tr>
+          <tr><th>(Indirect) select a record elsewhere</th><td>The proof follows the selection from the chain, the table, an anchor row, or "Show inclusion proof" in the Break banner.</td><td><code>GET /api/ledger/proof/{seq}</code></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>Read it from the bottom up: the record's hash climbs to a root. Green "=" at the top: the record is exactly as anchored. Red "≠": its contents were changed after anchoring.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>After beat 12, click "Show inclusion proof" in the Break banner.</li><li>Point at the red ≠ at the top of this panel.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"With just five hashes, the browser rebuilds the root and compares it with the fingerprint locked in the anchor. For the edited record they no longer match, and the anchor cannot be changed." (Here the bucket is simulated; the roots are real.)</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"How do you prove one record without handing over the whole log?"</strong> A Merkle path: 5 sibling hashes per record, checked against the locked root. Theme: Trust.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs real">Real</span> The Merkle path and the browser's SHA-256 hashing are real; only the S3 storage of the root is simulated.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>A record in the newest, still-open batch shows "Not anchored yet". Pick an older record, or click an anchor row, to show a complete proof.</p></div>
+    </div>
+  </article>
+
+  <!-- ======================= c-8 provenance ======================= -->
+  <article class="comp" id="c-8">
+    <header><span class="comp-num">8</span><h3>Provenance</h3><span class="where">panel <code>provenance</code>, <code>Provenance.tsx</code>, chart <code>charts/DagGraph.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Answers "why did the network do that?" It starts from the latest real action the agents took and
+        follows links back through the policy decision, the human approver, the agents, the model, its safety
+        label, the deploy gate, the checkpoint and the federated round that trained it, down to the five
+        operators and the enclave that aggregated their updates.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Header: "Provenance", "why did the network do that? from the latest executed action back to
+        training", a Refresh button, source chip "DynamoDB ledger + S3 model registry". Boxes joined by
+        labelled lines, read left to right, wrapping onto a second row. Each box has a coloured left edge
+        (its plane), an icon and kind label, a green check (or a status pill), a title, and a last line with
+        a short hash and ledger number, or a detail.</p>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Box kind</th><th>Colour</th><th>What it is</th><th>Example after beat 11</th></tr></thead>
+        <tbody>
+          <tr><th>Action</th><td>green</td><td>The <code>tool.call</code> record the graph starts from: tool, target, hash, ledger number.</td><td>"load_balance 6 stadium sit…", #3,506</td></tr>
+          <tr><th>Policy decision</th><td>orange</td><td>The policy verdict stored in that action record.</td><td>"PERMIT via P-005"</td></tr>
+          <tr><th>Human approval</th><td>orange</td><td>The <code>approval.decision</code> record, if a human approved the action.</td><td>"Approved by j.okafor (mob…", #3,503</td></tr>
+          <tr><th>Agent</th><td>green</td><td>The agent that executed it, and (if that agent does not run the NLM, the small fine-tuned network model) the site agent that proposed the plan. Bottom line: the model it runs.</td><td><code>coordinator</code> (claude-sonnet); "site-01 (canary cohort)" (nlm-v7); the <a href="concepts.html#term-shadow-canary">canary cohort</a> is the small group of sites that runs a new model first</td></tr>
+          <tr><th>Model</th><td>amber</td><td>The model version, with accuracy and safety scores.</td><td>"nlm-v7", "acc 87.3%, safety 96…"</td></tr>
+          <tr><th>AI-BOM</th><td>amber</td><td>The signed bill of materials for that model (what it was built from), by digest.</td><td>"AI-BOM eb596e07"</td></tr>
+          <tr><th>Deploy gate</th><td>amber</td><td>The <code>eval.gate</code> record that let the model ship.</td><td>"Gate PASS (eval-0041)", #3,458</td></tr>
+          <tr><th>Checkpoint</th><td>violet</td><td>The trained adapter (the fine-tuned weights), by hash.</td><td>"ckpt-r12", #3,426</td></tr>
+          <tr><th>Federated round</th><td>violet</td><td>The <code>fl.round</code> record that produced it.</td><td>"Federated round 12", #3,425</td></tr>
+          <tr><th>Attestation</th><td>violet</td><td>The <a href="concepts.html#term-enclave">Nitro Enclave</a> attestation of the aggregator: a signed measurement (PCR0 hash) of the code the sealed aggregator runs.</td><td>"Nitro Enclave attestation", <code>e6479da0…5d99</code></td></tr>
+          <tr><th>Operators, private data</th><td>violet</td><td>One grouped box for the five operators: colour dot, name, ε (privacy spent), the start of their data commitment hash, and a check or "Rejected" pill.</td><td>op-a ε 0.98 … op-e ε 2.59</td></tr>
+        </tbody>
+      </table></div>
+      <p>Line labels: "authorised by", "human approval", "executed by", "plan proposed with", "runs",
+        "described by", "verified by", "trained as", "aggregated in", "contributed (DP)", "aggregated inside". DP is
+        <a href="concepts.html#term-dp-sgd">differential privacy</a>: noise added in training so no single record can be recovered.
+        The selected path is drawn in thick orange lines with orange box borders; other lines are thin and grey.
+        Under the graph: "Every box is a signed ledger record or a hash-committed artefact. The highlighted
+        path runs from the selected box back to the action; click any box for its proof."</p>
+      <p>Other states: "Building provenance graph…" while loading, and "No executed actions yet" if the ledger
+        has no qualifying action.</p>
+      <figure class="shot"><div class="shot-frame"><img src="img/beat-11.jpg" width="1440" height="900" alt="After beat 11: the Provenance panel is lit and shows the full chain from load_balance action through PERMIT via P-005, approval by j.okafor, coordinator, site-01 canary agent, nlm-v7, AI-BOM, gate PASS, ckpt-r12, federated round 12, attestation and five operators"></div>
+        <figcaption>Provenance after beat 11 (<code>img/beat-11.jpg</code>, spotlight on). Follow the orange path from the green "load_balance" Action box on the left: PERMIT via P-005, approved by j.okafor, executed by coordinator, plan proposed with site-01 (canary cohort), nlm-v7, AI-BOM, gate PASS, ckpt-r12, federated round 12, and the five operators. Click the image to open it full size.</figcaption></figure>
+      <p>ε (epsilon) is the differential-privacy budget each operator spent: lower means less can be learned
+        about any single record in its data. See <a href="federation.html">Federation Center</a>.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>provenance.py</code> <code>build()</code> via <code>GET /api/provenance/latest</code>. It reads the ledger plus the swarm, proving, federation and trust engines.</dd>
+        <dt>Loads when</dt><dd>The panel opens, you press Refresh, or beat 11 fires. It does not update live.</dd>
+        <dt>State</dt><dd>Local to the panel (not a store slice).</dd>
+      </dl>
+      <p><strong>Choosing the starting action.</strong> The server looks backwards through the ledger for the
+        newest <code>tool.call</code> that was permitted and human-approved. If there is none, the newest
+        <code>reroute</code>; if none, the newest permitted call that changes something (read-only tools such
+        as <code>get_kpis</code> or <code>trace_path</code> are skipped).</p>
+      <p><strong>Walking back.</strong> From that record it adds the policy decision stored in its payload; the
+        newest <code>approval.decision</code> before it (only if the action was human-approved); the executing
+        agent. If that agent runs a model whose name starts with <code>nlm</code>, that is the model. Otherwise
+        (the coordinator runs <code>claude-sonnet</code>) it adds the proposing site agent, preferring one in
+        the canary cohort, and uses its model. Then the model's AI-BOM, the newest <code>eval.gate</code>
+        record for that model, the checkpoint named in the AI-BOM, the <code>fl.round</code> record for that
+        checkpoint's round, each operator's ε and accept/reject decision from that round, and the enclave
+        attestation.</p>
+      <p><strong>Two shapes you will see.</strong> Before the demo the newest action is a site agent's
+        <code>set_handover_offset</code> on <code>nlm-v6</code>. Its checkpoint comes from an earlier training
+        run, so the graph shows "ckpt-nlm-v6 (prior run)" and "Prior federated run, 20 rounds", with every
+        operator at the run's ε limit (2.40 in the screenshot), and no approval or gate box. After the beat 9
+        approval, the newest action is the coordinator's approved <code>load_balance</code>, and the full
+        chain appears: approval, canary agent on <code>nlm-v7</code>, deploy gate, ckpt-r12, round 12 with each
+        operator's own ε.</p>
+      <p><strong>Drawing.</strong> The browser folds the five operator boxes into one group box, then lays out
+        columns by distance from the action. When the columns do not fit the width, they wrap into a second
+        band. On load it selects the operator group, so the whole path from action to operators is lit.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Refresh</th><td>Rebuilds the graph from the current ledger.</td><td><code>GET /api/provenance/latest</code>; icon spins while loading. No ledger record.</td></tr>
+          <tr><th>Click a box</th><td>Selects it and opens its proof in the Inspector drawer.</td><td>The path from that box back to the action turns orange. Boxes with a ledger number open that ledger record; agent boxes open the agent; the operator group opens its data commitments only; others open their raw data.</td></tr>
+          <tr><th>Scroll sideways</th><td>If the graph is wider than the panel.</td><td>Nothing else.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>Start at the green Action box on the left and follow the orange line. Green checks everywhere is normal. A grey <span class="pill neutral">Quarantined</span> pill on an agent, or a red <span class="pill critical">Rejected</span> pill on an operator, means that part was isolated or excluded.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Fire beat 11 with <kbd>→</kbd> after beat 10. The console scrolls to this panel.</li><li>Trace with your finger: action, PERMIT, approved by the human, coordinator, canary agent, nlm-v7, AI-BOM, gate PASS, ckpt-r12, round 12, five operators.</li><li>Click the Human approval box to show its signed record.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Why did the network rebalance the stadium cells? One graph goes from that action to the approver, the model, its safety label, and the federated round that trained it, down to each operator's privacy budget."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Can you trace an agent's action back to its training data?"</strong> Yes, to the round and each operator's data commitment, without revealing the data. Themes: <a href="index.html#why-judges-care">Track 3</a> (traceability), Track 2 (federated round), Track 1 (model and gate).</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs mixed">Partly real</span> The links, ledger numbers and hashes are real records; the model scores, ε values and the enclave attestation come from the simulation.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>The graph does not refresh by itself. If you approved after the page loaded and skip beat 11, press Refresh, or you will show the pre-demo shape. The Policy decision box has no ledger number of its own: it is read from the action record.</p></div>
+    </div>
+  </article>
+
+  <!-- ======================= c-9 tamper ======================= -->
+  <article class="comp" id="c-9">
+    <header><span class="comp-num">9</span><h3>Tamper simulation</h3><span class="where">panel <code>tamper</code>, <code>TamperPanel</code> in <code>panels.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Lets you play the attacker on purpose: edit one signed record directly in the datastore, then show that
+        verification catches it. It is a demo-only control.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Title "Tamper simulation", "demo only", and a flask label "demo-only control". The text: "Acts as an
+        attacker with write access to the ledger table: it flips one field of a signed, already-anchored
+        record (by default the latest human approval) without touching its hash or signature. Then run the
+        verification." Three buttons: red-outlined "Modify a record in the datastore", "Verify chain", and
+        "Restore originals" (greyed out until something is modified). After a tamper, red text "Modified:
+        #3,503" lists the edited records.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Ledger.tamper()</code> and <code>Ledger.restore()</code> in <code>engines/ledger.py</code>.</dd>
+        <dt>Calls</dt><dd><code>POST /api/ledger/tamper</code>, <code>POST /api/ledger/restore</code>.</dd>
+        <dt>Events</dt><dd><code>ledger.tamper</code> (actor <code>attacker</code>), <code>ledger.restore</code>. Neither writes a ledger record.</dd>
+        <dt>Store slice</dt><dd><code>ledger.tampered</code></dd>
+        <dt>Feature flag</dt><dd><code>demo.tamper</code> (on by default; turn it off in <a href="settings.html">Settings</a> to hide the panel).</dd>
+      </dl>
+      <p><strong>Which record.</strong> The newest <code>approval.decision</code> that is already inside an
+        anchor. If there is none, the newest anchored <code>tool.call</code>. It must be anchored so that the
+        inclusion proof can also fail.</p>
+      <p><strong>Which field.</strong> If the payload has a <code>decision</code> field (approval records and
+        tool calls both do), it changes it: <code>approved</code> becomes <code>rejected</code>; any other value,
+        such as a tool call's <code>permit</code>, becomes <code>approved</code>. The
+        <code>params.blast_radius_pct</code> and <code>tampered: true</code> branches only apply to records
+        without a decision field. The hash, the
+        <code>prev</code> link and the signature are left exactly as they were, as an attacker with database
+        access but no signing key would have to.</p>
+      <p><strong>Undo.</strong> Before the first edit the server keeps a copy of the original record. Restore
+        originals puts every copy back, so the chain verifies again.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Modify a record in the datastore</th><td>Edits one field of one signed record.</td><td><code>POST /api/ledger/tamper</code>; <code>ledger.tamper</code> event; toast "Record #N modified directly in the datastore (decision)"; "Modified: #N" appears; the row gets a Tampered pill. No ledger record.</td></tr>
+          <tr><th>Verify chain</th><td>Same as the header button.</td><td><code>POST /api/ledger/verify</code>; see <a href="#c-11">progress bar</a> and <a href="#c-12">Break banner</a>.</td></tr>
+          <tr><th>Restore originals</th><td>Puts the original records back.</td><td><code>POST /api/ledger/restore</code>; <code>ledger.restore</code> event; toast "Tampered records restored from originals"; "Modified" list and Tampered pills disappear. No ledger record.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>"Modified: #N" in red means the ledger is currently in a tampered state. No text means it is clean.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Beat 12 presses the tamper for you. To do it by hand: click Modify a record in the datastore.</li><li>Click Verify chain.</li><li>After the demo, click Restore originals, then Verify chain again.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"I am now an attacker with write access to the database. I change the human's approval to a rejection, and I leave the hash and signature alone, because I do not have the key."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Is the tamper-evidence real or scripted?"</strong> The edit really changes the stored record; the check that catches it is the same verification that runs on a clean chain. Theme: Trust.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs real">Real</span> The record really is modified in the backend's store, and detection is real cryptography; only "the datastore" is in memory rather than DynamoDB.</p></div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <div class="callout warn"><p class="title">Pressing tamper twice undoes it</p><p>A second press, firing beat 12 again, or pressing <kbd>←</kbd> from beat 13 (which re-fires beat 12) picks the same record and flips it back. The chain then verifies as intact while the panel still lists "Modified: #3,503, #3,503". Click Restore originals to get back to a known state.</p></div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ======================= c-10 dossier card ======================= -->
+  <article class="comp" id="c-10">
+    <header><span class="comp-num">10</span><h3>Incident dossier card</h3><span class="where">panel <code>dossier</code>, <code>DossierCard</code> in <code>AuditPage.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The entry point to the printable, signed incident report: the hand-out a compliance officer would file.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Title "Incident dossier", "printable, signed, ledgered". Text: "A regulator-ready report for
+        <em>the latest incident</em>: timeline, every decision and approval with its signature, policy and
+        model versions, the ledger range with anchor proofs, and a verification result. Generating it hashes
+        the report and writes that hash to the ledger." When an incident is in the store, its id and title
+        replace "the latest incident", e.g. "INC-2041, fibre cut t3 during stadium let-out". One button:
+        "Generate and open".</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Store slice</dt><dd><code>swarm.incident</code> (set by incident events from beat 7 on).</dd>
+        <dt>Feature flag</dt><dd><code>audit.dossier</code>; it also controls the header button.</dd>
+      </dl>
+      <p>The button opens <code>/dossier/&lt;id&gt;</code> in a new tab (<code>INC-2040</code> if the store has no
+        incident). The new tab generates the report; see <a href="#dossier-page">the dossier page</a>.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Generate and open</th><td>Opens the dossier in a new tab.</td><td>The tab calls <code>GET /api/dossier/&lt;id&gt;</code>; one <code>dossier.generated</code> record is appended (signed by <code>kms:spectrum/auditor</code>).</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>After the demo, click Restore originals and Verify chain.</li><li>Click Generate and open. Scroll the report in the new tab.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"One click gives a regulator the whole incident, signed and anchored, and the report's own fingerprint goes into the ledger."</p></blockquote></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs mixed">Partly real</span> The report's hash, ledger record and signature are real; the incident it describes is simulated.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>If you skip Restore originals, the report says "BROKEN at #3,503" (that is correct, but may surprise a judge who has moved on).</p><p>Before beat 7 the button opens <code>INC-2040</code>. That incident was seeded without a ledger range, so its timeline is simply the latest ledger activity, not the s-11 outage. Do not present the INC-2040 dossier as that incident's evidence. Show the INC-2041 dossier after beat 9.</p></div>
+    </div>
+  </article>
+
+  <h2 id="beats-on-screen">What changes during beats 11 and 12</h2>
+
+  <h3 id="beat-11-screen">Beat 11: the provenance graph fills in</h3>
+  <p>The screenshot of this moment is in the <a href="#c-8">Provenance card</a>. With spotlight on, the
+    Provenance panel has an orange outline and the rest of the screen is dimmed.</p>
+  <p>Beat 11 has no server action: <code>Engine.beat(11)</code> only records the beat. The work happens in the
+    browser. The Provenance panel listens for beat 11, calls <code>GET /api/provenance/latest</code> again, and
+    0.3 seconds later scrolls itself to the middle of the screen. Because the beat 9 approval has been
+    executed by then, the graph now starts from the coordinator's approved <code>load_balance</code> and shows
+    the human approval, the canary agent on <code>nlm-v7</code>, the deploy gate and round 12. Compare it with
+    the pre-demo shape in <a href="#at-a-glance">the first screenshot</a>.</p>
+
+  <h3 id="beat-12-screen">Beat 12: the tamper test, step by step</h3>
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/beat-12.jpg" width="1440" height="900"
+           alt="After beat 12: Last verification tile reads Broken at 3,503; the hash chain panel is lit and focused around record 3,503, which has a red border; the progress line reads Stopped at 3,503 of 3,531; a red break banner shows stored and recomputed hashes and payload.decision approved changed to rejected; a toast reads chain broken at 3503">
+      <span class="box" data-target="c-2" style="left:6.1%;top:21.4%;width:92.2%;height:10.9%"></span>
+      <span class="box" data-target="c-3" style="left:6.11%;top:34.11%;width:92.22%;height:47.44%"></span>
+      <span class="box" data-target="c-11" style="left:7.3%;top:40%;width:89.85%;height:4%"></span>
+      <span class="box" data-target="c-12" style="left:7.3%;top:59.04%;width:89.85%;height:20.56%"></span>
+      <a class="pin" href="#c-2" style="left:5.25%;top:23.2%">2</a>
+      <a class="pin" href="#c-3" style="left:5.25%;top:36.4%">3</a>
+      <a class="pin" href="#c-11" style="left:61%;top:41.6%">11</a>
+      <a class="pin" href="#c-12" style="left:95.5%;top:62%">12</a>
+    </div>
+    <figcaption>After beat 12 (<code>img/beat-12.jpg</code>, spotlight on). Record #3,503, J. Okafor's approval of APR-317, was changed from "approved" to "rejected". The toast at the bottom right is the console's alert for a critical event; its Open button goes to this screen. Below the visible area, the <a href="#c-9">Tamper simulation</a> panel reads "Modified: #3,503". Click the image to open it full size, or see the <a href="img/beat-12-full.jpg">full-height capture</a>.</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#c-2"><span class="n">2</span><span>Status strip: Broken at #3,503</span></a></li>
+      <li><a href="#c-3"><span class="n">3</span><span>Hash chain in focus mode</span></a></li>
+      <li><a href="#c-11"><span class="n">11</span><span>Verification progress bar</span></a></li>
+      <li><a href="#c-12"><span class="n">12</span><span>Break banner</span></a></li>
+    </ul>
+  </figure>
+
+  <h4 id="beat-12-stage">Beat 12 on stage (25 seconds)</h4>
+  <p>This is the moment judges remember. The driver presses one key; everything else happens by itself.
+    Timed script: <a href="demo-playbook.html#beat-12">Demo playbook, beat 12</a>.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Do</th><th>You see</th><th>Say or point</th></tr></thead>
+      <tbody>
+        <tr><td>Press <kbd>→</kbd> from beat 11.</td><td>The Hash chain panel is lit (spotlight on). The record is now edited in the datastore; the Records table marks it <span class="pill critical">Tampered</span> and the Tamper panel lists "Modified: #3,503". No toast yet.</td><td>Say the <a href="#c-9">Tamper card</a> line: "I am now an attacker with write access to the database. I change the human's approval to a rejection, and I leave the hash and signature alone, because I do not have the key."</td></tr>
+        <tr><td>Nothing. About 1.2 s later the check starts by itself.</td><td>A blue cursor sweeps the chain for about 1.6 s, ticking each block. The edited block gets a green tick at first (see the <a href="#c-3">Hash chain warning</a>).</td><td>Point at the chain and wait.</td></tr>
+        <tr><td>Nothing.</td><td>The strip refocuses on #3,498 to #3,508 and stops on the red #3,503. Red line "Stopped at #3,503 of 3,531", the Break banner, the toast "chain broken at #3503: payload modified after signing", and red in the Last verification tile and the ribbon's Prove segment.</td><td>Point at "What changed", then at the two hashes. Say the <a href="#c-12">Break banner</a> line: "Someone changed the human's approval to a rejection, directly in the database. Verification stops at exactly that record…"</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 id="beat-12-underneath">What happens underneath</h4>
+  <p>Numbers are from the screenshot run.</p>
+  <ol class="steps">
+    <li><strong>You press <kbd>→</kbd> after beat 11.</strong> The browser stays on <code>/audit</code>, lights
+      the <code>chain</code> panel if spotlight is on, and sends <code>POST /api/director/beat/12</code>.</li>
+    <li><strong>The server plays the attacker.</strong> <code>Engine.beat(12)</code> calls
+      <code>Ledger.tamper()</code>. It picks the newest anchored <code>approval.decision</code>: #3,503, the
+      approval you gave in beat 9 (inside anchor #110, records 3,489 to 3,520). It saves a copy, then changes
+      <code>payload.decision</code> from <code>approved</code> to <code>rejected</code>. The stored hash,
+      the <code>prev</code> link and the signature are not touched. It emits <code>ledger.tamper</code>.</li>
+    <li><strong>The console marks the record.</strong> The Tamper panel shows "Modified: #3,503", the row (if
+      in the table) gets a Tampered pill, and any old verification result in the chain panel is cleared.</li>
+    <li><strong>The console starts Verify chain by itself</strong>, 1.2 seconds after the
+      <code>director.beat</code> event. You do not need to click anything.</li>
+    <li><strong>Two checks run in parallel.</strong> The server walks the records from #1, checking each one,
+      and stops at the first failure (the ledger holds 3,531). The browser
+      recomputes the hashes of the 36 blocks on the strip and a blue cursor sweeps across them for 1.6 seconds.
+      The browser's own copies still hold the original "approved" (the tamper event only carried the record
+      number), so the browser's sweep passes and #3,503 briefly shows a green tick; the edit lives in the
+      datastore, and only a fresh read sees it.</li>
+    <li><strong>The server stops at #3,503.</strong> Recomputing that record's hash from its current contents
+      gives <code>f7d51f72…</code>, but the stored, signed hash is <code>75bb4e84…</code>. Verification stops
+      there and reports the three check results, both hashes, the field-by-field difference against the saved
+      original, and anchor #110. It emits a critical <code>ledger.verify</code> event: the toast "chain broken
+      at #3503: payload modified after signing" appears, the status tile and the ribbon's Prove segment turn
+      red.</li>
+    <li><strong>The browser double-checks the break itself.</strong> It fetches records #3,498 to #3,508
+      fresh from the datastore, recomputes #3,503's hash locally (that is the red hash in the banner, labelled
+      "this browser"), and replays a short sweep over those 11 blocks that stops on the red one.</li>
+  </ol>
+
+  <!-- ======================= c-11 verify bar ======================= -->
+  <article class="comp" id="c-11">
+    <header><span class="comp-num">11</span><h3>Verification progress bar</h3><span class="where">component <code>VerifyBar</code> in <code>AuditPage.tsx</code>, logic in <code>verify.ts</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Shows a verification in progress and its result inside the Hash chain panel, and says who checked
+        what: the server and this browser.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>State</th><th>Left text</th><th>Bar</th></tr></thead>
+        <tbody>
+          <tr><th>Checking</th><td>"Verifying 1,234 / 3,531". During the sweep the total is this console's ledger height; the final line uses the server's count, which may differ by a few records (3,533 against 3,531 in the beat 12 run).</td><td>blue, growing</td></tr>
+          <tr><th>Passed</th><td>Green shield, "Verified N / N in X.XX s" (N = records the server checked, time = the server's own timing)</td><td>full, green</td></tr>
+          <tr><th>Broken</th><td>Red shield, "Stopped at #3,503 of 3,531"</td><td>red, up to the break</td></tr>
+        </tbody>
+      </table></div>
+      <p>Next to it, in grey: "server walked hash links, signatures and 110 anchors; this browser recomputed 36
+        SHA-256 hashes in 1.5 ms". Before any check, this row is the one-line help text instead.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Ledger.verify()</code> via <code>POST /api/ledger/verify</code>.</dd>
+        <dt>Browser</dt><dd><code>useVerify()</code> in <code>features/audit/verify.ts</code>, phases idle, scanning, ok, broken.</dd>
+        <dt>Starts when</dt><dd>You click either Verify chain button, or 1.2 s after beat 12 fires, or automatically when you open or reload <code>/audit</code> while the director is still on beat 12. The automatic run only happens if the Audit page is open.</dd>
+        <dt>Resets when</dt><dd>A record is tampered or restored, or you click Back to live.</dd>
+      </dl>
+      <ol class="flow states" aria-label="Verification phases">
+        <li><b>Idle</b><span>help text</span></li>
+        <li><b>Scanning</b><span>cursor sweeps 1.6 s</span></li>
+        <li class="ui"><b>Passed</b><span>all green</span></li>
+        <li class="ui"><b>Broken</b><span>focus on the break</span></li>
+      </ol>
+      <p>For every record, in order from #1, the server checks three things: the hash recomputed from the
+        record's canonical contents and the previous hash equals the stored hash; the record's
+        <code>prev</code> equals the previous record's hash; the Ed25519 signature on the stored hash is valid.
+        The first record that fails stops the walk. Then it rebuilds every anchor's Merkle root; the screen shows
+        only how many anchors it checked, and the Intact or Broken verdict depends on the record walk alone.</p>
+      <p>Meanwhile the browser hashes the 36 blocks on screen with WebCrypto and times itself (the "36 SHA-256
+        hashes in 1.5 ms"). The "Verifying N / total" counter during the sweep is pacing for the animation: it
+        follows the cursor up to 97% of the total and then waits for the server's answer. The final numbers
+        ("Verified N / N in X.XX s", "Stopped at #3,503 of 3,531"; in the beat 12 run the server took 1,127 ms for 3,531 records) come from the server.</p>
+    </div>
+    <div class="sec controls"><h4>Controls</h4><p>None. It only displays data; it is started by the Verify chain buttons.</p></div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>Green bar and "Verified N / N": everything checked out. Red bar and "Stopped at #N": record N was changed. The grey line is your evidence that the browser checked too.</p></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"The server walked every link and signature, and this browser recomputed the hashes on screen independently."</p></blockquote></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs mixed">Partly real</span> The server walk and the browser's 36 hashes are real and timed; the running counter during the 1.6-second sweep is an animation.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Do not say "the browser verified all 3,531 records". It recomputes the 36 blocks on screen, and after a break it recomputes the broken record itself. The ticks on the records around the break come from the server's result. The server checks all 3,531.</p><p>In beat 12 the edited block shows a green tick on the first sweep before it turns red; see the warning in the <a href="#c-3">Hash chain card</a> for what to say.</p></div>
+    </div>
+  </article>
+
+  <!-- ======================= c-12 break banner ======================= -->
+  <article class="comp" id="c-12">
+    <header><span class="comp-num">12</span><h3>Break banner</h3><span class="where">component <code>BreakBanner</code> in <code>AuditPage.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Explains a failed verification in one box: which record, what changed, which check failed, and which
+        locked anchor holds the fingerprint of the original.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Element</th><th>Meaning</th><th>Beat 12 value</th></tr></thead>
+        <tbody>
+          <tr><th>Headline</th><td>Where it broke, and which anchor holds the original root.</td><td>"Chain broken at #3,503: payload modified after signing. Anchor #110 in S3 Object Lock still holds the original root."</td></tr>
+          <tr><th>Stored hash (signed at write time)</th><td>The hash saved when the record was written, and signed then.</td><td><code>75bb4e84…5ee94</code></td></tr>
+          <tr><th>Recomputed from current contents (this browser)</th><td>The hash of what the record says now, computed by your browser. Red.</td><td><code>f7d51f72…470bc92</code></td></tr>
+          <tr><th>What changed</th><td>Field path, old value struck through in green, arrow, new value in red.</td><td><code>payload.decision</code> "approved" → "rejected"</td></tr>
+          <tr><th>Three pills</th><td>The three server checks for this record.</td><td><span class="pill critical">hash mismatch</span> <span class="pill good">link intact</span> <span class="pill good">signature over stored hash valid</span></td></tr>
+          <tr><th>Show inclusion proof</th><td>Button: load this record's Merkle proof.</td><td></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd>The <code>broken</code> part of the <code>Ledger.verify()</code> result: seq, checks, stored and recomputed hash, a diff against the copy saved at tamper time, and the anchor covering the record.</dd>
+        <dt>Browser</dt><dd>Recomputes the broken record's hash from a fresh <code>GET /api/ledger/3503</code>.</dd>
+        <dt>Shown when</dt><dd>Verification phase is "broken". Hidden again by Back to live, a new tamper, or a restore.</dd>
+      </dl>
+      <p><strong>Why only one of three checks is red.</strong> This is the most confusing thing on the screen,
+        so here it is plainly:</p>
+      <ul>
+        <li>The signature was made over the <em>hash</em>, not over the record's text. The attacker did not
+          touch the stored hash or the signature, so the signature still matches the stored hash: "signature
+          over stored hash valid".</li>
+        <li>The attacker did not touch the <code>prev</code> field either, so the record still points at the
+          right previous record: "link intact".</li>
+        <li>But the record's text changed, so hashing it again gives a different value: "hash mismatch". That
+          is the tamper.</li>
+        <li>The help line under the chain says "Changing any field of any record breaks every link after it".
+          That describes an attacker who also rewrites the hash: then every later link breaks. This attacker did
+          not, so the hash check fails instead and the links stay intact. Either way the edit is caught at that
+          record.</li>
+      </ul>
+      <p>To hide the edit, the attacker would need to store a new hash, and then sign it, which needs the
+        private key they do not have. Even with the key, every later record's <code>prev</code> would break,
+        and the anchor root in the locked bucket would still not match.</p>
+      <p>The "What changed" table is possible only because the demo kept the original copy for Restore. A real
+        auditor would see the mismatch, not the old value. The anchor is one 64-character fingerprint, not a
+        copy: it proves the record changed, and if someone produces the original, the anchor confirms it.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Show inclusion proof</th><td>Selects the broken record.</td><td><a href="#c-5">Record detail</a> shows #3,503 with steps 1, 2 and 5 red; <a href="#c-7">Inclusion proof</a> shows "≠" in red. <code>GET /api/ledger/3503</code>, <code>GET /api/ledger/proof/3503</code>.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>Read the headline, then the two hashes side by side (different), then "What changed". Red pill = the failed check; green pills = what the attacker could not or did not change.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Point at "What changed": approved became rejected.</li><li>Point at the two hashes.</li><li>Click Show inclusion proof and scroll to the red ≠.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Someone changed the human's approval to a rejection, directly in the database. Verification stops at exactly that record. The signature still matches the old hash, and the anchor's fingerprint in S3 Object Lock proves the record was changed. In this demo the bucket is simulated, but the fingerprints are real."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Why is the signature still valid if the record was changed?"</strong> The signature covers the stored hash, which the attacker left alone; the record's contents no longer produce that hash, which is exactly how the edit is caught. Theme: Trust.</p><p><strong>"Can you recover the original value?"</strong> Not from the anchor, which is only a fingerprint. It proves the record was changed. The "What changed" line uses a copy the demo keeps for Restore.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs real">Real</span> Both hashes, the check results and the browser recompute are real; the "before" value comes from the copy the demo keeps for Restore.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>If the banner does not appear after beat 12, first look at the Tamper simulation panel. If it shows "Modified: #N" once, click Verify chain only. If it shows nothing, or the same number twice ("#3,503, #3,503"), click Modify a record in the datastore once, then Verify chain.</p></div>
+    </div>
+  </article>
+
+  <h2 id="dossier-page">The incident dossier page</h2>
+  <p>Route <code>/dossier/:incident</code>, for example <code>/dossier/INC-2041</code>. It opens in a new tab
+    from the <a href="#c-1">header button</a> or the <a href="#c-10">dossier card</a>. It is a document, not a
+    console screen: no top bar, no ribbon, always light, laid out as an A4 page (A4 with 14 mm margins when
+    printed).</p>
+
+  <h3 id="dossier-how" data-toc-label="How the dossier is made">How the dossier is made</h3>
+  <ol class="flow" aria-label="How a dossier is generated">
+    <li class="ui"><b>Tab opens</b><span><code>/dossier/INC-2041</code></span></li>
+    <li class="src"><b>Server assembles</b><span><code>GET /api/dossier/INC-2041</code>, <code>provenance.py</code> <code>dossier()</code></span></li>
+    <li><b>Digest</b><span>SHA-256 of the canonical report body</span></li>
+    <li><b>Ledger record</b><span><code>dossier.generated</code>, signed by the auditor key</span></li>
+    <li class="ui"><b>Page renders</b><span>with digest, signature, QR code</span></li>
+  </ol>
+  <p>The server finds the incident by id (if not found: the active incident, else the most recent one). It
+    takes the incident's ledger range: from the record number when the incident opened to the one when it was
+    resolved (if missing, the newest 61 records, from height minus 60 to height). From that range it builds
+    every section below, runs a full chain verification without announcing it (it does replace the backend's
+    stored last verification), and puts all of that into one report body. It hashes the
+    canonical body (the digest), appends a <code>dossier.generated</code> record holding the incident id and
+    digest, signed with <code>kms:spectrum/auditor</code>, and returns the body plus the digest, that record's
+    signature and its number.</p>
+  <p>The page asks once per load. Every load or reload makes a new report, a new digest (the generation time
+    is part of the body) and a new ledger record: #3,544 and #3,550 in the two screenshots below.</p>
+
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="img/post-dossier.jpg" width="1440" height="2642"
+           alt="Incident dossier for INC-2041, fibre cut T3 during stadium let-out, after the ledger was restored: verification intact over 3,549 records, digest and signature, two Merkle anchors, plan of four steps, pre-flight prediction, negotiation, one human decision by J. Okafor, five policies, models, and a timeline of 31 records">
+      <span class="box" data-target="d-1" style="left:0%;top:0%;width:100%;height:1.85%"></span>
+      <span class="box" data-target="d-2" style="left:25.42%;top:4.88%;width:49.17%;height:5.3%"></span>
+      <span class="box" data-target="d-3" style="left:24.31%;top:10.79%;width:51.39%;height:7.34%"></span>
+      <span class="box" data-target="d-4" style="left:24.31%;top:18.21%;width:51.39%;height:6.21%"></span>
+      <span class="box" data-target="d-5" style="left:24.31%;top:24.49%;width:51.39%;height:6.74%"></span>
+      <span class="box" data-target="d-6" style="left:24.31%;top:31.3%;width:51.39%;height:8.63%"></span>
+      <span class="box" data-target="d-7" style="left:24.31%;top:40.01%;width:51.39%;height:7.65%"></span>
+      <span class="box" data-target="d-8" style="left:24.31%;top:47.73%;width:51.39%;height:3.9%"></span>
+      <span class="box" data-target="d-9" style="left:24.31%;top:51.7%;width:51.39%;height:7.68%"></span>
+      <span class="box" data-target="d-10" style="left:24.31%;top:59.46%;width:51.39%;height:2.61%"></span>
+      <span class="box" data-target="d-11" style="left:24.31%;top:62.15%;width:51.39%;height:32.6%"></span>
+      <span class="box" data-target="d-12" style="left:24.31%;top:95.6%;width:51.39%;height:1.6%"></span>
+      <a class="pin" href="#d-1" style="left:60%;top:0.93%" aria-label="1: Toolbar" title="Toolbar">1</a>
+      <a class="pin" href="#d-2" style="left:23.6%;top:6.0%" aria-label="2: Header and QR code" title="Header and QR code">2</a>
+      <a class="pin" href="#d-3" style="left:23.6%;top:11.8%" aria-label="3: Verification" title="Verification">3</a>
+      <a class="pin" href="#d-4" style="left:23.6%;top:19.2%" aria-label="4: Merkle anchors" title="Merkle anchors">4</a>
+      <a class="pin" href="#d-5" style="left:23.6%;top:25.5%" aria-label="5: Plan executed" title="Plan executed">5</a>
+      <a class="pin" href="#d-6" style="left:23.6%;top:32.3%" aria-label="6: Pre-flight prediction" title="Pre-flight prediction">6</a>
+      <a class="pin" href="#d-7" style="left:23.6%;top:41.0%" aria-label="7: Negotiation and dissent" title="Negotiation and dissent">7</a>
+      <a class="pin" href="#d-8" style="left:23.6%;top:48.7%" aria-label="8: Human decisions" title="Human decisions">8</a>
+      <a class="pin" href="#d-9" style="left:23.6%;top:52.7%" aria-label="9: Policies applied" title="Policies applied">9</a>
+      <a class="pin" href="#d-10" style="left:23.6%;top:60.4%" aria-label="10: Models" title="Models">10</a>
+      <a class="pin" href="#d-11" style="left:23.6%;top:63.6%" aria-label="11: Timeline" title="Timeline">11</a>
+      <a class="pin" href="#d-12" style="left:23.6%;top:96.4%" aria-label="12: Footer" title="Footer">12</a>
+    </div>
+    <figcaption>Dossier for INC-2041 after the tampered record was restored (<code>img/post-dossier.jpg</code>): "Intact: 3,549 records", recorded in ledger #3,550.</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#d-1"><span class="n">1</span><span>Toolbar</span></a></li>
+      <li><a href="#d-2"><span class="n">2</span><span>Header and QR code</span></a></li>
+      <li><a href="#d-3"><span class="n">3</span><span>Verification</span></a></li>
+      <li><a href="#d-4"><span class="n">4</span><span>Merkle anchors</span></a></li>
+      <li><a href="#d-5"><span class="n">5</span><span>Plan executed</span></a></li>
+      <li><a href="#d-6"><span class="n">6</span><span>Pre-flight prediction</span></a></li>
+      <li><a href="#d-7"><span class="n">7</span><span>Negotiation and dissent</span></a></li>
+      <li><a href="#d-8"><span class="n">8</span><span>Human decisions</span></a></li>
+      <li><a href="#d-9"><span class="n">9</span><span>Policies applied</span></a></li>
+      <li><a href="#d-10"><span class="n">10</span><span>Models</span></a></li>
+      <li><a href="#d-11"><span class="n">11</span><span>Timeline</span></a></li>
+      <li><a href="#d-12"><span class="n">12</span><span>Footer</span></a></li>
+    </ul>
+  </figure>
+
+  <h3 id="dossier-tampered" data-toc-label="Dossier with the tamper in place">The same dossier with the tamper still in place</h3>
+  <figure class="shot">
+    <div class="shot-frame">
+      <img src="img/beat-14-dossier.jpg" width="1440" height="2642"
+           alt="Dossier for INC-2041 generated after beat 14 without restoring: verification reads BROKEN at 3,503 of 3,543; human decisions still says approved; timeline row 3503 reads APR-317 rejected j.okafor">
+      <span class="box" data-target="d-11" style="left:24.31%;top:87.3%;width:51.39%;height:1.0%"></span>
+      <a class="pin" href="#d-3" style="left:23.6%;top:11.8%" aria-label="3: Verification" title="Verification">3</a>
+      <a class="pin" href="#d-8" style="left:23.6%;top:48.7%" aria-label="8: Human decisions" title="Human decisions">8</a>
+      <a class="pin" href="#d-11" style="left:23.6%;top:87.8%" aria-label="11: Timeline" title="Timeline">11</a>
+    </div>
+    <figcaption>Generated after beat 14 without Restore originals (<code>img/beat-14-dossier.jpg</code>). Pin 3: "BROKEN at #3,503 of 3,543". Pin 8: Human decisions still says "approved". Pin 11: timeline row #3503 now reads "APR-317 rejected j.okafor".</figcaption>
+  </figure>
+  <p>This is a useful teaching example. The Human decisions table is built from the oversight engine's own
+    state, so it still says "approved". The Timeline is built from the ledger records, and record #3,503 was
+    edited, so it says "rejected". The report does not hide the conflict: its Verification row says the chain
+    is broken at exactly that record.</p>
+
+  <h3 id="dossier-sections">Every section of the report</h3>
+  <p>The report is mostly a read-only copy of data you have already seen on other screens. The table covers
+    every numbered section; section 3, Verification, is the proof and gets its own card below. Only the toolbar
+    has a control.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>#</th><th>Section</th><th>What it shows (INC-2041 example)</th><th>Where it comes from</th><th>Real or simulated</th></tr></thead>
+      <tbody>
+        <tr id="d-1"><td class="num">1</td><th>Toolbar</th><td>"SPECTRUM incident dossier", then "ledger record #3,550" (or "generating…" while waiting), and a dark button "Print or save as PDF", which opens the browser's print dialog (same as <kbd>Cmd</kbd> <kbd>P</kbd>; choose "Save as PDF" for a file). If the server fails: "Could not generate the dossier: …".</td><td>The record number is the <code>ledger_seq</code> the server returned after appending <code>dossier.generated</code>. The bar sticks to the top while you scroll and is hidden when printing.</td><td><span class="rs real">Real</span> A real ledger record created by opening this page.</td></tr>
+        <tr id="d-2"><td class="num">2</td><th>Header and QR code</th><td>"Incident dossier, generated &lt;time&gt; by SPECTRUM console"; the title "INC-2041: Fibre cut T3 during stadium let-out"; Severity (critical), Status (resolved), Started, Time to restore (33s, or "open" if unresolved), Agent compute cost ($0.08). On the right, a QR code with the shortened digest under it (<code>68d36a…519f</code>).</td><td>The incident record in the swarm engine. The QR code is made in the browser and encodes <code>spectrum:dossier:&lt;digest&gt;</code>, so a phone camera reads out the report's fingerprint.</td><td><span class="rs mixed">Partly real</span> The digest is real; the incident, its time to restore and its cost are simulated.</td></tr>
+        <tr><td class="num">3</td><th>Verification</th><td colspan="3">The proof block: ledger range, chain verification, digest, signature. See the <a href="#d-3">Verification card</a> below.</td></tr>
+        <tr id="d-4"><td class="num">4</td><th>Merkle anchors covering this incident</th><td>Columns Anchor, Records, Merkle root (shortened), Object (S3 Object Lock) with the full <code>s3://</code> path, Retain until with the lock mode. Example: #109 (3457–3488) and #110 (3489–3520), both retained until 2033-10-29 (COMPLIANCE).</td><td>Every anchor whose 32-record range overlaps the incident's ledger range; same data as the <a href="#c-6">Merkle anchors</a> panel. Left out if there are none.</td><td><span class="rs mixed">Partly real</span> Real Merkle roots; the S3 objects are simulated in every mode.</td></tr>
+        <tr id="d-5"><td class="num">5</td><th>Plan executed</th><td>Columns Step, Tool, Target, Agent, Policy, Outcome. 1 <code>reroute</code> T3 → MW3 by transport under P-004, "auto (done)"; 2 <code>cell_wake</code> 3 cells; 3 <code>set_tx_power</code> 6 border cells; 4 <code>load_balance</code> 6 stadium sites → 6 neighbours; steps 2 to 4 by coordinator under P-003, "approved (done)".</td><td>Copied from the incident's plan in the swarm engine (see <a href="swarm.html">Swarm Tower</a>). "Outcome" is the plan's verdict field followed by the step state. Left out if the incident had no plan (INC-2040 has none).</td><td><span class="rs sim">Simulated</span> The plan, including its Policy and Outcome columns, is scripted by the simulated incident. The real policy decisions for the tool calls are the ones under Policies applied and in the Timeline.</td></tr>
+        <tr id="d-6"><td class="num">6</td><th>Pre-flight prediction (network twin)</th><td>Columns KPI, Before, Predicted after: congestion pct (93.5 to 55.2), dropped pct (1.27 to 0), throughput gbps (20.24 to 19.47), energy kw (363.8 to 373), health pct (80 to 100). Then "blast radius 12.5% of cells (15 cells)": the share of cells the plan touches.</td><td>The incident's pre-flight result, computed by the network twin when the plan was simulated, before anything touched the network. Left out if there was none.</td><td><span class="rs sim">Simulated</span> The twin's KPIs are simulated.</td></tr>
+        <tr id="d-7"><td class="num">7</td><th>Agent negotiation and dissent</th><td>One row per round: time, agent, and "kind: text", for example "cx propose: Wake s-20-2, s-23-1, s-28-0 and +2 dB on 6 border cells…", "energy object: …", "coordinator propose: Compromise…", then accepts. Below: "Recorded dissent (energy): Objects: +3.4 kWh over 45 minutes versus option D".</td><td>The incident's negotiation (beat 8, see <a href="swarm.html">Swarm Tower</a>). Left out if there was none.</td><td><span class="rs sim">Simulated</span> Scripted by the simulation.</td></tr>
+        <tr id="d-8"><td class="num">8</td><th>Human decisions</th><td>Columns Approval, Decision, Signed by, Device, Signature, Ledger. Example: "APR-317: Wake 3 cells, boost 6, load-balance stadium (12.5% of cells)", approved, J. Okafor, mobile, <code>f1bc79e0…46160b</code>, #3503. If none was needed: "No human approvals were required for this incident." (INC-2040).</td><td>The oversight engine's approval items linked to this incident, not the ledger text. The Ledger column points at the <code>approval.decision</code> record. See <a href="oversight.html">Human oversight &amp; phone approvals</a>.</td><td><span class="rs mixed">Partly real</span> The approval signature and its ledger record are real; the approver is a demo identity.</td></tr>
+        <tr id="d-9"><td class="num">9</td><th>Policies applied</th><td>Columns Policy, Name, Version, Hash. P-002 "Site agents act on their own neighbourhood", P-004 "Transport agent owns backhaul", P-005 "Coordinator may orchestrate approved plans", P-011 "Read access to telemetry", P-013 "Domain agents may raise tickets", all version 1.</td><td>Every policy id cited by a <code>tool.call</code> record in the range, with its name, version and hash from the trust engine. See <a href="trust.html">Trust Center</a>.</td><td><span class="rs real">Real</span> From real policy decisions recorded in the ledger.</td></tr>
+        <tr id="d-10"><td class="num">10</td><th>Models</th><td>"Site agents: nlm-v6, nlm-v7. Coordinator: claude-sonnet." Two site models appear because the nlm-v7 canary (beat 6) runs on part of the fleet.</td><td>The distinct models of all site agents when the report is generated, and the coordinator's model, from the swarm engine.</td><td><span class="rs sim">Simulated</span> The fleet and its models are part of the simulation.</td></tr>
+        <tr id="d-11"><td class="num">11</td><th>Timeline</th><td>Columns #, Time, Event, Actor, Record hash, Signature. Short summaries: "set_handover_offset s-30-0: permit" for a tool call, "cx → coordinator (propose): delivered" for a message, "APR-317 requested" and "APR-317 approved j.okafor" for approvals, or the record type (for example <code>fl.round</code>).</td><td>Every ledger record in the incident's range, except agent messages whose intent is only "inform" (that is why 31 records are listed for a range of 42). Read from the records as they are now, so an edited record shows its edited text.</td><td><span class="rs real">Real</span> Hashes and signatures are copied from the real ledger records.</td></tr>
+        <tr id="d-12"><td class="num">12</td><th>Footer: how to verify independently</th><td>"To verify independently: recompute SHA-256(canonical(record) ‖ prev_hash) for each listed record, check each Ed25519 signature against the published key, and rebuild the Merkle roots against the S3 Object Lock anchors above. The QR code encodes this dossier's digest."</td><td>Fixed text. It describes the same three checks the console runs (<a href="#c-5">Record detail</a>, <a href="#c-7">Inclusion proof</a>).</td><td><span class="rs real">Real</span> The checks it describes are the real ones.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout warn">
+    <p class="title">Watch out on the dossier</p>
+    <ul>
+      <li>Plan executed lists P-003 (the human-approval rule) for steps 2 to 4, but Policies applied only lists
+        policies cited by recorded tool calls, which name P-005. If a judge asks: P-003 is the rule that forced
+        the approval; P-005 is the permit the executed calls cite.</li>
+      <li>The 12.5% blast radius is above the 5% rule, which is why a human had to approve (beat 9).</li>
+      <li>With the tamper in place, Human decisions still says "approved" while the Timeline says "rejected" (see
+        the <a href="#dossier-tampered">second screenshot</a>). That is expected.</li>
+      <li>Models is the fleet at generation time, not a history of the incident.</li>
+      <li>Before beat 7 the dossier is <code>INC-2040</code>, whose Ledger range, Timeline, Policies and Anchors
+        are just the newest ledger records at generation time. Do not present it as that incident's evidence.</li>
+    </ul>
+  </div>
+  <div class="callout say">
+    <p class="title">Say this about the QR code</p>
+    <p>"The QR code is the report's own fingerprint, so a printed copy can be matched to the ledger."</p>
+  </div>
+
+  <!-- ======================= d-3 verification ======================= -->
+  <article class="comp" id="d-3">
+    <header><span class="comp-num">3</span><h3 data-toc="skip">Verification</h3><span class="where">section 3 of the report</span></header>
+    <div class="sec for"><h4>What it is for</h4><p>The proof block of the report: which records it covers, whether the chain was intact when it was made, and the report's own digest and signature.</p></div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Row</th><th>Meaning</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><th>Ledger range</th><td>First and last record of the incident, and how many are listed in the timeline.</td><td>#3,469 to #3,510 (31 records listed)</td></tr>
+          <tr><th>Chain verification at generation</th><td>A full chain check run while building the report.</td><td>"Intact: 3,549 records, hash links and Ed25519 signatures valid", or "BROKEN at #3,503 of 3,543"</td></tr>
+          <tr><th>Dossier digest (SHA-256)</th><td>Fingerprint of the whole report body.</td><td><code>68d36adb…bd519f</code></td></tr>
+          <tr><th>Dossier signature</th><td>The Ed25519 signature of the ledger record that holds the digest.</td><td><code>c53c725e…925a0e</code></td></tr>
+          <tr><th>Recorded in ledger</th><td>That record's number and signing key.</td><td>#3,550 (kms:spectrum/auditor)</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <p>The check counts every record that existed just before the report's own record was added, which is why
+        "3,549 records" sits next to "#3,550". The digest is <code>SHA-256(canonical(body))</code> over every
+        section of the report. The signature is not a separate signature over the digest: it is the normal
+        signature of the <code>dossier.generated</code> ledger record, whose payload contains the digest. So
+        the report is tied into the hash chain like any other event.</p>
+      <p>To check a printed copy: find ledger record #3,550, confirm its payload digest equals the one printed
+        here, and verify that record like any other. The console has no button that re-hashes a dossier.</p>
+    </div>
+    <div class="sec controls"><h4>Controls</h4><p>None. It only displays data.</p></div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>"Intact" is what you want. "BROKEN at #N" means a record was edited before this report was made.</p></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"The report states whether the chain was intact when it was generated, and the report itself is now a signed record in that chain."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"How do I know this PDF was not edited after you printed it?"</strong> Its digest is written into a signed, anchored ledger record. Theme: Trust, Track 3.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs real">Real</span> The verification, digest, ledger record and signature are all computed for real.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Say "the ledger record that holds the digest is signed", not "the PDF is signed". The PDF file itself carries no embedded signature.</p></div>
+    </div>
+  </article>
+
+  
+  <h2 id="walkthrough">Two short walkthroughs</h2>
+  <p>Use one of these when a judge says "walk me through this page". Point at each part as you say it. Each
+    takes about 60 to 75 seconds with pointing.</p>
+  <div class="callout say">
+    <p class="title">Right after beat 12</p>
+    <p>"This is the Prove plane. Every agent tool call, every message between agents, every human approval and
+      every training round is written here as a record. [Point at the status strip.] Over three thousand of
+      them, each signed with the key of whoever did it.</p>
+    <p>[Point at the hash chain.] Each record includes the fingerprint of the one before, so they form a chain.
+      [Point at the break banner.] We just edited one approval directly in the database. Verification stops at
+      exactly that record: the contents no longer match the signed hash.</p>
+    <p>[Click Show inclusion proof, point at the red ≠.] Every 32 records, a fingerprint of the batch is locked
+      in S3 Object Lock. Five hashes rebuild that fingerprint, and for the edited record it no longer matches.
+      Here the bucket is simulated; the fingerprints are real.</p>
+    <p>[Point at Provenance.] And for any action, we can trace back to the human who approved it, the model, its
+      safety gate, and the federated round that trained it."</p>
+  </div>
+  <div class="callout say">
+    <p class="title">On a clean chain</p>
+    <p>"This is the Prove plane. Every agent tool call, every message between agents, every human approval and
+      every training round is written here as a record. [Point at the status strip.] Over three thousand of
+      them, each signed with the key of whoever did it.</p>
+    <p>[Point at the hash chain.] Each record includes the fingerprint of the one before, so they form a chain.
+      [Press Verify chain.] The server rechecks every record, and this browser recomputes the hashes on screen
+      itself.</p>
+    <p>[Point at the anchors.] Every 32 records, a fingerprint of the batch goes to S3 Object Lock, where not even
+      the root account can change it. In this demo the bucket is simulated; the fingerprints are real.
+      [Point at Record detail.] For any record, your browser recomputes the hash, and the public key is here.</p>
+    <p>[Point at Provenance.] Any action traces back to its approver, model and training round. [Point at the
+      dossier card.] All of it exports as a signed incident report."</p>
+  </div>
+
+<h2 id="related">Related screens and how data flows</h2>
+  <p>This screen does not create the events it shows; it collects them. Data comes in from every other plane,
+    and goes out to the dossier and the console's status displays.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Screen</th><th>Direction</th><th>What flows</th></tr></thead>
+      <tbody>
+        <tr><td><a href="swarm.html">Swarm Tower</a></td><td>in</td><td><code>tool.call</code> and <code>a2a.message</code> records from agents; the incident (plan, negotiation, pre-flight) that the dossier reports.</td></tr>
+        <tr><td><a href="oversight.html">Human oversight &amp; phone approvals</a></td><td>in</td><td><code>approval.requested</code> and <code>approval.decision</code> records; the approval that provenance shows and beat 12 edits.</td></tr>
+        <tr><td><a href="federation.html">Federation Center</a></td><td>in</td><td><code>fl.round</code> and <code>fl.checkpoint</code> records, each operator's ε and accept/reject decision, used by provenance.</td></tr>
+        <tr><td><a href="proving.html">Proving Ground</a></td><td>in</td><td><code>eval.gate</code> and <code>aibom.signed</code> records, model scores and AI-BOMs, used by provenance.</td></tr>
+        <tr><td><a href="release.html">Release</a></td><td>in</td><td><code>release.stage</code> records; the canary cohort on <code>nlm-v7</code> that provenance names as the proposer.</td></tr>
+        <tr><td><a href="trust.html">Trust Center</a></td><td>in</td><td>Policy names, versions and hashes for the dossier; the enclave attestation in provenance; signing keys.</td></tr>
+        <tr><td><a href="mission.html">Mission Control</a></td><td>out</td><td>The Prove tile shows ledger height and a Chain row: "broken at #3503" after beat 12, "verified" after a clean check.</td></tr>
+        <tr><td><a href="shell.html">Console frame &amp; controls</a></td><td>out</td><td>The ribbon's Prove segment ("Ledger #N", "chain broken at #N"), the toast after a broken check, and the Inspector drawer for ledger records.</td></tr>
+        <tr><td><a href="settings.html">Settings, feature flags &amp; presenter view</a></td><td>control</td><td>Flags <code>demo.tamper</code>, <code>audit.provenance</code> and <code>audit.dossier</code> show or hide the Tamper, Provenance and Dossier panels.</td></tr>
+        <tr><td><a href="demo-playbook.html">Demo playbook</a></td><td>script</td><td>Beat cards for <a href="demo-playbook.html#beat-11">11</a> and <a href="demo-playbook.html#beat-12">12</a>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="presenter-checklist">Presenter checklist for this screen</h2>
+  <ul>
+    <li>Approve the beat 9 request (APR-317 in our runs). Without it, beat 11 shows the pre-demo provenance shape.
+      If you rejected it, beat 12 turns the rejection into an approval: say "I change the human's rejection into
+      an approval". If nobody decided, beat 12 edits an older warm-up approval with a different record number.</li>
+    <li>Beat 12 only edits an approval that is already anchored. Give the ledger about 20 records (roughly beats
+      10 and 11) after the beat 9 approval. If "Modified" shows a number other than the approval's record,
+      click Restore originals and try again once the next anchor appears.</li>
+    <li>If a second browser (for example the projector) is on another screen when beat 12 fires, it will not run the automatic check; click Verify chain there.</li>
+    <li>Fire beat 12 only once. If no Break banner appears, look at the Tamper simulation panel. If it shows
+      "Modified: #N" once, click Verify chain only. If it shows nothing, or the same number twice ("#3,503,
+      #3,503"), click Modify a record in the datastore once, then Verify chain.</li>
+    <li>After the demo, before opening the dossier: Restore originals, then Verify chain, so the tile, the ribbon
+      and Mission Control go green again. During beats 13 and 14 the broken state is expected.</li>
+    <li>Each dossier open adds a ledger record. That is fine, and it is a good thing to point out. Opening
+      <code>/dossier/INC-2041</code> directly also works.</li>
+    <li>Be exact about real and simulated: real hashes, signatures, Merkle roots and browser recompute; simulated
+      storage (memory, not DynamoDB or S3, in every mode) and seed-derived keys (not KMS).</li>
+  </ul>
+
+  <h2 id="recovery">If something goes wrong</h2>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><kbd>→</kbd> or <kbd>Space</kbd> does nothing.</td><td>Focus is probably in the Records filter ("All types", "All planes" or the Actor box); beat keys are ignored there. Click an empty part of the page, then press <kbd>→</kbd>.</td></tr>
+        <tr><td>No sweep after beat 12.</td><td>The Audit page was not open when the beat fired. Click Verify chain.</td></tr>
+        <tr><td>No Break banner after beat 12.</td><td>Look at the Tamper simulation panel. "Modified: #N" once: click Verify chain only. Nothing, or the same number twice: click Modify a record in the datastore once, then Verify chain.</td></tr>
+        <tr><td>"Modified" shows a record other than the beat 9 approval.</td><td>The approval was not anchored yet. Click Restore originals, wait for the next anchor row, then click Modify a record in the datastore and Verify chain.</td></tr>
+        <tr><td>Tile still red after Restore originals.</td><td>Restore sends no new result. Press Verify chain.</td></tr>
+        <tr><td>Provenance shows the pre-demo shape (<code>set_handover_offset</code>, <code>nlm-v6</code>).</td><td>Press Refresh on the Provenance panel (after the beat 9 approval has executed).</td></tr>
+        <tr><td>Dossier opens <code>INC-2040</code>.</td><td>The live incident has not started (before beat 7) or the scenario was reset. Open <code>/dossier/INC-2041</code> once beat 9 is done.</td></tr>
+        <tr><td>Inclusion proof says "Not anchored yet".</td><td>The record is in the newest, still-open batch. Click an anchor row to load a complete proof.</td></tr>
+        <tr><td>You left <code>/audit</code> during beat 12 and came back.</td><td>The check re-runs by itself after 1.2 s. That is harmless; let it finish.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Console-wide recovery (reconnects, re-firing beats) is on the <a href="demo-playbook.html#recovery">Demo
+    playbook</a> and <a href="shell.html#troubleshooting">Console frame</a> pages.</p>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Observability | SPECTRUM presenter guide</title>
+<link rel="stylesheet" href="assets/guide.css">
+<script src="assets/guide.js" defer></script>
+</head>
+<body data-page="observability.html">
+<main class="content">
+
+  <header class="page-head">
+    <h1>Observability</h1>
+    <p class="lede">This screen shows how the whole system is behaving: how busy and healthy each plane is,
+      a step-by-step trace of what the agents did during an incident, how many tokens each model used and
+      what that would cost, how fast calls are, the service targets, the GPUs and model endpoints, each
+      agent class, and a search box over the live event stream. It is where you prove two things: every
+      agent step can be followed, and the fine-tuned model runs the 40 site agents far more cheaply than a
+      frontier model would.</p>
+    <div class="meta">
+      <span>Route <code>/observability</code></span>
+      <span>Go to it with <kbd>g</kbd> then <kbd>b</kbd></span>
+      <span class="beat-chips">Appears in demo beats <a class="chip" href="demo-playbook.html#beat-13">13</a></span>
+    </div>
+  </header>
+
+  <h2 id="purpose">What this screen is for</h2>
+  <p>Every other screen shows one plane. This one cuts across all five. It answers the questions an
+    operations team asks after something happens: what did the system do, how long did each step take,
+    what did it cost, and is anything over its limit?</p>
+  <p>The one-sentence story for this screen, taken from the beat 13 presenter note:</p>
+  <div class="callout say"><p>"Every agent step is traced. The fine-tuned model runs 40 site agents for a fraction of a frontier model's cost."</p></div>
+  <p>It belongs to no single plane. In the code its rail entry has plane <code>all</code>, and its page
+    header carries two track tags: <code>Obs</code> (observability) and <code>T1</code> (Track 1: NLM
+    training, scaling and production readiness). The cost panel is the Track 1 price-performance argument.
+    The trace and agent health panels support Track 3 (traceability of a multi-agent swarm).</p>
+  <div class="callout real">
+    <p class="title">Real vs simulated on this screen</p>
+    <p>Treat every number on this screen as simulated or modelled. The metrics, latencies, token counts,
+      GPU readings and SLO figures all come from the mock observability engine
+      (<code>backend/spectrum/engines/observability.py</code>). Prices are assumed list prices. The README
+      lists token prices as "modelled list-price assumptions".</p>
+    <p>Two things are real. The trace's shape follows real code paths: inside an incident or attack trace, a
+      span is written each time an agent sends a signed message or calls a tool, and for the model calls
+      of the coordinator and domain agents (and of site-17 in the attack). Site agents' model calls during
+      the incident are not traced. Routine
+      background work is not traced. And the policy decision
+      inside a trace (permit or deny) is the real decision from the policy evaluator.</p>
+    <p>The source chips name the AWS service each panel maps to (CloudWatch, X-Ray, AgentCore). In this build
+      the observability engine never calls the AWS adapter, so the numbers come from the engine in
+      either mode.</p>
+  </div>
+
+  <h2 id="at-a-glance">The screen at a glance</h2>
+  <p>This is the whole page before the demo starts (pre-demo state, full height, at 1440 px wide). At
+    this width the latency panel sits on its own row. On screens 1536 px or wider it shares a row with
+    Tokens and cost. The console frame around it (top bar, lifecycle ribbon, screens rail, live stream
+    drawer) is explained on <a href="shell.html">Console frame &amp; controls</a>.</p>
+
+  <figure class="shot boxes-quiet" id="shot-pre">
+    <div class="shot-frame">
+      <img src="img/screen-observability.jpg" width="1440" height="2764"
+           alt="Full Observability page before the demo: window selector set to 2 min, golden signals for five planes all within objectives, a trace of prior incident INC-2040 with 13 spans, tokens and cost with $0.03 versus $5.91 per thousand site-agent decisions, a latency heatmap with a p95 line near 100 ms, five SLOs, GPU tiles at 5%, four healthy model endpoints, agent health for site and domain agents, and an empty log search">
+      <span class="box" data-target="c-1" style="left:6.11%;top:3.76%;width:92.22%;height:3.18%"></span>
+      <span class="box" data-target="c-2" style="left:6.11%;top:6.94%;width:25.5%;height:1.5%"></span>
+      <span class="box" data-target="c-3" style="left:6.11%;top:8.76%;width:92.22%;height:14.22%"></span>
+      <span class="box" data-target="c-4" style="left:6.11%;top:23.55%;width:92.22%;height:2.9%"></span>
+      <span class="box" data-target="c-5" style="left:7.3%;top:26.7%;width:66.5%;height:11.2%"></span>
+      <span class="box" data-target="c-6" style="left:75%;top:26.7%;width:22.2%;height:15.55%"></span>
+      <span class="box" data-target="c-7" style="left:6.11%;top:43.45%;width:92.22%;height:4.3%"></span>
+      <span class="box" data-target="c-8" style="left:7.3%;top:48.2%;width:49.6%;height:8.6%"></span>
+      <span class="box" data-target="c-9" style="left:58.6%;top:48.2%;width:38.7%;height:7.4%"></span>
+      <span class="box" data-target="c-10" style="left:6.11%;top:58.14%;width:92.22%;height:12.95%"></span>
+      <span class="box" data-target="c-11" style="left:6.11%;top:71.67%;width:37.78%;height:13.26%"></span>
+      <span class="box" data-target="c-12" style="left:45%;top:71.67%;width:53.33%;height:5.7%"></span>
+      <span class="box" data-target="c-13" style="left:46.1%;top:78%;width:51.1%;height:6.1%"></span>
+      <span class="box" data-target="c-14" style="left:6.11%;top:85.51%;width:92.22%;height:5.39%"></span>
+      <span class="box" data-target="c-15" style="left:6.11%;top:91.48%;width:92.22%;height:3.4%"></span>
+      <span class="box" data-target="c-16" style="left:6.11%;top:94.9%;width:92.22%;height:2.77%"></span>
+      <a class="pin" href="#c-1" style="left:7.61%;top:4.51%">1</a>
+      <a class="pin" href="#c-2" style="left:7.61%;top:7.69%">2</a>
+      <a class="pin" href="#c-3" style="left:7.61%;top:9.51%">3</a>
+      <a class="pin" href="#c-4" style="left:7.61%;top:24.3%">4</a>
+      <a class="pin" href="#c-5" style="left:8.8%;top:27.45%">5</a>
+      <a class="pin" href="#c-6" style="left:76.5%;top:27.45%">6</a>
+      <a class="pin" href="#c-7" style="left:7.61%;top:44.2%">7</a>
+      <a class="pin" href="#c-8" style="left:8.8%;top:48.95%">8</a>
+      <a class="pin" href="#c-9" style="left:60.1%;top:48.95%">9</a>
+      <a class="pin" href="#c-10" style="left:7.61%;top:58.89%">10</a>
+      <a class="pin" href="#c-11" style="left:7.61%;top:72.42%">11</a>
+      <a class="pin" href="#c-12" style="left:46.5%;top:72.42%">12</a>
+      <a class="pin" href="#c-13" style="left:47.6%;top:78.75%">13</a>
+      <a class="pin" href="#c-14" style="left:7.61%;top:86.26%">14</a>
+      <a class="pin" href="#c-15" style="left:7.61%;top:92.23%">15</a>
+      <a class="pin" href="#c-16" style="left:7.61%;top:95.65%">16</a>
+    </div>
+    <figcaption>Pre-demo, full height. The only trace is the pre-warmed incident INC-2040. GPUs idle at 5% because round 13 is queued, not training. The log search is empty because nothing in the operate plane is at warning level yet. Hover a number to outline that part. Click the image to enlarge it.</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#c-1"><span class="n">1</span><span>Page header and track tags</span></a></li>
+      <li><a href="#c-2"><span class="n">2</span><span>Time window selector</span></a></li>
+      <li><a href="#c-3"><span class="n">3</span><span>Golden signals</span></a></li>
+      <li><a href="#c-4"><span class="n">4</span><span>Trace picker and summary</span></a></li>
+      <li><a href="#c-5"><span class="n">5</span><span>Trace waterfall</span></a></li>
+      <li><a href="#c-6"><span class="n">6</span><span>Span detail</span></a></li>
+      <li><a href="#c-7"><span class="n">7</span><span>Tokens and cost: headline numbers</span></a></li>
+      <li><a href="#c-8"><span class="n">8</span><span>Tokens per minute chart</span></a></li>
+      <li><a href="#c-9"><span class="n">9</span><span>Cost per incident</span></a></li>
+      <li><a href="#c-10"><span class="n">10</span><span>Latency heatmap</span></a></li>
+      <li><a href="#c-11"><span class="n">11</span><span>Service level objectives</span></a></li>
+      <li><a href="#c-12"><span class="n">12</span><span>GPU utilisation</span></a></li>
+      <li><a href="#c-13"><span class="n">13</span><span>Model endpoints</span></a></li>
+      <li><a href="#c-14"><span class="n">14</span><span>Agent health</span></a></li>
+      <li><a href="#c-15"><span class="n">15</span><span>Log search: query bar</span></a></li>
+      <li><a href="#c-16"><span class="n">16</span><span>Log search: results</span></a></li>
+    </ul>
+  </figure>
+
+
+  <h2 id="in-the-demo">When this screen appears in the demo</h2>
+  <p>Only one beat goes to this screen: <a href="demo-playbook.html#beat-13">beat 13, "Cost and traces"</a>
+    (route <code>/observability</code>, 25 seconds, spotlight on <code>cost</code> and <code>trace</code>).
+    But the screen keeps recording all through the demo, so by beat 13 it holds what beats 2 to 12 did.
+    Knowing which earlier beat changed which panel lets you answer "where did that come from?"</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <caption>What each earlier beat leaves behind on this screen</caption>
+      <thead><tr><th>Beat</th><th>What changes here</th><th>Panel</th></tr></thead>
+      <tbody>
+        <tr><td><a href="demo-playbook.html#beat-2">2</a> Federated round</td><td>Learn rate jumps from about 0.4 to about 24 ops/s, and Learn saturation from about 10% to about 86%. GPU tiles of training operators climb to about 86%.</td><td><a href="#c-3">Golden signals</a>, <a href="#c-12">GPU utilisation</a></td></tr>
+        <tr><td><a href="demo-playbook.html#beat-5">5</a> Proving Ground gate</td><td>Verify rate rises from about 0.2 to about 6 ops/s while the evaluation runs.</td><td><a href="#c-3">Golden signals</a></td></tr>
+        <tr><td><a href="demo-playbook.html#beat-6">6</a> Shadow, then canary</td><td>Endpoints show "nlm-v6 + nlm-v7" at 10% traffic. Some site agents switch to nlm-v7, so nlm-v7 appears in the tokens chart and in the agent health Models column.</td><td><a href="#c-13">Model endpoints</a>, <a href="#c-8">Tokens chart</a>, <a href="#c-14">Agent health</a></td></tr>
+        <tr><td><a href="demo-playbook.html#beat-7">7</a> Incident hits</td><td>A new trace, <code>incident.handle INC-2041</code>, starts filling with spans. Token use climbs as the coordinator (Claude Sonnet) and domain agents start thinking. The Coordinator row appears in agent health.</td><td><a href="#c-4">Trace</a>, <a href="#c-8">Tokens chart</a>, <a href="#c-14">Agent health</a></td></tr>
+        <tr><td><a href="demo-playbook.html#beat-8">8</a> to <a href="demo-playbook.html#beat-9">9</a> Negotiate, approve</td><td>When the coordinator asks for human approval, "Escalated to human" becomes 1. After approval the incident resolves, and INC-2041 gets a bar in Cost per incident.</td><td><a href="#c-14">Agent health</a>, <a href="#c-9">Cost per incident</a></td></tr>
+        <tr><td><a href="demo-playbook.html#beat-10">10</a> Prompt-injection attack</td><td>A third trace appears, <code>attack.telemetry_injection site-17</code>, with one red error span: the denied <code>cell_sleep</code> call. Site agents show 1 policy deny. The default log query now finds about ten events: the incident alarms from beat 7, the approval requests and the blocked messages.</td><td><a href="#c-4">Trace</a>, <a href="#c-14">Agent health</a>, <a href="#c-16">Log results</a></td></tr>
+        <tr><td><a href="demo-playbook.html#beat-13">13</a> Cost and traces</td><td>The console opens this screen. The trace picker jumps to INC-2041. With spotlight on, Trace and Tokens and cost are outlined and the other panels fade.</td><td><a href="#c-4">Trace</a>, <a href="#c-7">Tokens and cost</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="beat-13-mechanics">What beat 13 actually does</h3>
+  <ol class="flow" aria-label="What beat 13 does">
+    <li class="ui"><b>Browser goes to <code>/observability</code></b><span>before the request</span></li>
+    <li><b>Spotlight set</b><span><code>cost</code>, <code>trace</code> (only if spotlight is on)</span></li>
+    <li class="src"><b>Server records beat 13</b><span><code>POST /api/director/beat/13</code></span></li>
+    <li><b><code>director.beat</code> event</b><span>every open console follows</span></li>
+    <li class="ui"><b>Trace panel picks INC-2041</b><span><code>useOnBeat(13)</code> in <code>panels.tsx</code></span></li>
+  </ol>
+  <p>On the server, beat 13 changes nothing in the simulation. Its action in <code>Engine.beat</code> is
+    empty. The only visible effect beyond navigation and spotlight is in the browser: the Trace panel
+    listens for beat 13 and selects the trace of incident INC-2041. If there is none, it takes the newest
+    trace that belongs to an incident, or failing that the newest trace. It also clears any span you had
+    clicked.</p>
+  <p>Beats 1 to 9 have number keys. Beat 13 does not. Reach it with <kbd>→</kbd> (or <kbd>Space</kbd> or
+    <kbd>PageDown</kbd>) after beat 12, or open the Demo Director with <kbd>d</kbd> and pick beat 13.</p>
+
+  <figure class="shot boxes-quiet" id="shot-beat-13-full">
+    <div class="shot-frame">
+      <img src="img/beat-13-full.jpg" width="1440" height="2987"
+           alt="Full Observability page after beat 13: Trace and Tokens and cost outlined by the spotlight, trace incident.handle INC-2041 with 46 spans and 8 LLM calls, tokens chart with six models, INC-2041 cost bar at $0.08 versus $0.88, GPUs of Op-A, Op-B and Op-D above 90%, endpoints at nlm-v6 plus nlm-v7 with 10% traffic, a Coordinator row with one escalation, and ten matching log events">
+      <span class="box" data-target="c-4" style="left:6.11%;top:21.76%;width:92.22%;height:2.9%"></span>
+      <span class="box" data-target="c-5" style="left:7.3%;top:24.8%;width:66.5%;height:14.8%"></span>
+      <span class="box" data-target="c-3" style="left:6.11%;top:8.07%;width:92.22%;height:13.16%"></span>
+      <span class="box" data-target="c-6" style="left:75%;top:24.7%;width:22.2%;height:14.9%"></span>
+      <span class="box" data-target="c-7" style="left:6.11%;top:40.51%;width:92.22%;height:4.2%"></span>
+      <span class="box" data-target="c-8" style="left:7.3%;top:45%;width:49.6%;height:8.6%"></span>
+      <span class="box" data-target="c-9" style="left:58.6%;top:45%;width:38.7%;height:7.6%"></span>
+      <span class="box" data-target="c-12" style="left:45%;top:67.29%;width:53.33%;height:5.3%"></span>
+      <span class="box" data-target="c-13" style="left:46.1%;top:73.2%;width:51.1%;height:5.8%"></span>
+      <span class="box" data-target="c-14" style="left:6.11%;top:80.1%;width:92.22%;height:6.23%"></span>
+      <span class="box" data-target="c-15" style="left:6.11%;top:86.86%;width:92.22%;height:3%"></span>
+      <span class="box" data-target="c-16" style="left:6.11%;top:89.9%;width:92.22%;height:7.9%"></span>
+      <a class="pin" href="#c-3" style="left:7.61%;top:8.82%">3</a>
+      <a class="pin" href="#c-4" style="left:7.61%;top:22.46%">4</a>
+      <a class="pin" href="#c-5" style="left:8.8%;top:25.5%">5</a>
+      <a class="pin" href="#c-6" style="left:76.5%;top:25.4%">6</a>
+      <a class="pin" href="#c-7" style="left:7.61%;top:41.21%">7</a>
+      <a class="pin" href="#c-8" style="left:8.8%;top:45.7%">8</a>
+      <a class="pin" href="#c-9" style="left:60.1%;top:45.7%">9</a>
+      <a class="pin" href="#c-12" style="left:46.5%;top:67.99%">12</a>
+      <a class="pin" href="#c-13" style="left:47.6%;top:73.9%">13</a>
+      <a class="pin" href="#c-14" style="left:7.61%;top:80.8%">14</a>
+      <a class="pin" href="#c-15" style="left:7.61%;top:87.56%">15</a>
+      <a class="pin" href="#c-16" style="left:7.61%;top:90.6%">16</a>
+    </div>
+    <figcaption>After beat 13, full height. Trace (green outline) and Tokens and cost (blue outline) are lit. Everything else is dimmed by the spotlight. Pins mark the main parts that changed since the pre-demo shot. Latency also moved a little but has no pin.</figcaption>
+  </figure>
+
+  <figure class="shot boxes-quiet" id="shot-beat-13">
+    <div class="shot-frame">
+      <img src="img/beat-13.jpg" width="1440" height="900"
+           alt="What the projector shows at beat 13: bottom of the INC-2041 waterfall and span detail, then the lit Tokens and cost panel with 24K tokens per minute, $1.14 spend, $0.03 versus $5.91 per thousand site-agent decisions, a stacked tokens chart peaking above 60K, and six incident cost bars ending with INC-2041 at $0.08 versus $0.88">
+      <span class="box" data-target="c-5" style="left:7.3%;top:9.2%;width:66.5%;height:18.2%"></span>
+      <span class="box" data-target="c-6" style="left:75%;top:9.2%;width:22.2%;height:18.2%"></span>
+      <span class="box" data-target="c-7" style="left:6.11%;top:31.11%;width:92.22%;height:13.5%"></span>
+      <span class="box" data-target="c-8" style="left:7.3%;top:45.6%;width:49.6%;height:29%"></span>
+      <span class="box" data-target="c-9" style="left:58.7%;top:45.6%;width:38.6%;height:25.4%"></span>
+      <span class="box" data-target="c-10" style="left:6.11%;top:78.44%;width:92.22%;height:21.56%"></span>
+      <a class="pin" href="#c-5" style="left:8.8%;top:11.2%">5</a>
+      <a class="pin" href="#c-6" style="left:76.5%;top:11.2%">6</a>
+      <a class="pin" href="#c-7" style="left:7.61%;top:33.11%">7</a>
+      <a class="pin" href="#c-8" style="left:8.8%;top:47.6%">8</a>
+      <a class="pin" href="#c-9" style="left:60.2%;top:47.6%">9</a>
+      <a class="pin" href="#c-10" style="left:7.61%;top:80.44%">10</a>
+    </div>
+    <figcaption>Beat 13 at projector size (1440 × 900), scrolled to the cost panel. The ribbon's red "chain broken at #3503" is left over from the beat 12 tamper test. It is expected, not a fault of this screen.</figcaption>
+  </figure>
+
+  <h2 id="terms">Words used on this page</h2>
+  <p>Each term in one plain sentence, so you can explain it without notes.</p>
+  <div class="terms">
+    <div class="term" id="term-trace"><dfn>Trace</dfn><p class="plain">The full record of one piece of work (here, one incident or one attack) broken into timed steps.</p><p class="analogy">Like a parcel's tracking history: every hand-off, with a time stamp.</p><p class="where">Where you see it: <a href="#c-4">Trace</a></p></div>
+    <div class="term" id="term-span"><dfn>Span</dfn><p class="plain">One timed step inside a trace, such as one model call, one message or one tool call. It has a start, an end, a parent and some attributes.</p><p class="analogy">One line in the tracking history.</p><p class="where">Where you see it: <a href="#c-5">Trace waterfall</a></p></div>
+    <div class="term" id="term-otel"><dfn>OpenTelemetry (OTel)</dfn><p class="plain">An open standard for recording traces, metrics and logs so any tool can read them. ADOT is AWS's distribution of it, and X-Ray is AWS's trace viewer.</p><p class="analogy">A shared shipping-label format that every courier understands.</p><p class="where">Where you see it: the Trace subtitle and the "AWS X-Ray (via ADOT)" chip.</p></div>
+    <div class="term" id="term-genai-conventions"><dfn>GenAI semantic conventions</dfn><p class="plain">The agreed OTel attribute names for model calls, such as <code>gen_ai.request.model</code> and <code>gen_ai.usage.input_tokens</code>.</p><p class="analogy">Standard column names on an invoice, so any accountant can read it.</p><p class="where">Where you see it: <a href="#c-6">Span detail</a></p></div>
+    <div class="term" id="term-golden-signals"><dfn>Golden signals</dfn><p class="plain">Four health numbers for any service: rate (how much work), errors, duration (how long), and saturation (how full).</p><p class="analogy">Pulse, temperature, blood pressure and oxygen for a service.</p><p class="where">Where you see it: <a href="#c-3">Golden signals</a></p></div>
+    <div class="term" id="term-p95"><dfn>p95</dfn><p class="plain">The 95th percentile: 95 of every 100 requests were at least this fast. It shows the slow tail that an average hides.</p><p class="analogy">How long the slowest few customers in the queue waited.</p><p class="where">Where you see it: <a href="#c-3">Golden signals</a>, <a href="#c-10">Latency</a>, <a href="#c-13">Model endpoints</a></p></div>
+    <div class="term" id="term-slo"><dfn>SLO, error budget, burn rate</dfn><p class="plain">An SLO (service level objective) is a reliability target, for example "99.5% of tool calls succeed". The error budget is the 0.5% you are allowed to miss. Burn rate is how fast you are using that budget: 1× uses it up in exactly the 30-day window.</p><p class="analogy">A monthly data allowance and how fast you are using it.</p><p class="where">Where you see it: <a href="#c-11">Service level objectives</a></p></div>
+    <div class="term" id="term-modelled-price"><dfn>Modelled cost</dfn><p class="plain">Cost computed as tokens counted times an assumed list price per million tokens. No bill was paid.</p><p class="analogy">A quote from a price list, not a receipt.</p><p class="where">Where you see it: <a href="#c-7">Tokens and cost</a>, <a href="#c-9">Cost per incident</a></p></div>
+  </div>
+
+  <h2 id="cards">Component cards</h2>
+  <p>One card per numbered pin. Each card first explains what the part is and how it works. The tinted
+    band at the bottom of each card is for presenting it.</p>
+
+  <!-- ===================================================== 1 -->
+  <article class="comp" id="c-1">
+    <header><span class="comp-num">1</span><h3>Page header and track tags</h3><span class="where">file <code>features/observability/manifest.ts</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It names the screen, says in one line what it covers, and shows which hackathon tracks it supports.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li>The title "Observability".</li>
+        <li>Two small outlined tags. <code>Obs</code> has a blue outline (release colour): its tooltip reads "Observability". <code>T1</code> has an amber outline (verify colour): its tooltip reads "Track 1: NLM training, scaling &amp; production readiness".</li>
+        <li>The description: "Golden signals per plane, end-to-end traces across agents, gateway, policy and tools, plus token cost and latency."</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Source</dt><dd><code>manifest.ts</code>: <code>title</code>, <code>description</code>, <code>tracks: ['Obs', 'T1']</code>, <code>route: '/observability'</code>, <code>nav.hotkey: 'b'</code></dd>
+        <dt>Rendered by</dt><dd><code>PageHeader</code> and <code>TrackTag</code> in <code>ui/Panel.tsx</code></dd>
+        <dt>Gated by</dt><dd>Feature flag <code>screen.observability</code> (group Screens, stable, on by default)</dd>
+        <dt>Changes when</dt><dd>Never during the demo. It is static text.</dd>
+      </dl>
+      <p>No backend data. If the <code>screen.observability</code> flag is turned off on the
+        <a href="settings.html">Settings</a> screen, the rail entry and the route go away together.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Hover a track tag</th><td>Shows the full track name.</td><td>Browser tooltip only. No backend call.</td></tr>
+          <tr><th><kbd>g</kbd> then <kbd>b</kbd></th><td>Opens this screen from anywhere in the console.</td><td>Navigates to <code>/observability</code>. No backend call.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"This is the operations view across all five planes. It is our observability answer and our Track 1 cost argument."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Which tracks does this cover?"</strong> Observability and Track 1 (production readiness: cost, latency, tracing).</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>The hotkey is <kbd>b</kbd>, not <kbd>o</kbd>. Press <kbd>g</kbd> and then <kbd>b</kbd> within about a second.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 2 -->
+  <article class="comp" id="c-2">
+    <header><span class="comp-num">2</span><h3>Time window selector</h3><span class="where">file <code>ObservabilityPage.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>One filter that sets how much recent history the time-based charts show: the last 1, 2 or 5 minutes.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li>The label "Window".</li>
+        <li>A three-button segmented control: "1 min", "2 min", "5 min". "2 min" is selected when the page opens.</li>
+        <li>The note "live, 1 s resolution, sim time". The charts get one new point per second of simulated time, and they follow the simulation clock, not the wall clock.</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>State</dt><dd>Local React state on the page (<code>useState(120)</code>, in seconds). Not saved anywhere.</dd>
+        <dt>Applied by</dt><dd><code>useFrames(windowS)</code> in <code>panels.tsx</code>. It keeps frames whose time <code>t</code> is within the window of the newest frame. The latency panel filters its heat columns the same way.</dd>
+        <dt>Data limits</dt><dd>The server sends the last 120 one-second frames in the snapshot. The browser then keeps up to 300 frames (5 minutes) and 180 heat columns (3 minutes).</dd>
+      </dl>
+      <div class="table-wrap"><table class="compact">
+        <caption>Which panels the window affects</caption>
+        <thead><tr><th>Panel</th><th>Affected?</th></tr></thead>
+        <tbody>
+          <tr><td><a href="#c-3">Golden signals</a></td><td>Yes: the sparklines. The big numbers are always the latest second.</td></tr>
+          <tr><td><a href="#c-8">Tokens per minute chart</a></td><td>Yes: the x-axis span.</td></tr>
+          <tr><td><a href="#c-10">Latency heatmap</a></td><td>Yes: the columns and the "requests in window" total.</td></tr>
+          <tr><td><a href="#c-12">GPU utilisation</a></td><td>Yes: the sparklines.</td></tr>
+          <tr><td><a href="#c-7">Headline numbers</a>, <a href="#c-9">Cost per incident</a>, <a href="#c-14">Agent health</a></td><td>No. They read only the newest frame.</td></tr>
+          <tr><td><a href="#c-4">Trace</a>, <a href="#c-11">SLOs</a>, <a href="#c-13">Model endpoints</a>, <a href="#c-15">Log search</a></td><td>No.</td></tr>
+        </tbody>
+      </table></div>
+      <p>Because the charts run on simulated time, pausing the simulation (<kbd>p</kbd>) freezes them, and a
+        faster sim speed makes them scroll faster.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>1 min / 2 min / 5 min</th><td>Sets the window for the charts listed above.</td><td>Charts redraw at once. Browser only: no backend call, no ledger record. The choice resets to 2 min when you leave the screen.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Leave it on 2 min for the demo.</li><li>If a judge asks about history, click "5 min" and point at the Learn sparkline stepping up when the round started.</li></ol></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Right after a page reload, "5 min" shows only about 2 minutes of golden signals and at most 3 minutes of latency, because that is all the browser holds yet. The charts fill in as time passes. It is not broken.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 3 -->
+  <article class="comp" id="c-3">
+    <header><span class="comp-num">3</span><h3>Golden signals</h3><span class="where">panel <code>golden</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>A health check for each of the five planes on one grid. In a few seconds you can see whether any part
+        of the system is busy, failing, slow or full.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Five rows (Learn, Verify, Release, Operate, Prove), each with a coloured bar in its plane colour and a
+        line saying what "one operation" means for that plane. Four columns. Each cell has the latest value
+        in bold and a sparkline of the window behind it.</p>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Column</th><th>Meaning</th><th>Over objective when</th></tr></thead>
+        <tbody>
+          <tr><td>Rate (ops/s)</td><td>Operations per second. Example pre-demo: Release 65.</td><td>Never flagged.</td></tr>
+          <tr><td>Errors (%)</td><td>Share of operations that failed. Example: Release 0.26.</td><td>1% or more: warning triangle. 5% or more: critical octagon.</td></tr>
+          <tr><td>Duration p95 (ms)</td><td>95th-percentile time per operation, with its objective shown as "obj. N". Example: Operate 1,820, obj. 3000.</td><td>At or above the objective: warning. At or above 1.5 × the objective: critical.</td></tr>
+          <tr><td>Saturation (%)</td><td>How full the plane's capacity is. Example: Verify 30.</td><td>90% or more: warning. 95% or more: critical.</td></tr>
+        </tbody>
+      </table></div>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Row</th><th>What one operation is</th><th>p95 objective</th></tr></thead>
+        <tbody>
+          <tr><td>Learn</td><td>FL steps and uploads</td><td class="num">600 ms</td></tr>
+          <tr><td>Verify</td><td>eval tasks</td><td class="num">1500 ms</td></tr>
+          <tr><td>Release</td><td>endpoint requests</td><td class="num">600 ms</td></tr>
+          <tr><td>Operate</td><td>agent decisions</td><td class="num">3000 ms</td></tr>
+          <tr><td>Prove</td><td>policy + ledger ops</td><td class="num">10 ms</td></tr>
+        </tbody>
+      </table></div>
+      <p>A sparkline is drawn in the plane colour. It turns amber (warning) or red (critical) while the current
+        value breaches. The panel header shows <span class="pill good">All within objectives</span> or
+        <span class="pill warn">N over objective</span>, where N counts breaching cells. It also has a table
+        toggle and the source chip "Amazon CloudWatch".</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Observability.tick()</code> in <code>engines/observability.py</code>, once per simulated second, using baselines from <code>Engine._obs_extra()</code> in <code>engine.py</code></dd>
+        <dt>Arrives by</dt><dd><code>GET /api/snapshot</code> (last 120 frames), then one <code>obs.metrics</code> event per second over the WebSocket</dd>
+        <dt>Store slice</dt><dd><code>observability.frames</code> (capped at 300)</dd>
+        <dt>Changes when</dt><dd>Every simulated second. The baselines move when training starts or stops, an evaluation runs, or the release guards change.</dd>
+      </dl>
+      <ol class="flow" aria-label="Golden signals data path">
+        <li class="src"><b>Baseline per plane</b><span><code>_obs_extra()</code> reads engine state</span></li>
+        <li><b>Add noise</b><span>a random wobble on each value</span></li>
+        <li><b><code>obs.metrics</code> frame</b><span>once per sim second</span></li>
+        <li><b>Breach check</b><span>thresholds in the browser</span></li>
+        <li class="ui"><b>Grid cell</b><span>value, icon, sparkline</span></li>
+      </ol>
+      <p>Each second, the engine takes a baseline for each plane and multiplies it by a random factor with a
+        standard deviation of about 8% for rate and 6% for p95. It adds noise of about 0.05 points to errors
+        and 3 points to saturation (also one standard deviation).
+        The baselines depend on what the rest of the system is doing:</p>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Plane</th><th>Rate baseline</th><th>Errors baseline</th><th>p95 baseline</th><th>Saturation baseline</th></tr></thead>
+        <tbody>
+          <tr><td>Learn</td><td>24 if a federated round is running, else 0.4</td><td>0</td><td>410 ms</td><td>86% if running, else 10%</td></tr>
+          <tr><td>Verify</td><td>6 if an evaluation is running, else 0.2</td><td>0</td><td>820 ms</td><td>30%</td></tr>
+          <tr><td>Release</td><td>58</td><td>the release guard error rate (worst live endpoint)</td><td>the release guard p95 (worst live endpoint)</td><td>42%</td></tr>
+          <tr><td>Operate</td><td>3.5</td><td>0.18%</td><td>1900 ms</td><td>35%</td></tr>
+          <tr><td>Prove</td><td>9</td><td>0</td><td>4.2 ms</td><td>12%</td></tr>
+        </tbody>
+      </table></div>
+      <p>So the Release row is tied to the real output of the release simulation (see
+        <a href="#c-13">Model endpoints</a>). The Learn and Verify rows step up and down with the
+        <a href="federation.html">Federation Center</a> and <a href="proving.html">Proving Ground</a>. The
+        thresholds and objectives (<code>breach()</code> and <code>P95_SLO</code>) are constants in the
+        browser code, not on the server.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Table icon (panel header)</th><td>Swaps the grid for a plain table of the current values.</td><td>Columns Plane, Rate (ops/s), Errors (%), Duration p95 (ms), Saturation (%). Click again to go back. Browser only.</td></tr>
+          <tr><th>Hover the source chip</th><td>Explains where the data would come from.</td><td>Tooltip: "Simulated metrics now. In AWS mode this panel reads from Amazon CloudWatch."</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>Scan for amber or red. Flat sparklines in plane colours mean healthy. A step in a sparkline means the plane's workload changed, for example Learn jumping when a round starts. Prove p95 at about 4 ms against a 10 ms objective is the policy check speed claim.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Before beat 2, point at Learn: rate 0.4, saturation about 10%.</li><li>After beat 2, come back with <kbd>g</kbd> <kbd>b</kbd>: Learn rate is about 24 and saturation about 86%.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Each plane gets the same four health numbers: how much work, how many errors, how slow, how full. Right now all five are inside their objectives."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"How would you know if part of this broke in production?"</strong> Per-plane golden signals with objectives and visible breach markers. Track: Observability.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs sim">Simulated</span> Every value is a baseline plus random noise. Only the Release baselines come from another engine's output, and that output is simulated too.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>During a training round Learn saturation sits around 86% with noise, so it briefly crosses 90% now and then. That shows a warning triangle and flips the header to "1 over objective" for a second. Expect it, and explain it as a busy round. If you click "Inject regression (demo)" on the <a href="release.html">Release</a> screen during the canary, Release errors jump above 1% and p95 above 600 ms for about a second. The Release row flashes amber, then the release engine rolls the candidate back on its own and the row returns to normal. The button is greyed out before the canary.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 4 -->
+  <article class="comp" id="c-4">
+    <header><span class="comp-num">4</span><h3>Trace: picker and summary row</h3><span class="where">panel <code>trace</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Pick one end-to-end trace (an incident or an attack) and see its size, length, token use and whether
+        any step failed, before reading the step-by-step waterfall below.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li>Header: "Trace", subtitle "OpenTelemetry spans across agents, gateway, policy and tools", a dropdown of traces, and the source chip "AWS X-Ray (via ADOT)". When spotlit, the outline is green (operate colour).</li>
+        <li>Dropdown entries read "title (N spans)", newest first. Only traces with at least one span are listed. Pre-demo there is one entry: "incident.handle INC-2040 (13 spans)". After beat 10 there are three: INC-2040, INC-2041, and "attack.telemetry_injection site-17".</li>
+      </ul>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Summary item</th><th>Meaning</th><th>Example (pre-demo / beat 13)</th></tr></thead>
+        <tbody>
+          <tr><td>trace</td><td>The trace id, shortened to first 8 and last 6 characters.</td><td><code>b6aeb62c…535d2c</code> / <code>982599ae…81f9ef</code></td></tr>
+          <tr><td>duration</td><td>Earliest span start to latest span end. Never under 1.0 min, because the root span is 60 s long.</td><td>3.1 min / 1.0 min</td></tr>
+          <tr><td>spans</td><td>Number of steps recorded.</td><td>13 / 46</td></tr>
+          <tr><td>LLM calls</td><td>Spans whose name starts with <code>gen_ai</code>.</td><td>2 / 8</td></tr>
+          <tr><td>tokens</td><td>Sum of input and output tokens over those LLM spans.</td><td>7,670 / 22,866</td></tr>
+          <tr><td>Status pill</td><td><span class="pill good">No errors</span>, or <span class="pill critical">1 error span</span> / <span class="pill critical">N error spans</span> when any span has status error.</td><td>No errors / No errors</td></tr>
+          <tr><td>Plane legend (right)</td><td>Colour key for the planes present in this trace.</td><td>Operate (green), Prove (orange)</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Observability.new_trace()</code> and <code>span()</code>. Callers: <code>Swarm.start_incident()</code> (beat 7), <code>Swarm.telemetry_injection()</code> (beat 10), and <code>Engine._synth_old_trace()</code> (pre-warmed INC-2040)</dd>
+        <dt>Arrives by</dt><dd>Snapshot (<code>traces</code>, <code>spans</code>), then <code>obs.trace</code> and <code>obs.span</code> WebSocket events</dd>
+        <dt>Store slice</dt><dd><code>observability.traces</code> (last 30), <code>observability.spans</code> (keyed by trace id)</dd>
+        <dt>Changes when</dt><dd>An incident or attack starts (new trace), and whenever an agent in it thinks, messages or calls a tool (new span)</dd>
+      </dl>
+      <ol class="flow" aria-label="How a trace is built">
+        <li class="src"><b>Incident or attack starts</b><span><code>new_trace(title, incident)</code></span></li>
+        <li><b>Agents work</b><span>each step calls <code>span()</code></span></li>
+        <li><b><code>obs.span</code> event</b><span>not signed into the ledger</span></li>
+        <li class="ui"><b>Summary recomputed</b><span>in the browser</span></li>
+      </ol>
+      <p>A trace id is the first 32 hex characters of a SHA-256 hash of the title and the time. The engine keeps
+        the last 30 traces and drops spans of older ones. The <code>obs.trace</code> and
+        <code>obs.span</code> events are sent with <code>record=False</code>, which keeps them out of the
+        server's event history, so the snapshot never replays them as stream events. They are telemetry,
+        not evidence: nothing calls the ledger for a span, so spans are never signed ledger records. They are also on the store's "noisy" list, so they
+        never show in the live stream or the log search.</p>
+      <p>Which trace is shown: the one you picked, if it still exists. Otherwise the newest trace tied to an
+        incident, otherwise the newest trace. Beat 13 forces INC-2041 (see <a href="#beat-13-mechanics">What
+        beat 13 actually does</a>). That is why the attack trace from beat 10 does not take over the panel,
+        even though it is newer: it has no incident id.</p>
+      <p>All summary numbers are computed in the browser from the span list. Nothing is precomputed on the
+        server.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Trace dropdown</th><td>Switches to another trace.</td><td>Summary, waterfall and span detail redraw. The span selection resets to the trace's first LLM call. Browser only, no ledger record.</td></tr>
+          <tr><th>Hover or click the trace id</th><td>Hover shows the full id. Click copies it to the clipboard.</td><td>Shared hash component (see <a href="shell.html#c-18">Hashes</a>). Browser only.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>Read left to right: how long, how many steps, how many model calls, how many tokens, and whether anything failed. A green "No errors" on an incident trace means every tool call was permitted. On the attack trace, a red "1 error span" is good news: it is the blocked call.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Fire beat 13 with <kbd>→</kbd> after beat 12. The dropdown jumps to "incident.handle INC-2041".</li><li>Read out the summary: spans, LLM calls, tokens.</li><li>Optional, if time allows: choose "attack.telemetry_injection site-17" in the dropdown to show the red error span.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"This is tonight's incident as one trace: [read spans] steps, [read LLM calls] model calls, [read tokens] tokens. It holds the coordinator's and domain agents' model calls, every signed message, and every tool call with its policy check."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Can you trace what a multi-agent system did, end to end?"</strong> Yes: one trace per incident across the coordinator and domain agents' model calls, all signed messages, the gateway, policy and the twin. Tracks: Observability, T3 traceability.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs mixed">Partly real</span> Spans are written by the real code paths (think, signed send, gateway, policy check). Their durations and token counts are randomly generated.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Read the numbers off the screen rather than quoting them: span and token counts differ from run to run. The root span is always 60 s long, so duration never reads under 1.0 min. If the incident took longer than a minute (it usually does live), duration grows with the last plan and verify spans. For time to repair, quote the MTTR on the ribbon or in <a href="swarm.html#c-5">Swarm Tower</a>. Site agents' own model calls during the incident are not traced, only their messages, so LLM calls reads about 8, not dozens. Before beat 7 the only trace is INC-2040, a prior incident built during warm-up.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 5 -->
+  <article class="comp" id="c-5">
+    <header><span class="comp-num">5</span><h3>Trace waterfall</h3><span class="where">panel <code>trace</code>, chart <code>charts/Waterfall.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It lays the steps of a trace on a timeline, so you can see what happened in what order, what was
+        nested inside what, and where the time went.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li><b>Left column:</b> one row per span. Each row has a dot in the plane colour and the span name in monospace. Child spans are indented 12 px per level. A failed span's name is red.</li>
+        <li><b>Top axis:</b> time since the trace's first span, about six ticks (for example "0 µs, 20.00 s … 3.0 min").</li>
+        <li><b>Bars:</b> one per span, from start to end, filled in the plane colour (green operate, orange prove). An error span has a red outline. The selected span has a light outline and a shaded row.</li>
+        <li><b>Right of each bar:</b> its duration, such as "1.10 s", "20 ms" or "1.3 min".</li>
+      </ul>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Span name</th><th>What step it is</th><th>Written by</th></tr></thead>
+        <tbody>
+          <tr><td><code>incident.handle</code></td><td>The root: the whole incident.</td><td><code>Swarm.start_incident()</code></td></tr>
+          <tr><td><code>gen_ai.chat</code></td><td>One model call by an agent ("thinking").</td><td><code>Swarm._think()</code></td></tr>
+          <tr><td><code>a2a.send</code></td><td>One signed agent-to-agent message.</td><td><code>Swarm.send()</code></td></tr>
+          <tr><td><code>gateway.tool_call &lt;tool&gt;</code></td><td>A tool call entering the policy gateway, such as <code>reroute</code>. Status error if denied.</td><td><code>Swarm.gateway()</code></td></tr>
+          <tr><td><code>avp.is_authorized</code></td><td>The policy check inside that call (Amazon Verified Permissions shape). Prove plane.</td><td><code>Swarm.gateway()</code></td></tr>
+          <tr><td><code>twin.&lt;tool&gt;</code></td><td>The action applied to the network twin. Only written if the call was permitted and executed.</td><td><code>Swarm.gateway()</code></td></tr>
+          <tr><td><code>agent.*</code>, <code>stepfunctions.wait_for_approval</code>, <code>gen_ai.chat claude-haiku</code> / <code>claude-sonnet</code>, <code>a2a.send coordinator→site-11</code>, <code>gateway.tool_call restart_du</code>, <code>twin.simulate_change</code>, <code>twin.restart_du</code></td><td>Only in the pre-warmed INC-2040 trace. Its 53-second <code>stepfunctions.wait_for_approval</code> bar shows the wait for a human.</td><td><code>Engine._synth_old_trace()</code></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Data</dt><dd>The selected trace's span list from <code>observability.spans</code></dd>
+        <dt>Layout</dt><dd>Spans are grouped under their parent and walked depth-first, siblings sorted by start time. A span whose parent is missing is drawn at the top level.</dd>
+        <dt>Scale</dt><dd>Linear time from the first start to the last end, across the width</dd>
+      </dl>
+      <ol class="flow" aria-label="What one gateway tool call writes">
+        <li class="src"><b><code>gateway.tool_call reroute</code></b><span>18–60 ms</span></li>
+        <li><b><code>avp.is_authorized</code></b><span>child, prove plane, decision attribute</span></li>
+        <li class="ui"><b><code>twin.reroute</code></b><span>child, only if permitted</span></li>
+      </ol>
+      <p>Every tool call goes through the gateway. The gateway asks the policy evaluator for a decision, then
+        writes three spans: the call, the policy check as its child, and, if permitted, the twin action as a
+        second child. On a deny, the call span gets status <code>error</code> and no twin span is written.
+        That is exactly what you see in the attack trace: <code>gateway.tool_call cell_sleep</code> in red.</p>
+      <p>The live INC-2041 trace looks flatter than INC-2040. In the live code every <code>gen_ai.chat</code>,
+        <code>a2a.send</code> and <code>gateway.tool_call</code> span is written without a parent, so they
+        sit at the top level next to <code>incident.handle</code>. Only each gateway call's
+        <code>avp.is_authorized</code> and <code>twin.&lt;tool&gt;</code> spans are indented under it. The pre-warmed
+        INC-2040 nests everything under its root.</p>
+      <p>Span times are stored rounded to the millisecond. The 0.4 ms policy check therefore often shows as
+        "0 µs" in the live trace, while INC-2040's hand-built one shows "2.0 ms".</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Hover a row</th><td>Shows a tooltip.</td><td>Span name, duration, offset from trace start, plane, status.</td></tr>
+          <tr><th>Click a row</th><td>Selects that span.</td><td>Row is shaded and outlined. <a href="#c-6">Span detail</a> shows it. Browser only.</td></tr>
+          <tr><th>Scroll inside the waterfall</th><td>Shows more rows.</td><td>The list is capped at 440 px tall. INC-2041's 46 rows need scrolling.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>Long bars are where time goes: model calls take seconds, policy checks take about a millisecond, messages about 12 ms. Orange bars are the prove plane (policy and approval). A red name or outline is a blocked step.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>On INC-2041, hover a <code>gen_ai.chat</code> row and read its duration.</li><li>Scroll to <code>gateway.tool_call reroute</code>, then <code>avp.is_authorized</code> beneath it.</li><li>For contrast, select the pre-warmed INC-2040 and point at the orange <code>stepfunctions.wait_for_approval</code> bar: that was a human approving.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Here the transport agent thinks, calls the reroute tool, the policy check permits it in under a millisecond, and the twin applies it. Every tool call has that shape."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Is the policy check on the hot path, and does it slow agents down?"</strong> Yes it is on every call, and it is about a millisecond against seconds of model time. Tracks: T3, Observability.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs mixed">Partly real</span> The sequence and the permit or deny outcome come from the real gateway and policy code. Durations are random draws: 18 to 60 ms for tool calls, and 150 to 320 ms (site agents) or 0.6 to 3.8 s (Bedrock models) for model calls.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Do not promise a neat tree for INC-2041. Most of its spans are flat because of how the live code sets parents. Use INC-2040 if you want to show nesting.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 6 -->
+  <article class="comp" id="c-6">
+    <header><span class="comp-num">6</span><h3>Span detail and "Open in X-Ray"</h3><span class="where">panel <code>trace</code>, component <code>SpanDetail</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows everything recorded about one step, in the standard OpenTelemetry attribute names, so you
+        can prove which model was called, by which agent, with how many tokens.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li><b>Top line:</b> plane-colour dot, span name (live spans read plain <code>gen_ai.chat</code>; the pre-warmed INC-2040 uses <code>gen_ai.chat claude-haiku</code>), its duration and plane (for example "1.55 s, operate plane"), and a status pill <span class="pill good">OK</span> or <span class="pill critical">Error</span>.</li>
+        <li><b>Identity rows:</b> <code>span_id</code> (16 hex), <code>parent</code> (a span id, or "root" if it has none), <code>X-Ray id</code>, and <code>incident</code> if the trace belongs to one.</li>
+        <li><b>"GenAI semantic conventions":</b> every <code>gen_ai.*</code> attribute. Example from beat 13: <code>gen_ai.system</code> aws.bedrock, <code>gen_ai.request.model</code> claude-haiku, <code>gen_ai.usage.input_tokens</code> 1,907, <code>gen_ai.agent.id</code> sentinel, <code>gen_ai.operation.name</code> chat.</li>
+        <li><b>"Span attributes":</b> all other attributes. Examples: <code>aws.region</code> us-west-2 and <code>label</code> "correlate alarms" (what the agent was thinking about). On gateway spans: <code>tool.name</code>, <code>agent.id</code>, <code>decision</code>. On the policy span: <code>policy_store</code>, <code>decision</code>, <code>determining_policies</code>. On messages: <code>a2a.from</code>, <code>a2a.to</code>, <code>a2a.intent</code>, <code>a2a.verdict</code>.</li>
+        <li><b>"Open in X-Ray" button</b>, greyed out in mock mode.</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Data</dt><dd>The selected span from the waterfall. Default: the first span in the trace whose name starts with <code>gen_ai</code>.</dd>
+        <dt>Attributes set by</dt><dd><code>Swarm._think()</code> sets <code>gen_ai.system</code> to aws.bedrock for Claude and Nova models, or aws.sagemaker for the nlm site-agent models</dd>
+        <dt>X-Ray id</dt><dd>Built in the browser from the trace id as <code>1-</code> + first 8 hex + <code>-</code> + next 24 hex, the X-Ray trace id format</dd>
+      </dl>
+      <p>The panel splits attributes by prefix: anything starting with <code>gen_ai.</code> goes in the
+        semantic conventions block, the rest under span attributes. The X-Ray button builds a CloudWatch
+        console URL for region us-west-2. In mock mode it has no link and its tooltip says "Available in AWS
+        mode. Would open …" with the full URL.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Open in X-Ray (mock mode)</th><td>Nothing. It is disabled.</td><td>Hover shows the URL it would open. No backend call.</td></tr>
+          <tr><th>Open in X-Ray (AWS mode)</th><td>Opens the CloudWatch X-Ray trace page in a new tab.</td><td>Leaves the console. No backend call.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>The <code>gen_ai.*</code> block is the standard schema that CloudWatch GenAI observability and other tools read. Point at model, agent and token counts.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Click any <code>gen_ai.chat</code> row in the waterfall.</li><li>Read <code>gen_ai.request.model</code>, <code>gen_ai.agent.id</code> and the token counts aloud.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Each model call is tagged with the OpenTelemetry GenAI conventions: which model, which agent, how many tokens in and out. That is what makes cost per incident measurable."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Are you using a standard, or your own logging format?"</strong> Span attributes follow the OTel GenAI semantic conventions and X-Ray id format. Tracks: Observability, T1.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs mixed">Partly real</span> The attribute names follow the standard, and the <code>decision</code> and <code>determining_policies</code> values on policy spans come from the real policy evaluator. Tokens and durations are generated by the mock engine. No span is exported to X-Ray in this build.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Do not click "Open in X-Ray" on stage. In mock mode it does nothing, and the code has no exporter that sends these spans to AWS. Say "this maps to X-Ray via ADOT" only as the AWS design, not as something running now. On INC-2041, parent shows "root" for model calls because the live code writes them without a parent. It does not mean the span is the root.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 7 -->
+  <article class="comp" id="c-7">
+    <header><span class="comp-num">7</span><h3>Tokens and cost: headline numbers</h3><span class="where">panel <code>cost</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>Four numbers that sum up how much model work the system is doing and what it would cost. The fourth
+        one is the price-performance claim: running site-agent decisions on the fine-tuned model against
+        running them on a frontier model.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Header: "Tokens and cost", subtitle "by model; prices modelled at list-price assumptions", a table
+        toggle, and the source chip "CloudWatch GenAI observability". When spotlit, the outline is blue
+        (release colour).</p>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Number</th><th>Meaning</th><th>Example (pre-demo / beat 13)</th></tr></thead>
+        <tbody>
+          <tr><td>Tokens per minute</td><td>All tokens (in + out), all models, in the last 60 simulated seconds.</td><td>25K / 23K</td></tr>
+          <tr><td>LLM calls per minute</td><td>Model calls in the last 60 simulated seconds.</td><td>16 / 15</td></tr>
+          <tr><td>Spend this session (modelled)</td><td>Total modelled cost of every call since the scenario was built.</td><td>$1.05 / $1.14</td></tr>
+          <tr><td>Site-agent decisions, per 1K</td><td>Modelled cost of 1,000 site-agent decisions on the fine-tuned nlm model. The line below gives the same on Claude Sonnet, and the multiple.</td><td>$0.03, "vs $5.91 if run on Claude Sonnet (226× more)"</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Observability.record_call()</code>: called by <code>Swarm._think()</code> on every model call. Cost = input tokens ÷ 1M × input price + output tokens ÷ 1M × output price.</dd>
+        <dt>Prices (USD per 1M tokens, in / out)</dt><dd>claude-sonnet $3 / $15, claude-haiku $1 / $5, nova-pro $0.8 / $3.2, nova-lite $0.06 / $0.24, nlm-v6, v7, v8 $0.02 / $0.02 (<code>PRICES</code> in <code>observability.py</code>)</dd>
+        <dt>Arrives by</dt><dd>Snapshot (<code>prices</code>, <code>tokens_total</code>, <code>cost_total</code>), then every <code>obs.metrics</code> frame (<code>tokens_per_min</code>, <code>calls_per_min</code>, totals)</dd>
+        <dt>Store slice</dt><dd><code>observability</code></dd>
+      </dl>
+      <p>The first three numbers are read from the newest frame. The fourth is computed in the browser:</p>
+      <ol class="steps">
+        <li>Tokens per site-agent decision = site agents' total tokens ÷ their calls (from agent health), about 1,310. If there is no data yet, it uses 1,300.</li>
+        <li>Input share = nlm models' input tokens ÷ their total tokens, about 87%. The fallback is 0.87.</li>
+        <li>Cost per 1K decisions = 1,000 × (input tokens × input price + output tokens × output price) ÷ 1M, once at nlm-v6 prices and once at claude-sonnet prices.</li>
+        <li>The multiple is the Sonnet figure divided by the nlm figure, rounded.</li>
+      </ol>
+      <p>Worked example: about 1,140 input and 170 output tokens give 1,310 × $0.02 per 1M × 1,000 ≈ $0.03 on
+        nlm-v6. On Sonnet: (1,140 × $3 + 170 × $15) ÷ 1M × 1,000 ≈ $5.9.</p>
+      <p>The 40 site agents run nlm-v6. During the 10% canary, 4 of them run nlm-v7. Domain agents run
+        Claude Haiku, Nova Lite and Nova Pro. The coordinator runs Claude Sonnet.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Table icon (panel header)</th><td>Swaps the whole panel body for a per-model table.</td><td>Columns: Model, Input tokens, Output tokens, Spend (modelled), Price in/out per 1M. Browser only.</td></tr>
+          <tr><th>Hover the source chip</th><td>Explains the data source.</td><td>"Modelled from simulated calls now. In AWS mode this panel reads from CloudWatch GenAI observability."</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>The right-hand number is the one that matters: cents per thousand decisions on the fine-tuned model against dollars on a frontier model.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>At beat 13, point at "Site-agent decisions, per 1K".</li><li>Read the small line: "vs $5.91 if run on Claude Sonnet (226× more)".</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Forty site agents make most of the decisions. On our fine-tuned model a thousand decisions cost about three cents at these assumed prices. On a frontier model it would be about six dollars."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Why not one frontier model for everything?"</strong> Cost: the small federated model handles the high-volume site decisions at a fraction of the price. Track: T1 (price-performance, production readiness).</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs sim">Modelled</span> Token counts are random draws per call, and prices are assumed list prices. The arithmetic is real, but the inputs are simulated.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>"Spend this session" is not since you opened the page. It includes about two hours of simulated history replayed during warm-up, which is why it already reads about $1 before any beat. The nlm price is a stand-in for amortised instance cost (the panel footnote says so). Because both prices are fixed, the "226×" barely moves. Do not present it as a measurement.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 8 -->
+  <article class="comp" id="c-8">
+    <header><span class="comp-num">8</span><h3>Tokens per minute chart</h3><span class="where">panel <code>cost</code>, chart <code>charts/StackedArea.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows which models are using tokens over time, stacked, so you can see the incident wake the
+        expensive models up and then go quiet again.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li>Label: "Tokens per minute, rolling 60 s window".</li>
+        <li>Legend with one colour per model and its role. Up to: Claude Sonnet (coordinator), Claude Haiku (domain), Nova Pro (core), Nova Lite (energy), nlm-v6 (site agents), nlm-v7 (site agents), nlm-v8 (site agents). Only models that have tokens in the window appear. Pre-demo, expect nlm-v6 plus whichever domain models ran a KPI check in the last minute (in the screenshot: Claude Haiku and Nova Pro; Nova Lite can also appear). At beat 13 there are six.</li>
+        <li>Y axis: tokens per minute (0, 20K, 40K …). X axis: seconds before now ("-105s … -5s").</li>
+        <li>Stacked areas: each model's band sits on top of the one below, in a fixed order, so colours never swap. The top edge is the total.</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd>Each second, <code>tick()</code> sums tokens per model over calls in the last 60 simulated seconds into <code>tokens_per_min</code></dd>
+        <dt>Arrives by</dt><dd><code>obs.metrics</code> frames</dd>
+        <dt>Store slice</dt><dd><code>observability.frames</code>, filtered by the <a href="#c-2">time window</a></dd>
+      </dl>
+      <p>Every point is already a 60-second rolling sum, so the chart is smooth and lags events by up to a
+        minute. Most of the steady traffic is site agents doing routine handover tuning every 2.5 to 6
+        seconds, with an occasional domain-agent KPI check. During the incident (beats 7 to 9) the
+        coordinator (Sonnet) and the domain agents (Haiku, Nova) join and the total rises above 60K. The
+        purple nlm band also grows, because more site agents think at once.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Hover the chart</th><td>Shows a crosshair and tooltip.</td><td>Tooltip lists every model's tokens per minute at that second. Browser only.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>Height is volume. Look at which colours swell during the incident: blue (Sonnet) and green (Haiku) are the expensive frontier models.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>At beat 13, trace the hump in the middle of the chart with your finger.</li><li>Hover the peak to show the per-model breakdown.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"This hump is the incident. The coordinator and domain agents used frontier models for a minute. The steady base is the forty site agents on our own model."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Where do the tokens go?"</strong> By model and role, over time. Tracks: T1, Observability.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs sim">Simulated</span> Token counts per call are random within set ranges: about 900–1,400 in and 110–220 out for site agents, up to 5,200 in for Sonnet.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Right after a reset the chart starts near zero and climbs for the first minute, because the 60-second window is still filling. It is not a traffic spike.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 9 -->
+  <article class="comp" id="c-9">
+    <header><span class="comp-num">9</span><h3>Cost per incident</h3><span class="where">panel <code>cost</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It compares what each incident cost with SPECTRUM's mix of models against what it would cost if
+        every agent used a frontier model.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li>Label "Cost per incident" and a legend: "SPECTRUM (fine-tuned site agents)" in amber and "All-frontier, modelled" in blue.</li>
+        <li>Up to seven rows (the latest), each with the incident id, an amber bar and a blue bar, and "$ours / $frontier". Bars are scaled to the largest frontier cost.</li>
+        <li>Pre-demo rows: INC-2036 $0.31 / $1.12, INC-2037 $0.44 / $1.58, INC-2038 $0.27 / $0.97, INC-2039 $0.52 / $1.91, INC-2040 $0.38 / $1.31. After the incident resolves: INC-2041, for example $0.08 / $0.88.</li>
+        <li>Footnote: "Costs are modelled: observed token counts × assumed list prices (claude-sonnet $3/$15 per 1M, nlm-v6 $0.02/$0.02 per 1M). The fine-tuned endpoint is amortised instance cost, not a list price."</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Observability.incident_costs</code>, appended by <code>Swarm</code> when an incident resolves</dd>
+        <dt>Arrives by</dt><dd>Snapshot, then in every <code>obs.metrics</code> frame (last 12)</dd>
+        <dt>Changes when</dt><dd>An incident resolves: after the human approves in beat 9 and the plan runs</dd>
+      </dl>
+      <ol class="flow" aria-label="How an incident's cost row is made">
+        <li class="src"><b>Every model call while the incident is open</b><span>adds its cost, including routine background calls</span></li>
+        <li><b>Incident resolves</b><span><code>incident.resolved</code></span></li>
+        <li><b>Row appended</b><span>ours = summed cost; frontier = ours × 3.5 + $0.60</span></li>
+        <li class="ui"><b>New pair of bars</b><span>next frame</span></li>
+      </ol>
+      <p>While an incident is active, each model call (<code>_think</code>) adds its modelled cost to the
+        incident's <code>cost_usd</code>. When the incident resolves, the swarm appends a row. The
+        SPECTRUM figure is that sum. The all-frontier figure is computed with a fixed formula, ours × 3.5 +
+        $0.60, not by re-running the incident on a frontier model. The five earlier incidents (INC-2036 to
+        INC-2040) are fixed values seeded in the engine.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>A short amber bar against a long blue bar is the saving. Compare lengths, not just numbers.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Point at the INC-2041 row (tonight's incident).</li><li>Then sweep down the earlier rows to show the gap repeats.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Tonight's incident cost about eight cents in model calls at our assumed prices. If every agent ran on a frontier model, our model puts it near ninety cents."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"What does an incident cost to handle?"</strong> Cents per incident, with a modelled frontier comparison. Track: T1.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs sim">Modelled</span> The SPECTRUM figure sums simulated token counts at assumed prices. The frontier figure is a fixed multiplier. The first five rows are seeded constants.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>If the approval in beat 9 was not given, INC-2041 is still open and has no row. Say "modelled", never "measured", for the blue bars: a judge who reads the code will find the 3.5× formula. The SPECTRUM figure counts every model call made while the incident was open, not just the calls that handled it.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 10 -->
+  <article class="comp" id="c-10">
+    <header><span class="comp-num">10</span><h3>Latency heatmap</h3><span class="where">panel <code>latency</code>, chart <code>charts/LatencyHeatmap.tsx</code>, flag <code>obs.heatmap</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows how fast calls are, second by second, as a distribution rather than an average. Slow
+        outliers stand out instead of being hidden.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li>Header: "Latency", subtitle "gateway, tool and model calls per second by latency bucket", source chip "CloudWatch metrics (EMF)".</li>
+        <li>"p95 now": the 95th-percentile latency of the latest second (pre-demo 94 ms). "requests in window": total calls counted in all visible columns (pre-demo 4,562 over 2 minutes).</li>
+        <li>A grid. Each column is one second, oldest on the left. X labels show the first, middle and last column ("-119s, -57s, 0s").</li>
+        <li>Ten rows of latency buckets, bottom to top: ≤5ms, ≤10ms, ≤20ms, ≤50ms, ≤100ms, ≤200ms, ≤500ms, ≤1s, ≤2s, ≤5s. Each row is the same height but covers a wider range than the one below it (log-spaced).</li>
+        <li>Cell colour shows how many requests fell in that bucket that second. Use the "fewer … more requests" scale under the chart. In the dark Ops theme, busier cells are lighter. In the projector theme (<kbd>t</kbd>), busier cells are darker. Empty cells take the background colour.</li>
+        <li>An amber line: p95 per second.</li>
+        <li>Note: "log-spaced buckets; the slow band above 1 s is LLM reasoning, not the gateway".</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Observability.tick()</code> builds one heat column per simulated second (<code>BUCKETS</code> = 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000 ms)</dd>
+        <dt>Arrives by</dt><dd>Snapshot (<code>heat</code>, up to 180 columns; <code>buckets</code>), then the <code>heat</code> field of each <code>obs.metrics</code> frame</dd>
+        <dt>Store slice</dt><dd><code>observability.heat</code> (capped at 180), <code>observability.buckets</code></dd>
+        <dt>Gated by</dt><dd>Flag <code>obs.heatmap</code> (group Observability, beta, on by default)</dd>
+      </dl>
+      <p>Each second, the engine gathers three sets of latencies:</p>
+      <ol class="steps">
+        <li>Every gateway tool call since the last column, each 18–60 ms.</li>
+        <li>40 synthetic background requests drawn from a log-normal distribution centred near 38 ms.</li>
+        <li>Every model call in the last second: 150–320 ms for site agents, 0.6–3.8 s for Bedrock models.</li>
+      </ol>
+      <p>Each value is counted into the first bucket whose upper bound it fits under. Anything above 5 s goes
+        into the top bucket. p95 is the 95th percentile of all values that second. The browser colours cells
+        on a linear scale from 0 to the busiest visible cell, and draws the p95 line with log interpolation
+        inside each bucket.</p>
+      <p>That explains the footnote: the cells above 1 s are frontier-model calls, which take seconds. Gateway
+        and tool calls stay under 100 ms.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Hover a cell</th><td>Shows that second and bucket.</td><td>Tooltip: time and bucket range (for example "bucket 50–100 ms"), requests, and "p95 this second". Browser only.</td></tr>
+          <tr><th>Turn off <code>obs.heatmap</code> in <a href="settings.html">Settings</a></th><td>Hides the panel.</td><td>The SLO and Infrastructure row moves up. Flag change only. See the Settings page for where flags are stored.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>The busiest band low down (10–100 ms) is normal traffic. A few scattered cells up at 1–5 s are model reasoning. Watch the amber p95 line: flat near 100 to 200 ms is healthy. A p95 line climbing into the upper rows would mean the system is getting slow.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Point at the busiest band, then at the sparse cells above 1 s.</li><li>Hover one high cell and read the bucket.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Each column is one second. Tool calls through the policy gateway stay under a hundred milliseconds. The few cells above a second are model reasoning, not overhead from our controls."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"What latency do your guardrails add?"</strong> The gateway band stays low. The slow band is the models. Tracks: T1, Observability.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs sim">Simulated</span> All latencies are random draws, and 40 of the requests each second are synthetic background traffic.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Most of the "requests in window" count is the synthetic background (40 a second). Do not present it as real request volume. Even with "5 min" selected, the heatmap shows at most 3 minutes (180 columns).</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 11 -->
+  <article class="comp" id="c-11">
+    <header><span class="comp-num">11</span><h3>Service level objectives</h3><span class="where">panel <code>slo</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows the reliability targets an operations team would run this system against, how much room
+        is left before each is missed, and whether anyone should be paged.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Five rows. Each has a name, "target X%, now Y%", a status pill, a budget bar, and "N% left, burn A× 1h, B× 6h".</p>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>SLO</th><th>Target</th><th>Now</th><th>Budget left</th><th>Burn 1h / 6h</th><th>Pill</th></tr></thead>
+        <tbody>
+          <tr><td>Incident MTTR under 5 min</td><td class="num">99.0%</td><td class="num">99.4%</td><td class="num">62%</td><td>0.8× / 0.4×</td><td><span class="pill good">Healthy</span></td></tr>
+          <tr><td>Tool calls succeed</td><td class="num">99.5%</td><td class="num">99.82%</td><td class="num">71%</td><td>0.5× / 0.6×</td><td><span class="pill good">Healthy</span></td></tr>
+          <tr><td>Approvals answered within SLA</td><td class="num">98.0%</td><td class="num">98.9%</td><td class="num">48%</td><td>1.3× / 0.9×</td><td><span class="pill warn">Watching</span></td></tr>
+          <tr><td>Policy decision under 5 ms</td><td class="num">99.9%</td><td class="num">99.97%</td><td class="num">88%</td><td>0.2× / 0.3×</td><td><span class="pill good">Healthy</span></td></tr>
+          <tr><td>FL round completes under 60 s</td><td class="num">95.0%</td><td class="num">100%</td><td class="num">100%</td><td>0× / 0×</td><td><span class="pill good">Healthy</span></td></tr>
+        </tbody>
+      </table></div>
+      <p>Bar colour: blue when 50% or more of the budget is left, amber below 50%, red below 25%. Footnote:
+        "Burn rate 1× spends the budget exactly over the 30-day window. Paging at 14.4× over 1 h follows the
+        multi-window, multi-burn-rate practice." Source chip: "CloudWatch Application Signals".</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Observability.slos()</code> returns a fixed list of five SLOs</dd>
+        <dt>Arrives by</dt><dd>Snapshot only. No event updates it.</dd>
+        <dt>Store slice</dt><dd><code>observability.slos</code></dd>
+        <dt>Changes when</dt><dd>Never. The values are static.</dd>
+      </dl>
+      <ol class="flow states" aria-label="SLO pill rules">
+        <li><b>Healthy</b><span>1 h burn under 1×</span></li>
+        <li><b>Watching</b><span>1 h burn 1× or more, 6 h under 1×</span></li>
+        <li><b>Ticket: slow burn</b><span>both 1 h and 6 h at 1× or more</span></li>
+        <li><b>Page: fast burn</b><span>1 h burn 14.4× or more</span></li>
+      </ol>
+      <p>The browser applies these rules to the static numbers. The rules themselves are the standard
+        multi-window burn-rate alerting practice: a fast 1-hour burn pages someone, and a burn sustained over
+        both windows opens a ticket. With the fixed inputs, "Approvals answered within SLA" is always
+        "Watching" (1.3× over 1 h, 0.9× over 6 h). The others are always "Healthy".</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>A long bar means plenty of error budget left. The pill says whether a human needs to act. "Watching" means burning a little fast over the last hour, but not yet over six hours.</p></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"These are the targets we would run this against in production, including approvals answered within their SLA and policy decisions under five milliseconds. The values here are illustrative."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"How would you operate this in production?"</strong> With SLOs and burn-rate alerting on incident time, tool success, approvals, policy speed and training rounds. Tracks: T1, Observability.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs sim">Static</span> The five SLOs are fixed values in the code. They do not respond to the demo. Only the pill rules are live logic.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Do not say these numbers are measured, and do not expect them to move when the incident happens. If asked, say plainly that the SLO panel shows the design with fixed sample values.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 12 -->
+  <article class="comp" id="c-12">
+    <header><span class="comp-num">12</span><h3>Infrastructure: GPU utilisation</h3><span class="where">panel <code>infra</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows whether each operator's federated-learning client GPU is working. You can see training
+        happen at all five operators without seeing any of their data.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li>Panel header "Infrastructure", subtitle "FL client GPUs and model endpoints", source chip "CloudWatch (ECS, SageMaker)".</li>
+        <li>Label "GPU utilisation per operator task (ECS on g6.xlarge)".</li>
+        <li>Five tiles, Op-A to Op-E, each with the operator's colour dot, the current utilisation in percent, and a sparkline on a fixed 0–100% scale.</li>
+        <li>Pre-demo every tile reads 5%. At beat 13 the screenshot shows Op-A 93%, Op-B 94%, Op-C 5%, Op-D 91%, Op-E 5%.</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Engine._obs_extra()</code> passes each operator's GPU value from <code>engines/federation.py</code> into the frame's <code>gpu</code> field</dd>
+        <dt>Arrives by</dt><dd><code>obs.metrics</code> frames. The operator list comes from the <code>federation.operators</code> slice.</dd>
+        <dt>Changes when</dt><dd>An operator's status changes to or from training</dd>
+      </dl>
+      <p>The rule is simple: while an operator's status is <code>training</code>, the tile shows the
+        federation engine's GPU value, about 86% with noise, kept between 60% and 99%. In any other state it
+        shows 5%. So a tile at 5% during a round means that operator is uploading, waiting, or excluded, not
+        training at that moment. The square-wave sparkline shows rounds starting and stopping.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>High is good during a round (training). Low between rounds is expected. A tile that stays at 5% while others train is an operator not taking part at that moment. Check its status on <a href="federation.html#c-9">Client fleet</a>.</p></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Each operator trains on its own GPU, inside its own account. We see that the work is happening, not the data."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Where does training actually run?"</strong> On a client task per operator. Here, ECS on g6.xlarge is the AWS mapping. Tracks: T2, T1.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs sim">Simulated</span> GPU values are generated by the federation engine. No GPUs are read.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Before beat 2 every tile is 5%, because round 13 is queued, not running. Do not open this panel to show GPUs before you start the round.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 13 -->
+  <article class="comp" id="c-13">
+    <header><span class="comp-num">13</span><h3>Infrastructure: model endpoints</h3><span class="where">panel <code>infra</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows the four places the fine-tuned model is served, which version each runs, how much traffic
+        the new candidate takes, and whether each endpoint is healthy.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Column</th><th>Meaning</th><th>Example (pre-demo / beat 13)</th></tr></thead>
+        <tbody>
+          <tr><td>Target</td><td>The endpoint: SageMaker endpoint, Bedrock Custom Model Import, Vendor A EMS edge, Vendor B EMS edge.</td><td>Same four rows</td></tr>
+          <tr><td>Version</td><td>Production version, plus the candidate if one is rolling out.</td><td>nlm-v6 / nlm-v6 + nlm-v7</td></tr>
+          <tr><td>Traffic</td><td>The candidate's share of traffic. With no candidate it reads 100% (all on production).</td><td>100% / 10%</td></tr>
+          <tr><td>p95</td><td>95th-percentile response time.</td><td>398 ms (SageMaker) / 397 ms</td></tr>
+          <tr><td>Errors</td><td>Error rate in percent.</td><td>0.20% / 0.19%</td></tr>
+          <tr><td>Health</td><td><span class="pill good">healthy</span>, or <span class="pill serious">degraded</span> when errors exceed 1%.</td><td>healthy</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Release.tick()</code> in <code>engines/release.py</code>, once per simulated second</dd>
+        <dt>Arrives by</dt><dd><code>release.metrics</code> events (and <code>release.stage</code> on stage changes)</dd>
+        <dt>Store slice</dt><dd><code>release.targets</code>. This is the same data as <a href="release.html#c-3">Deployment targets</a> on the Release screen.</dd>
+      </dl>
+      <p>Each second, every target gets a p95 near its base (SageMaker 405, Bedrock 470, Vendor A 380, Vendor B
+        395 ms, with random noise of about 14 ms, one standard deviation) and an error rate near 0.18%. If "Inject regression (demo)" was clicked on the Release
+        screen, targets carrying candidate traffic get +260 ms and +1.6 points of errors. That pushes them
+        over 1% and marks them degraded. Above 1% errors from the canary stage onward, the release engine
+        rolls back on its own. The worst live endpoint's numbers also feed the Release row of
+        <a href="#c-3">Golden signals</a>.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None here. Rollout buttons live on the <a href="release.html#c-1">Release</a> screen.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>All green "healthy" with errors well under 1% is good. "nlm-v6 + nlm-v7" with 10% means the canary from beat 6 is live on all four targets, across two vendors.</p></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"The same model runs on four targets across two vendors. Ten percent of traffic is on the new version, and every target is healthy."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Is this multi-vendor in practice?"</strong> One signed release, four endpoints, two vendors, with per-endpoint health. Track: T1.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs sim">Simulated</span> Endpoint latency and errors are random around fixed bases. No endpoint is called.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>The Traffic column shows the candidate's share, not each endpoint's total load. Before a canary every row reads 100%, and that means 100% on production.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 14 -->
+  <article class="comp" id="c-14">
+    <header><span class="comp-num">14</span><h3>Agent health</h3><span class="where">panel <code>agent-health</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It shows a report card for each class of agent: how much it works, how often policy blocks it, how
+        often it hands a decision to a human, how long it thinks and how many tokens one decision takes.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Subtitle "by agent class, since start of session", source chip "AgentCore Observability". Up to three rows: Site agents (40), Domain agents (5), Coordinator.</p>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Column</th><th>Meaning</th><th>Example at beat 13 (site / domain / coordinator)</th></tr></thead>
+        <tbody>
+          <tr><td>Models</td><td>Distinct models that agents of this class run now.</td><td>nlm-v7, nlm-v6 / claude-haiku, nova-lite, nova-pro / claude-sonnet</td></tr>
+          <tr><td>Calls</td><td>Model calls made.</td><td>2,132 / 402 / 4</td></tr>
+          <tr><td>Tool errors</td><td>Tool errors as a share of calls.</td><td>0.00% / 0.00% / 0.00%</td></tr>
+          <tr><td>Policy denies</td><td>Tool calls the policy gateway refused, with share of calls. Red when above zero.</td><td>1 (0.05%) / 0 / 0</td></tr>
+          <tr><td>Escalated to human</td><td>Incident plans this class handed to a human. Only the coordinator's plan approval counts. The sentinel's quarantine-release request in beat 10 is not counted.</td><td>0 / 0 / 1</td></tr>
+          <tr><td>Think time</td><td>Smoothed model-call latency.</td><td>244 ms / 1.36 s / 2.98 s</td></tr>
+          <tr><td>Tokens per decision</td><td>Total tokens ÷ calls.</td><td>1,310 / 2,338 / 3,291</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>Observability.agent_health</code>, updated by <code>record_call()</code> (calls, tokens, think time) and <code>note()</code> (denies, escalations)</dd>
+        <dt>Arrives by</dt><dd>Snapshot, then every <code>obs.metrics</code> frame</dd>
+        <dt>Store slices</dt><dd><code>observability</code> (newest frame) and <code>swarm.agents</code> (for the Models column)</dd>
+      </dl>
+      <ul>
+        <li><b>Calls and tokens:</b> each model call adds 1 call and its tokens to its class.</li>
+        <li><b>Think time:</b> an exponentially weighted average: new = 0.9 × old + 0.1 × this call's latency. Recent calls count more.</li>
+        <li><b>Policy denies:</b> the gateway calls <code>note(class, "denies")</code> whenever the policy evaluator returns deny, including during a freeze. The beat 10 attack adds one for site agents.</li>
+        <li><b>Escalated to human:</b> only the coordinator increments it, when it creates the approval request for the incident plan.</li>
+        <li><b>Models:</b> read live from the swarm, so after the beat 6 canary the site row lists nlm-v7 as well.</li>
+        <li><b>Rows:</b> a class appears only after it has made at least one call. The Coordinator row first appears when the incident starts in beat 7.</li>
+      </ul>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <p>None. It only displays data.</p>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>Compare classes. Site agents are fast and cheap per decision. The coordinator is slow and token-heavy but makes few calls. A red deny count is the guardrail working, not a fault.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>After beat 10, point at Site agents, Policy denies "1": that is site-17's blocked attack.</li><li>Point at Coordinator, Escalated to human "1": the approval from beat 9.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Site agents make thousands of cheap, fast decisions. The coordinator makes a handful of expensive ones and hands the risky one to a human. The one policy deny is the attack we just blocked."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"How do you monitor agent behaviour, not just uptime?"</strong> Deny rate, escalation rate, think time and tokens per decision, per agent class. Tracks: T3, Observability.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs mixed">Partly real</span> Deny counts come from real policy decisions. Calls, tokens and think time come from simulated model calls.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>"Tool errors" is always 0.00%: nothing in the code records a tool error. Do not point at it as evidence. "Since start of session" includes the warm-up history, which is why site agents show about 2,100 calls before the demo.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 15 -->
+  <article class="comp" id="c-15">
+    <header><span class="comp-num">15</span><h3>Log search: query bar and examples</h3><span class="where">panel <code>logs</code>, file <code>LogSearch.tsx</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It filters the live event stream with a small query language, so you can answer "what did site-17 do?"
+        or "show me every critical event" on the spot.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <ul>
+        <li>Subtitle: "N events buffered in this browser" (pre-demo 64, at beat 13 365). Source chip: "CloudWatch Logs Insights".</li>
+        <li>A search box with a magnifier icon, prefilled with <code>plane:operate severity&gt;=warn</code>.</li>
+        <li>Five example buttons: <code>plane:operate severity&gt;=warn</code>, <code>actor:site-17</code>, <code>type:policy.decision deny</code>, <code>plane:learn poison</code>, <code>severity&gt;=critical</code>.</li>
+        <li>On the right, the match count: "N matches", or "200+ matches" at the cap.</li>
+      </ul>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Data</dt><dd>The browser's <code>stream</code> slice: up to 3,000 recent events. It starts from the snapshot's last 400 and grows with every WebSocket event.</dd>
+        <dt>Excluded</dt><dd>High-volume telemetry types never enter the stream: <code>fl.step</code>, <code>fl.gradhist</code>, <code>twin.tick</code>, <code>obs.metrics</code>, <code>obs.span</code>, <code>obs.trace</code>, <code>release.metrics</code>, <code>swarm.agents</code>, <code>sim.clock</code>, <code>eval.progress</code></dd>
+        <dt>Parser</dt><dd><code>parseQuery()</code>: words split on spaces, all conditions must match (AND), case-insensitive</dd>
+      </dl>
+      <div class="table-wrap"><table class="compact">
+        <caption>Query language</caption>
+        <thead><tr><th>Write</th><th>Matches events where</th></tr></thead>
+        <tbody>
+          <tr><td><code>plane:operate</code></td><td>plane is exactly operate. Planes: learn, verify, release, operate, prove, system.</td></tr>
+          <tr><td><code>actor:site-17</code></td><td>the actor name contains "site-17".</td></tr>
+          <tr><td><code>type:policy</code></td><td>the event type starts with "policy", for example <code>policy.decision</code>.</td></tr>
+          <tr><td><code>severity&gt;=warn</code></td><td>severity is warn or higher. The order is debug, info, notice, warn, critical.</td></tr>
+          <tr><td><code>severity:critical</code> or <code>sev:critical</code></td><td>severity is exactly critical.</td></tr>
+          <tr><td>any other word, like <code>poison</code></td><td>actor, type or summary contains it.</td></tr>
+        </tbody>
+      </table></div>
+      <p>Repeating a key gives "any of": <code>plane:learn plane:prove</code> matches either plane. An unknown
+        severity word is ignored. The panel scans from newest to oldest and stops at 200 matches.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Type in the search box</th><td>Filters as you type.</td><td>Results and count update at once. Browser only. Keyboard shortcuts are ignored while typing.</td></tr>
+          <tr><th>An example button</th><td>Replaces the query with that example.</td><td>Results update. Browser only.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>The count tells you how much matched. Zero matches is normal before the incident with the default query.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>After beat 10, click <code>actor:site-17</code>: the four red blocked <code>a2a.msg</code> rows and the DENY policy decision for site-17 appear near the top, mixed with grey <code>ledger.append</code> rows.</li><li>To show the quarantine too, clear the box and type <code>site-17</code> as plain text. That also matches the "Quarantined site-17" and "Blocked: site-17 requested cell_sleep" summaries. The poisoned syslog line is logged by the twin against "s-17", so neither query finds it.</li><li>Click <code>type:policy.decision deny</code> to show only the policy denials.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Any question about what happened is one query away. Here is everything site-17 tried after it read the poisoned log line."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"Can an analyst investigate after the fact?"</strong> Yes, by plane, actor, event type, severity and free text, with a link to the signed record. Tracks: T3, Observability.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs real">Real</span> The search runs for real over the real event stream from the backend. The events describe a simulated network.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>It searches only what this browser has buffered (the snapshot's last 400 events plus everything received since, capped at 3,000), not CloudWatch. A different laptop or a reload shows a different count. Pre-demo the default query shows "No events match". Click <code>severity&gt;=critical</code> or clear the box if you open it early.</p></div>
+    </div>
+  </article>
+
+  <!-- ===================================================== 16 -->
+  <article class="comp" id="c-16">
+    <header><span class="comp-num">16</span><h3>Log search: results</h3><span class="where">panel <code>logs</code></span></header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>It lists the matching events, newest first, each one linked to its signed ledger record when it has
+        one.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Column</th><th>Meaning</th><th>Example at beat 13</th></tr></thead>
+        <tbody>
+          <tr><td>Severity icon</td><td>Grey dot debug, grey "i" info, blue circle notice, amber triangle warn, red octagon critical.</td><td>Red octagon on blocked messages</td></tr>
+          <tr><td>Time</td><td>Event time to the millisecond.</td><td>21:32:06.669</td></tr>
+          <tr><td>Plane</td><td>Plane-colour dot and plane name.</td><td>operate</td></tr>
+          <tr><td>Actor</td><td>Who emitted it: an agent, the twin, the gateway.</td><td>site-17</td></tr>
+          <tr><td>Type</td><td>Event type.</td><td>a2a.msg</td></tr>
+          <tr><td>Summary</td><td>One-line description.</td><td>"site-17 → site-25: Coordinator authorises: sleep all cells now"</td></tr>
+          <tr><td>#seq</td><td>Ledger record number, if the event was signed into the ledger.</td><td>#3519</td></tr>
+        </tbody>
+      </table></div>
+      <p>With no matches it shows "No events match. Try one of the examples above, or widen the severity." The list scrolls inside a 300 px box.</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Data</dt><dd>Events (envelopes) from the <code>stream</code> slice that pass the query</dd>
+        <dt>Ledger link</dt><dd>Present when the emitting code tags the event with its ledger record (<code>ledger: {seq, hash}</code>). That covers signed messages (<code>a2a.msg</code>), approval requests and decisions, escalations, quarantines, release stages, incident resolution, and some federation, evaluation and AI-BOM events. Signed tool calls are in the ledger but have no linked row here. Find them on the <a href="audit.html">Audit</a> screen.</dd>
+        <dt>Inspector</dt><dd>Clicking <code>#seq</code> opens the Inspector, which loads <code>GET /api/ledger/{seq}</code> and <code>GET /api/ledger/proof/{seq}</code></dd>
+      </dl>
+      <ol class="flow" aria-label="From log row to proof">
+        <li class="src"><b>Event with ledger seq</b><span>e.g. <code>a2a.msg</code> #3519</span></li>
+        <li class="ui"><b>Click <code>#3519</code></b><span>in the results</span></li>
+        <li><b>Inspector loads record</b><span><code>GET /api/ledger/3519</code></span></li>
+        <li class="ui"><b>Hash checked in browser</b><span>signature and proof shown</span></li>
+      </ol>
+      <p>This is the bridge from logs (telemetry) to evidence (the signed ledger). Events like
+        <code>twin.alarm</code> or <code>incident.opened</code> have no ledger number. Signed actions like
+        <code>a2a.msg</code> and <code>approval.requested</code> do.</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th><code>#seq</code> button</th><td>Opens the signed record in the <a href="shell.html#c-10">Inspector</a>.</td><td>Side panel opens. Read-only GETs, no new ledger record.</td></tr>
+          <tr><th>Hover a row</th><td>Highlights it.</td><td>Background tint only.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read"><h4>How to read it</h4><p>Red octagons are critical. After beat 10 the four red <code>a2a.msg</code> rows from site-17 are the forged "Coordinator authorises" messages, all blocked.</p></div>
+      <div class="sec demo"><h4>How to demo it</h4><ol class="steps"><li>Click <code>#3519</code> (or whatever number is shown) on a blocked message.</li><li>Show the Inspector's signature and hash check, then press <kbd>Escape</kbd>.</li></ol></div>
+      <div class="sec say"><h4>What to say</h4><blockquote class="say"><p>"Every row that changed something links to its signed ledger record. Logs tell you what happened, and the ledger proves it."</p></blockquote></div>
+      <div class="sec judge"><h4>Judge question it answers</h4><p><strong>"How do your logs connect to your audit trail?"</strong> Each signed action carries its ledger sequence number, one click away. Tracks: T3, Trust.</p></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs mixed">Partly real</span> The ledger records and their signatures are real. The events describe a simulated network and swarm.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Ledger numbers differ every run. Read them off the screen. After the beat 12 tamper test, the record at the tampered number fails verification in the Inspector. That is expected.</p></div>
+    </div>
+  </article>
+
+  <h2 id="data-flow">How data flows into this screen</h2>
+  <p>Nothing on this screen is computed from scratch here. It collects what the other engines report. All
+    of it reaches the browser through the same WebSocket as every other screen, in batches every 100 ms.</p>
+  <ol class="flow wide" aria-label="Observability data path">
+    <li class="src"><b>Swarm, federation, release, proving</b><span>do their work</span></li>
+    <li><b>Observability engine</b><span><code>record_call</code>, <code>span</code>, <code>tick</code></span></li>
+    <li><b>Events</b><span><code>obs.metrics</code> (1/s), <code>obs.span</code>, <code>obs.trace</code></span></li>
+    <li><b>Store</b><span><code>observability</code> slice</span></li>
+    <li class="ui"><b>Panels</b><span>this screen</span></li>
+  </ol>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Source</th><th>What it feeds</th><th>Panel</th></tr></thead>
+      <tbody>
+        <tr><td>Swarm: every agent model call (<code>_think</code>)</td><td>tokens, cost, think time, <code>gen_ai.chat</code> spans</td><td><a href="#c-7">7</a>, <a href="#c-8">8</a>, <a href="#c-9">9</a>, <a href="#c-14">14</a>, <a href="#c-5">5</a></td></tr>
+        <tr><td>Swarm: every signed message (<code>send</code>)</td><td><code>a2a.send</code> spans</td><td><a href="#c-5">5</a></td></tr>
+        <tr><td>Swarm: every gateway tool call + policy decision</td><td>tool latency, denies, gateway, policy and twin spans</td><td><a href="#c-10">10</a>, <a href="#c-14">14</a>, <a href="#c-5">5</a></td></tr>
+        <tr><td>Federation: run state and operator GPUs</td><td>Learn baselines, GPU values</td><td><a href="#c-3">3</a>, <a href="#c-12">12</a></td></tr>
+        <tr><td>Proving: evaluation running</td><td>Verify rate</td><td><a href="#c-3">3</a></td></tr>
+        <tr><td>Release: endpoint metrics and guards</td><td>Release errors and p95, endpoint table</td><td><a href="#c-3">3</a>, <a href="#c-13">13</a></td></tr>
+        <tr><td>Every engine: events in the stream</td><td>log rows and ledger links</td><td><a href="#c-15">15</a>, <a href="#c-16">16</a></td></tr>
+        <tr><td>Fixed values in the engine</td><td>SLOs, prices, first five incident costs</td><td><a href="#c-11">11</a>, <a href="#c-7">7</a>, <a href="#c-9">9</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Nothing flows out of this screen. It has no buttons that change the backend. Its only links out are
+    the <code>#seq</code> buttons to the Inspector and the disabled X-Ray link.</p>
+
+  <h2 id="walkthrough">60-second walkthrough</h2>
+  <p>Use this if a judge says "walk me through this page". Scroll as you go. Each step points at one card.</p>
+  <ol class="steps">
+    <li><b>Golden signals</b> (<a href="#c-3">3</a>): "Every plane gets the same four health numbers: rate, errors, p95 time and saturation, with objectives. All within objectives."</li>
+    <li><b>Trace</b> (<a href="#c-4">4</a>, <a href="#c-5">5</a>): "This is tonight's incident as one OpenTelemetry trace: every domain and coordinator model call, every signed message, and every tool call with its policy check, on a timeline."</li>
+    <li><b>Span detail</b> (<a href="#c-6">6</a>): "Each model call carries standard GenAI attributes: model, agent, tokens."</li>
+    <li><b>Tokens and cost</b> (<a href="#c-7">7</a>, <a href="#c-9">9</a>): "A thousand site-agent decisions cost about three cents on our fine-tuned model, against about six dollars on a frontier model, at assumed list prices. Here is the same gap per incident."</li>
+    <li><b>Latency</b> (<a href="#c-10">10</a>): "Gateway and tool calls stay under a hundred milliseconds. The slow cells are model reasoning."</li>
+    <li><b>SLOs and infrastructure</b> (<a href="#c-11">11</a>, <a href="#c-12">12</a>, <a href="#c-13">13</a>): "The targets we would run against, the operators' training GPUs, and four healthy endpoints across two vendors."</li>
+    <li><b>Agent health and logs</b> (<a href="#c-14">14</a>, <a href="#c-16">16</a>): "One policy deny, the blocked attack. One escalation, the human approval. Any event is one query away, linked to its signed record."</li>
+  </ol>
+  <div class="callout real"><p class="title">Close honestly</p><p>"The numbers on this page come from our simulation and modelled prices. The tracing shape and the policy decisions are real code paths."</p></div>
+
+  <h2 id="judge-qa">Questions judges ask about this screen</h2>
+  <dl class="facts">
+    <dt>"Is the cost comparison measured?"</dt><dd>No. It is modelled: simulated token counts times assumed list prices. The frontier column per incident uses a fixed multiplier. Say this before they ask.</dd>
+    <dt>"Are these traces in X-Ray?"</dt><dd>Not in this build. Spans use OTel GenAI attribute names and X-Ray id format, and the AWS design sends them through ADOT to X-Ray. No exporter runs here.</dd>
+    <dt>"Do the SLOs react to the incident?"</dt><dd>No. They are fixed sample values. The status rules (page at 14.4× over 1 hour, ticket when both windows burn) are live code on those values.</dd>
+    <dt>"What would you watch in production?"</dt><dd>Policy deny rate and escalations per agent class (<a href="#c-14">Agent health</a>), p95 per plane (<a href="#c-3">Golden signals</a>), and cost per incident (<a href="#c-9">Cost per incident</a>).</dd>
+    <dt>"Does the policy layer slow agents down?"</dt><dd>The policy span is about a millisecond, and Prove p95 sits near 4 ms against a 10 ms objective. Model calls take hundreds of milliseconds to seconds. The timings are simulated, but the check sits on every call.</dd>
+  </dl>
+
+  <h2 id="related">Related screens</h2>
+  <ul>
+    <li><a href="swarm.html">Swarm Tower</a>: where the spans come from. The incident (<a href="swarm.html#c-5">Incident</a>), the agents (<a href="swarm.html#c-4">Swarm graph</a>) and their signed messages (<a href="swarm.html#c-8">Agent-to-agent messages</a>).</li>
+    <li><a href="oversight.html">Human oversight &amp; phone approvals</a>: the approval behind "Escalated to human" and the 53-second wait in the INC-2040 trace.</li>
+    <li><a href="trust.html">Trust Center</a>: the policies behind the <code>avp.is_authorized</code> spans and the deny count.</li>
+    <li><a href="federation.html">Federation Center</a>: training state behind the Learn row and the GPU tiles (<a href="federation.html#c-9">Client fleet</a>).</li>
+    <li><a href="release.html">Release</a>: the same endpoints as <a href="release.html#c-3">Deployment targets</a>, and the "Inject regression (demo)" button that briefly turns the Release row amber before the automatic rollback.</li>
+    <li><a href="audit.html">Audit, provenance &amp; dossier</a>: where the <code>#seq</code> links lead (<a href="audit.html#c-4">Records</a>).</li>
+    <li><a href="shell.html">Console frame &amp; controls</a>: the <a href="shell.html#c-9">live stream drawer</a> shows the same event stream the log search filters, and the <a href="shell.html#c-10">Inspector</a> opens from <code>#seq</code>.</li>
+    <li><a href="settings.html">Settings, feature flags &amp; presenter view</a>: the <code>screen.observability</code> and <code>obs.heatmap</code> flags.</li>
+    <li><a href="demo-playbook.html#beat-13">Demo playbook, beat 13</a>: the full beat card.</li>
+  </ul>
+
+</main>
+</body>
+</html>

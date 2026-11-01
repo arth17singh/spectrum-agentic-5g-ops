@@ -1,0 +1,288 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------------------------------
+   SPECTRUM design tokens. Two selected themes: Ops (dark, default) and Projector (light).
+   Plane hues are categorical identity (validated, see DASHBOARD_SPEC.md §1.2); status colors
+   are reserved and always ship with an icon + word.
+   ------------------------------------------------------------------------------------------ */
+
+:root,
+[data-theme='ops'] {
+  color-scheme: dark;
+  --page: #0f1216;
+  --surface-1: #141920;
+  --surface-2: #1a2029;
+  --surface-3: #222a35;
+  --hairline: #252d38;
+  --axis: #344050;
+  --ink-1: #e9edf1;
+  --ink-2: #a6b0bc;
+  --ink-3: #6f7a87;
+  --focus: #7fb4ff;
+  --scrim: rgba(6, 8, 11, 0.6);
+
+  --learn: #9085e9;
+  --verify: #c98500;
+  --release: #3987e5;
+  --operate: #199e70;
+  --prove: #d95926;
+
+  --good: #0ca30c;
+  --good-ink: #3cc93c;
+  --warn: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --critical-ink: #f07070;
+
+  /* data series, dataviz reference order (dark steps) */
+  --s1: #3987e5;
+  --s2: #d95926;
+  --s3: #199e70;
+  --s4: #c98500;
+  --s5: #d55181;
+  --s6: #008300;
+  --s7: #9085e9;
+  --s8: #e66767;
+  --neutral-series: #5b6675;
+
+  --seq-lo: #0d366b;
+  --seq-hi: #cde2fb;
+  --div-neg: #3987e5;
+  --div-mid: #383835;
+  --div-pos: #e66767;
+}
+
+[data-theme='projector'] {
+  color-scheme: light;
+  --page: #f4f6f8;
+  --surface-1: #ffffff;
+  --surface-2: #f0f2f5;
+  --surface-3: #e5e9ee;
+  --hairline: #dce1e7;
+  --axis: #c3cad3;
+  --ink-1: #0e1319;
+  --ink-2: #46505c;
+  --ink-3: #76808c;
+  --focus: #1f5fd1;
+  --scrim: rgba(20, 26, 34, 0.35);
+
+  --learn: #6250d6;
+  --verify: #b87a00;
+  --release: #2a78d6;
+  --operate: #14895f;
+  --prove: #c94f1e;
+
+  --good-ink: #067806;
+  --critical-ink: #b42323;
+
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --s4: #eda100;
+  --s5: #e87ba4;
+  --s6: #008300;
+  --s7: #6250d6;
+  --s8: #e34948;
+  --neutral-series: #9aa3ae;
+
+  --seq-lo: #e8f1fc;
+  --seq-hi: #104281;
+  --div-mid: #f0efec;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-s1: var(--surface-1);
+  --color-s2: var(--surface-2);
+  --color-s3: var(--surface-3);
+  --color-line: var(--hairline);
+  --color-axis: var(--axis);
+  --color-ink-1: var(--ink-1);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-learn: var(--learn);
+  --color-verify: var(--verify);
+  --color-release: var(--release);
+  --color-operate: var(--operate);
+  --color-prove: var(--prove);
+  --color-good: var(--good);
+  --color-good-ink: var(--good-ink);
+  --color-warn: var(--warn);
+  --color-serious: var(--serious);
+  --color-critical: var(--critical);
+  --color-critical-ink: var(--critical-ink);
+  --color-focus: var(--focus);
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --text-micro: 11px;
+  --text-micro--line-height: 16px;
+  --text-cap: 12px;
+  --text-cap--line-height: 16px;
+  --text-body: 13px;
+  --text-body--line-height: 20px;
+  --text-title: 15px;
+  --text-title--line-height: 22px;
+  --text-section: 18px;
+  --text-section--line-height: 24px;
+  --text-h1: 24px;
+  --text-h1--line-height: 30px;
+  --text-hero: 40px;
+  --text-hero--line-height: 44px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink-1);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--release) 40%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: -0.01em;
+}
+
+/* scrollbars: thin and recessive */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+
+/* Spotlight (Demo Director): dim everything that is not lit */
+[data-spotlight='on'] [data-panel]:not([data-lit='true']):not([data-panel='ribbon']) {
+  opacity: 0.38;
+  filter: saturate(0.6);
+  transition: opacity 300ms ease, filter 300ms ease;
+}
+[data-spotlight='on'] [data-panel][data-lit='true'] {
+  box-shadow: 0 0 0 2px var(--lit-color, var(--focus));
+  transition: box-shadow 300ms ease;
+}
+[data-panel] {
+  transition: opacity 300ms ease, filter 300ms ease, box-shadow 300ms ease;
+}
+
+/* value-change flash */
+@keyframes flash {
+  from {
+    background-color: var(--surface-3);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.flash {
+  animation: flash 600ms ease-out;
+}
+
+@keyframes slidein {
+  from {
+    transform: translateY(-6px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.row-in {
+  animation: slidein 180ms ease-out;
+}
+
+@keyframes pulse2 {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.pulse-twice {
+  animation: pulse2 700ms ease-in-out 2;
+}
+
+@keyframes livedot {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.live-dot {
+  animation: livedot 2s ease-out infinite;
+}
+
+@keyframes spin-dash {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+[data-motion='reduced'] *,
+[data-motion='reduced'] *::before,
+[data-motion='reduced'] *::after {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
+}
+
+@media print {
+  body {
+    overflow: visible;
+    background: white;
+  }
+}
+
+/* compact density: tighter panels and grids, for small projectors (1280×720) */
+[data-density='compact'] [data-panel] > div.p-4 {
+  padding: 10px 12px;
+}
+[data-density='compact'] [data-panel] > header {
+  height: 34px;
+}
+[data-density='compact'] main .gap-4 {
+  gap: 10px;
+}
+[data-density='compact'] main {
+  padding-top: 12px;
+}

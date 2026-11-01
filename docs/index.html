@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Start here | SPECTRUM presenter guide</title>
+<link rel="stylesheet" href="assets/guide.css">
+<script src="assets/guide.js" defer></script>
+</head>
+<body data-page="index.html">
+<main class="content">
+
+  <header class="page-head">
+    <h1>Start here</h1>
+    <p class="lede">This guide explains the SPECTRUM console: what each part of the screen is for, how it gets
+      its data, and how to demo and explain it to judges. Read this page first. It gives you the big picture,
+      a map of the screen, a table of every screen, and a reading path for your role on demo day.</p>
+    <div class="meta">
+      <span>Console at <code>http://localhost:5173</code> (dev) or <code>http://localhost:8787</code> (demo day)</span>
+      <span>14 demo beats, about 6 min 45 s of planned time</span>
+      <span>Show or hide the Demo Director with <kbd>d</kbd></span>
+    </div>
+  </header>
+
+  <!-- ============================================================ 60 seconds -->
+  <h2 id="sixty-seconds">SPECTRUM in 60 seconds</h2>
+  <p>SPECTRUM is our entry for Breaking Barriers at FYUZ 2026 (TIP and AWS). The theme is network large models
+    (NLMs): AI models trained for telecom network operations. The console you will demo shows one such model's
+    whole life, from training to proof, on one screen.</p>
+
+  <div class="compare">
+    <div>
+      <h4>The problem</h4>
+      <p>Every operator has outages. Each one learns from its own outages alone, because no operator can share
+        subscriber or incident data with a competitor.</p>
+      <ul>
+        <li>A model trained on one operator's data only knows that operator's vendors and faults.</li>
+        <li>AI agents that change a live network are risky: who checks what they do, and who can prove it later?</li>
+      </ul>
+    </div>
+    <div>
+      <h4>The idea</h4>
+      <p>Five operators fine-tune one shared model without moving their data. The model is tested before release,
+        rolled out carefully, and then powers a swarm of agents that fix outages under rules they cannot get around.
+        Every step is signed into a tamper-evident record.</p>
+      <ul>
+        <li>Only masked model updates leave each operator. Raw incident data stays home.</li>
+        <li>Policy is checked by code outside the AI model, and big changes wait for a human.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 id="why-judges-care">Why it matters to the judges</h3>
+  <p>The hackathon has three tracks. Most console screens show small track tags next to their title, such as
+    <code>T1</code>, <code>T2</code> and <code>T3</code>, so judges can see which track a screen covers. Some screens
+    also show <code>Trust</code> or <code>Obs</code>: these are cross-cutting themes, not tracks.</p>
+  <div class="table-wrap">
+    <table class="compact">
+      <thead><tr><th>Track</th><th>What the track asks for</th><th>Where SPECTRUM answers it</th></tr></thead>
+      <tbody>
+        <tr><th>T1</th><td>NLM training, scaling and production readiness: verification pipelines for price, performance, accuracy and safety, then repeatable multi-vendor deployment.</td><td><a href="proving.html">Proving Ground</a>, <a href="release.html">Release</a>, <a href="federation.html">Federation Center</a> (training), cost on <a href="observability.html">Observability</a></td></tr>
+        <tr><th>T2</th><td>Federated learning at scale: differential privacy, secure aggregation, homomorphic encryption, data sovereignty.</td><td><a href="federation.html">Federation Center</a></td></tr>
+        <tr><th>T3</th><td>Multi-agent swarms: policy enforcement, auditability, human oversight, agent-to-agent collaboration in network operations.</td><td><a href="swarm.html">Swarm Tower</a>, <a href="oversight.html">Oversight</a>, <a href="trust.html">Trust Center</a>, <a href="audit.html">Audit</a> (its tag reads <code>Trust</code>)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout say">
+    <p class="title">The one line to remember</p>
+    <p>"The network that learns from every outage, across operators, without sharing a byte, and can prove every
+      decision it made."</p>
+  </div>
+
+  <!-- ============================================================ reading paths -->
+  <h2 id="reading-paths">Reading paths</h2>
+  <p>Pick the path for your role and read the pages in order. Everyone should read
+    <a href="concepts.html">Concepts explained simply</a> once.</p>
+
+  <div class="compare" id="paths">
+    <div id="path-presenter">
+      <h4>I'm the presenter</h4>
+      <p>You speak. You need the story, the words and the honest limits.</p>
+      <ol>
+        <li><a href="#sixty-seconds">SPECTRUM in 60 seconds</a> and the <a href="#pitch">pitch</a> on this page</li>
+        <li><a href="concepts.html">Concepts explained simply</a></li>
+        <li><a href="demo-playbook.html">Demo playbook</a>: the 14 beats with what to say</li>
+        <li><a href="mission.html">Mission Control</a></li>
+        <li><a href="federation.html">Federation Center</a>, <a href="proving.html">Proving Ground</a>, <a href="release.html">Release</a></li>
+        <li><a href="swarm.html">Swarm Tower</a>, <a href="oversight.html">Human oversight</a></li>
+        <li><a href="audit.html">Audit, provenance and dossier</a>, <a href="observability.html">Observability</a></li>
+      </ol>
+    </div>
+    <div id="path-driver">
+      <h4>I'm the driver at the keyboard</h4>
+      <p>You press the keys, keep the demo on track and recover when something goes wrong.</p>
+      <ol>
+        <li><a href="#run">How to run it</a>, <a href="#keys">the keys</a> and <a href="#recovery">If something goes wrong</a> on this page</li>
+        <li><a href="shell.html">Console frame and controls</a>: Director, keys, spotlight, reset</li>
+        <li><a href="demo-playbook.html">Demo playbook</a>: the "Do" and "Recovery" rows</li>
+        <li><a href="settings.html">Settings, feature flags and presenter view</a></li>
+        <li><a href="oversight.html">Human oversight and phone approvals</a></li>
+        <li><a href="audit.html">Audit</a>: restoring the ledger after the tamper beat</li>
+      </ol>
+    </div>
+  </div>
+  <div class="compare">
+    <div id="path-judges">
+      <h4>I'm answering technical judge questions</h4>
+      <p>You explain how it works and say exactly what is real.</p>
+      <ol>
+        <li><a href="concepts.html">Concepts explained simply</a></li>
+        <li><a href="#how-it-works">How the console works</a> and the real-or-simulated note on this page</li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="trust.html">Trust Center</a>: policy outside the model, identities, delegation</li>
+        <li><a href="federation.html">Federation Center</a>: DP-SGD, secure aggregation, enclave</li>
+        <li><a href="audit.html">Audit</a>: hash chain, signatures, anchors, provenance</li>
+        <li><a href="proving.html">Proving Ground</a> and <a href="observability.html">Observability</a></li>
+      </ol>
+    </div>
+    <div id="path-developer">
+      <h4>I'm a developer joining the build</h4>
+      <p>You need to know where code lives and how to add or remove a screen.</p>
+      <ol>
+        <li><a href="#how-it-works">How the console works</a> on this page</li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="feature-map.html">Feature map and parallel build plan</a></li>
+        <li><a href="settings.html">Settings and feature flags</a></li>
+        <li><a href="shell.html">Console frame and controls</a></li>
+        <li>The repo docs: <a href="../README.md">README.md</a>, <a href="../DASHBOARD_SPEC.md">DASHBOARD_SPEC.md</a>, <a href="../SPECTRUM.md">SPECTRUM.md</a></li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ============================================================ roles -->
+  <h2 id="roles">Team roles on demo day</h2>
+  <p>The console supports several people at once: every open console, the presenter view and the phones follow the
+    same server-side beat.</p>
+  <div class="table-wrap">
+    <table class="compact" id="roles-table">
+      <thead><tr><th>Role</th><th>Where</th><th>What they do</th><th>Read first</th></tr></thead>
+      <tbody>
+        <tr><th>Presenter</th><td>Standing, facing the judges. Optionally a second laptop on <code>/presenter</code>.</td>
+          <td>Tells the story beat by beat. The presenter view shows the beat title, the note to say, the next beat and a talk timer against 7:00 that turns amber at 6:30 and red at 7:00. Its big Next button and <kbd>→</kbd> also fire beats.</td>
+          <td><a href="#path-presenter">Presenter path</a></td></tr>
+        <tr><th>Driver</th><td>The laptop connected to the projector.</td>
+          <td>Runs Reset and Preflight, presses <kbd>→</kbd> for each beat, scrolls or points when asked, and handles recovery. If the presenter drives from <code>/presenter</code>, presses <kbd>d</kbd> to hide the Director from the projector.</td>
+          <td><a href="#path-driver">Driver path</a></td></tr>
+        <tr><th>Approvers</th><td>Phones on <code>/m/approve</code>, or the Oversight Desk.</td>
+          <td>Approve the beat 9 request. After beat 10, releasing site-17 from quarantine needs four-eyes: two different people. The console signs as A. Rivera and the phone defaults to J. Okafor ("Signing as" at the top of the phone page), so one console plus one phone is enough.</td>
+          <td><a href="oversight.html">Human oversight</a></td></tr>
+        <tr><th>Technical answerer</th><td>Next to the presenter.</td>
+          <td>Takes the deep questions on privacy, cryptography, policy and AWS mapping, and states plainly what is real and what is simulated.</td>
+          <td><a href="#path-judges">Judge questions path</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================ five planes -->
+  <h2 id="five-planes">The five planes, one loop</h2>
+  <p>SPECTRUM is split into five stages called planes. Each plane has a colour, and the same five colours appear
+    everywhere in the console: in the strip under the top bar, on the left rail and on the tiles. A model moves
+    through the planes from left to right, and the last plane feeds back into the first.</p>
+
+  <figure class="diagram wide" id="loop-diagram">
+    <div class="diagram-frame">
+      <svg viewBox="0 0 800 200" role="img" aria-labelledby="loop-t">
+        <title id="loop-t">The five planes in order, Learn, Verify, Release, Operate, Prove, with a dashed arrow from Prove back to Learn</title>
+        <defs><marker id="idx-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-arrow" d="M0 0L10 5L0 10z"/></marker></defs>
+        <a href="federation.html"><rect class="d-node learn" x="12" y="30" width="136" height="72" rx="6"/>
+          <text class="d-label" x="80" y="62" text-anchor="middle">Learn</text><text class="d-sub" x="80" y="82" text-anchor="middle">train together, privately</text></a>
+        <a href="proving.html"><rect class="d-node verify" x="168" y="30" width="136" height="72" rx="6"/>
+          <text class="d-label" x="236" y="62" text-anchor="middle">Verify</text><text class="d-sub" x="236" y="82" text-anchor="middle">test, sign, gate</text></a>
+        <a href="release.html"><rect class="d-node release" x="324" y="30" width="136" height="72" rx="6"/>
+          <text class="d-label" x="392" y="62" text-anchor="middle">Release</text><text class="d-sub" x="392" y="82" text-anchor="middle">shadow, canary, full</text></a>
+        <a href="swarm.html"><rect class="d-node operate" x="480" y="30" width="136" height="72" rx="6"/>
+          <text class="d-label" x="548" y="62" text-anchor="middle">Operate</text><text class="d-sub" x="548" y="82" text-anchor="middle">agents fix the network</text></a>
+        <a href="audit.html"><rect class="d-node prove" x="636" y="30" width="136" height="72" rx="6"/>
+          <text class="d-label" x="704" y="62" text-anchor="middle">Prove</text><text class="d-sub" x="704" y="82" text-anchor="middle">signed, chained record</text></a>
+        <path class="d-edge" d="M148 66H166" marker-end="url(#idx-arr)"/>
+        <path class="d-edge" d="M304 66H322" marker-end="url(#idx-arr)"/>
+        <path class="d-edge" d="M460 66H478" marker-end="url(#idx-arr)"/>
+        <path class="d-edge" d="M616 66H634" marker-end="url(#idx-arr)"/>
+        <path class="d-edge dashed" d="M704 102V160H80V104" marker-end="url(#idx-arr)"/>
+        <text class="d-sub" x="392" y="182" text-anchor="middle">Resolved incidents become private training data for the next round (beat 14)</text>
+      </svg>
+    </div>
+    <figcaption>Read it left to right as one model's life. Each box links to that plane's guide page. The dashed
+      arrow is the closed loop: the console marks it with a <code>loop.enqueue</code> event and a ledger record.</figcaption>
+  </figure>
+
+  <div class="table-wrap">
+    <table class="compact" id="planes-table">
+      <caption>What each plane does, how it works, and when it hands work to the next plane</caption>
+      <thead><tr><th>Plane</th><th>What happens</th><th>How it works in the console</th><th>Hands over when</th><th>Screen</th><th>Beats</th></tr></thead>
+      <tbody>
+        <tr><th>Learn</th><td>Five operators fine-tune one model on their own private incidents.</td><td>The federation engine simulates training rounds with DP-SGD (noise added so no single record can be recovered). Updates are masked with secure aggregation and combined by an <a href="concepts.html#term-enclave">enclave</a> aggregator (a sealed compute box that even its operators cannot look inside).</td><td>A checkpoint is sent for testing (<code>fl.promote</code>)</td><td><a href="federation.html">Federation Center</a></td><td><a href="demo-playbook.html#beat-2">2</a>, <a href="demo-playbook.html#beat-3">3</a>, <a href="demo-playbook.html#beat-4">4</a></td></tr>
+        <tr><th>Verify</th><td>The new model must pass tests before it can ship.</td><td>The proving engine runs a pipeline: accuracy, safety red team, latency, price, and private scores from each operator. It signs an AI-BOM (a parts list for the model) and a deploy gate decides.</td><td>The gate passes or blocks the model (<code>eval.gate</code>)</td><td><a href="proving.html">Proving Ground</a></td><td><a href="demo-playbook.html#beat-5">5</a></td></tr>
+        <tr><th>Release</th><td>The model ships to four targets across two vendors from one signed manifest.</td><td>The release engine moves the candidate through shadow (no real traffic), canary 10% (the new model gets 10% of traffic while guard metrics watch for problems), canary 50% and full 100%. Guard metrics include <a href="concepts.html#term-percentiles">p95 latency</a> (95% of requests are faster than this) and error rate.</td><td>The rollout moves a stage (<code>release.stage</code>)</td><td><a href="release.html">Release</a></td><td><a href="demo-playbook.html#beat-6">6</a></td></tr>
+        <tr><th>Operate</th><td>A swarm of agents runs a simulated network and fixes incidents.</td><td>The twin engine simulates 40 sites and 120 cells. The swarm engine scripts 46 agents: one Coordinator, five domain agents (Transport, Energy, Experience, Core, Security sentinel) and one agent per site (40). Every tool call goes through a policy gateway, and large changes wait for a human on the Oversight Desk.</td><td>An incident closes (<code>incident.resolved</code>)</td><td><a href="swarm.html">Swarm Tower</a>, <a href="oversight.html">Oversight</a></td><td><a href="demo-playbook.html#beat-7">7</a>, <a href="demo-playbook.html#beat-8">8</a>, <a href="demo-playbook.html#beat-9">9</a>, <a href="demo-playbook.html#beat-10">10</a></td></tr>
+        <tr><th>Prove</th><td>Everything that happened is recorded so it can be checked later.</td><td>The ledger engine signs every record and <a href="concepts.html#term-hash-chain">hash-chains</a> it to the one before, so editing any record breaks the chain. Every 32 records it writes a <a href="concepts.html#term-merkle">Merkle anchor</a>: one fingerprint covering those 32 records, meant for locked S3 storage so it cannot be changed later. Audit can verify the chain, trace provenance and build an incident dossier.</td><td>The incident is queued as training data (<code>loop.enqueue</code>)</td><td><a href="audit.html">Audit</a></td><td><a href="demo-playbook.html#beat-11">11</a>, <a href="demo-playbook.html#beat-12">12</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Two screens cover all planes: <a href="trust.html">Trust Center</a> (the rules, identities and checks behind
+    every action; it sits with Prove on the rail) and <a href="observability.html">Observability</a> (cost, speed and
+    traces, beat <a href="demo-playbook.html#beat-13">13</a>). For the words used above, see
+    <a href="concepts.html">Concepts explained simply</a>.</p>
+
+  <!-- ============================================================ how the console works -->
+  <h2 id="how-it-works">How the console works, in one path</h2>
+  <p>Almost every number you see follows the same path. Once you know it, every screen makes sense.</p>
+  <ol class="flow" aria-label="How data reaches the screen">
+    <li class="src"><b>Mock engine</b><span>Python simulation in <code>backend/spectrum/</code>, ticks 10 times a second</span></li>
+    <li><b>Events</b><span>each engine emits typed events such as <code>fl.round</code>, <code>eval.gate</code>, <code>ledger.append</code></span></li>
+    <li><b>One WebSocket</b><span><code>/ws</code> sends events in batches every 100 ms</span></li>
+    <li><b>Browser store</b><span>one slice per engine (<code>federation</code>, <code>swarm</code>, <code>ledger</code>…)</span></li>
+    <li class="ui"><b>Panels re-render</b><span>each panel reads the slices it needs</span></li>
+  </ol>
+  <ul>
+    <li><strong>On connect</strong>, the browser loads the full current state from <code>GET /api/snapshot</code>, then
+      applies newer events from the WebSocket. If the connection drops it reconnects and loads the snapshot again.</li>
+    <li><strong>Commands</strong> go the other way as REST calls, for example <code>POST /api/director/beat/7</code> or
+      <code>POST /api/ledger/verify</code>. The engine acts, emits events, and every open console updates.</li>
+    <li><strong>Demo beats</strong> live on the server. Firing a beat moves the browser to the beat's screen, lights its
+      panels (if spotlight is on), and posts the beat. The server runs the scenario step and broadcasts a
+      <code>director.beat</code> event, so a second laptop and the projector stay in step.</li>
+    <li><strong>Spotlight</strong> is what makes most of the screen fade after a beat. Every panel except the ones to
+      talk about drops to about a third of its brightness, and the lit panels get a coloured outline. The ribbon never
+      fades. Press <kbd>Esc</kbd> to clear it, or <kbd>s</kbd> to turn spotlight off.</li>
+    <li><strong>The starting state is pre-warmed.</strong> On start or reset the engine fast-forwards a fixed-seed
+      history: 12 training rounds done and about 3,400 signed ledger records. So every run starts from the same point.</li>
+  </ul>
+
+  <div class="callout real">
+    <p class="title">What is real and what is simulated</p>
+    <p>The console runs on a mock engine. It says so: the top bar shows <code>MOCK</code>, and each panel has a small
+      source chip naming the AWS service it maps to.</p>
+    <ul>
+      <li><span class="rs real">Real</span> The ledger (SHA-256 hash chain, Ed25519 signatures, Merkle anchors), secure
+        aggregation (masks cancel with zero error), signed agent-to-agent messages, and policy checks run outside the
+        model by a deterministic evaluator that mirrors the <a href="concepts.html#term-cedar-gateway">Cedar</a> policies shown (Cedar is an AWS language for writing access rules).</li>
+      <li><span class="rs sim">Simulated</span> Training curves and the privacy accountant, the network twin's KPIs,
+        model benchmark scores, and token prices.</li>
+      <li>The AWS adapters in <code>backend/spectrum/adapters/aws.py</code> are thin stubs with real boto3 call shapes,
+        not yet tested against a live account. Do not claim a live AWS deployment.</li>
+    </ul>
+  </div>
+
+  <!-- ============================================================ map -->
+  <h2 id="map">Map of the dashboard</h2>
+  <p>This is Mission Control, the home screen, in its pre-demo state. The frame around it (top bar, ribbon, rail,
+    live stream) is the same on every console screen. Hover a number to outline that area, click it to jump to its
+    card below. The cards below are a short summary: what each area is for, what it shows and where its data comes
+    from. The main, complete cards, with every reading and more demo notes, are on
+    <a href="shell.html">Console frame and controls</a> (areas 1 to 3 and 10) and <a href="mission.html">Mission
+    Control</a> (areas 4 to 9).</p>
+
+  <figure class="shot boxes-quiet" id="map-figure">
+    <div class="shot-frame">
+      <img src="img/screen-mission.jpg" width="1440" height="1312"
+           alt="Mission Control in the dark theme: top bar, five-colour lifecycle ribbon, left icon rail, Network health panel at 100 percent, Consortium map with five operators around an enclave aggregator, five plane tiles, a hexagon network twin map, an empty Needs attention panel and the live stream bar at the bottom">
+      <span class="box" data-target="map-1" style="left:0%;top:0%;width:100%;height:3.66%"></span>
+      <span class="box" data-target="map-2" style="left:0%;top:3.66%;width:100%;height:2.74%"></span>
+      <span class="box" data-target="map-3" style="left:0%;top:6.4%;width:4.44%;height:91.16%"></span>
+      <span class="box" data-target="map-4" style="left:6.11%;top:7.93%;width:92.22%;height:6.71%"></span>
+      <span class="box" data-target="map-5" style="left:6.11%;top:14.63%;width:37.78%;height:22.56%"></span>
+      <span class="box" data-target="map-6" style="left:45%;top:14.63%;width:53.33%;height:33.16%"></span>
+      <span class="box" data-target="map-7" style="left:6.11%;top:49.01%;width:92.22%;height:19.44%"></span>
+      <span class="box" data-target="map-8" style="left:6.11%;top:69.66%;width:53.33%;height:25.46%"></span>
+      <span class="box" data-target="map-9" style="left:60.56%;top:69.66%;width:37.78%;height:10.52%"></span>
+      <span class="box" data-target="map-10" style="left:0%;top:97.56%;width:100%;height:2.44%"></span>
+      <a class="pin" href="#map-1" style="left:60%;top:max(2.2%, 0.7rem)">1</a>
+      <a class="pin" href="#map-2" style="left:30.2%;top:max(7.3%, calc(3.66% + 0.7rem))">2</a>
+      <a class="pin" href="#map-3" style="left:max(2.5%, 0.7rem);top:30%">3</a>
+      <a class="pin" href="#map-4" style="left:70%;top:10.5%">4</a>
+      <a class="pin" href="#map-5" style="left:30%;top:29.5%">5</a>
+      <a class="pin" href="#map-6" style="left:50%;top:20%">6</a>
+      <a class="pin" href="#map-7" style="left:19%;top:51.1%">7</a>
+      <a class="pin" href="#map-8" style="left:38%;top:71.2%">8</a>
+      <a class="pin" href="#map-9" style="left:88%;top:71.2%">9</a>
+      <a class="pin" href="#map-10" style="left:60%;top:min(97.6%, calc(100% - 0.7rem))">10</a>
+    </div>
+    <figcaption>Mission Control before the demo starts (route <code>/</code>, full page height; on a laptop screen you
+      scroll to see the twin). Click the image to enlarge it.</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#map-1"><span class="n">1</span><span>Top bar</span></a></li>
+      <li><a href="#map-2"><span class="n">2</span><span>Lifecycle ribbon</span></a></li>
+      <li><a href="#map-3"><span class="n">3</span><span>Screens rail</span></a></li>
+      <li><a href="#map-4"><span class="n">4</span><span>Page header</span></a></li>
+      <li><a href="#map-5"><span class="n">5</span><span>Network health</span></a></li>
+      <li><a href="#map-6"><span class="n">6</span><span>Consortium</span></a></li>
+      <li><a href="#map-7"><span class="n">7</span><span>Plane tiles</span></a></li>
+      <li><a href="#map-8"><span class="n">8</span><span>Network twin</span></a></li>
+      <li><a href="#map-9"><span class="n">9</span><span>Needs attention</span></a></li>
+      <li><a href="#map-10"><span class="n">10</span><span>Live stream</span></a></li>
+    </ul>
+  </figure>
+
+  <!-- 1 top bar -->
+  <article class="comp" id="map-1">
+    <header><span class="comp-num">1</span><h3 data-toc="skip">Top bar</h3><span class="where">file <code>app/TopBar.tsx</code></span></header>
+    <div class="sec for"><h4>What it is for</h4>
+      <p>The always-visible status line: is the console connected, what time is it in the simulation, does anything
+        need a human, and is this mock or AWS. It also holds the emergency stop for the agent swarm.</p></div>
+    <div class="sec shows"><h4>What it shows</h4>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Element (left to right)</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><th>SPECTRUM wordmark</th><td>Five bars in the five plane colours. Click it to go to Mission Control.</td></tr>
+          <tr><th>"Operator A, home NOC"</th><td>A dropdown with a second option, "Consortium view". In this build it only changes its own label; no panel reads it.</td></tr>
+          <tr><th>Connection dot</th><td>"Live" (a message arrived in the last 2.5 s), "Lagging" (silence longer than that), "Offline" (socket closed, retrying) or "Connecting". Hover it for events per second.</td></tr>
+          <tr><th>Clock, e.g. "21:30:10 PDT"</th><td>The simulation clock. Shows a "Paused" chip when paused and a speed chip (2× or 5×) when not at 1×.</td></tr>
+          <tr><th>Search box</th><td>Opens the command palette (same as <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> <kbd>K</kbd>).</td></tr>
+          <tr><th>Flag with a number</th><td>How many decisions are waiting for a human. Turns amber when any of them has less than 60 s left on its deadline.</td></tr>
+          <tr><th>"Autonomy L4 site L3 coord."</th><td>How much the site agents and the coordinator may do on their own, on the TM Forum L0 to L5 scale. In the design notes, L4 means humans are only notified and L3 means humans approve high-risk actions (<a href="concepts.html#term-earned-autonomy">earned autonomy</a>). Display only.</td></tr>
+          <tr><th><code>MOCK</code> or <code>AWS</code></th><td>Which backend mode the server reports from <code>GET /api/config</code>.</td></tr>
+          <tr><th>Sun or moon button</th><td>Switches between the dark Ops theme and the light Projector theme.</td></tr>
+          <tr><th>Freeze</th><td>Emergency stop for all agent actions. Becomes "Frozen: resume" while frozen.</td></tr>
+        </tbody>
+      </table></div></div>
+    <div class="sec how"><h4>How it works</h4>
+      <p>Everything here is read from the live feed the server pushes to the browser. The bar only counts and compares:
+        it counts pending approvals and compares each deadline with the simulation clock. It does not ask the server for
+        anything.</p>
+      <dl class="facts">
+        <dt>Store slices</dt><dd><code>conn</code>, <code>clock</code>, <code>mode</code>, <code>oversight.items</code>, <code>swarm.autonomy</code>, <code>swarm.frozen</code></dd>
+        <dt>Changes when</dt><dd>The connection health check runs every second; <code>sim.clock</code> arrives every simulated second; approvals and autonomy change through their events.</dd>
+      </dl>
+      <p>Full detail: <a href="shell.html">Console frame and controls</a>.</p></div>
+    <div class="sec controls"><h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Flag button</th><td>Opens the Oversight Desk.</td><td>Goes to <code>/oversight</code>. No backend call.</td></tr>
+          <tr><th>Theme button or <kbd>t</kbd></th><td>Switches Ops and Projector themes.</td><td>Browser only, saved in this browser.</td></tr>
+          <tr><th>Hold Freeze for 1.2 s</th><td>Freezes the swarm.</td><td><code>POST /api/swarm/freeze</code>; the button turns into "Frozen: resume", which calls <code>POST /api/swarm/resume</code>.</td></tr>
+        </tbody>
+      </table></div></div>
+    <div class="comp-present">
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs mixed">Partly real</span> Connection state and the approval count are real browser and server state; the clock and autonomy levels belong to the simulation.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>Do not hold Freeze by accident during the demo: the agents stop until someone presses "Frozen: resume".</p></div>
+    </div>
+  </article>
+
+  <!-- 2 ribbon -->
+  <article class="comp" id="map-2">
+    <header><span class="comp-num">2</span><h3 data-toc="skip">Lifecycle ribbon</h3><span class="where">panel <code>ribbon</code>, file <code>app/Ribbon.tsx</code></span></header>
+    <div class="sec for"><h4>What it is for</h4>
+      <p>One line that tells you where each plane stands right now, and the fastest way to jump between planes.</p></div>
+    <div class="sec shows"><h4>What it shows</h4>
+      <p>Five coloured segments: Learn, Verify, Release, Operate, Prove. Each has a main reading and a smaller reading on
+        the right. In the screenshot: "Round 13 queued" with "ε max 2.59 of 3", "nlm-v6 in prod", "nlm-v6 serving" with
+        "4 targets, 2 vendors", "46 agents, 0 incidents" with "network nominal", and "Ledger #3,434" with "anchored 49 s
+        ago" (time since the last Merkle anchor was written). The right-hand reading turns red when a plane needs
+        attention, for example "chain broken at #N".</p>
+      <p><a href="concepts.html#term-privacy-budget">ε (epsilon)</a> is how much privacy an operator has spent; lower is
+        more private. "ε max 2.59 of 3" is the highest spend of any operator against the budget of 3. An operator that
+        reaches its budget leaves the federation.</p>
+      <p>Which round are we on? 12 rounds are finished and round 13 is next. The Learn tile counts finished rounds
+        ("12 of 30"), and the ribbon names the next one ("Round 13 queued"). Beat 2 starts round 13, and the ribbon then
+        reads "Round 13/30".</p></div>
+    <div class="sec how"><h4>How it works</h4>
+      <p>Each segment reads the latest state of its plane from the live feed and picks a short text. Nothing is
+        fetched on demand.</p>
+      <dl class="facts">
+        <dt>Store slices</dt><dd><code>federation</code>, <code>proving</code>, <code>release</code>, <code>swarm</code>, <code>ledger</code>, <code>live.pulses</code></dd>
+        <dt>Changes when</dt><dd>Any of those engines emits an event.</dd>
+      </dl>
+      <p>When a hand-off event arrives (<code>fl.promote</code>, <code>eval.gate</code>, <code>release.stage</code>,
+        <code>incident.resolved</code>, <code>loop.enqueue</code>, <code>fl.checkpoint</code>), a soft light band sweeps
+        from one segment to the next for under a second. Full card with every reading:
+        <a href="shell.html">Console frame and controls</a>.</p></div>
+    <div class="sec controls"><h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody><tr><th>Click a segment</th><td>Opens that plane's screen.</td><td>Goes to <code>/federation</code>, <code>/proving</code>, <code>/release</code>, <code>/swarm</code> or <code>/audit</code>. No backend call.</td></tr></tbody>
+      </table></div></div>
+    <div class="comp-present">
+      <div class="sec demo"><h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Beat 1: press <kbd>1</kbd> (or <kbd>→</kbd> from beat 0). Beat 14: press <kbd>→</kbd> from beat 13.</li>
+          <li>The ribbon stays bright while other panels fade. Run your finger along it from Learn to Prove.</li>
+        </ol></div>
+      <div class="sec say"><h4>What to say</h4>
+        <blockquote class="say"><p>"This strip is the whole system on one line: learn, verify, release, operate, prove.
+          When work moves between stages, a light band sweeps across."</p></blockquote></div>
+    </div>
+  </article>
+
+  <!-- 3 rail -->
+  <article class="comp" id="map-3">
+    <header><span class="comp-num">3</span><h3 data-toc="skip">Screens rail</h3><span class="where">file <code>app/Rail.tsx</code></span></header>
+    <div class="sec for"><h4>What it is for</h4>
+      <p>The list of all console screens, in lifecycle order, always on the left.</p></div>
+    <div class="sec shows"><h4>What it shows</h4>
+      <p>Ten icons: Mission Control, Federation Center, Proving Ground, Release Center, Swarm Tower, Oversight Desk,
+        Trust Center, Audit &amp; Proof, Observability, Settings &amp; Flags. A thin plane-coloured tick on the left of
+        each icon shows its plane (none for Mission Control, Observability and Settings). Hover the rail and it widens
+        to show names and go-to keys ("g f" and so on). An amber dot on Oversight means approvals are waiting; a red
+        dot on Swarm means an incident is active. "Shortcuts" at the bottom opens the key list.</p></div>
+    <div class="sec how"><h4>How it works</h4>
+      <p>The rail is built from the feature registry <code>frontend/src/features/index.ts</code>: each screen's
+        <code>manifest.ts</code> gives its label, icon, plane, order and key. A screen whose feature flag is off
+        disappears from the rail. The dots read <code>oversight.items</code> and <code>swarm.incident</code>.
+        Full detail: <a href="shell.html">Console frame and controls</a>.</p></div>
+    <div class="sec controls"><h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Click an icon</th><td>Opens that screen.</td><td>Route change only.</td></tr>
+          <tr><th><kbd>g</kbd> then a letter</th><td>Same, from the keyboard (letters in the <a href="#screens">screen table</a>).</td><td>Route change only.</td></tr>
+        </tbody>
+      </table></div></div>
+  </article>
+
+  <!-- 4 page header -->
+  <article class="comp" id="map-4">
+    <header><span class="comp-num">4</span><h3 data-toc="skip">Page header</h3><span class="where">component <code>PageHeader</code></span></header>
+    <div class="sec for"><h4>What it is for</h4><p>Names the screen and says in one sentence what it is for.</p></div>
+    <div class="sec shows"><h4>What it shows</h4>
+      <p>The screen title, the track tags it covers (Mission Control shows <code>T1</code> <code>T2</code>
+        <code>T3</code>), and a one-line description. Some screens add buttons on the right, such as "Incident dossier"
+        on Audit.</p></div>
+    <div class="sec how"><h4>How it works</h4><p>Title, description and tracks come straight from the screen's
+      <code>manifest.ts</code>. Nothing here is live data.</p></div>
+    <div class="sec controls"><h4>Controls</h4><p>None on Mission Control. It only displays text.</p></div>
+  </article>
+
+  <!-- 5 network health -->
+  <article class="comp" id="map-5">
+    <header><span class="comp-num">5</span><h3 data-toc="skip">Network health</h3><span class="where">panel <code>health</code></span></header>
+    <div class="sec for"><h4>What it is for</h4><p>The ten-second answer to "is the network OK right now?".</p></div>
+    <div class="sec shows"><h4>What it shows</h4>
+      <p>A big percentage: the share of sites inside their KPI targets (100.0% before the demo), with users and
+        throughput below it. A pill reads Nominal (95% or more), Degraded (80% or more) or Impaired. Three small stats:
+        Incidents ("none, 5 resolved today", or "1 active" with its id and age), Last MTTR (time to repair the last
+        incident, 3m07s for INC-2040), and Waiting on a human. The chart shows network health (green) and stadium
+        district load (orange) over the last few minutes.</p></div>
+    <div class="sec how"><h4>How it works</h4>
+      <p>The simulated network recomputes its numbers once per simulated second and pushes them to the browser; the
+        panel draws the latest value and keeps a short history for the chart.</p>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/twin.py</code> recomputes KPIs once per simulated second</dd>
+        <dt>Arrives by</dt><dd><code>twin.tick</code> events; the store keeps the last 900 points</dd>
+        <dt>Store slices</dt><dd><code>twin</code>, <code>swarm.incidents</code>, <code>oversight.items</code></dd>
+      </dl>
+      <p>During the beat 7 incident the health drops and the orange load line climbs; it recovers after the approved
+        plan runs. Full card: <a href="mission.html">Mission Control</a>.</p></div>
+    <div class="sec controls"><h4>Controls</h4><p>None besides hovering the chart for values. It only displays data.</p></div>
+    <div class="comp-present">
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs sim">Simulated</span> The twin's KPIs are simulated; the source chip says "CloudWatch metrics" because that is where they would come from on AWS.</p></div>
+    </div>
+  </article>
+
+  <!-- 6 consortium -->
+  <article class="comp" id="map-6">
+    <header><span class="comp-num">6</span><h3 data-toc="skip">Consortium</h3><span class="where">panel <code>consortium</code></span></header>
+    <div class="sec for"><h4>What it is for</h4><p>Shows the five operators training one model together, and that only
+      masked model updates travel between them. This is the cold-open picture (beat 1).</p></div>
+    <div class="sec shows"><h4>What it shows</h4>
+      <ul>
+        <li>Five operator circles (Op-A to Op-E) around a centre box, "Enclave aggregator". Each circle shows its ε
+          (privacy spent so far; lower is more private) and its count of private incidents, for example "22,600
+          private incidents".</li>
+        <li>Each line is labelled with the adapter bytes that operator has uploaded (259.5 MiB each here). The adapter
+          is the small set of extra weights each operator trains (<a href="concepts.html#term-lora">LoRA</a>); only
+          this, masked, ever leaves the operator.</li>
+        <li>The centre shows the round state ("round 13 queued", or the current phase) and "PCR0 attested" when the
+          aggregator runs in enclave mode. An <a href="concepts.html#term-enclave">enclave</a> is a sealed AWS Nitro
+          compute box that even its operators cannot look inside; PCR0 is the fingerprint of the code running in it,
+          and "attested" means that fingerprint was checked.</li>
+        <li>Bottom row: "Raw data moved across boundaries 0 B", "Masked adapter updates moved" (1.3 GiB) and
+          "Federated loss vs best alone" (0.704, 36% lower than the best operator training alone).</li>
+      </ul></div>
+    <div class="sec how"><h4>How it works</h4>
+      <p>The panel draws the federation's latest state from the live feed and animates each upload as it happens.</p>
+      <dl class="facts">
+        <dt>Backend</dt><dd><code>engines/federation.py</code></dd>
+        <dt>Store slice</dt><dd><code>federation</code> (operators, sovereignty, rounds log)</dd>
+        <dt>Changes when</dt><dd>A round runs: small packets fly to the centre on each <code>fl.upload</code> event and back out when a round's "pull" phase starts.</dd>
+      </dl>
+      <p>The loss comparison uses the last round's federated validation loss against the lowest local-only loss.
+        Full card: <a href="mission.html">Mission Control</a>; the training itself is on
+        <a href="federation.html">Federation Center</a>.</p></div>
+    <div class="sec controls"><h4>Controls</h4><p>None. It only displays data.</p></div>
+    <div class="comp-present">
+      <div class="sec demo"><h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Beat 1 lights this panel together with the ribbon.</li>
+          <li>Point at the five circles, then at the centre box, then at "0 B".</li>
+        </ol></div>
+      <div class="sec say"><h4>What to say</h4>
+        <blockquote class="say"><p>"Every operator has outages and learns alone, because nobody can share data. Five
+          operators fix that here. Only masked updates travel on these lines."</p></blockquote></div>
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs sim">Simulated</span> The round, byte counts and loss come from the simulated federation.</p></div>
+      <div class="sec watch"><h4>Watch out</h4><p>"0 B" is fixed text in the panel, not a live measurement. Say "by design, only masked updates leave", not "we measured zero bytes".</p></div>
+    </div>
+  </article>
+
+  <!-- 7 plane tiles -->
+  <article class="comp" id="map-7">
+    <header><span class="comp-num">7</span><h3 data-toc="skip">Plane tiles</h3><span class="where">tiles <code>tile-learn</code> to <code>tile-prove</code></span></header>
+    <div class="sec for"><h4>What it is for</h4><p>Three key numbers and a trend for each plane, side by side, so you
+      can introduce the whole lifecycle from one screen.</p></div>
+    <div class="sec shows"><h4>What it shows</h4>
+      <div class="table-wrap"><table class="compact">
+        <thead><tr><th>Tile</th><th>Rows</th><th>Trend line</th></tr></thead>
+        <tbody>
+          <tr><th>Learn</th><td>Round ("12 of 30 ready": 12 finished), Highest ε (target 3, δ 1e-5: δ is the tiny chance the privacy guarantee does not hold), Validation loss and accuracy</td><td>loss per round</td></tr>
+          <tr><th>Verify</th><td>In production model, Candidate (or "awaiting checkpoint"), Safety score and $ per 1K tasks</td><td>accuracy by version</td></tr>
+          <tr><th>Release</th><td>Serving model, Rollout stage (or "stable"), Guard p95 latency (95% of requests are faster than this) and error rate</td><td>p95 latency, last minute</td></tr>
+          <tr><th>Operate</th><td>Agents active and quarantined, Incident (or last MTTR), Autonomy site and coordinator levels</td><td>network health</td></tr>
+          <tr><th>Prove</th><td>Ledger height, Chain ("not yet verified", "verified" or "broken at #N"), Last anchor number</td><td>policy decisions per 10 s</td></tr>
+        </tbody>
+      </table></div>
+      <p>A red dot next to the tile name appears on Operate during an incident and on Prove after a failed chain check.</p></div>
+    <div class="sec how"><h4>How it works</h4><p>Each tile reads one or two store slices
+      (<code>federation</code>, <code>proving</code>, <code>release</code>, <code>swarm</code>, <code>ledger</code>,
+      <code>trust</code>, <code>twin</code>, <code>observability</code>) and picks the text. Full card:
+      <a href="mission.html">Mission Control</a>.</p></div>
+    <div class="sec controls"><h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody><tr><th>Click a tile</th><td>Opens that plane's screen.</td><td>Route change only.</td></tr></tbody>
+      </table></div></div>
+  </article>
+
+  <!-- 8 network twin -->
+  <article class="comp" id="map-8">
+    <header><span class="comp-num">8</span><h3 data-toc="skip">Network twin</h3><span class="where">panel <code>mini-twin</code>, file <code>features/mission/MiniTwin.tsx</code></span></header>
+    <div class="sec for"><h4>What it is for</h4><p>A small map of the simulated network the agents run, so you can see
+      where trouble is.</p></div>
+    <div class="sec shows"><h4>What it shows</h4>
+      <p>One hexagon per cell site (40 sites, 120 cells). Fill colour is PRB load, meaning how busy the site's radio
+        capacity is, from dark (0%) to light (100%). A red ring means backhaul down, an amber ring means running on the
+        microwave backup link, and an orange ring means load at 85% or more. "H" marks a hospital site and "911" an emergency-call site. The dashed box is the stadium
+        district.</p></div>
+    <div class="sec how"><h4>How it works</h4><p>It reads <code>twin.state</code> from the <code>twin.tick</code> event,
+      once per simulated second. In beat 7 the incident cuts fibre T3 and adds stadium load, so sites turn light and
+      ringed. Full card: <a href="mission.html">Mission Control</a>; the big twin is on
+      <a href="swarm.html">Swarm Tower</a>.</p></div>
+    <div class="sec controls"><h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><th>Hover a hexagon</th><td>Shows the site id, hub, tags and readings.</td><td>Tooltip only.</td></tr>
+          <tr><th>Click the map</th><td>Opens Swarm Tower.</td><td>Goes to <code>/swarm</code>.</td></tr>
+        </tbody>
+      </table></div></div>
+  </article>
+
+  <!-- 9 needs attention -->
+  <article class="comp" id="map-9">
+    <header><span class="comp-num">9</span><h3 data-toc="skip">Needs attention</h3><span class="where">panel <code>critical</code></span></header>
+    <div class="sec for"><h4>What it is for</h4><p>The latest problems, so nothing important scrolls past unseen.</p></div>
+    <div class="sec shows"><h4>What it shows</h4><p>Up to eight of the newest warning or critical events, each with
+      a severity icon, time, plane, actor and, if it was written to the ledger, its record number. Before the demo it
+      reads "No warnings. The swarm is handling routine work on its own."</p></div>
+    <div class="sec how"><h4>How it works</h4><p>It filters the browser's event <code>stream</code> (the same events as
+      the live stream) for severity warn or critical. Full card: <a href="mission.html">Mission Control</a>.</p></div>
+    <div class="sec controls"><h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody><tr><th>Click a row</th><td>Opens the Inspector drawer on the right.</td><td>Shows the signed ledger record and its proof (fetched with <code>GET /api/ledger/{seq}</code> and <code>GET /api/ledger/proof/{seq}</code>) or the raw event.</td></tr></tbody>
+      </table></div></div>
+  </article>
+
+  <!-- 10 live stream -->
+  <article class="comp" id="map-10">
+    <header><span class="comp-num">10</span><h3 data-toc="skip">Live stream</h3><span class="where">file <code>app/StreamDrawer.tsx</code></span></header>
+    <div class="sec for"><h4>What it is for</h4><p>Proof that the system is alive: every meaningful event, as it happens.</p></div>
+    <div class="sec shows"><h4>What it shows</h4><p>Closed, it is one line at the bottom with the newest event, for
+      example "operate site-15 set_handover_offset". Open, it is a log table with filters for plane, minimum severity,
+      free text and "only ledgered" events.</p></div>
+    <div class="sec how"><h4>How it works</h4><p>Every event from the WebSocket is appended to the store's
+      <code>stream</code> (the newest 3,000 are kept), except very frequent ones such as <code>fl.step</code> and
+      <code>twin.tick</code>. Full detail: <a href="shell.html">Console frame and controls</a>.</p></div>
+    <div class="sec controls"><h4>Controls</h4>
+      <div class="table-wrap"><table class="controls">
+        <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+        <tbody><tr><th>Click "Live stream" or press <kbd>l</kbd></th><td>Opens or closes the drawer.</td><td>Browser only.</td></tr></tbody>
+      </table></div></div>
+  </article>
+
+  <div class="callout tip">
+    <p class="title">Not in the screenshot</p>
+    <p>Four more parts of the frame appear on demand: the <strong>Demo Director</strong> (floating panel,
+      <kbd>d</kbd>) that runs the 14 beats, the <strong>Inspector</strong> drawer on the right for any record, the
+      <strong>command palette</strong> (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd> <kbd>K</kbd>) and the <strong>shortcut list</strong>
+      (<kbd>?</kbd>). All are explained on <a href="shell.html">Console frame and controls</a>.</p>
+  </div>
+
+  <!-- ============================================================ screens -->
+  <h2 id="screens">Every screen at a glance</h2>
+  <p>Ten screens sit inside the console frame. Three more open on their own, without the frame. The go-to key means
+    press <kbd>g</kbd>, then the letter, within about a second.</p>
+  <div class="table-wrap">
+    <table class="compact" id="screens-table">
+      <thead><tr><th>Screen</th><th>Question it answers</th><th>Route</th><th>Key</th><th>Plane</th><th>Beats</th><th>Guide page</th></tr></thead>
+      <tbody>
+        <tr><th>Mission Control</th><td>Is the whole system healthy, and where does each plane stand?</td><td><code>/</code></td><td style="white-space:nowrap"><kbd>g</kbd> <kbd>m</kbd></td><td>All</td><td><a href="demo-playbook.html#beat-1">1</a>, <a href="demo-playbook.html#beat-14">14</a></td><td><a href="mission.html">Mission Control</a></td></tr>
+        <tr><th>Federation Center</th><td>How do five operators train one model without sharing data, and how much privacy has each spent?</td><td><code>/federation</code></td><td style="white-space:nowrap"><kbd>g</kbd> <kbd>f</kbd></td><td>Learn</td><td><a href="demo-playbook.html#beat-2">2</a>, <a href="demo-playbook.html#beat-3">3</a>, <a href="demo-playbook.html#beat-4">4</a></td><td><a href="federation.html">Federation Center</a></td></tr>
+        <tr><th>Proving Ground</th><td>Is the new model accurate, safe, fast and cheap enough to ship?</td><td><code>/proving</code></td><td style="white-space:nowrap"><kbd>g</kbd> <kbd>p</kbd></td><td>Verify</td><td><a href="demo-playbook.html#beat-5">5</a></td><td><a href="proving.html">Proving Ground</a></td></tr>
+        <tr><th>Release Center</th><td>How does the model reach four targets on two vendors without risk?</td><td><code>/release</code></td><td style="white-space:nowrap"><kbd>g</kbd> <kbd>r</kbd></td><td>Release</td><td><a href="demo-playbook.html#beat-6">6</a></td><td><a href="release.html">Release</a></td></tr>
+        <tr><th>Swarm Tower</th><td>What are the agents doing on the network, and do they stay inside the rules?</td><td><code>/swarm</code></td><td style="white-space:nowrap"><kbd>g</kbd> <kbd>s</kbd></td><td>Operate</td><td><a href="demo-playbook.html#beat-7">7</a>, <a href="demo-playbook.html#beat-8">8</a>, <a href="demo-playbook.html#beat-10">10</a></td><td><a href="swarm.html">Swarm Tower</a></td></tr>
+        <tr><th>Oversight Desk</th><td>Which decisions wait for a human, with what evidence and what deadline?</td><td><code>/oversight</code></td><td style="white-space:nowrap"><kbd>g</kbd> <kbd>o</kbd></td><td>Operate</td><td><a href="demo-playbook.html#beat-9">9</a></td><td><a href="oversight.html">Human oversight</a></td></tr>
+        <tr><th>Trust Center</th><td>Which rules, identities and checks stop an agent from going rogue?</td><td><code>/trust</code></td><td style="white-space:nowrap"><kbd>g</kbd> <kbd>t</kbd></td><td>Prove (rail colour)</td><td>None</td><td><a href="trust.html">Trust Center</a></td></tr>
+        <tr><th>Audit &amp; Proof</th><td>Can we prove what happened, trace why, and catch tampering?</td><td><code>/audit</code></td><td style="white-space:nowrap"><kbd>g</kbd> <kbd>a</kbd></td><td>Prove</td><td><a href="demo-playbook.html#beat-11">11</a>, <a href="demo-playbook.html#beat-12">12</a></td><td><a href="audit.html">Audit</a></td></tr>
+        <tr><th>Observability</th><td>What does it cost, how fast is it, and where did the time go in an incident?</td><td><code>/observability</code></td><td style="white-space:nowrap"><kbd>g</kbd> <kbd>b</kbd></td><td>All</td><td><a href="demo-playbook.html#beat-13">13</a></td><td><a href="observability.html">Observability</a></td></tr>
+        <tr><th>Settings &amp; Flags</th><td>Which features are on, where each panel's data comes from, and how the display is set.</td><td><code>/settings</code></td><td style="white-space:nowrap"><kbd>g</kbd> <kbd>,</kbd></td><td>None</td><td>None</td><td><a href="settings.html">Settings</a></td></tr>
+        <tr><th>Presenter view</th><td>What beat are we on, what do I say, and are we on time?</td><td><code>/presenter</code></td><td>None</td><td>Opens alone</td><td>All, as the driver</td><td><a href="settings.html">Settings</a></td></tr>
+        <tr><th>Phone approvals</th><td>Can a human approve or reject a pending decision from a phone?</td><td><code>/m/approve</code></td><td>None</td><td>Opens alone</td><td><a href="demo-playbook.html#beat-9">9</a></td><td><a href="oversight.html">Human oversight</a></td></tr>
+        <tr><th>Incident dossier</th><td>What is the printable, signed record of one incident? Opened from the Audit screen.</td><td><code>/dossier/&lt;incident&gt;</code></td><td>None</td><td>Opens alone</td><td>None</td><td><a href="audit.html">Audit</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="beats-glance">The 14 beats at a glance</h3>
+  <p>The demo is a fixed script of 14 beats. Each beat moves the console to a screen, triggers one scenario step on
+    the server, and lights the panels to talk about. Bar width is the planned length. On a phone, scroll the strip
+    sideways to see all 14. Full detail is in the <a href="demo-playbook.html">Demo playbook</a>.</p>
+  <ol class="timeline wide" aria-label="The 14 demo beats">
+    <li style="--w:30;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-1"><b>1</b>Cold open</a></li>
+    <li data-plane="learn" style="--w:40;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-2"><b>2</b>Federated round</a></li>
+    <li data-plane="learn" style="--w:25;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-3"><b>3</b>Aggregator view</a></li>
+    <li data-plane="learn" style="--w:25;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-4"><b>4</b>Poisoned update</a></li>
+    <li data-plane="verify" style="--w:35;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-5"><b>5</b>Gate</a></li>
+    <li data-plane="release" style="--w:25;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-6"><b>6</b>Canary</a></li>
+    <li data-plane="operate" style="--w:30;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-7"><b>7</b>Incident</a></li>
+    <li data-plane="operate" style="--w:30;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-8"><b>8</b>Negotiate</a></li>
+    <li data-plane="operate" style="--w:25;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-9"><b>9</b>Approval</a></li>
+    <li data-plane="operate" style="--w:40;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-10"><b>10</b>Attack</a></li>
+    <li data-plane="prove" style="--w:30;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-11"><b>11</b>Provenance</a></li>
+    <li data-plane="prove" style="--w:25;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-12"><b>12</b>Tamper</a></li>
+    <li style="--w:25;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-13"><b>13</b>Cost, traces</a></li>
+    <li style="--w:20;flex:var(--w) 1 0"><a href="demo-playbook.html#beat-14"><b>14</b>Loop</a></li>
+  </ol>
+  <details class="more">
+    <summary>What the server does at each beat</summary>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th class="num">Beat</th><th>Title</th><th>Server action (<code>Engine.beat</code> in <code>engine.py</code>)</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td>Cold open</td><td>None. Records the beat only.</td></tr>
+          <tr><td class="num">2</td><td>Federated round, live</td><td>Starts training round 13 if it is not already running.</td></tr>
+          <tr><td class="num">3</td><td>What the aggregator sees</td><td>Turns on the secure aggregation reveal.</td></tr>
+          <tr><td class="num">4</td><td>Poisoned update</td><td>Marks Operator E to send a poisoned update.</td></tr>
+          <tr><td class="num">5</td><td>Proving Ground gate</td><td>Promotes the latest checkpoint if needed, then runs the verification pipeline.</td></tr>
+          <tr><td class="num">6</td><td>Shadow, then canary</td><td>Starts shadow for the candidate if needed, then advances to canary 10%.</td></tr>
+          <tr><td class="num">7</td><td>Incident hits</td><td>Opens incident INC-2041: fibre cut T3 plus a stadium surge. The swarm then runs its script on its own (detect, diagnose, negotiate, pre-flight, ask for approval) over about 12 simulated seconds.</td></tr>
+          <tr><td class="num">8</td><td>Agents negotiate</td><td>None. The negotiation from beat 7 is already running.</td></tr>
+          <tr><td class="num">9</td><td>Human approval</td><td>None. The approval request already exists; a human approves it.</td></tr>
+          <tr><td class="num">10</td><td>Prompt-injection attack</td><td>Plants a malicious syslog line on site-17.</td></tr>
+          <tr><td class="num">11</td><td>Provenance</td><td>None. The Audit screen shows provenance.</td></tr>
+          <tr><td class="num">12</td><td>Tamper test</td><td>Edits one ledger record directly.</td></tr>
+          <tr><td class="num">13</td><td>Cost and traces</td><td>None.</td></tr>
+          <tr><td class="num">14</td><td>Close the loop</td><td>Writes a <code>loop.enqueue</code> ledger record: the incident is queued as private training data at Operator A for the next round.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  <!-- ============================================================ run -->
+  <h2 id="run">How to run it</h2>
+  <p>Full instructions, including Windows and troubleshooting, are in
+    <a href="../SETUP_AND_RUN_instructions.md">SETUP_AND_RUN_instructions.md</a>. You need Node 20.19 or newer and
+    <code>uv</code>; no AWS account or internet is needed after install.</p>
+  <ol class="steps">
+    <li>In the project folder, run <code>make install</code> once.</li>
+    <li>Run <code>make dev</code>. This starts the API on port 8787 and the console on port 5173. Open
+      <code>http://localhost:5173</code> in Chrome.</li>
+    <li>On demo day, run <code>make demo</code> instead. It builds the console and serves everything from one
+      process at <code>http://localhost:8787</code>, with no dev server.</li>
+  </ol>
+
+  <h3 id="before-stage">Before you go on stage</h3>
+  <ol class="steps">
+    <li>Find the Demo Director: a floating panel near the bottom-left of the console, titled "Demo Director" with
+      "beat 0 of 14" next to it. It is open by default. If you cannot see it, press <kbd>d</kbd>. You can drag it by
+      its title bar.</li>
+    <li>Hold the <strong>Reset</strong> button in the Director for 1.2 s (or hold <kbd>r</kbd> for 1 s). Wait for the
+      toast "Scenario reset to the pre-demo state". The console returns to Mission Control and the Learn segment of the
+      ribbon reads "Round 13 queued". Do this even on a freshly started server: a fresh <code>make dev</code> is already training, starting with round 13, and only a reset holds it at "queued" so beat 2 can start it on cue.</li>
+    <li>Click the <strong>Preflight</strong> tab in the Director and wait up to 10 s for the rows to refresh (they
+      reload every 10 s). Check the rows: Backend reachable, WebSocket live, Ledger verified clean, Scenario reset
+      (beat 0), Fonts loaded, Theme chosen, Approval phones connected. All should show a green tick. "Ledger verified
+      clean" stays amber after a tamper rehearsal (beat 12) until you reset or restore the ledger on Audit.</li>
+    <li>On a washed-out projector, press <kbd>t</kbd> for the light Projector theme.</li>
+    <li>Phones: join the same Wi-Fi as the laptop and scan the QR code on the Preflight tab. It opens
+      <code>/m/approve</code>. The "Approval phones connected" row counts every other open console, including the
+      presenter laptop or a second browser tab, so check the phone itself shows its "Signing as" line. If you are not
+      using phones, this row can stay amber; approve from the Oversight Desk instead.</li>
+    <li>Spotlight and Notes are on by default (toggles at the bottom of the Director). Leave them on.</li>
+  </ol>
+
+  <h3 id="keys">The keys you need</h3>
+  <dl class="keys">
+    <dt><kbd>→</kbd> <kbd>Space</kbd> <kbd>PageDown</kbd></dt><dd>Next beat (a presentation clicker works)</dd>
+    <dt><kbd>←</kbd> <kbd>PageUp</kbd></dt><dd>Fire the previous beat again. This re-runs its server step (for example a
+      second attack or a second tamper), so do not use it to "go back a slide". To show an earlier screen, use
+      <kbd>g</kbd> plus a letter instead.</dd>
+    <dt><kbd>1</kbd>–<kbd>9</kbd></dt><dd>Fire beat 1 to 9 at once, even out of order (beats 10 to 14: use <kbd>→</kbd> or click them in the Director)</dd>
+    <dt><kbd>d</kbd></dt><dd>Show or hide the Demo Director</dd>
+    <dt><kbd>n</kbd></dt><dd>Show or hide the "Say this" note in the Director</dd>
+    <dt><kbd>s</kbd></dt><dd>Spotlight on or off</dd>
+    <dt><kbd>Esc</kbd></dt><dd>Clear the spotlight and close help</dd>
+    <dt><kbd>g</kbd> then a letter</dt><dd>Go to a screen (see the <a href="#screens">screen table</a>)</dd>
+    <dt><kbd>p</kbd></dt><dd>Pause or resume the simulation (a "Paused" chip appears by the clock)</dd>
+    <dt><kbd>t</kbd></dt><dd>Switch between the Ops and Projector themes</dd>
+    <dt><kbd>l</kbd></dt><dd>Open or close the live stream</dd>
+    <dt><kbd>?</kbd></dt><dd>Show every shortcut</dd>
+    <dt><kbd>Cmd</kbd>/<kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Command palette</dd>
+    <dt>Hold <kbd>r</kbd> 1 s</dt><dd>Reset the whole scenario</dd>
+  </dl>
+  <div class="callout warn">
+    <p class="title">Single letters do things</p>
+    <p>Outside a text box, <kbd>p</kbd> pauses the simulation, <kbd>t</kbd> switches theme and <kbd>s</kbd> switches
+      spotlight. Digit keys <kbd>1</kbd> to <kbd>9</kbd> fire that beat at once, even out of order: a stray
+      <kbd>7</kbd> starts the incident. The go-to keys use the same letters only after <kbd>g</kbd>. Holding
+      <kbd>r</kbd> resets everything, so never rest a finger on it. The full key map is on
+      <a href="shell.html">Console frame and controls</a>.</p>
+  </div>
+
+  <h3 id="recovery">If something goes wrong</h3>
+  <div class="table-wrap">
+    <table class="compact" id="recovery-table">
+      <thead><tr><th>What you see</th><th>What to do</th></tr></thead>
+      <tbody>
+        <tr><th>Top bar says "Offline" or "Lagging"</th><td>Check the terminal running <code>make dev</code> or <code>make demo</code>. When the server is back, the page reconnects and reloads the full state by itself.</td></tr>
+        <tr><th>Preflight row "Backend reachable" says "start the API: make dev"</th><td>The API is not running. Start it with <code>make dev</code> (or <code>make demo</code>), then hold Reset.</td></tr>
+        <tr><th>Red toast "Beat N failed: …"</th><td>The beat did not reach the server, usually because the API is down. Restart it, then hold Reset and fire the beats again.</td></tr>
+        <tr><th>A "Paused" chip next to the clock</th><td>Someone pressed <kbd>p</kbd>. Press <kbd>p</kbd> again, or the pause button in the Director.</td></tr>
+        <tr><th>The Freeze button reads "Frozen: resume"</th><td>The swarm is stopped. Click "Frozen: resume".</td></tr>
+        <tr><th>Ribbon says "chain broken at #N" after beat 12</th><td>Expected: that is the tamper test. To clean it, on the Audit screen click "Restore originals", then "Verify chain" so the ribbon clears. Or hold Reset.</td></tr>
+        <tr><th>The wrong beat fired, or <kbd>←</kbd> re-ran a beat</th><td>Hold Reset, then fire the beats again in order (number keys for 1 to 9, then <kbd>→</kbd>).</td></tr>
+        <tr><th>Most of the screen is faded</th><td>That is spotlight. Press <kbd>Esc</kbd> to clear it.</td></tr>
+        <tr><th>The Director has disappeared</th><td>Press <kbd>d</kbd>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>More recovery notes for each beat are in the <a href="demo-playbook.html">Demo playbook</a>.</p>
+
+  <!-- ============================================================ pitch -->
+  <h2 id="pitch">Two-minute elevator pitch</h2>
+  <p>About 350 words, which is a little over two minutes spoken at a calm pace. Every claim here is backed by something on
+    screen. Pause where the paragraphs break.</p>
+  <blockquote class="say">
+    <p>"Every mobile operator has outages, and every operator learns from them alone, because nobody can share
+      subscriber data with a competitor. SPECTRUM changes that. It is one console for the whole life of a network
+      model, in five steps."</p>
+    <p>"Learn. Five operators fine-tune one shared model together. Each trains on its own private incidents, with
+      privacy noise added, and each has a hard privacy budget. Only masked updates leave an operator. The masks cancel
+      only in the total, so from any one operator our server sees only noise. If one operator is
+      hacked and sends a bad update, the aggregator throws it out, inside a sealed, verified hardware box."</p>
+    <p>"Verify. The new model has to earn its place: accuracy, a safety red team, speed, price, and private scores
+      from each operator. It gets a signed parts list, and a deploy gate decides."</p>
+    <p>"Release. One signed manifest ships it to four targets across two vendors. Shadow first, then ten percent of
+      traffic, watched by safety limits on speed and errors."</p>
+    <p>"Operate. The model powers a swarm of 46 agents running a simulated network of 40 sites. When a fibre is cut
+      after a concert, the agents negotiate, energy against customer experience, and the twin predicts the result
+      before anything touches the network. The plan touches more than our five percent limit, so a human approves it,
+      from a phone. When someone plants an instruction in a log line, the fooled agent is blocked by policy that runs
+      outside the model, its messages are rejected, and it is quarantined."</p>
+    <p>"Prove. Every step is signed and chained into a ledger, each record linked to the one before. Edit one record
+      and verification breaks at exactly that record. One click traces any action back to the approver, the model and the training round that produced it."</p>
+    <p>"And tonight's incident becomes tomorrow's private training data. That is the loop."</p>
+    <p>"To be straight with you: this runs on a mock engine. The ledger, secure aggregation, signed agent messages and
+      policy checks are real code. Training curves, network numbers, benchmark scores and prices are simulated, and
+      every panel says which AWS service it maps to."</p>
+  </blockquote>
+  <div class="callout tip">
+    <p class="title">If you only have 30 seconds</p>
+    <p>Use the first paragraph, the one-line summary from <a href="#sixty-seconds">SPECTRUM in 60 seconds</a>, and the
+      last paragraph. Then show the <a href="#map-2">lifecycle ribbon</a> and say "this strip is the whole system on
+      one line".</p>
+  </div>
+
+</main>
+</body>
+</html>

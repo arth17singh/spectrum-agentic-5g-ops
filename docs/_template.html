@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page template and components | SPECTRUM presenter guide</title>
+<!-- Every page includes exactly these two assets. Nothing else: no CDN, no web fonts, no other scripts. -->
+<link rel="stylesheet" href="assets/guide.css">
+<script src="assets/guide.js" defer></script>
+</head>
+<!--
+  BODY ATTRIBUTES
+  data-page   (required) the page's own filename, e.g. "swarm.html". guide.js uses it to highlight the
+              sidebar entry, build the prev/next links and pick the plane colour.
+              (_template.html is not in the nav, so this page shows no highlight and no prev/next.)
+  data-plane  (optional) learn | verify | release | operate | prove. Set automatically for pages in a
+              plane group (federation, proving, release, swarm, oversight, audit). Set it by hand only to
+              override. It drives --plane: card top rule, section markers, say blocks, TOC marker.
+  Write ONLY <main class="content">. Do NOT write the sidebar, TOC, pager, mobile bar or theme toggle:
+  guide.js injects them.
+-->
+<body data-page="_template.html" data-plane="operate">
+<main class="content">
+
+  <!-- =====================================================================
+       1. PAGE HEADER
+       header.page-head > span.plane-tag + h1 + p.lede + div.meta
+       guide.js inserts the mini lifecycle ribbon at the top of .page-head and lifts the
+       segment for the page's plane. Cross-cutting pages: leave out the .plane-tag.
+       .lede = one paragraph: what this screen is for, in plain words.
+       .meta = route, go-to hotkey (from features/<screen>/manifest.ts: route, nav.hotkey)
+               and the beats this screen appears in (route field of engine.py BEATS).
+       ===================================================================== -->
+  <header class="page-head">
+    <span class="plane-tag" data-plane="operate">Operate plane</span>
+    <h1>Page template and components</h1>
+    <p class="lede">One paragraph, in plain words, on what this screen is for and why a judge should care.
+      This page is the reference for page writers: every reusable block is shown below with its markup.
+      Copy the block, keep the class names, replace the words.</p>
+    <div class="meta">
+      <span>Route <code>/swarm</code></span>
+      <span>Go to it with <kbd>g</kbd> then <kbd>s</kbd></span>
+      <span class="beat-chips">Appears in demo beats
+        <!-- one chip per beat; link to the beat card id in the playbook -->
+        <a class="chip" href="demo-playbook.html#beat-7">7</a>
+        <a class="chip" href="demo-playbook.html#beat-8">8</a>
+        <a class="chip" href="demo-playbook.html#beat-10">10</a>
+      </span>
+    </div>
+  </header>
+
+  <h2>How to use this template</h2>
+  <p>Paragraphs, lists and headings stay inside a 70-character reading measure. Figures, tables, cards,
+    compare blocks and anything with class <code>wide</code> run to the full content width. Use
+    <code>h2</code> for sections and <code>h3</code> for sub-sections: both appear in the "On this page"
+    list on the right. Add <code>data-toc="skip"</code> to a heading to keep it out of that list.</p>
+  <ul>
+    <li>Sentence case headings. No all-caps labels, no emoji.</li>
+    <li>Explain jargon the first time in one plain sentence, or link to <a href="concepts.html">Concepts</a>.</li>
+    <li>Describe only what exists in the code. If unsure, check. If still unsure, leave it out.</li>
+  </ul>
+
+  <!-- Optional quick index of the page's components (numbers match pins and cards). -->
+  <ol class="comp-list">
+    <li><span class="comp-num">1</span><a href="#c-1">Card skeleton (top bar area)</a></li>
+    <li><span class="comp-num">2</span><a href="#c-2">Lifecycle ribbon (worked example)</a></li>
+    <li><span class="comp-num">3</span><a href="#c-3">Short card (navigation rail area)</a></li>
+  </ol>
+
+  <!-- =====================================================================
+       2. ANNOTATED SCREENSHOT
+       figure.shot > .shot-frame (position:relative) > img + boxes + pins, then figcaption, then
+       an optional ul.shot-legend.
+       Pin:  <a class="pin" href="#CARD-ID" style="left:X%;top:Y%">N</a>
+             X/Y = pin centre in % of the image (take them from img/manifest.json bounding boxes).
+             href must point at the component card's id. guide.js adds aria-label and title from
+             the card's h3, links hover/focus both ways, and flashes the card on click.
+       Box:  <span class="box" data-target="CARD-ID" style="left:X%;top:Y%;width:W%;height:H%"></span>
+             Optional outline of the component's area. Add class "boxes-quiet" on the figure to hide
+             boxes until their pin or card is hovered (good for busy screens).
+       Tip:  put the pin near the box's top-left corner (left = box.left + 1.5, top = box.top + 2),
+             and keep pins at least 3% apart so they do not overlap.
+       Clicking the image opens the lightbox. Always write a meaningful alt.
+       ===================================================================== -->
+  <h2>Annotated screenshot</h2>
+  <figure class="shot boxes-quiet">
+    <div class="shot-frame">
+      <img src="assets/placeholder-shot.svg" width="1440" height="900"
+           alt="Schematic of the console: top bar, five-colour lifecycle ribbon, left rail and five panels">
+      <span class="box" data-target="c-1" style="left:0%;top:0%;width:100%;height:5.3%"></span>
+      <span class="box" data-target="c-2" style="left:0%;top:5.3%;width:100%;height:4%"></span>
+      <span class="box" data-target="c-3" style="left:0%;top:9.3%;width:4.4%;height:90.7%"></span>
+      <a class="pin" href="#c-1" style="left:12%;top:2.7%">1</a>
+      <a class="pin" href="#c-2" style="left:30%;top:7.3%">2</a>
+      <a class="pin" href="#c-3" style="left:2.2%;top:32%">3</a>
+    </div>
+    <figcaption>Hover a number to outline that part and highlight its card below. Click a number to jump to the card. Click the image to enlarge it.</figcaption>
+    <ul class="shot-legend">
+      <li><a href="#c-1"><span class="n">1</span><span>Card skeleton</span></a></li>
+      <li><a href="#c-2"><span class="n">2</span><span>Lifecycle ribbon</span></a></li>
+      <li><a href="#c-3"><span class="n">3</span><span>Short card</span></a></li>
+    </ul>
+  </figure>
+
+  <!-- =====================================================================
+       3. COMPONENT CARD
+       article.comp#ID  (ID matches the pin href: c-1, c-2 ... or a prefix such as mc-1 if a page
+       has several screenshots).
+       header: span.comp-num, h3 (the component's on-screen name), optional span.where (panel id / file).
+
+       Then TWO ZONES, sections in exactly this order:
+
+       Understanding zone (REQUIRED on every card; this is the main, largest part):
+         div.sec.for       h4 "What it is for"    its job, one or two plain sentences
+         div.sec.shows     h4 "What it shows"     every element inside it: columns, numbers, chips,
+                                                  colours, icons, and what each means (a table is fine)
+         div.sec.how       h4 "How it works"      the mechanism: data source (engine, REST endpoint,
+                                                  WebSocket event, store slice), what is computed and how,
+                                                  what makes it change over time, its states.
+                                                  Use dl.facts for the source list, ol.flow for a data path
+                                                  or state chain, prose for the rest.
+         div.sec.controls  h4 "Controls"          div.table-wrap > table.controls with three columns:
+                                                  Control / What it does / What changes (incl. backend
+                                                  effect: endpoint, event, ledger record). If the
+                                                  component has no controls, say so in one sentence.
+
+       Presenting zone (wrap in div.comp-present; compact, visually secondary; drop a section only
+       if there is nothing true to say):
+         div.sec.read      h4 "How to read it"
+         div.sec.demo      h4 "How to demo it"           ol.steps with <kbd>
+         div.sec.say       h4 "What to say"              blockquote.say (ready-to-speak script)
+         div.sec.judge     h4 "Judge question it answers"
+         div.sec.real      h4 "Real or simulated"        span.rs.real | .rs.sim | .rs.mixed + one sentence
+         div.sec.watch     h4 "Watch out"
+       ===================================================================== -->
+  <h2>Component cards</h2>
+  <p>Each numbered pin has one card. Card 1 is a skeleton that says what goes in each section.
+    Card 2 is a fully worked, code-checked example: match its depth. Card 3 shows the minimum.</p>
+
+  <!-- ---------- Card skeleton: copy this ---------- -->
+  <article class="comp" id="c-1">
+    <header>
+      <span class="comp-num">1</span>
+      <h3>Component name as it appears on screen</h3>
+      <span class="where">panel <code>panel-id</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>[Its job in one or two plain sentences. What question does it answer for an operator or a judge?]</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>[Every element inside it, using the on-screen labels: columns, numbers and their units and ranges,
+        chips, colours, icons, and what each one means.]</p>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd>[engine file and what it computes, e.g. <code>engines/ledger.py</code>]</dd>
+        <dt>Arrives by</dt><dd>[snapshot on connect, then WebSocket event types]</dd>
+        <dt>Store slice</dt><dd>[zustand slice the panel reads]</dd>
+        <dt>Changes when</dt><dd>[what makes it move: the 10 Hz simulation, a beat, a button]</dd>
+      </dl>
+      <p>[Then prose: what is computed and how, its states and what moves it from one state to the next.]</p>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>[Button label]</th><td>[Action in plain words]</td><td>[What changes on screen, and the backend effect, e.g. <code>POST /api/...</code>, a ledger record]</td></tr>
+            <tr><th>[Hover on a row]</th><td>[...]</td><td>[...]</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>[What good looks like, what bad looks like.]</p>
+        <p><span class="pill good">Healthy</span> <span class="pill warn">Degraded</span> <span class="pill critical">Down</span></p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>[Press <kbd>d</kbd> to open the Demo Director.]</li>
+          <li>[Press <kbd>→</kbd> to run the next beat.]</li>
+          <li>[Point at the part that changed.]</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>[Script written for the ear. Short sentences. One idea each.]</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"[Question a judge might ask?]"</strong> [One-sentence answer this component backs up.]</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs sim">Simulated</span> [Exactly which part is computed for real and which is mocked.]</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>[The trap a presenter can fall into here, and how to avoid it.]</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- Worked example (checked against frontend/src/app/Ribbon.tsx, core/store.ts, engine.py) ---------- -->
+  <article class="comp" id="c-2">
+    <header>
+      <span class="comp-num">2</span>
+      <h3>Lifecycle ribbon</h3>
+      <span class="where">panel <code>ribbon</code>, file <code>app/Ribbon.tsx</code></span>
+    </header>
+    <div class="sec for">
+      <h4>What it is for</h4>
+      <p>The ribbon is the strip under the top bar on every console screen. It tells you where each of the five
+        planes stands right now, and it is the quickest way to jump between them. The phone approval page
+        (<code>/m/approve</code>) and the presenter view (<code>/presenter</code>) do not show it.</p>
+    </div>
+    <div class="sec shows">
+      <h4>What it shows</h4>
+      <p>Five segments, left to right: Learn, Verify, Release, Operate, Prove. Each has a thin top line in
+        the plane colour, the plane name, a main reading, and a smaller reading on the right. The segment
+        for the screen you are on is tinted stronger and has a short bar along its bottom edge. The right-hand
+        reading turns red when that plane needs attention. A soft white band sweeps from one segment to
+        another when work moves along the lifecycle.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Segment</th><th>Main reading</th><th>Right-hand reading</th></tr></thead>
+          <tbody>
+            <tr><th>Learn</th><td>"Round N/M" while a federated round trains; "Round N queued" when the next round is ready; otherwise the round number and its state.</td><td>"ε max x.xx of T": the highest privacy spend (epsilon) of any operator, against the configured target.</td></tr>
+            <tr><th>Verify</th><td>The model under evaluation, or the production model "in prod" when idle.</td><td>"evaluating", "gate pass" or "gate blocked" (red); when idle, how many models are benchmarked.</td></tr>
+            <tr><th>Release</th><td>Candidate model and its stage: shadow, canary 10%, canary 50% or full 100%. With no candidate: the model now serving.</td><td>"agreement N%" between candidate and production; with no candidate, the fixed text "4 targets, 2 vendors".</td></tr>
+            <tr><th>Operate</th><td>"INC-… active" during an incident, otherwise the number of agents and "0 incidents".</td><td>Time since the incident started (red); after it is resolved, "last MTTR" (mean time to repair); otherwise "network nominal".</td></tr>
+            <tr><th>Prove</th><td>"Ledger #N": how many records the signed ledger holds.</td><td>"anchored … ago" since the last Merkle anchor, or "signed"; after a failed check, "chain broken at #N" (red).</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec how">
+      <h4>How it works</h4>
+      <dl class="facts">
+        <dt>Backend</dt><dd>Five engines: <code>federation</code>, <code>proving</code>, <code>release</code>, <code>swarm</code>, <code>ledger</code>.</dd>
+        <dt>Arrives by</dt><dd><code>GET /api/snapshot</code> when the page connects, then events on the one WebSocket <code>/ws</code>, sent in batches every 100 ms.</dd>
+        <dt>Store slices</dt><dd><code>federation</code>, <code>proving</code>, <code>release</code>, <code>swarm</code>, <code>ledger</code>, plus <code>live.pulses</code>.</dd>
+        <dt>Changes when</dt><dd>Any of those engines emits an event: a training step, a gate result, a rollout stage, an incident, a new ledger record.</dd>
+      </dl>
+      <ol class="flow" aria-label="Data path">
+        <li class="src"><b>Engine emits event</b><span>e.g. <code>eval.gate</code></span></li>
+        <li><b>WebSocket batch</b><span>every 100 ms</span></li>
+        <li><b>Store handler</b><span>updates the slice</span></li>
+        <li class="ui"><b>Ribbon re-renders</b><span>reads five slices</span></li>
+      </ol>
+      <p>The ribbon computes nothing on the server. It reads the five slices and picks the text for each
+        segment. The white sweep is a "pulse": when one of six event types arrives, the store adds a pulse
+        and the ribbon animates it for 900 ms.</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>Event</th><th>Pulse moves</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>fl.promote</code></td><td>Learn to Verify</td><td>A trained checkpoint is sent for evaluation.</td></tr>
+            <tr><td><code>eval.gate</code></td><td>Verify to Release</td><td>The deploy gate decided.</td></tr>
+            <tr><td><code>release.stage</code></td><td>Release to Operate</td><td>The rollout moved a stage.</td></tr>
+            <tr><td><code>incident.resolved</code></td><td>Operate to Prove</td><td>An incident closed.</td></tr>
+            <tr><td><code>loop.enqueue</code></td><td>Prove to Learn (wraps around)</td><td>The incident is queued as private training data.</td></tr>
+            <tr><td><code>fl.checkpoint</code></td><td>Within Learn</td><td>A checkpoint was saved and signed, or the model was restored to one.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sec controls">
+      <h4>Controls</h4>
+      <div class="table-wrap">
+        <table class="controls">
+          <thead><tr><th>Control</th><th>What it does</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><th>Click a segment</th><td>Opens that plane's screen.</td><td>Goes to <code>/federation</code>, <code>/proving</code>, <code>/release</code>, <code>/swarm</code> or <code>/audit</code>. No backend call.</td></tr>
+            <tr><th>Spotlight (<kbd>s</kbd>)</th><td>With spotlight on, firing beat 1 or 14 lights the ribbon.</td><td>A thin outline appears around the ribbon. Panels that are not lit fade; the ribbon itself never fades. Browser only, no backend call.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="comp-present">
+      <div class="sec read">
+        <h4>How to read it</h4>
+        <p>Read it left to right as one model's life: trained, tested, shipped, used, proven. Red text on
+          the right means that plane needs attention now.</p>
+      </div>
+      <div class="sec demo">
+        <h4>How to demo it</h4>
+        <ol class="steps">
+          <li>Press <kbd>1</kbd> to fire beat 1. Mission Control opens.</li>
+          <li>Sweep your hand left to right across the five segments.</li>
+          <li>Mention that each segment is also a link to its screen.</li>
+        </ol>
+      </div>
+      <div class="sec say">
+        <h4>What to say</h4>
+        <blockquote class="say"><p>"This strip is the whole system on one line. A model is trained across five
+          operators, tested, rolled out, used by the agents, and every step is signed into a ledger."</p></blockquote>
+      </div>
+      <div class="sec judge">
+        <h4>Judge question it answers</h4>
+        <p><strong>"How do the pieces connect?"</strong> The pulse shows work passing from one plane to the next, and back to Learn.</p>
+      </div>
+      <div class="sec real">
+        <h4>Real or simulated</h4>
+        <p><span class="rs mixed">Partly real</span> The ledger count and the "chain broken" check come from the real signed hash chain. Every other reading (training rounds, privacy spend, benchmarks, rollout agreement, incidents) comes from the mock simulation.</p>
+      </div>
+      <div class="sec watch">
+        <h4>Watch out</h4>
+        <p>The pulse lasts under a second and only fires on the six events above. Beat 1 sends none, so do not promise one on cue.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- Short card: the minimum is the four understanding sections ---------- -->
+  <article class="comp" id="c-3">
+    <header><span class="comp-num">3</span><h3>Short card</h3></header>
+    <div class="sec for"><h4>What it is for</h4><p>[One sentence.]</p></div>
+    <div class="sec shows"><h4>What it shows</h4><p>[One or two sentences.]</p></div>
+    <div class="sec how"><h4>How it works</h4><p>[Where the data comes from and what moves it.]</p></div>
+    <div class="sec controls"><h4>Controls</h4><p>None. It only displays data.</p></div>
+    <div class="comp-present">
+      <div class="sec real"><h4>Real or simulated</h4><p><span class="rs real">Real</span> Use for parts that run real code end to end.</p></div>
+      <div class="sec watch"><h4>Watch out</h4>
+        <!-- callouts can sit inside a section too -->
+        <div class="callout warn"><p class="title">Do not reset during the demo</p><p>Example of a warning inside a card.</p></div>
+      </div>
+    </div>
+  </article>
+
+  <!-- =====================================================================
+       4. BEAT CARD (demo playbook)
+       article.beat#beat-N data-plane="<plane of the beat's screen>" (leave out data-plane for
+       Mission Control and other cross-cutting screens: the accent turns neutral grey)
+       header: span.beat-num, h3 title, div.beat-meta (route in <code>, duration in span.dur)
+       dl.beat-grid with dt/dd pairs in this fixed order:
+         Do, See, What is happening under the hood (dt.hood), Say (dt.say), Point at, Recovery (dt.recovery)
+       "Under the hood" sits right after "See" because it explains what the audience just saw.
+       In it, say what the browser does (navigate, spotlight, POST) and what the backend does
+       (the beat's action in engine.py Engine.beat, events emitted). ol.flow and dl.facts work here.
+       Titles, routes, durations and presenter notes come from backend/spectrum/engine.py BEATS.
+       ===================================================================== -->
+  <h2>Beat card</h2>
+  <p>Used on the demo playbook. Durations are in seconds, as in the beat list. A timeline strip can sit above the beat cards.</p>
+
+  <!-- Timeline strip: one li per beat; --w = the beat's seconds (relative width);
+       data-plane colours the bar (leave it out for cross-cutting screens). -->
+  <ol class="timeline wide" aria-label="Run of show">
+    <li style="--w:30"><a href="demo-playbook.html#beat-1"><b>1</b>Cold open</a></li>
+    <li data-plane="learn" style="--w:40"><a href="demo-playbook.html#beat-2"><b>2</b>Federated round</a></li>
+    <li data-plane="verify" style="--w:35"><a href="demo-playbook.html#beat-5"><b>5</b>Gate</a></li>
+    <li data-plane="release" style="--w:25"><a href="demo-playbook.html#beat-6"><b>6</b>Canary</a></li>
+    <li data-plane="operate" style="--w:30"><a href="demo-playbook.html#beat-7"><b>7</b>Incident</a></li>
+    <li data-plane="prove" style="--w:30"><a href="demo-playbook.html#beat-11"><b>11</b>Provenance</a></li>
+  </ol>
+
+  <!-- Worked example, checked against engine.py (BEATS, Engine.beat) and core/director.ts -->
+  <article class="beat" id="beat-1">
+    <header>
+      <span class="beat-num">1</span>
+      <h3>Cold open</h3>
+      <div class="beat-meta"><code>/</code><span class="dur">30 s</span></div>
+    </header>
+    <dl class="beat-grid">
+      <dt>Do</dt>
+      <dd><ol class="steps"><li>Press <kbd>1</kbd> (or <kbd>→</kbd> from the start).</li><li>Pause on Mission Control.</li></ol></dd>
+      <dt>See</dt>
+      <dd><p>Mission Control, with the lifecycle ribbon across the top. With spotlight on, the ribbon and the Consortium panel are lit.</p></dd>
+      <dt class="hood">Under the hood</dt>
+      <dd>
+        <ol class="flow" aria-label="What beat 1 does">
+          <li class="ui"><b>Browser goes to <code>/</code></b><span>before the request, so it feels instant</span></li>
+          <li><b>Spotlight set</b><span><code>ribbon</code>, <code>consortium</code> (only if spotlight is on)</span></li>
+          <li class="src"><b>Server records beat 1</b><span><code>POST /api/director/beat/1</code></span></li>
+          <li><b><code>director.beat</code> event</b><span>every open console follows</span></li>
+        </ol>
+        <p>Beat 1 has no simulation action. The server only records the beat number and start time, then tells
+          every connected console, so the presenter laptop and the projector stay in step. The 10 Hz
+          simulation keeps running underneath.</p>
+      </dd>
+      <dt class="say">Say</dt>
+      <dd><blockquote class="say"><p>"Every operator has outages and learns alone, because nobody can share data. Five operators fix that here."</p></blockquote></dd>
+      <dt>Point at</dt>
+      <dd><p>The ribbon, then the Consortium panel. See <a href="#c-2">Lifecycle ribbon</a>.</p></dd>
+      <dt class="recovery">Recovery</dt>
+      <dd><p>If the screen did not change, press <kbd>1</kbd> again. Beat 1 changes no simulation state, so repeating it is safe.</p></dd>
+    </dl>
+  </article>
+
+  <!-- =====================================================================
+       5. CALLOUTS
+       div.callout.tip | .warn | .say | .real   with an optional p.title first.
+       .say takes the page's plane colour and larger text: use for a line to speak.
+       .real uses a dashed border: use for honest real-vs-simulated notes.
+       ===================================================================== -->
+  <h2>Callouts</h2>
+  <div class="callout tip"><p class="title">Tip</p><p>A shortcut or habit that makes the demo smoother.</p></div>
+  <div class="callout warn"><p class="title">Warning</p><p>Something that can go wrong on stage, and how to avoid it.</p></div>
+  <div class="callout say"><p class="title">Say this</p><p>"A ready-to-speak line, in quotes, written for the ear."</p></div>
+  <div class="callout real"><p class="title">Real vs simulated</p><p>Say plainly what is computed for real and what is a simulation. Judges respect honesty.</p></div>
+
+  <!-- =====================================================================
+       6. GLOSSARY TERMS
+       Wrap several in div.terms (two-column grid on wide screens).
+       div.term#term-<slug> > dfn, p.plain, p.analogy, p.where
+       Link to a term from anywhere: concepts.html#term-<slug>
+       ===================================================================== -->
+  <h2>Glossary terms</h2>
+  <div class="terms">
+    <div class="term" id="term-example-a">
+      <dfn>Example term</dfn>
+      <p class="plain">One plain sentence that says what it is.</p>
+      <p class="analogy">An everyday analogy that makes it stick.</p>
+      <p class="where">Where you see it: <a href="#c-2">Lifecycle ribbon</a></p>
+    </div>
+    <div class="term" id="term-example-b">
+      <dfn>Another term</dfn>
+      <p class="plain">One plain sentence.</p>
+      <p class="analogy">Like a ...</p>
+      <p class="where">Where you see it: <a href="audit.html">Audit</a></p>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       7. TABLE
+       Always wrap in div.table-wrap (scrolls sideways on small screens).
+       td.num for right-aligned numbers. table.compact for dense tables.
+       ===================================================================== -->
+  <h2>Tables</h2>
+  <div class="table-wrap">
+    <table>
+      <caption>Example table caption</caption>
+      <thead><tr><th>Item</th><th>What it means</th><th>Status</th><th class="num">Value</th></tr></thead>
+      <tbody>
+        <tr><th>Row one</th><td>Plain description.</td><td><span class="pill good">Good</span></td><td class="num">0.82</td></tr>
+        <tr><th>Row two</th><td>Plain description.</td><td><span class="pill serious">Serious</span></td><td class="num">12.4</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- =====================================================================
+       8. KEY LEGEND
+       dl.keys: dt holds one or more <kbd>, dd the action.
+       The full list below is the console's real key map (frontend/src/app/hotkeys.ts).
+       Keys are ignored while typing in an input.
+       ===================================================================== -->
+  <h2>Key legend</h2>
+  <dl class="keys">
+    <dt><kbd>→</kbd> <kbd>Space</kbd> <kbd>PageDown</kbd></dt><dd>Next beat</dd>
+    <dt><kbd>←</kbd> <kbd>PageUp</kbd></dt><dd>Previous beat</dd>
+    <dt><kbd>1</kbd>–<kbd>9</kbd></dt><dd>Fire beat 1 to 9 (beats 10 to 14: use <kbd>→</kbd> or click the beat in the Demo Director)</dd>
+    <dt><kbd>g</kbd> then a letter</dt><dd>Go to a screen, e.g. <kbd>g</kbd> <kbd>m</kbd> Mission Control, <kbd>g</kbd> <kbd>s</kbd> Swarm Tower</dd>
+    <dt><kbd>Cmd</kbd> <kbd>K</kbd> or <kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Command palette</dd>
+    <dt><kbd>d</kbd></dt><dd>Open or close the Demo Director</dd>
+    <dt><kbd>n</kbd></dt><dd>Show or hide the beat notes in the Demo Director</dd>
+    <dt><kbd>s</kbd></dt><dd>Spotlight on or off</dd>
+    <dt><kbd>l</kbd></dt><dd>Open or close the live event stream</dd>
+    <dt><kbd>t</kbd></dt><dd>Switch theme (Ops dark / Projector light)</dd>
+    <dt><kbd>p</kbd></dt><dd>Pause or resume the simulation (calls <code>POST /api/sim</code>)</dd>
+    <dt><kbd>?</kbd></dt><dd>Keyboard help</dd>
+    <dt><kbd>Esc</kbd></dt><dd>Clear spotlight highlights and close help</dd>
+    <dt>Hold <kbd>r</kbd> 1 s</dt><dd>Reset the scenario to the pre-demo state and return to Mission Control</dd>
+  </dl>
+
+  <!-- =====================================================================
+       9. STATUS PILLS and REAL/SIMULATED TAGS
+       span.pill.good | .warn | .serious | .critical | .neutral
+       The icon (check, triangle, diamond, octagon, dot) is drawn by CSS; always write the word.
+       Never rely on colour alone.
+       span.rs.real | .rs.sim | .rs.mixed
+       ===================================================================== -->
+  <h2>Status pills and real/simulated tags</h2>
+  <p><span class="pill good">Good</span> <span class="pill warn">Warn</span> <span class="pill serious">Serious</span> <span class="pill critical">Critical</span> <span class="pill neutral">Idle</span></p>
+  <p><span class="rs real">Real</span> <span class="rs sim">Simulated</span> <span class="rs mixed">Partly real</span></p>
+
+  <!-- =====================================================================
+       10. INLINE SVG DIAGRAM (page-level; inside a card prefer ol.flow)
+       figure.diagram > div.diagram-frame > svg (set a viewBox; width/height auto).
+       Helper classes (theme-aware):
+         rect.d-node [.learn|.verify|.release|.operate|.prove|.ext]
+         path/line.d-edge [.strong|.dashed], .d-arrow (marker fill)
+         text.d-label (bold 13px), text.d-sub (11px muted)
+         rect.d-group + text.d-group-label (grouping box)
+         .fill-learn ... .fill-prove (solid plane fill)
+       Give each SVG's marker a unique id per page. The frame scrolls sideways under 36rem.
+       ===================================================================== -->
+  <h2>Inline SVG diagram</h2>
+  <figure class="diagram wide">
+    <div class="diagram-frame">
+      <svg viewBox="0 0 760 170" role="img" aria-labelledby="dg-t">
+        <title id="dg-t">Example: five planes in sequence, with Prove feeding back to Learn</title>
+        <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-arrow" d="M0 0L10 5L0 10z"/></marker></defs>
+        <rect class="d-group" x="4" y="4" width="752" height="120" rx="8"/>
+        <text class="d-group-label" x="16" y="22">Example group</text>
+        <g>
+          <rect class="d-node learn" x="20" y="40" width="120" height="64" rx="6"/>
+          <text class="d-label" x="80" y="70" text-anchor="middle">Learn</text><text class="d-sub" x="80" y="88" text-anchor="middle">sub label</text>
+          <rect class="d-node verify" x="170" y="40" width="120" height="64" rx="6"/>
+          <text class="d-label" x="230" y="70" text-anchor="middle">Verify</text><text class="d-sub" x="230" y="88" text-anchor="middle">sub label</text>
+          <rect class="d-node release" x="320" y="40" width="120" height="64" rx="6"/>
+          <text class="d-label" x="380" y="70" text-anchor="middle">Release</text><text class="d-sub" x="380" y="88" text-anchor="middle">sub label</text>
+          <rect class="d-node operate" x="470" y="40" width="120" height="64" rx="6"/>
+          <text class="d-label" x="530" y="70" text-anchor="middle">Operate</text><text class="d-sub" x="530" y="88" text-anchor="middle">sub label</text>
+          <rect class="d-node prove" x="620" y="40" width="120" height="64" rx="6"/>
+          <text class="d-label" x="680" y="70" text-anchor="middle">Prove</text><text class="d-sub" x="680" y="88" text-anchor="middle">sub label</text>
+        </g>
+        <g>
+          <path class="d-edge" d="M140 72H168" marker-end="url(#arr)"/>
+          <path class="d-edge" d="M290 72H318" marker-end="url(#arr)"/>
+          <path class="d-edge" d="M440 72H468" marker-end="url(#arr)"/>
+          <path class="d-edge" d="M590 72H618" marker-end="url(#arr)"/>
+          <path class="d-edge dashed" d="M680 104V150H80V106" marker-end="url(#arr)"/>
+          <text class="d-sub" x="380" y="145" text-anchor="middle">dashed edge: feedback or optional path</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>Example caption: one sentence on what the diagram shows and how to read it.</figcaption>
+  </figure>
+
+  <!-- =====================================================================
+       11. TWO-COLUMN COMPARE
+       div.compare > div > h4 + content (stacks on mobile).
+       ===================================================================== -->
+  <h2>Two-column compare</h2>
+  <div class="compare">
+    <div>
+      <h4>Without SPECTRUM</h4>
+      <p>Example: the problem, in one or two sentences.</p>
+      <ul><li>Point one</li><li>Point two</li></ul>
+    </div>
+    <div>
+      <h4>With SPECTRUM</h4>
+      <p>Example: what changes, in one or two sentences.</p>
+      <ul><li>Point one</li><li>Point two</li></ul>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       12. STEP LIST and FLOW
+       ol.steps: numbered circles. Use only for real sequences of actions.
+       ol.flow: boxes joined by arrows, for a data path or a state chain (keep it to 3-6 boxes).
+         li > b (name) + span (detail). li.src = where data starts (plane-colour edge),
+         li.ui = what the user sees (shaded). ol.flow.states = pill-shaped boxes for states.
+       ===================================================================== -->
+  <h2>Step list and flow</h2>
+  <ol class="steps">
+    <li>Open the console at <code>http://localhost:5173</code>.</li>
+    <li>Press <kbd>d</kbd> to open the Demo Director.</li>
+    <li>Press <kbd>→</kbd> to step through the beats.</li>
+  </ol>
+  <ol class="flow states" aria-label="Rollout stages">
+    <li><b>Shadow</b><span>0% traffic</span></li>
+    <li><b>Canary 10%</b></li>
+    <li><b>Canary 50%</b></li>
+    <li class="ui"><b>Full 100%</b></li>
+  </ol>
+
+  <!-- =====================================================================
+       13. COLLAPSIBLE DETAILS
+       details.more > summary + content. Expands automatically when printing.
+       Headings inside are not added to the TOC.
+       ===================================================================== -->
+  <h2>Collapsible details</h2>
+  <details class="more">
+    <summary>Deeper detail for curious judges</summary>
+    <p>Content that most presenters can skip: implementation notes, file paths, numbers.</p>
+    <pre><code>backend/spectrum/engine.py   BEATS list
+frontend/src/features/&lt;screen&gt;/manifest.ts</code></pre>
+  </details>
+
+  <!-- =====================================================================
+       14. LABELLED LIFECYCLE RIBBON, for overview pages
+       ===================================================================== -->
+  <h2>Labelled lifecycle ribbon</h2>
+  <div class="ribbon-mini labelled wide" role="img" aria-label="The five planes: Learn, Verify, Release, Operate, Prove">
+    <span data-p="learn">Learn</span><span data-p="verify">Verify</span><span data-p="release">Release</span><span data-p="operate">Operate</span><span data-p="prove">Prove</span>
+  </div>
+
+</main>
+</body>
+</html>
