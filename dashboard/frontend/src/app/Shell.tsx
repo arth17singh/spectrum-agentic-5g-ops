@@ -1,5 +1,6 @@
 import { Suspense, useEffect } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { useAccess } from '@/core/access'
 import { api } from '@/core/api'
 import { Gate, isOn, useFlags } from '@/core/flags'
 import { useLive } from '@/core/store'
@@ -94,6 +95,8 @@ function Layout() {
 
 function Connecting() {
   const conn = useLive((s) => s.conn)
+  const denied = useAccess((s) => s.denied)
+  if (denied) return null // the access banner explains; "Backend unreachable" would mislead
   return (
     <div className="grid h-full place-items-center">
       <div className="text-center">

@@ -7,10 +7,12 @@ import '@fontsource/ibm-plex-sans/600.css'
 import '@fontsource/ibm-plex-mono/400.css'
 import '@fontsource/ibm-plex-mono/500.css'
 import './index.css'
+import { AccessBanner } from './app/AccessBanner'
 import { App } from './app/Shell'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <AccessBanner />
     <BrowserRouter>
       <App />
     </BrowserRouter>

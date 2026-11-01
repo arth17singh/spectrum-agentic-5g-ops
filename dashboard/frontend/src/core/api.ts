@@ -1,19 +1,33 @@
+import { accessToken, reportDenied } from './access'
+
 // Thin REST client. Every command returns JSON; failures surface as toasts via the caller.
 
 export async function get<T = any>(path: string): Promise<T> {
-  const res = await fetch(path)
-  if (!res.ok) throw new Error(`${path} returned ${res.status}`)
+  const res = await fetch(path, { headers: headers() })
+  if (!res.ok) throw failure(path, res)
   return res.json()
 }
 
 export async function post<T = any>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
     method: 'POST',
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    headers: headers(body === undefined ? {} : { 'Content-Type': 'application/json' }),
     body: body === undefined ? undefined : JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`${path} returned ${res.status}`)
+  if (!res.ok) throw failure(path, res)
   return res.json()
+}
+
+/** Devices other than this laptop send the access token (see access.ts). */
+function headers(h: Record<string, string> = {}): Record<string, string> {
+  const t = accessToken()
+  return t ? { ...h, 'X-Spectrum-Token': t } : h
+}
+
+/** A 401 raises the access banner here, because several callers swallow their errors. */
+function failure(path: string, res: Response): Error {
+  if (res.status === 401) reportDenied()
+  return new Error(`${path} returned ${res.status}`)
 }
 
 export const api = {

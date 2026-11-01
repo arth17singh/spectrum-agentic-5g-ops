@@ -23,8 +23,8 @@ make dev         # API on :8787 (mock engine, hot reload) + UI on :5173
 open http://localhost:5173
 ```
 
-- **Phones.** Phone approvals open `http://<laptop-LAN-IP>:5173/m/approve`. The Demo Director's Preflight tab shows a QR code for it.
-- **Second laptop.** A presenter laptop can drive the projector from `/presenter`. Both screens follow the server-side beat.
+- **Phones.** Run `make demo`. Phone approvals open `http://<laptop-LAN-IP>:8787/m/approve?t=<access token>`, and the Demo Director's Preflight tab shows a QR code for it. Every device except the laptop needs that token. It changes on every restart unless `SPECTRUM_TOKEN` pins it. `make dev` only listens on the laptop.
+- **Second laptop.** A presenter laptop can drive the projector from `/presenter`. Both screens follow the server-side beat. Open the phone link on it once first, for the token.
 - **Demo day.** `make demo` builds the UI and serves API + UI from one process on `:8787`, with no Vite needed.
 - **Tests.** `make test` runs the backend tests, the cross-language canonical-hash check, and the TypeScript typecheck.
 

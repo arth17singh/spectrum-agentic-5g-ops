@@ -1,3 +1,4 @@
+import { reportDenied, withToken } from './access'
 import { api } from './api'
 import { applyEvents, loadSnapshot, useLive } from './store'
 import { toast } from './ui-store'
@@ -51,12 +52,11 @@ export function startLive() {
     useLive.setState({ conn: s.ready ? conn : s.conn, msgPerSec: counter })
     counter = 0
   }, 1000)
-  api.config().then((c) => useLive.setState({ config: c, mode: c.mode })).catch(() => {})
 }
 
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  const ws = new WebSocket(`${proto}://${location.host}/ws`)
+  const ws = new WebSocket(withToken(`${proto}://${location.host}/ws`))
   socket = ws
   let buffered: Envelope[] | null = []
   let snapSeq = -1
@@ -79,6 +79,8 @@ function connect() {
     isOpen = true
     backoff = 500
     resync()
+    // on every (re)connect: a restarted backend has a new access token for the Director's phone link
+    api.config().then((c) => useLive.setState({ config: c, mode: c.mode })).catch(() => {})
   }
   ws.onmessage = (m) => {
     const msg = JSON.parse(m.data)
@@ -96,11 +98,13 @@ function connect() {
     applyEvents(events)
     for (const e of events) maybeToast(e)
   }
-  ws.onclose = () => {
+  ws.onclose = (e) => {
     if (socket !== ws) return
     isOpen = false
     useLive.setState({ conn: 'offline' })
-    setTimeout(connect, backoff)
+    // 1008: the backend refused this device's access token. Say so, and only retry slowly.
+    if (e.code === 1008) reportDenied()
+    setTimeout(connect, e.code === 1008 ? 8000 : backoff)
     backoff = Math.min(8000, backoff * 2)
   }
   ws.onerror = () => ws.close()

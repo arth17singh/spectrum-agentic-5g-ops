@@ -58,6 +58,16 @@ make demo
 
 This builds the dashboard and serves everything from **one process** on **http://localhost:8787**. It's more stable for a live presentation because no dev server is involved.
 
+### Access token for phones and other devices
+
+Present with `make demo`, and open the console on the laptop at **http://localhost:8787**.
+
+- The laptop itself needs nothing. Every other device needs an access token to use the dashboard's data and controls.
+- Phones get the token from the phone link: the QR code in the Demo Director's **Preflight** tab. Use that link rather than typing the address. A second laptop running `/presenter` needs it too: open the phone link on it once.
+- Anyone who scans that QR code can drive the demo, so scan it before the projector shows the Director.
+- The token changes every time the backend restarts, so scan the QR code again after a restart. To keep one token across restarts, set it yourself, for example `SPECTRUM_TOKEN=pick-a-long-random-value make demo`.
+- `make dev` only listens on the laptop, so phones can't reach it.
+
 ---
 
 ## 3b. Run it on Windows (no `make`)
@@ -70,7 +80,7 @@ Open **two** terminals in the project folder.
 cd backend
 uv sync
 $env:PYTHONPATH="."          # in cmd.exe use:  set PYTHONPATH=.
-uv run uvicorn spectrum.main:app --host 0.0.0.0 --port 8787
+uv run uvicorn spectrum.main:app --host 127.0.0.1 --port 8787
 ```
 
 **Terminal 2: dashboard**
@@ -78,10 +88,12 @@ uv run uvicorn spectrum.main:app --host 0.0.0.0 --port 8787
 ```powershell
 cd frontend
 npm install
-npx vite --host --port 5173
+npx vite --port 5173
 ```
 
 Then open **http://localhost:5173**.
+
+For demo-day mode with phone approvals, run `npx vite build` in `frontend` once. Then start only Terminal 1, with `--host 0.0.0.0` instead of `--host 127.0.0.1`, and open **http://localhost:8787**.
 
 ---
 
@@ -151,11 +163,12 @@ To run the demo again, **hold Reset** in the Demo Director.
 
 ## 6. Phone approvals (optional, great for the demo)
 
-1. Connect the phone to the **same Wi-Fi** as the laptop. A phone hotspot is the most reliable option at a venue.
-2. In the Demo Director, go to **Preflight** and scan the **QR code** with the phone.
-3. Approvals sent from the phone appear live on the dashboard and are signed into the ledger.
+1. Run `make demo` and open the console on the laptop at **http://localhost:8787**. Phones can't reach `make dev`.
+2. Connect the phone to the **same Wi-Fi** as the laptop. A phone hotspot is the most reliable option at a venue.
+3. In the Demo Director, go to **Preflight** and scan the **QR code** with the phone. The link carries the access token.
+4. Approvals sent from the phone appear live on the dashboard and are signed into the ledger.
 
-If the phone can't connect, allow incoming connections for **Node** and **Python** when the firewall asks. On macOS, check System Settings → Network → Firewall.
+If the phone can't connect, allow incoming connections for **Python** when the firewall asks. On macOS, check System Settings → Network → Firewall.
 
 ---
 
@@ -167,6 +180,7 @@ If the phone can't connect, allow incoming connections for **Node** and **Python
 | `uv: command not found` right after installing | Close the terminal and open a new one. |
 | Vite error mentioning Node version | Install Node 22 LTS. Node 18 and old Node 20 versions don't work. |
 | Dashboard loads but shows "Offline" | The backend isn't running. Start it (`make api`, or Terminal 1 in 3b) and check that http://localhost:8787/api/director/preflight responds. |
+| A phone or second laptop says "Open the console at http://localhost:8787, or use the phone link from the Demo Director." | That device has no access token, or one from before the backend restarted. Scan the QR code in the Demo Director again. On the laptop itself, open http://localhost:8787 rather than its network address. |
 | `address already in use` on port 8787 or 5173 | Something is already running there. Close the old terminal, or on macOS/Linux run `lsof -ti:8787 \| xargs kill`. |
 | Ledger shows "broken" | That's expected after the tamper beat (beat 12). Click "Restore originals" on the Audit screen, or hold Reset. |
 | Demo got into a weird state | Hold **Reset** in the Demo Director. It's deterministic, so you get the same starting point every time. |

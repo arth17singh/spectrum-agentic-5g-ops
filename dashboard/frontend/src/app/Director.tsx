@@ -3,6 +3,7 @@ import { Check, ChevronLeft, ChevronRight, CircleDashed, GripHorizontal, Pause, 
 import QRCode from 'qrcode'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { accessToken, isLoopbackHost, withToken } from '@/core/access'
 import { api } from '@/core/api'
 import { beats, fireBeat, nextBeat, prevBeat, type Beat } from '@/core/director'
 import { useFlag } from '@/core/flags'
@@ -112,6 +113,8 @@ export function Director() {
 
 function Preflight() {
   const conn = useLive((s) => s.conn)
+  // /api/config hands the token only to this laptop; a console on another device reuses its own
+  const token: string | null = useLive((s) => s.config?.access_token) ?? accessToken()
   const [pf, setPf] = useState<any>(null)
   const [qr, setQr] = useState<string>('')
   const fonts = typeof document !== 'undefined' && document.fonts?.check('13px "IBM Plex Sans"')
@@ -122,7 +125,8 @@ function Preflight() {
     const id = setInterval(load, 10000)
     return () => clearInterval(id)
   }, [])
-  const url = `${location.protocol}//${location.hostname === 'localhost' ? (pf?.lan_ip ?? location.hostname) : location.hostname}:${location.port}/m/approve`
+  const host = isLoopbackHost(location.hostname) ? (pf?.lan_ip ?? location.hostname) : location.hostname
+  const url = withToken(`${location.protocol}//${host}:${location.port}/m/approve`, token)
   useEffect(() => { QRCode.toDataURL(url, { margin: 1, width: 120 }).then(setQr) }, [url])
   const rows: [string, boolean, string][] = [
     ['Backend reachable', !!pf?.backend, pf ? 'ok' : 'start the API: make dev'],
@@ -148,7 +152,7 @@ function Preflight() {
         {qr && <img src={qr} alt="QR code for the mobile approval page" width={84} height={84} className="rounded" />}
         <div className="min-w-0 text-micro text-ink-2">
           <div className="text-cap font-medium text-ink-1">Phone approvals</div>
-          Scan to open the mobile approval page on the same Wi-Fi.
+          {import.meta.env.DEV ? 'Needs make demo: the dev server only listens on this laptop.' : 'Scan to open the mobile approval page on the same Wi-Fi.'}
           <div className="mono mt-1 truncate text-ink-3">{url}</div>
         </div>
       </div>

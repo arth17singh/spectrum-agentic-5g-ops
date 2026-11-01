@@ -9,7 +9,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: {
-    host: true, // reachable from the presenter's phone for /m/approve
+    // this laptop only: proxied calls reach the API from 127.0.0.1, which needs no access token
+    // (phones use `make demo`)
+    host: 'localhost',
     port: 5173,
     proxy: {
       '/api': { target: API, changeOrigin: true },

@@ -1,6 +1,10 @@
 """FastAPI app: REST commands + snapshot, one WebSocket stream (batched every 100 ms).
 
-Run:  uv run uvicorn spectrum.main:app --host 0.0.0.0 --port 8787
+Run:  uv run uvicorn spectrum.main:app --host 127.0.0.1 --port 8787   (this laptop only, as `make dev`)
+      uv run uvicorn spectrum.main:app --host 0.0.0.0 --port 8787     (phones too, as `make demo`)
+
+Devices other than this laptop must send the access token (see access.py): the X-Spectrum-Token
+header, or ?t= on the WebSocket. It changes on every start unless SPECTRUM_TOKEN pins it.
 """
 
 from __future__ import annotations
@@ -12,12 +16,12 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from .access import TOKEN, AccessGate, is_loopback, log_phone_link
 from .adapters import load_adapters
 from .engine import Engine
 
@@ -31,6 +35,7 @@ adapters = load_adapters(MODE)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    log_phone_link(_lan_ip())
     task = asyncio.create_task(engine.run())
     yield
     task.cancel()
@@ -40,7 +45,8 @@ async def lifespan(app: FastAPI):
 # the simulation loop. Plain `def` handlers run in a thread pool and race the loop (interleaved
 # ledger appends corrupt the hash chain).
 app = FastAPI(title="SPECTRUM console API", version="0.1.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# No CORS: the UI is same-origin under `make demo`, and Vite proxies /api and /ws under `make dev`.
+app.add_middleware(AccessGate, token=TOKEN)
 
 
 def ok(**kw):
@@ -50,9 +56,11 @@ def ok(**kw):
 # --------------------------------------------------------------------------- config & snapshot
 
 @app.get("/api/config")
-async def config():
-    return {"mode": MODE, "seed": SEED, "version": "0.1.0", "warm_ms": engine.warm_ms,
-            "adapters": adapters.describe(), "region": "us-west-2"}
+async def config(request: Request):
+    cfg = {"mode": MODE, "seed": SEED, "version": "0.1.0", "warm_ms": engine.warm_ms,
+           "adapters": adapters.describe(), "region": "us-west-2"}
+    # the Director puts the token in its phone link; only this laptop is ever handed it
+    return {**cfg, "access_token": TOKEN} if is_loopback(request.client) else cfg
 
 
 @app.get("/api/config/flags")
