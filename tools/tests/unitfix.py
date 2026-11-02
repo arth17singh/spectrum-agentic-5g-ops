@@ -151,6 +151,8 @@ def build(root: Path, case: str = "R", code_sha: str = BASE_SHA, run_id: str = R
     if opts.get("append_after_ingest"):
         its = its + [extra]
     jb = job(run_id, opts.get("job_aws_start", "2026-11-02T18:05:00.000Z"))
+    if opts.get("job_kind"):
+        jb["job_kind"] = opts["job_kind"]
     n_pass = sum(1 for i in its if i["passed"])
     res = result(run_id, code_sha, value=n_pass / len(its) if metric == "pass_rate" else opts.get("result_value", 0),
                  passed=(n_pass / len(its)) >= target if metric == "pass_rate" else True, n=len(its),

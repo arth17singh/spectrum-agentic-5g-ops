@@ -147,6 +147,40 @@ def test_job_that_sagemaker_never_ran_fails(tmp_path):
     assert code == 1 and "SageMaker in us-east-2 has no such processing job" in text(ck)
 
 
+def test_lambda_only_run_timed_by_cloudwatch_alone(tmp_path):
+    """The Track 3 path: no SageMaker job at all; the window comes from CloudWatch events in both Regions."""
+    code, ck, aws = check(unitfix.build(tmp_path, "R", HEAD, no_job=True))
+    assert code == 0, text(ck)
+    assert all(s[0].startswith("cloudwatch:") for s in ck.window_sources)
+    assert ck.window[0] == datetime(2026, 11, 2, 18, 6, tzinfo=timezone.utc)  # the first span (us-west-2)
+    assert not any(op.startswith("Describe") for op in aws.ops())
+
+
+def test_lambda_job_record_is_not_looked_up_in_sagemaker(tmp_path):
+    code, ck, aws = check(unitfix.build(tmp_path, "R", HEAD, job_kind="lambda", job_missing_in_aws=True,
+                                             job_aws_start="2026-11-02T18:06:00.000Z"))
+    assert code == 0, text(ck)
+    assert "DescribeProcessingJob" not in aws.ops()
+
+
+def test_declaration_in_the_same_second_as_the_run_start_fails(tmp_path):
+    """S3 LastModified is floored to the second, so 18:05:00 may really be 18:05:00.999: not proven before."""
+    code, ck, _ = check(unitfix.build(tmp_path, "R", HEAD, decl_lm="2026-11-02T18:04:59Z",
+                                      job_aws_start="2026-11-02T18:05:00.000Z"))
+    assert code == 0, text(ck)
+    fx = unitfix.build(tmp_path / "b", "R", HEAD)
+    spec = json.loads((fx / "aws.json").read_text())
+    spec["sagemaker"][0]["CreationTime"] = "2026-11-02T18:00:00.500Z"
+    (fx / "aws.json").write_text(json.dumps(spec))
+    code, ck, _ = check(fx)
+    assert states(ck)["a"] == "FAIL"
+
+
+def test_skipped_ledger_is_said_on_the_result_line(tmp_path):
+    _, ck, _ = check(unitfix.build(tmp_path, "R", HEAD, no_ledger=True))
+    assert "(exit 0) (d skipped: no ledger" in text(ck)
+
+
 def test_no_aws_time_at_all_cannot_check(tmp_path):
     """No job, no log event: S3 LastModified still proves the declaration came first (a), but there is no
     job window for record times (c)."""

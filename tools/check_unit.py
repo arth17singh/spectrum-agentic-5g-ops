@@ -543,7 +543,10 @@ class Checker:
             a.cannot(f"the declaration's only time is a local file mtime, which anyone can set; commit it to git "
                      f"or read it from S3 (or pass --allow-mtime). Run's first AWS time {iso(first[1])} ({first[0]})")
             return
-        if dt < first[1]:
+        # S3 LastModified is floored to the second: the real time lies in [dt, dt + 1s), so only
+        # dt + 1s <= first proves the declaration came first.
+        before = (dt + timedelta(seconds=1) <= first[1]) if src == "s3:LastModified" else (dt < first[1])
+        if before:
             a.note(f"before the run's first AWS time {iso(first[1])} ({first[0]}) by {(first[1] - dt).total_seconds():.0f}s")
         else:
             a.fail(f"declaration {iso(dt)} is NOT before the run's first AWS time {iso(first[1])} ({first[0]})")
@@ -780,7 +783,9 @@ class Checker:
         code = self.exit_code()
         bad = [k for k, p in self.parts.items() if p.state == FAIL]
         unk = [k for k, p in self.parts.items() if p.state == CANNOT]
-        say({0: "RESULT: all four parts hold (exit 0)",
+        skipped = [k for k, p in self.parts.items() if p.state == SKIP]
+        tail = f" ({','.join(skipped)} skipped: no ledger; pass --ledger-dir <dashboard evidence dir>)" if skipped else ""
+        say({0: f"RESULT: all four parts hold (exit 0){tail}",
              1: f"RESULT: FAILED part(s) {','.join(bad)} (exit 1)",
              2: f"RESULT: could not check part(s) {','.join(unk)} (exit 2)"}[code])
 
