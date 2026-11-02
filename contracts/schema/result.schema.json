@@ -1,0 +1,197 @@
+{
+  "$defs": {
+    "Checker": {
+      "additionalProperties": false,
+      "properties": {
+        "code_sha": {
+          "pattern": "^[0-9a-f]{7,40}$",
+          "title": "Code Sha",
+          "type": "string"
+        },
+        "script": {
+          "minLength": 1,
+          "title": "Script",
+          "type": "string"
+        }
+      },
+      "required": [
+        "script",
+        "code_sha"
+      ],
+      "title": "Checker",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "Target": {
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "op": {
+          "enum": [
+            ">=",
+            "<=",
+            "==",
+            ">",
+            "<"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Unit of value, e.g. ratio, ms, count, usd_per_1k.",
+          "minLength": 1,
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "metric",
+        "op",
+        "value",
+        "unit"
+      ],
+      "title": "Target",
+      "type": "object"
+    }
+  },
+  "$id": "https://team13.invalid/contracts/result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A unit's checked outcome against its declaration. Stored at results/<run_id>.json.",
+  "properties": {
+    "aws_time": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Time taken from an AWS source; null when there is none.",
+      "title": "Aws Time"
+    },
+    "aws_time_source": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime.",
+      "title": "Aws Time Source"
+    },
+    "checked_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+      "title": "Checked At",
+      "type": "string"
+    },
+    "checker": {
+      "$ref": "#/$defs/Checker"
+    },
+    "created_at": {
+      "description": "When our code wrote the record (UTC, trailing Z).",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "details": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Details",
+      "type": "object"
+    },
+    "kind": {
+      "const": "result",
+      "default": "result",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metric": {
+      "minLength": 1,
+      "title": "Metric",
+      "type": "string"
+    },
+    "n_items": {
+      "minimum": 0,
+      "title": "N Items",
+      "type": "integer"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "run_id": {
+      "description": "The run this record belongs to; safe as a path segment.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "synthetic": {
+      "description": "True for fixtures, dry runs and anything not measured on a real system.",
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "target": {
+      "$ref": "#/$defs/Target",
+      "description": "Copy of the declared target."
+    },
+    "team": {
+      "const": "team13",
+      "default": "team13",
+      "title": "Team",
+      "type": "string"
+    },
+    "unit": {
+      "minLength": 1,
+      "title": "Unit",
+      "type": "string"
+    },
+    "value": {
+      "title": "Value",
+      "type": "number"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "team",
+    "run_id",
+    "created_at",
+    "synthetic",
+    "unit",
+    "metric",
+    "value",
+    "target",
+    "passed",
+    "n_items",
+    "checked_at",
+    "checker"
+  ],
+  "title": "ResultRecord",
+  "type": "object"
+}

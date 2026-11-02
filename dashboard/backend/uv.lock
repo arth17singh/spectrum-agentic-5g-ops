@@ -754,6 +754,7 @@ name = "spectrum-backend"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "boto3" },
     { name = "cryptography" },
     { name = "fastapi" },
     { name = "numpy" },
@@ -773,6 +774,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "boto3", specifier = ">=1.43.123" },
     { name = "boto3", marker = "extra == 'aws'", specifier = ">=1.35" },
     { name = "cryptography", specifier = ">=43" },
     { name = "fastapi", specifier = ">=0.115" },

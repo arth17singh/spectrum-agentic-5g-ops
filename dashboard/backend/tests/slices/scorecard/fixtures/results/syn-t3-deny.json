@@ -1,0 +1,28 @@
+{
+  "unit": "t3.deny",
+  "metric": "deny_rate",
+  "value": 0.975,
+  "target": {
+    "metric": "deny_rate",
+    "op": ">=",
+    "value": 0.95,
+    "unit": "fraction"
+  },
+  "passed": true,
+  "n_items": 40,
+  "checked_at": "2026-11-02T11:00:00Z",
+  "checker": {
+    "script": "synthetic/check_unit.py",
+    "code_sha": "d04ba2e332819a3b1f3bd3304a37af08132b37b0b1bc49b0db3c872e76997e27"
+  },
+  "details": {
+    "gain": {
+      "value": 1.3,
+      "ci_low": 1.1,
+      "ci_high": 1.5,
+      "baseline_run_id": "syn-t3-deny-base",
+      "paired_n": 40
+    }
+  },
+  "synthetic": true
+}

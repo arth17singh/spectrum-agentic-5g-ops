@@ -1,0 +1,20 @@
+{
+  "schema_version": "1",
+  "kind": "job",
+  "run_id": "t3-deny-20261102-a",
+  "team": "team13",
+  "created_at": "2026-11-02T20:12:00Z",
+  "aws_time": null,
+  "aws_time_source": null,
+  "synthetic": true,
+  "job_name": "team13-ran-apply-change",
+  "arn": "arn:aws:lambda:us-east-2:123456789012:function:team13-ran-apply-change",
+  "job_kind": "lambda",
+  "region": "us-east-2",
+  "status": "Active",
+  "aws_start": "2026-11-02T20:10:00Z",
+  "aws_end": null,
+  "instance_type": null,
+  "billable_s": 41.2,
+  "est_cost_usd": 0.0009
+}

@@ -1,0 +1,15 @@
+{
+  "name": "team13",
+  "region": "us-east-2",
+  "builder_host": "YOUR-IP.sslip.io",
+  "lead": "noc_lead",
+  "specialists": ["ran_monitor", "ran_optimizer", "ran_explainer"],
+  "may_change": ["noc_lead"],
+  "a2a_token": "paste the A2A client token here (shown once in A2A clients)",
+  "a2a_agents": {
+    "noc_lead": "paste the a2a id from the lead's AgentCard URL",
+    "ran_monitor": "paste the a2a id from ran_monitor's AgentCard URL",
+    "ran_optimizer": "paste the a2a id from ran_optimizer's AgentCard URL",
+    "ran_explainer": "paste the a2a id from ran_explainer's AgentCard URL"
+  }
+}

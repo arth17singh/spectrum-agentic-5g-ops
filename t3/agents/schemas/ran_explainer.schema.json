@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "team13/t3/agents/ran_explainer.schema.json",
+  "title": "ran_explainer answer",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "case_id",
+    "intent",
+    "entities",
+    "explanation",
+    "second_opinion",
+    "source",
+    "notes"
+  ],
+  "properties": {
+    "role": {
+      "const": "ran_explainer"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^case-[A-Za-z0-9-]+$"
+    },
+    "intent": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "entities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cells"
+      ],
+      "properties": {
+        "cells": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          }
+        }
+      }
+    },
+    "explanation": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "second_opinion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "change",
+        "agrees_with_optimizer"
+      ],
+      "properties": {
+        "change": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^cell=\\d+;d_power_db=[+-]\\d+\\.\\d;d_tilt_deg=[+-]\\d+\\.\\d(\\|cell=\\d+;d_power_db=[+-]\\d+\\.\\d;d_tilt_deg=[+-]\\d+\\.\\d)*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "agrees_with_optimizer": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "source": {
+      "enum": [
+        "nlm",
+        "none"
+      ]
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 400
+    }
+  }
+}

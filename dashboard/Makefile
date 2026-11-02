@@ -1,5 +1,5 @@
 # SPECTRUM console: one-command dev and demo.
-.PHONY: dev api web install test check build demo evidence-rebuild
+.PHONY: dev api web install test check build demo evidence-rebuild gate
 
 install:            ## install backend + frontend dependencies
 	cd backend && uv sync --group dev
@@ -27,3 +27,6 @@ demo: build         ## demo-day mode: a single process serves API + built UI on 
 
 evidence-rebuild:   ## offline: re-verify evidence/ (chain, signatures, file hashes) and reprint per-run results
 	cd backend && uv run python -m spectrum.evidence rebuild $(if $(DIR),--dir $(DIR),)
+
+gate:               ## merge gate (worktrees only, never the main checkout): tsc, oxlint, registry, build, canonical, pytest, route smoke on :8790
+	../scripts/gate.sh

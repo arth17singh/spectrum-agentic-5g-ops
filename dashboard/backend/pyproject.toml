@@ -8,6 +8,7 @@ dependencies = [
   "uvicorn[standard]>=0.32",
   "numpy>=2.0",
   "cryptography>=43",
+  "boto3>=1.43.123",
 ]
 
 [project.optional-dependencies]
@@ -24,5 +25,8 @@ build-backend = "hatchling.build"
 packages = ["spectrum"]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+# "tests" on the path: test_evidence_hardening imports from test_evidence. importlib mode: tests/ has
+# no __init__.py, so same-named test files in different slice folders must not collide.
+pythonpath = [".", "tests"]
 testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]
