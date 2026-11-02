@@ -161,6 +161,16 @@ def test_runner_skips_the_change_when_nobody_approves():
     assert all(r["status"] == "PENDING" for k, r in ddb.approvals().items() if k.startswith("chg-"))
 
 
+def test_runner_refuses_a_run_id_whose_cases_exist():
+    clock, ddb, ev = Clock(), FakeDDB(), FakeEvlib()
+    ddb.approvals()["t3-case-t3-test--01"] = {"pk": "t3-case-t3-test--01", "run_id": "t3-test-old"}
+    gw = FakeGateway(clock, ddb)
+    r = make_runner(clock, ddb, gw, ev)
+    with pytest.raises(RuntimeError, match="first 8 characters"):
+        r.run()
+    assert gw.posts == []  # refused before any call
+
+
 def test_runner_without_policy_client_skips_pause_items():
     summary, ev, *_ = run_suite(with_pause=False)
     pause_ids = [i["id"] for i in suite_hash.load_suite() if i.get("pause_window")]
@@ -335,7 +345,7 @@ def test_pause_floor_passes_and_times_the_first_refusal():
     assert ev.calls[0] == ("declared", "t3-test-run")
     assert ev.declared[0]["unit"] == "t3.pause" and ev.declared[0]["target"]["value"] == 0
     d = res["details"]
-    assert res["passed"] and d["allowed_after_forbid"] == 0 and d["calls_after_active"] == 5
+    assert res["passed"] and d["allowed_after_forbid"] == 0 and d["calls_after_first_refusal"] == 5
     assert 0 <= d["first_refusal_s"] <= 60 and d["forbid_time_source"] == "agentcore:policy.createdAt"
     assert d["control_before_allowed"] and d["control_after_resume_allowed"]
     assert [c["action"] for c in ev.records[("t3-test-run", "control")]] == ["pause", "resume"]
@@ -344,10 +354,27 @@ def test_pause_floor_passes_and_times_the_first_refusal():
     assert ev.records[("t3-test-run", "item")][0]["extra"]["caller"] == "ran_optimizer"
 
 
-def test_pause_floor_fails_when_the_forbid_leaks():
+def test_pause_floor_fails_when_the_forbid_never_refuses():
     floor, ev, gw, clock = make_floor(leak=True)
     res = floor.run()
-    assert not res["passed"] and res["details"]["allowed_after_forbid"] == 5
+    assert not res["passed"] and res["details"]["first_refusal_s"] is None
+
+
+def test_pause_floor_counts_a_call_allowed_after_the_first_refusal():
+    floor, ev, gw, clock = make_floor()
+    policy = floor.p.c
+    real = policy.forbids
+    seen = {"n": 0}
+
+    def flaky(tool):  # refuses once, then leaks one call, then holds
+        on = real(tool)
+        if on:
+            seen["n"] += 1
+            return seen["n"] != 2
+        return on
+    policy.forbids = flaky
+    res = floor.run()
+    assert not res["passed"] and res["details"]["allowed_after_forbid"] == 1
 
 
 def test_pause_floor_fails_when_the_first_refusal_is_late():

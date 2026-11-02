@@ -71,7 +71,7 @@ def declaration(run_id: str, items: list[dict], cfg: dict, *, unit=UNIT, target=
 class Runner:
     def __init__(self, *, run_id, gateway, evlib, ddb, cfg, suite_path=DEFAULT_SUITE, pauser=None,
                  approval_timeout_s=900.0, poll_s=5.0, sleep=time.sleep, clock=time.time, log=print,
-                 synthetic=False, min_gap_s=2.0):
+                 synthetic=False, min_gap_s=2.0, pause_settle_s=5.0, quiet_wait_s=120.0):
         self.run_id, self.gw, self.ev, self.ddb, self.cfg = run_id, gateway, evlib, ddb, cfg
         self.suite_path, self.pauser = suite_path, pauser
         self.approval_timeout_s, self.poll_s = approval_timeout_s, poll_s
@@ -80,6 +80,8 @@ class Runner:
         self.seq = 0
         self.min_gap_s = min_gap_s
         self._last_call = None
+        self.pause_settle_s = pause_settle_s   # after ACTIVE / GONE, before the window's call (recorded)
+        self.quiet_wait_s = quiet_wait_s       # let the lead finish the quiet case before the items
 
     # ----- steps -----
     def declare(self, items):
@@ -123,6 +125,32 @@ class Runner:
         common.ddb_put(self.ddb, self.cfg["approvals_table"], {
             "pk": f"t3-{case_id}", "case_id": case_id, "run_id": self.run_id, "unit": unit,
             "created_at": int(self.clock()), "source": "t3/suite/runner.py"})
+
+    def ensure_fresh(self, case_ids):
+        """Case ids come from run_id[:8]; a run id whose first 8 characters were used before would reuse old
+        cases and their approval ids (already APPLIED). Refuse it before any call."""
+        for case_id in case_ids:
+            row = common.ddb_get(self.ddb, self.cfg["approvals_table"], {"pk": f"t3-{case_id}"})
+            if row and row.get("run_id") != self.run_id:
+                raise RuntimeError(f"{case_id} already belongs to run {row.get('run_id')}: pick a run id whose "
+                                   f"first 8 characters are new, e.g. 1102a-t3-suite")
+
+    def wait_quiet(self):
+        """The quiet front-door case makes the lead answer once; wait until it is done (bounded) so its own
+        calls and spans do not interleave with the items."""
+        deadline = self.clock() + self.quiet_wait_s
+        while self.clock() < deadline:
+            self.pace()
+            out = self.gw.call("team_app", "front___case_status", {"case_id": self.case_id}, timeout=60)
+            try:
+                state = json.loads(out["text"]).get("state")
+            except (ValueError, AttributeError):
+                state = None
+            if state not in common.RUNNING:
+                return state
+            self.sleep(5)
+        self.log(f"the lead is still working on {self.case_id} after {self.quiet_wait_s} s; going on")
+        return "TIMEOUT"
 
     def item_case(self, it) -> str:
         """Amendment A12: a direct tool-call item gets its own case id case-<run_id[:8]>-<nn>; the approval
@@ -186,11 +214,13 @@ class Runner:
     def run(self) -> dict:
         items = load_suite(self.suite_path)
         self.declare(items)
+        case_ids = sorted({self.item_case(it) for it in items if "{case}" in json.dumps(it["args"])})
+        self.ensure_fresh(case_ids)
         self.set_active_run()
         self.start_case()
-        for it in items:  # bind every item's case id to the run before any item runs
-            if "{case}" in json.dumps(it["args"]):
-                self.map_case(self.item_case(it))
+        for case_id in case_ids:  # bind every item's case id to the run before any item runs
+            self.map_case(case_id)
+        self.wait_quiet()
         approvals: dict[str, dict] = {}   # suite approval group -> {"approval_id", "decision"}
         paused = resumed = False
         summary = {"run_id": self.run_id, "case_id": self.case_id, "n_items": len(items), "client_agree": 0,
@@ -208,11 +238,14 @@ class Runner:
                     summary["pause"] = {"on": self.pauser.on(reason=f"suite run {self.run_id}")}
                     self._control("pause", summary["pause"]["on"])
                     paused = True
+                    self.sleep(self.pause_settle_s)
                 if window == "after_resume" and paused and not resumed:
                     summary["pause"]["off"] = self.pauser.off()
                     self._control("resume", summary["pause"]["off"])
                     resumed = True
+                    self.sleep(self.pause_settle_s)
                 extra["pause_window"] = window
+                extra["pause_settle_s"] = self.pause_settle_s
             step = it.get("approval_step")
             if step:
                 extra["approval_step"] = step
