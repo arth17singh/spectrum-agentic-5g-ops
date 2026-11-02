@@ -1,0 +1,82 @@
+# Track 2 operator silos: generator configuration (data contract v0.2, amendment 1).
+# Everything here is hashed into silos/manifest.json. Edit it and the hash changes.
+#
+# A "cluster" is one independent run of the 4-cell in-process Maveric twin with its own seed.
+# A run is split into short "episodes": at the start of each episode the operator re-plans the
+# cells' power and tilt (a start point drawn from the silo's operating region), then the run
+# applies `episode_len` changes one step at a time. Each row is one step.
+contract_version: "0.2"
+run_label: "silos-v1"
+episode_len: 10            # steps per episode (Viavi-like uses its own, 5)
+steps_per_cluster: 4000    # rows per training cluster, so rows are proportional to cluster counts
+drift_margin_db: 2.0       # power may drift this far beyond the start region (clipped to 10..46)
+start_jitter_db: 1.0       # per-cell jitter of a start point around the episode's draw
+tilt_start_deg: [4.0, 12.0]    # same for every silo (the design varies power, not tilt)
+split_rule: "sha256(str(seed)) as hex integer % 10 < 2 -> test, else train (same rule as t2/gen.py)"
+
+# Users: "moving" is the SDK nominal mobility (Gauss-Markov v=50 m/step, alpha 0.5, 20% re-spawn per
+# step); "stationary" is alpha 1, speed 0, no re-spawn (UEs never move).
+mobility:
+  moving: {alpha: 0.5, velocity_m: 50.0, ue_resample_fraction: 0.2}
+  stationary: {alpha: 1.0, velocity_m: 0.0, ue_resample_fraction: 0.0}
+
+# Change mix. `kinds` are weights for [zero, single_power, single_tilt, single_both, multi];
+# in a multi-cell change each chosen cell gets a power change w.p. multi_power and a tilt change
+# w.p. multi_tilt (at least one of the two). Raw deltas are drawn within the SDK safety limits
+# (power -6..+8 dB, tilt +-5 deg) and clamped so the cell stays in its drift region, so the SDK
+# safety filter never has to clip a generated change.
+silos:
+  A:
+    size: large
+    clusters: 8
+    n_ues: 625
+    mobility: moving
+    noise_floor_dbm: -110.0
+    seed_base: 100000
+    power_start_dbm: [23.0, 30.0]
+    mix: {kinds: [0.15, 0.05, 0.40, 0.08, 0.32], multi_power: 0.2, multi_tilt: 0.8}
+  B:
+    size: mid
+    clusters: 3
+    n_ues: 500
+    mobility: moving
+    noise_floor_dbm: -105.0
+    seed_base: 200000
+    power_start_dbm: [30.0, 37.0]
+    mix: {kinds: [0.15, 0.40, 0.05, 0.08, 0.32], multi_power: 0.8, multi_tilt: 0.2}
+  C:
+    size: small
+    clusters: 1
+    n_ues: 100
+    mobility: stationary
+    noise_floor_dbm: -100.0
+    seed_base: 300000
+    power_start_dbm: [43.0, 46.0]
+    mix: {kinds: [0.15, 0.20, 0.20, 0.15, 0.30], multi_power: 0.5, multi_tilt: 0.5}
+
+# The OVERLAPPING control: same silos, sizes, users, noise floors and change mixes, but every silo
+# draws its start power from the full range.
+overlap_power_start_dbm: [23.0, 46.0]
+
+# Held-out shared test. Seeds are drawn from the same per-silo pools but only seeds whose hash
+# says "test", so a test seed never appears in training. Each silo contributes a slice of its own
+# operating region (its start range in the disjoint split, the full range in the overlapping one).
+test:
+  clusters_per_slice: 4
+  steps_per_cluster: 500
+  # The Viavi-like operating point: 60 stationary users, every cell at 40 dBm and 6 deg at the
+  # start of each 5-step episode (Viavi's 5 windows per reset). Changes may then drift anywhere
+  # within `drift_dbm`. Two slices: noise floor in the middle of the silos', and the Maveric
+  # twin's own default (-150 dBm), which is what the Track 3 twin uses.
+  viavi_like:
+    n_ues: 60
+    mobility: stationary
+    power_dbm: 40.0
+    tilt_deg: 6.0
+    episode_len: 5
+    drift_dbm: [34.0, 46.0]
+    mix: {kinds: [0.15, 0.20, 0.20, 0.15, 0.30], multi_power: 0.5, multi_tilt: 0.5}
+    seed_base: 400000
+    slices:
+      viavi_like: {noise_floor_dbm: -105.0}
+      viavi_default_noise: {noise_floor_dbm: -150.0}
