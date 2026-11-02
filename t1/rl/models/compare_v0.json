@@ -1,0 +1,951 @@
+{
+  "label": "v0, local, not federated / not the official job",
+  "rows": [
+    {
+      "policy": "ppo_v0",
+      "scenario": "nominal",
+      "seed": 101,
+      "total_objective": 32.14183764946356,
+      "total_reward": 32.14183764946356,
+      "sla_ratio_mean": 0.9514583333333334,
+      "coverage_mean": 0.42645833333333333
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "nominal",
+      "seed": 101,
+      "total_objective": 30.071405135078567,
+      "total_reward": 30.071405135078567,
+      "sla_ratio_mean": 0.938125,
+      "coverage_mean": 0.81625
+    },
+    {
+      "policy": "no_op",
+      "scenario": "nominal",
+      "seed": 101,
+      "total_objective": 31.694121202305656,
+      "total_reward": 31.69412120230566,
+      "sla_ratio_mean": 0.9383333333333334,
+      "coverage_mean": 0.5691666666666667
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "nominal",
+      "seed": 102,
+      "total_objective": 32.09088841124999,
+      "total_reward": 32.09088841124999,
+      "sla_ratio_mean": 0.9527083333333333,
+      "coverage_mean": 0.4177083333333333
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "nominal",
+      "seed": 102,
+      "total_objective": 30.096401123495404,
+      "total_reward": 30.096401123495397,
+      "sla_ratio_mean": 0.9337499999999999,
+      "coverage_mean": 0.8091666666666667
+    },
+    {
+      "policy": "no_op",
+      "scenario": "nominal",
+      "seed": 102,
+      "total_objective": 31.48393915082719,
+      "total_reward": 31.483939150827194,
+      "sla_ratio_mean": 0.9333333333333332,
+      "coverage_mean": 0.5839583333333334
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "nominal",
+      "seed": 103,
+      "total_objective": 31.76013830598432,
+      "total_reward": 31.76013830598432,
+      "sla_ratio_mean": 0.94375,
+      "coverage_mean": 0.41770833333333335
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "nominal",
+      "seed": 103,
+      "total_objective": 29.771734261381674,
+      "total_reward": 29.771734261381674,
+      "sla_ratio_mean": 0.9195833333333333,
+      "coverage_mean": 0.7947916666666668
+    },
+    {
+      "policy": "no_op",
+      "scenario": "nominal",
+      "seed": 103,
+      "total_objective": 31.53167517012632,
+      "total_reward": 31.53167517012632,
+      "sla_ratio_mean": 0.9372916666666667,
+      "coverage_mean": 0.555625
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "nominal",
+      "seed": 104,
+      "total_objective": 32.257303786730546,
+      "total_reward": 32.257303786730546,
+      "sla_ratio_mean": 0.9560416666666667,
+      "coverage_mean": 0.41791666666666666
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "nominal",
+      "seed": 104,
+      "total_objective": 30.172337941498128,
+      "total_reward": 30.172337941498125,
+      "sla_ratio_mean": 0.9516666666666667,
+      "coverage_mean": 0.80625
+    },
+    {
+      "policy": "no_op",
+      "scenario": "nominal",
+      "seed": 104,
+      "total_objective": 31.49053498403626,
+      "total_reward": 31.49053498403626,
+      "sla_ratio_mean": 0.9320833333333334,
+      "coverage_mean": 0.5583333333333332
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "nominal",
+      "seed": 105,
+      "total_objective": 32.46080373490736,
+      "total_reward": 32.46080373490735,
+      "sla_ratio_mean": 0.9550000000000001,
+      "coverage_mean": 0.4410416666666667
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "nominal",
+      "seed": 105,
+      "total_objective": 30.26806366891366,
+      "total_reward": 30.268063668913655,
+      "sla_ratio_mean": 0.9377083333333333,
+      "coverage_mean": 0.8300000000000001
+    },
+    {
+      "policy": "no_op",
+      "scenario": "nominal",
+      "seed": 105,
+      "total_objective": 31.91690869909725,
+      "total_reward": 31.91690869909725,
+      "sla_ratio_mean": 0.9395833333333332,
+      "coverage_mean": 0.6008333333333333
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "congestion",
+      "seed": 200,
+      "total_objective": 32.060077582095374,
+      "total_reward": 32.060077582095374,
+      "sla_ratio_mean": 0.9633333333333334,
+      "coverage_mean": 0.5183333333333334
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "congestion",
+      "seed": 200,
+      "total_objective": 31.11672786950775,
+      "total_reward": 31.11672786950775,
+      "sla_ratio_mean": 0.9498611111111112,
+      "coverage_mean": 0.8649999999999999
+    },
+    {
+      "policy": "no_op",
+      "scenario": "congestion",
+      "seed": 200,
+      "total_objective": 31.82397431737024,
+      "total_reward": 31.823974317370244,
+      "sla_ratio_mean": 0.9601388888888889,
+      "coverage_mean": 0.5806944444444445
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "congestion",
+      "seed": 201,
+      "total_objective": 31.928044368191152,
+      "total_reward": 31.928044368191152,
+      "sla_ratio_mean": 0.9541666666666666,
+      "coverage_mean": 0.5004166666666666
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "congestion",
+      "seed": 201,
+      "total_objective": 31.42578363837445,
+      "total_reward": 31.42578363837445,
+      "sla_ratio_mean": 0.9581944444444445,
+      "coverage_mean": 0.8530555555555553
+    },
+    {
+      "policy": "no_op",
+      "scenario": "congestion",
+      "seed": 201,
+      "total_objective": 31.929823190994494,
+      "total_reward": 31.929823190994494,
+      "sla_ratio_mean": 0.9611111111111112,
+      "coverage_mean": 0.5930555555555556
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "congestion",
+      "seed": 202,
+      "total_objective": 31.89009015861662,
+      "total_reward": 31.89009015861662,
+      "sla_ratio_mean": 0.9555555555555556,
+      "coverage_mean": 0.5176388888888889
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "congestion",
+      "seed": 202,
+      "total_objective": 31.589018162022725,
+      "total_reward": 31.589018162022725,
+      "sla_ratio_mean": 0.9641666666666667,
+      "coverage_mean": 0.88625
+    },
+    {
+      "policy": "no_op",
+      "scenario": "congestion",
+      "seed": 202,
+      "total_objective": 31.92970779118392,
+      "total_reward": 31.92970779118392,
+      "sla_ratio_mean": 0.9629166666666666,
+      "coverage_mean": 0.6147222222222223
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "congestion",
+      "seed": 203,
+      "total_objective": 31.946927027051238,
+      "total_reward": 31.946927027051238,
+      "sla_ratio_mean": 0.9586111111111112,
+      "coverage_mean": 0.5041666666666665
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "congestion",
+      "seed": 203,
+      "total_objective": 26.713612362042042,
+      "total_reward": 26.713612362042042,
+      "sla_ratio_mean": 0.9677777777777777,
+      "coverage_mean": 0.88125
+    },
+    {
+      "policy": "no_op",
+      "scenario": "congestion",
+      "seed": 203,
+      "total_objective": 31.979211437174175,
+      "total_reward": 31.979211437174175,
+      "sla_ratio_mean": 0.9643055555555556,
+      "coverage_mean": 0.6077777777777778
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "congestion",
+      "seed": 204,
+      "total_objective": 31.886904318989835,
+      "total_reward": 31.886904318989835,
+      "sla_ratio_mean": 0.9581944444444445,
+      "coverage_mean": 0.5022222222222222
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "congestion",
+      "seed": 204,
+      "total_objective": 29.183544724544646,
+      "total_reward": 29.183544724544646,
+      "sla_ratio_mean": 0.9565277777777778,
+      "coverage_mean": 0.8695833333333334
+    },
+    {
+      "policy": "no_op",
+      "scenario": "congestion",
+      "seed": 204,
+      "total_objective": 31.830234796191807,
+      "total_reward": 31.83023479619181,
+      "sla_ratio_mean": 0.961388888888889,
+      "coverage_mean": 0.5844444444444444
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "interference",
+      "seed": 300,
+      "total_objective": 32.27497386742017,
+      "total_reward": 32.27497386742017,
+      "sla_ratio_mean": 0.9533333333333333,
+      "coverage_mean": 0.43083333333333335
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "interference",
+      "seed": 300,
+      "total_objective": 29.32893529504104,
+      "total_reward": 29.32893529504104,
+      "sla_ratio_mean": 0.9250000000000002,
+      "coverage_mean": 0.8531249999999999
+    },
+    {
+      "policy": "no_op",
+      "scenario": "interference",
+      "seed": 300,
+      "total_objective": 30.615398266914646,
+      "total_reward": 30.615398266914646,
+      "sla_ratio_mean": 0.9133333333333334,
+      "coverage_mean": 0.7310416666666667
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "interference",
+      "seed": 301,
+      "total_objective": 32.20677521823443,
+      "total_reward": 32.20677521823443,
+      "sla_ratio_mean": 0.9520833333333333,
+      "coverage_mean": 0.42604166666666665
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "interference",
+      "seed": 301,
+      "total_objective": 29.077931381508204,
+      "total_reward": 29.0779313815082,
+      "sla_ratio_mean": 0.9222916666666666,
+      "coverage_mean": 0.8706250000000001
+    },
+    {
+      "policy": "no_op",
+      "scenario": "interference",
+      "seed": 301,
+      "total_objective": 30.893453415615273,
+      "total_reward": 30.893453415615273,
+      "sla_ratio_mean": 0.9279166666666666,
+      "coverage_mean": 0.7247916666666665
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "interference",
+      "seed": 302,
+      "total_objective": 32.41906306548793,
+      "total_reward": 32.41906306548793,
+      "sla_ratio_mean": 0.9545833333333333,
+      "coverage_mean": 0.445
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "interference",
+      "seed": 302,
+      "total_objective": 29.687372342987388,
+      "total_reward": 29.687372342987388,
+      "sla_ratio_mean": 0.9325,
+      "coverage_mean": 0.8660416666666667
+    },
+    {
+      "policy": "no_op",
+      "scenario": "interference",
+      "seed": 302,
+      "total_objective": 30.785838789142097,
+      "total_reward": 30.785838789142097,
+      "sla_ratio_mean": 0.9164583333333334,
+      "coverage_mean": 0.7589583333333333
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "interference",
+      "seed": 303,
+      "total_objective": 31.95692392589618,
+      "total_reward": 31.95692392589618,
+      "sla_ratio_mean": 0.9375,
+      "coverage_mean": 0.4339583333333333
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "interference",
+      "seed": 303,
+      "total_objective": 29.234145427321472,
+      "total_reward": 29.234145427321472,
+      "sla_ratio_mean": 0.9235416666666666,
+      "coverage_mean": 0.8562500000000001
+    },
+    {
+      "policy": "no_op",
+      "scenario": "interference",
+      "seed": 303,
+      "total_objective": 30.380966362804685,
+      "total_reward": 30.380966362804685,
+      "sla_ratio_mean": 0.901875,
+      "coverage_mean": 0.7364583333333333
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "interference",
+      "seed": 304,
+      "total_objective": 32.4287377577119,
+      "total_reward": 32.4287377577119,
+      "sla_ratio_mean": 0.9508333333333333,
+      "coverage_mean": 0.4504166666666667
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "interference",
+      "seed": 304,
+      "total_objective": 29.502361626279047,
+      "total_reward": 29.502361626279047,
+      "sla_ratio_mean": 0.928125,
+      "coverage_mean": 0.8722916666666668
+    },
+    {
+      "policy": "no_op",
+      "scenario": "interference",
+      "seed": 304,
+      "total_objective": 30.98089718553882,
+      "total_reward": 30.98089718553882,
+      "sla_ratio_mean": 0.9204166666666667,
+      "coverage_mean": 0.7745833333333333
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "outage",
+      "seed": 400,
+      "total_objective": 30.702187351023802,
+      "total_reward": 30.702187351023802,
+      "sla_ratio_mean": 0.9745833333333334,
+      "coverage_mean": 0.29520833333333335
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "outage",
+      "seed": 400,
+      "total_objective": 29.426838975546666,
+      "total_reward": 29.426838975546666,
+      "sla_ratio_mean": 0.9835416666666666,
+      "coverage_mean": 0.8137500000000001
+    },
+    {
+      "policy": "no_op",
+      "scenario": "outage",
+      "seed": 400,
+      "total_objective": 30.128576875575245,
+      "total_reward": 30.12857687557525,
+      "sla_ratio_mean": 0.9512499999999999,
+      "coverage_mean": 0.44645833333333335
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "outage",
+      "seed": 401,
+      "total_objective": 30.876886260022182,
+      "total_reward": 30.876886260022182,
+      "sla_ratio_mean": 0.9722916666666667,
+      "coverage_mean": 0.32104166666666667
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "outage",
+      "seed": 401,
+      "total_objective": 29.524634987128834,
+      "total_reward": 29.52463498712883,
+      "sla_ratio_mean": 0.9829166666666667,
+      "coverage_mean": 0.8508333333333334
+    },
+    {
+      "policy": "no_op",
+      "scenario": "outage",
+      "seed": 401,
+      "total_objective": 30.054955938014746,
+      "total_reward": 30.05495593801475,
+      "sla_ratio_mean": 0.9391666666666666,
+      "coverage_mean": 0.46708333333333335
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "outage",
+      "seed": 402,
+      "total_objective": 30.721410306206884,
+      "total_reward": 30.72141030620688,
+      "sla_ratio_mean": 0.9712500000000001,
+      "coverage_mean": 0.31958333333333333
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "outage",
+      "seed": 402,
+      "total_objective": 29.465555562929424,
+      "total_reward": 29.465555562929424,
+      "sla_ratio_mean": 0.98375,
+      "coverage_mean": 0.8335416666666667
+    },
+    {
+      "policy": "no_op",
+      "scenario": "outage",
+      "seed": 402,
+      "total_objective": 29.846968118476227,
+      "total_reward": 29.846968118476227,
+      "sla_ratio_mean": 0.9383333333333335,
+      "coverage_mean": 0.45916666666666667
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "outage",
+      "seed": 403,
+      "total_objective": 30.92298376587356,
+      "total_reward": 30.92298376587356,
+      "sla_ratio_mean": 0.9760416666666667,
+      "coverage_mean": 0.30916666666666665
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "outage",
+      "seed": 403,
+      "total_objective": 29.48823604289331,
+      "total_reward": 29.48823604289331,
+      "sla_ratio_mean": 0.9883333333333333,
+      "coverage_mean": 0.81875
+    },
+    {
+      "policy": "no_op",
+      "scenario": "outage",
+      "seed": 403,
+      "total_objective": 29.819158817306267,
+      "total_reward": 29.819158817306267,
+      "sla_ratio_mean": 0.9349999999999999,
+      "coverage_mean": 0.44125
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "outage",
+      "seed": 404,
+      "total_objective": 30.883534665159804,
+      "total_reward": 30.883534665159807,
+      "sla_ratio_mean": 0.9700000000000001,
+      "coverage_mean": 0.3233333333333333
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "outage",
+      "seed": 404,
+      "total_objective": 29.999137983460223,
+      "total_reward": 29.99913798346022,
+      "sla_ratio_mean": 0.9885416666666668,
+      "coverage_mean": 0.8172916666666667
+    },
+    {
+      "policy": "no_op",
+      "scenario": "outage",
+      "seed": 404,
+      "total_objective": 30.327445551161006,
+      "total_reward": 30.327445551161006,
+      "sla_ratio_mean": 0.9518749999999999,
+      "coverage_mean": 0.4725
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "low_load",
+      "seed": 500,
+      "total_objective": 32.243948308956334,
+      "total_reward": 32.243948308956334,
+      "sla_ratio_mean": 0.954861111111111,
+      "coverage_mean": 0.4375
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "low_load",
+      "seed": 500,
+      "total_objective": 30.456033654463255,
+      "total_reward": 30.45603365446326,
+      "sla_ratio_mean": 0.9534722222222222,
+      "coverage_mean": 0.7999999999999999
+    },
+    {
+      "policy": "no_op",
+      "scenario": "low_load",
+      "seed": 500,
+      "total_objective": 31.69783994011152,
+      "total_reward": 31.69783994011152,
+      "sla_ratio_mean": 0.9347222222222222,
+      "coverage_mean": 0.5833333333333334
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "low_load",
+      "seed": 501,
+      "total_objective": 32.16254693582508,
+      "total_reward": 32.16254693582508,
+      "sla_ratio_mean": 0.9541666666666666,
+      "coverage_mean": 0.4597222222222222
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "low_load",
+      "seed": 501,
+      "total_objective": 29.590505117512024,
+      "total_reward": 29.59050511751202,
+      "sla_ratio_mean": 0.9055555555555554,
+      "coverage_mean": 0.8034722222222221
+    },
+    {
+      "policy": "no_op",
+      "scenario": "low_load",
+      "seed": 501,
+      "total_objective": 31.800660348732727,
+      "total_reward": 31.80066034873273,
+      "sla_ratio_mean": 0.9409722222222222,
+      "coverage_mean": 0.6222222222222222
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "low_load",
+      "seed": 502,
+      "total_objective": 31.440739153322035,
+      "total_reward": 31.440739153322035,
+      "sla_ratio_mean": 0.9458333333333333,
+      "coverage_mean": 0.40625
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "low_load",
+      "seed": 502,
+      "total_objective": 30.0009623003188,
+      "total_reward": 30.0009623003188,
+      "sla_ratio_mean": 0.9458333333333334,
+      "coverage_mean": 0.7986111111111112
+    },
+    {
+      "policy": "no_op",
+      "scenario": "low_load",
+      "seed": 502,
+      "total_objective": 31.340539134243517,
+      "total_reward": 31.34053913424352,
+      "sla_ratio_mean": 0.9368055555555554,
+      "coverage_mean": 0.5194444444444445
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "low_load",
+      "seed": 503,
+      "total_objective": 31.660997723842755,
+      "total_reward": 31.660997723842755,
+      "sla_ratio_mean": 0.9416666666666668,
+      "coverage_mean": 0.42569444444444443
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "low_load",
+      "seed": 503,
+      "total_objective": 29.993817422837957,
+      "total_reward": 29.993817422837953,
+      "sla_ratio_mean": 0.9118055555555555,
+      "coverage_mean": 0.7993055555555556
+    },
+    {
+      "policy": "no_op",
+      "scenario": "low_load",
+      "seed": 503,
+      "total_objective": 31.390915184516167,
+      "total_reward": 31.390915184516167,
+      "sla_ratio_mean": 0.9277777777777777,
+      "coverage_mean": 0.5777777777777778
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "low_load",
+      "seed": 504,
+      "total_objective": 31.927643910397055,
+      "total_reward": 31.927643910397055,
+      "sla_ratio_mean": 0.954861111111111,
+      "coverage_mean": 0.40972222222222227
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "low_load",
+      "seed": 504,
+      "total_objective": 29.681691755461905,
+      "total_reward": 29.6816917554619,
+      "sla_ratio_mean": 0.936111111111111,
+      "coverage_mean": 0.7888888888888889
+    },
+    {
+      "policy": "no_op",
+      "scenario": "low_load",
+      "seed": 504,
+      "total_objective": 31.536358074178597,
+      "total_reward": 31.5363580741786,
+      "sla_ratio_mean": 0.9388888888888888,
+      "coverage_mean": 0.5458333333333334
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "mobility_stress",
+      "seed": 600,
+      "total_objective": 32.14336641679718,
+      "total_reward": 32.14336641679718,
+      "sla_ratio_mean": 0.9541666666666666,
+      "coverage_mean": 0.4302083333333333
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "mobility_stress",
+      "seed": 600,
+      "total_objective": 29.886621422513503,
+      "total_reward": 29.8866214225135,
+      "sla_ratio_mean": 0.9283333333333333,
+      "coverage_mean": 0.8179166666666666
+    },
+    {
+      "policy": "no_op",
+      "scenario": "mobility_stress",
+      "seed": 600,
+      "total_objective": 31.660272362439677,
+      "total_reward": 31.660272362439677,
+      "sla_ratio_mean": 0.9356249999999999,
+      "coverage_mean": 0.5833333333333334
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "mobility_stress",
+      "seed": 601,
+      "total_objective": 31.877368397842012,
+      "total_reward": 31.877368397842012,
+      "sla_ratio_mean": 0.9506249999999999,
+      "coverage_mean": 0.4291666666666667
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "mobility_stress",
+      "seed": 601,
+      "total_objective": 30.009815019987755,
+      "total_reward": 30.009815019987748,
+      "sla_ratio_mean": 0.9345833333333333,
+      "coverage_mean": 0.8214583333333333
+    },
+    {
+      "policy": "no_op",
+      "scenario": "mobility_stress",
+      "seed": 601,
+      "total_objective": 31.647064403930266,
+      "total_reward": 31.647064403930266,
+      "sla_ratio_mean": 0.9366666666666666,
+      "coverage_mean": 0.58625
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "mobility_stress",
+      "seed": 602,
+      "total_objective": 31.964856437681007,
+      "total_reward": 31.96485643768101,
+      "sla_ratio_mean": 0.945625,
+      "coverage_mean": 0.42416666666666664
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "mobility_stress",
+      "seed": 602,
+      "total_objective": 29.808454783828353,
+      "total_reward": 29.808454783828353,
+      "sla_ratio_mean": 0.9314583333333334,
+      "coverage_mean": 0.8097916666666668
+    },
+    {
+      "policy": "no_op",
+      "scenario": "mobility_stress",
+      "seed": 602,
+      "total_objective": 31.568280533595942,
+      "total_reward": 31.568280533595946,
+      "sla_ratio_mean": 0.9352083333333333,
+      "coverage_mean": 0.574375
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "mobility_stress",
+      "seed": 603,
+      "total_objective": 31.831337149753473,
+      "total_reward": 31.831337149753477,
+      "sla_ratio_mean": 0.9435416666666666,
+      "coverage_mean": 0.4312500000000001
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "mobility_stress",
+      "seed": 603,
+      "total_objective": 30.12512548044113,
+      "total_reward": 30.125125480441127,
+      "sla_ratio_mean": 0.9358333333333332,
+      "coverage_mean": 0.813125
+    },
+    {
+      "policy": "no_op",
+      "scenario": "mobility_stress",
+      "seed": 603,
+      "total_objective": 31.483928126161043,
+      "total_reward": 31.483928126161047,
+      "sla_ratio_mean": 0.9304166666666666,
+      "coverage_mean": 0.58875
+    },
+    {
+      "policy": "ppo_v0",
+      "scenario": "mobility_stress",
+      "seed": 604,
+      "total_objective": 32.02551414005466,
+      "total_reward": 32.02551414005466,
+      "sla_ratio_mean": 0.9477083333333333,
+      "coverage_mean": 0.4270833333333333
+    },
+    {
+      "policy": "rule_baseline",
+      "scenario": "mobility_stress",
+      "seed": 604,
+      "total_objective": 29.927760418643107,
+      "total_reward": 29.92776041864311,
+      "sla_ratio_mean": 0.9408333333333333,
+      "coverage_mean": 0.8156249999999999
+    },
+    {
+      "policy": "no_op",
+      "scenario": "mobility_stress",
+      "seed": 604,
+      "total_objective": 31.602579088915224,
+      "total_reward": 31.602579088915224,
+      "sla_ratio_mean": 0.9366666666666666,
+      "coverage_mean": 0.5839583333333334
+    }
+  ],
+  "summary": {
+    "overall": {
+      "no_op": {
+        "total_objective": 31.23907424188936,
+        "sla_ratio_mean": 0.9379953703703704,
+        "coverage_mean": 0.5875393518518519,
+        "n_episodes": 30
+      },
+      "ppo_v0": {
+        "total_objective": 31.83649367002628,
+        "sla_ratio_mean": 0.9551458333333334,
+        "coverage_mean": 0.4232986111111111,
+        "n_episodes": 30
+      },
+      "rule_baseline": {
+        "total_objective": 29.820818862932075,
+        "sla_ratio_mean": 0.945324074074074,
+        "coverage_mean": 0.8310763888888888,
+        "n_episodes": 30
+      }
+    },
+    "by_scenario": {
+      "congestion": {
+        "no_op": {
+          "total_objective": 31.89859030658293,
+          "sla_ratio_mean": 0.9619722222222222,
+          "coverage_mean": 0.5961388888888889
+        },
+        "ppo_v0": {
+          "total_objective": 31.942408690988838,
+          "sla_ratio_mean": 0.9579722222222223,
+          "coverage_mean": 0.5085555555555554
+        },
+        "rule_baseline": {
+          "total_objective": 30.00573735129832,
+          "sla_ratio_mean": 0.9593055555555555,
+          "coverage_mean": 0.8710277777777777
+        }
+      },
+      "interference": {
+        "no_op": {
+          "total_objective": 30.731310804003108,
+          "sla_ratio_mean": 0.916,
+          "coverage_mean": 0.7451666666666665
+        },
+        "ppo_v0": {
+          "total_objective": 32.257294766950125,
+          "sla_ratio_mean": 0.9496666666666667,
+          "coverage_mean": 0.43725
+        },
+        "rule_baseline": {
+          "total_objective": 29.366149214627434,
+          "sla_ratio_mean": 0.9262916666666665,
+          "coverage_mean": 0.8636666666666667
+        }
+      },
+      "low_load": {
+        "no_op": {
+          "total_objective": 31.553262536356506,
+          "sla_ratio_mean": 0.9358333333333333,
+          "coverage_mean": 0.5697222222222222
+        },
+        "ppo_v0": {
+          "total_objective": 31.88717520646865,
+          "sla_ratio_mean": 0.9502777777777778,
+          "coverage_mean": 0.42777777777777776
+        },
+        "rule_baseline": {
+          "total_objective": 29.94460205011879,
+          "sla_ratio_mean": 0.9305555555555556,
+          "coverage_mean": 0.7980555555555555
+        }
+      },
+      "mobility_stress": {
+        "no_op": {
+          "total_objective": 31.59242490300843,
+          "sla_ratio_mean": 0.9349166666666665,
+          "coverage_mean": 0.5833333333333334
+        },
+        "ppo_v0": {
+          "total_objective": 31.96848850842567,
+          "sla_ratio_mean": 0.9483333333333333,
+          "coverage_mean": 0.42837500000000006
+        },
+        "rule_baseline": {
+          "total_objective": 29.951555425082766,
+          "sla_ratio_mean": 0.9342083333333333,
+          "coverage_mean": 0.8155833333333333
+        }
+      },
+      "nominal": {
+        "no_op": {
+          "total_objective": 31.623435841278535,
+          "sla_ratio_mean": 0.936125,
+          "coverage_mean": 0.5735833333333333
+        },
+        "ppo_v0": {
+          "total_objective": 32.14219437766716,
+          "sla_ratio_mean": 0.9517916666666668,
+          "coverage_mean": 0.42416666666666664
+        },
+        "rule_baseline": {
+          "total_objective": 30.075988426073486,
+          "sla_ratio_mean": 0.9361666666666666,
+          "coverage_mean": 0.8112916666666667
+        }
+      },
+      "outage": {
+        "no_op": {
+          "total_objective": 30.035421060106692,
+          "sla_ratio_mean": 0.943125,
+          "coverage_mean": 0.4572916666666667
+        },
+        "ppo_v0": {
+          "total_objective": 30.82140046965725,
+          "sla_ratio_mean": 0.9728333333333333,
+          "coverage_mean": 0.31366666666666665
+        },
+        "rule_baseline": {
+          "total_objective": 29.580880710391693,
+          "sla_ratio_mean": 0.9854166666666666,
+          "coverage_mean": 0.8268333333333334
+        }
+      }
+    },
+    "ppo_minus_rule": {
+      "mean_objective_difference": 2.0156748070941997,
+      "ppo_wins": 30,
+      "rule_wins": 0,
+      "n": 30,
+      "std_error": 0.17102169021370042
+    },
+    "uplift_ratio_vs_rule": 1.0675928724948507,
+    "sdk_uplift_gate_1.05": true,
+    "sdk_service_gate_sla_within_0.02_of_rule": true
+  }
+}
