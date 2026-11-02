@@ -22,8 +22,9 @@ A frozen suite of misconfiguration incidents on the in-process Maveric twin. Eve
    ```
    PY -m t3.evals.incidents --write
    ```
+   (`--write` refuses to freeze unless the real twin is the backend, and records `frozen_at` and the superseded hashes in `suite/incidents-meta.json`.)
    - Put the new sha256 into `FROZEN_SHA` in `tests/test_incidents.py`.
-   - Move the old `evidence/` directory aside; it was graded against the old suite.
+   - Leave the old runs in `evidence/` untouched (they stay in history) and list them in `evidence/superseded.json` with the reason and the run ids that replace them; they were graded against the old suite.
    - Commit: tests green, message "re-freeze suite against W2 twin".
    - Redo the four offline runs from the committed tree (the runner refuses a dirty tree). Each run prints its `run_id`; use those ids in the later commands.
      ```

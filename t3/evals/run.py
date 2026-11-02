@@ -2,9 +2,22 @@
 
     python -m t3.evals.run --operator no_action
     python -m t3.evals.run --operator rule_baseline --baseline-run-id <no_action run>
-    python -m t3.evals.run --operator oracle --baseline-run-id <no_action run> <rule run> --workers 8
-    python -m t3.evals.run --operator swarm --swarm-client mymod:factory --baseline-run-id <...>
+    python -m t3.evals.run --operator config_revert --baseline-run-id <no_action run>
+    python -m t3.evals.run --operator oracle --workers 10 \\
+        --baseline-run-id <no_action run> <rule_baseline run> <config_revert run>
+    python -m t3.evals.run --operator swarm --mode proposal --subset masked --swarm-client mymod:factory \\
+        --baseline-run-id <config_revert run> <rule_baseline run>
     python -m t3.evals.run gains --run <A> --baseline <B>          # paired gain from stored items
+
+Baseline arguments (``--baseline-run-id``, one or more run ids in the same evidence store):
+- the FIRST id is ``declared.baseline_run_id`` and ``result.details.gain``'s baseline (except for the
+  swarm, whose ``details.gain`` is its declared primary below);
+- ``rule_baseline``, ``config_revert`` and ``ppo`` declare "gain over no_action", so their list must
+  include a no_action run (found by its declared model_id ``no_action``);
+- ``swarm`` declares "gain over config_revert on the masked tier": its list must include a
+  config_revert run (model_id ``config-revert-median-v1``, run on the FULL test split so every masked
+  incident is paired) and should include a rule_baseline run for the secondary wrong-cell check;
+- every id listed gets a paired gain in ``result.details.gains``.
 
 Order per run: the declaration (target from targets.json, suite hash, item count, code sha) is
 written first, then one ``item`` record per incident, then the ``result``. Gains are paired by
