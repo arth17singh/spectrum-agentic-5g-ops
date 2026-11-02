@@ -4,7 +4,7 @@ Proves, inside the Lambda runtime on arm64, that torch, gpytorch, the shipped Ma
 the ran_rl SDK and stable-baselines3 all work. It deliberately does not import any of our own
 packages (the real handler is t3.tools.app.handler).
 
-Event (all optional): {"steps": 10, "seed": 1, "scenario": "nominal", "ppo": true}
+Event (all optional): {"steps": 10, "seed": 1, "scenario": "nominal", "ppo": true, "reuse_twin": false}
   - builds the in-process Maveric twin, resets with seed/scenario;
   - applies two explicit changes (cell 0 power +4 dB, cell 0 tilt -2 deg; then cell 2 tilt +2 deg),
     then replays zero-change steps up to `steps` in total; each step goes through the SDK's safety
@@ -68,7 +68,12 @@ def handler(event, context):
     _ENV_CACHE["warm"] = True
     t0 = time.perf_counter()
 
-    env = ran_rl.make_env(twin="maveric")
+    if event.get("reuse_twin"):
+        # Real tools can keep the GP models loaded in the warm container and only reset per call.
+        env = _ENV_CACHE.get("env") or ran_rl.make_env(twin="maveric")
+        _ENV_CACHE["env"] = env
+    else:
+        env = ran_rl.make_env(twin="maveric")
     t_build = time.perf_counter()
     obs, info = env.reset(seed=seed, options={"scenario": scenario})
     t_reset = time.perf_counter()
@@ -100,7 +105,8 @@ def handler(event, context):
             "action": [round(float(x), 4) for x in act],
             "load_and_predict_s": round(time.perf_counter() - t_p0, 3),
         }
-    env.close()
+    if not event.get("reuse_twin"):
+        env.close()
 
     return {
         "ok": True,
