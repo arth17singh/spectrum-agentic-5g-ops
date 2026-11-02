@@ -1,0 +1,11 @@
+{
+  "about": "Public keys for the SPECTRUM evidence ledger (ledger.jsonl). Verify each record's Ed25519 signature over its hash with the key named by its key_id.",
+  "alg": "Ed25519",
+  "keys": {
+    "evidence/ingester": {
+      "public_key_hex": "ad436df31b181b05533c296d1a3bfb1b777bf5cd9a31d02d20aa26d9ebf9c594",
+      "fingerprint": "SHA256:7ba13c430568bcb179f0ba8cddb6a402",
+      "created_at": "2026-11-02T10:12:31.774Z"
+    }
+  }
+}
