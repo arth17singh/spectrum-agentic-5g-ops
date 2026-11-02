@@ -8,7 +8,11 @@
     "grade_step": 5,
     "note": "reset = step 0. Step 1 = commissioning (the healthy per-cell configuration: none on the visible tier, seeded offsets on the masked tier). Step 2 = the fault. The operator then gets exactly 3 applies (steps 3-5); None or [] is a no-op step that still advances. Everyone is graded at step 5, so pairs are on the same UE positions."
   },
-  "graded_kpis": ["coverage_ratio", "sla_ratio", "sinr_p10_db"],
+  "graded_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+  ],
   "reference": "healthy counterfactual at the grade step: same scenario, seed and preset, no fault, no-op steps (on the stationary viavi-like preset this equals the pre-fault state; on the mobile official preset UEs move, so the same-step healthy state is the fair pre-fault level)",
   "tolerance": {
     "coverage_ratio": 0.02,
@@ -24,16 +28,93 @@
   },
   "recovery": "per KPI: (final - unfixed) / (healthy - unfixed) at the grade step, clipped to [-1, 1]; recovery = mean over the material KPIs. unfixed = the faulted twin with 3 no-op steps.",
   "incident_inclusion": "a candidate incident is kept only if no_action fails the success check on it (some graded KPI gap > tolerance) and the fault apply was not clipped by the SDK safety filter",
-  "also_reported": ["changes_used (non-empty applies)", "wrong_cell_actions (applied items on a cell the fault did not touch)", "clamped (any SDK safety-filter rule fired on an operator step) and the rule ids"],
-  "bootstrap": {"resamples": 10000, "seed": 20261102, "ci": 0.95, "method": "paired by item_id, percentile interval of the mean difference"},
+  "also_reported": [
+    "changes_used (non-empty applies)",
+    "wrong_cell_actions (applied items on a cell the fault did not touch)",
+    "clamped (any SDK safety-filter rule fired on an operator step) and the rule ids"
+  ],
+  "bootstrap": {
+    "resamples": 10000,
+    "seed": 20261102,
+    "ci": 0.95,
+    "method": "paired by item_id, percentile interval of the mean difference"
+  },
   "gain_counts_if": "ci_low > 0 (the interval excludes zero) and the declared target is met",
   "units": {
-    "no_action": {"unit": "t3.evals.recovery", "target": {"metric": "mean_score", "op": "<=", "value": 0.05, "unit": "recovery"}, "why": "sanity line: doing nothing closes no gap by construction"},
-    "rule_baseline": {"unit": "t3.evals.recovery", "target": {"metric": "gain_ci_low_vs_no_action", "op": ">", "value": 0.0, "unit": "recovery"}, "why": "the SDK rule controller should beat doing nothing"},
-    "config_revert": {"unit": "t3.evals.recovery", "target": {"metric": "gain_ci_low_vs_no_action", "op": ">", "value": 0.0, "unit": "recovery"}, "why": "the simple heuristic (revert the odd cell out to the median configuration) should beat doing nothing"},
-    "ppo": {"unit": "t3.evals.recovery", "target": {"metric": "gain_ci_low_vs_no_action", "op": ">", "value": 0.0, "unit": "recovery"}, "why": "a learned policy should beat doing nothing"},
-    "oracle": {"unit": "t3.evals.recovery", "target": {"metric": "mean_score", "op": ">=", "value": 0.8, "unit": "recovery"}, "why": "best-of-K with replay look-ahead is the upper bound; if it cannot close 80% the suite is too hard"},
-    "swarm": {"unit": "t3.evals.recovery", "target": {"metric": "mean_score", "op": ">=", "value": 0.5, "unit": "recovery"}, "why": "the governed swarm must close at least half the KPI gap on average, through the checkpoint"}
+    "no_action": {
+      "unit": "t3.evals.recovery",
+      "target": {
+        "metric": "mean_score",
+        "op": "<=",
+        "value": 0.05,
+        "unit": "recovery"
+      },
+      "why": "sanity line: doing nothing closes no gap by construction"
+    },
+    "rule_baseline": {
+      "unit": "t3.evals.recovery",
+      "target": {
+        "metric": "gain_ci_low_vs_no_action",
+        "op": ">",
+        "value": 0.0,
+        "unit": "recovery"
+      },
+      "why": "the SDK rule controller should beat doing nothing"
+    },
+    "config_revert": {
+      "unit": "t3.evals.recovery",
+      "target": {
+        "metric": "gain_ci_low_vs_no_action",
+        "op": ">",
+        "value": 0.0,
+        "unit": "recovery"
+      },
+      "why": "the simple heuristic (revert the odd cell out to the median configuration) should beat doing nothing"
+    },
+    "ppo": {
+      "unit": "t3.evals.recovery",
+      "target": {
+        "metric": "gain_ci_low_vs_no_action",
+        "op": ">",
+        "value": 0.0,
+        "unit": "recovery"
+      },
+      "why": "a learned policy should beat doing nothing"
+    },
+    "oracle": {
+      "unit": "t3.evals.recovery",
+      "target": {
+        "metric": "mean_score",
+        "op": ">=",
+        "value": 0.8,
+        "unit": "recovery"
+      },
+      "why": "best-of-K with replay look-ahead is the upper bound; if it cannot close 80% the suite is too hard"
+    },
+    "swarm": {
+      "unit": "t3.evals.swarm-vs-heuristic",
+      "target": {
+        "metric": "gain_ci_low_vs_config_revert_masked",
+        "op": ">",
+        "value": 0.0,
+        "unit": "recovery"
+      },
+      "why": "PRIMARY (the pass line): paired recovery gain of swarm over config_revert on the MASKED tier of the test split, lower 95% bootstrap bound > 0. Declared after the offline baselines (config_revert masked mean 0.467) and before any swarm run.",
+      "secondary_reported_not_pass_line": [
+        "success rate on the masked tier",
+        "wrong-cell actions on the masked tier <= rule_baseline's on the same incidents"
+      ],
+      "baselines_required": [
+        "config_revert run (full test split)",
+        "rule_baseline run (for the secondary)"
+      ],
+      "default_mode": "proposal"
+    }
   },
-  "metric_names": {"mean_score": "mean per-item recovery (item.score)", "gain_ci_low_vs_no_action": "lower end of the 95% paired bootstrap interval of mean(recovery - no_action recovery)"}
+  "metric_names": {
+    "mean_score": "mean per-item recovery (item.score)",
+    "gain_ci_low_vs_no_action": "lower end of the 95% paired bootstrap interval of mean(recovery - no_action recovery)",
+    "gain_ci_low_vs_config_revert_masked": "lower end of the 95% paired bootstrap interval of mean(swarm recovery - config_revert recovery) over the masked-tier test incidents"
+  },
+  "declared_at_swarm_amendment": "2026-11-02T21:20:00Z"
 }
