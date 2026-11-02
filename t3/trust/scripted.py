@@ -42,6 +42,24 @@ def scripted_changes(k: int = 24, seed: int = 2026, n_cells: int = N_CELLS) -> l
     return out
 
 
+def random_change(rng: np.random.Generator, state: dict, n_cells: int = N_CELLS) -> list[dict]:
+    """Calibration changes: 1-2 cells, power +-1..4 dB, tilt +-0.5..3 deg (one decimal), each
+    flipped when it would leave 15..31 dBm or 4..12 deg (relative to a 23 dBm reference; on a
+    40 dBm preset the safety filter clips and the change is recorded as unscored)."""
+    cells = rng.choice(n_cells, size=int(rng.integers(1, 3)), replace=False)
+    out = []
+    for i in sorted(int(c) for c in cells):
+        dp = float(rng.choice([-1, 1]) * rng.uniform(1, 4))
+        dt = float(rng.choice([-1, 1]) * rng.uniform(0.5, 3))
+        p, t = state["power_dbm"][i], state["tilt_deg"][i]
+        if not 15 <= p + dp <= 31:
+            dp = -dp
+        if not 4 <= t + dt <= 12:
+            dt = -dt
+        out.append({"cell": i, "d_power_db": round(dp, 1), "d_tilt_deg": round(dt, 1)})
+    return out
+
+
 def load_script(path: str | Path = SCRIPT_PATH) -> tuple[list[list[dict]], str]:
     raw = Path(path).read_bytes()
     return json.loads(raw)["changes"], hashlib.sha256(raw).hexdigest()

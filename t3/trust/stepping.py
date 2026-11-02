@@ -1,29 +1,29 @@
 """One applied change with its no-change counterfactual (A5), shared by demo, calibration and ladder.
 
-Uses only the contract's twin interface: ``twin_factory(scenario, seed, config)``,
-``twin_factory.from_log(scenario, seed, config, action_log)``, ``.reset()``, ``.apply(change)``,
-``.action_log`` and ``kpis(state)``. The baseline is the same twin rebuilt from its action log
-and stepped with an empty change, so on a deterministic twin it is exact.
+Real path (W2's ``twin.replay.ReplayTwin``): ``tw.counterfactual(change)`` gives the no-change
+baseline KPIs, the KPIs after the change and ``clamped`` (the safety filter altered the request)
+on a snapshot, exactly, without touching the live twin; then ``tw.apply(change)`` advances the live
+twin and its KPIs are the measured ones (identical to the trial's, by determinism).
 
-Clipping (A5): a change is "clipped" when the power/tilt the twin actually moved differ from
-what was asked (safety filter clip or alarm freeze). It is detected from the state itself
-(after - before vs the requested deltas), so it needs nothing beyond the SDK's raw state.
+Fallback (twins without ``counterfactual``, e.g. test fakes): rebuild the twin with
+``twin_factory.from_log`` and step it with an empty change; clamping is detected from the state
+(the power/tilt actually moved vs the requested deltas).
+
+Predictions: ``t2.predict`` returns KPI DELTAS (A5), so ``predictor.predict(state, change)`` is the
+predicted delta; a ``predict_delta`` method, if a predictor has one, takes precedence.
 """
 
 from __future__ import annotations
 
-from typing import Any
+import copy
+from typing import Any, Callable
 
 TOL = 1e-6
 
 
 def predicted_delta(predictor, state: dict, change: list[dict]) -> dict:
-    """The predictor's KPI delta vs no change: ``predict_delta`` if it has one, else the
-    difference of two ``predict`` calls (W9 interface)."""
-    if hasattr(predictor, "predict_delta"):
-        return {k: float(v) for k, v in predictor.predict_delta(state, change).items()}
-    a, b = predictor.predict(state, change), predictor.predict(state, [])
-    return {k: float(a[k]) - float(b[k]) for k in a}
+    fn = getattr(predictor, "predict_delta", None) or predictor.predict
+    return {k: float(v) for k, v in fn(state, change).items()}
 
 
 def was_clipped(before: dict, after: dict, change: list[dict]) -> bool:
@@ -33,34 +33,40 @@ def was_clipped(before: dict, after: dict, change: list[dict]) -> bool:
         i = int(c["cell"])
         want_p[i] += float(c.get("d_power_db", 0.0))
         want_t[i] += float(c.get("d_tilt_deg", 0.0))
-    for i in range(n):
-        if abs((after["power_dbm"][i] - before["power_dbm"][i]) - want_p[i]) > TOL:
-            return True
-        if abs((after["tilt_deg"][i] - before["tilt_deg"][i]) - want_t[i]) > TOL:
-            return True
-    return False
+    return any(abs((after["power_dbm"][i] - before["power_dbm"][i]) - want_p[i]) > TOL
+               or abs((after["tilt_deg"][i] - before["tilt_deg"][i]) - want_t[i]) > TOL for i in range(n))
 
 
-def baseline_twin(tw, twin_factory, scenario, seed, config):
-    """The same twin at the same step, for the no-change branch: ``tw.fork()`` when the twin has
-    one (fast path), else ``twin_factory.from_log`` (the contract interface; exact on replay)."""
-    if hasattr(tw, "fork"):
-        return tw.fork()
-    return twin_factory.from_log(scenario, seed, config, [list(c) for c in tw.action_log])
+def baseline_kpis(tw, twin_factory, kpis: Callable, scenario, seed, config) -> dict:
+    if hasattr(tw, "counterfactual"):
+        return dict(tw.counterfactual([])["baseline"])
+    ref = twin_factory.from_log(scenario, seed, config, copy.deepcopy(tw.action_log))
+    return kpis(ref.apply([]))
 
 
-def step_with_counterfactual(tw, twin_factory, kpis, change: list[dict], *, scenario, seed,
+def step_with_counterfactual(tw, twin_factory, kpis: Callable, change: list[dict], *, scenario, seed,
                              config, before_state: dict) -> dict[str, Any]:
-    ref = baseline_twin(tw, twin_factory, scenario, seed, config)
-    baseline = kpis(ref.apply([]))
+    if hasattr(tw, "counterfactual"):
+        cf = tw.counterfactual(change)
+        after = tw.apply(change)
+        measured = kpis(after)
+        return {"before": before_state, "after": after, "baseline_kpis": dict(cf["baseline"]),
+                "measured_kpis": measured, "clipped": bool(cf["clamped"])}
+    base = baseline_kpis(tw, twin_factory, kpis, scenario, seed, config)
     after = tw.apply(change)
-    measured = kpis(after)
-    return {"before": before_state, "after": after, "baseline_kpis": baseline,
-            "measured_kpis": measured, "clipped": was_clipped(before_state, after, change)}
+    return {"before": before_state, "after": after, "baseline_kpis": base, "measured_kpis": kpis(after),
+            "clipped": was_clipped(before_state, after, change)}
 
 
 def twin_desc(tw, scenario, seed) -> dict:
-    d = tw.describe() if hasattr(tw, "describe") else {}
-    return {"kind": d.get("kind", getattr(tw, "kind", "maveric-inprocess")),
-            "version": d.get("version", getattr(tw, "version", None)),
-            "scenario": scenario, "seed": seed, "step": len(tw.action_log)}
+    kind = getattr(tw, "kind", None) or "maveric-inprocess"
+    version = getattr(tw, "version", None)
+    if version is None:
+        try:
+            from twin.replay import sdk_version
+            from twin.presets import config_hash
+
+            version = f"ran-rl {sdk_version()} config {config_hash(tw.config)[:12]} ({tw.config.get('preset')})"
+        except Exception:
+            version = None
+    return {"kind": kind, "version": version, "scenario": scenario, "seed": seed, "step": len(tw.action_log)}

@@ -106,6 +106,7 @@ class PolicyClient:
     targets: dict[str, dict] = field(default_factory=dict)  # "model_id@version" or "model_id" -> PauseTarget kwargs
     ac: Any = None                                          # injected boto3 bedrock-agentcore-control client
     dry_run: bool = True
+    wait_active: bool = True                                # False: return right after create_policy (sync callers)
     clock: Callable[[], float] = time.time
     calls: list[dict] = field(default_factory=list)
     _dry_policies: dict[str, dict] = field(default_factory=dict)
@@ -159,9 +160,11 @@ class PolicyClient:
                                         "statement": statement}
         else:
             created = self.ac.create_policy(**kwargs)
-            self.ac.get_waiter("policy_active").wait(policyEngineId=self.engine_id,
-                                                     policyId=created["policyId"])
-        return {"policy_name": name, "created": True, "dry_run": self.dry_run, "statement": statement}
+            if self.wait_active:
+                self.ac.get_waiter("policy_active").wait(policyEngineId=self.engine_id,
+                                                         policyId=created["policyId"])
+        return {"policy_name": name, "created": True, "dry_run": self.dry_run, "statement": statement,
+                "waited_active": bool(self.wait_active and not self.dry_run)}
 
     def resume(self, model_id: str, version: str) -> dict:
         removed = []

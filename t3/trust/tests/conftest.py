@@ -72,15 +72,33 @@ def fake_kpis(state):
     return dict(state["kpis"])
 
 
+class FakeCFTwin(FakeTwin):
+    """FakeTwin with ReplayTwin's ``counterfactual`` (the real path in stepping and ladder)."""
+
+    def counterfactual(self, change):
+        def trial(ch):
+            tw = FakeTwin.from_log(self.scenario, self.seed, self.config, self.action_log)
+            before = tw._state
+            after = tw.apply(ch)
+            return after, before
+
+        after, before = trial(change)
+        base, _ = trial([])
+        clamped = any(before["alarm"][int(c["cell"])] for c in change)
+        a, b = fake_kpis(after), fake_kpis(base)
+        return {"baseline": b, "after": a, "delta": {k: a[k] - b[k] for k in KEYS}, "clamped": clamped}
+
+
 class FakePredictor:
-    """Knows the true official-rung response, times ``sign`` (``-1`` = degraded)."""
+    """Returns KPI DELTAS like t2.predict: the true official-rung response times ``sign``
+    (``-1`` = degraded); a zero change predicts exactly 0."""
 
     def __init__(self, version, sign=1.0, model_id="fake-resp"):
         self.model_id, self.version, self.sign = model_id, version, sign
 
     def predict(self, state, change):
-        out = dict(state["kpis"])
-        for c in change:
+        out = {k: 0.0 for k in KEYS}
+        for c in change or []:
             for k in KEYS:
                 out[k] += self.sign * (RESP_P[k] * c.get("d_power_db", 0.0) + RESP_T[k] * c.get("d_tilt_deg", 0.0))
         return out

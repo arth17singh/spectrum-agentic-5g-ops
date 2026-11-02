@@ -4,7 +4,7 @@ import pytest
 from botocore.exceptions import ClientError
 
 from t3.trust.gate import THRESHOLDS_PATH, TrustGate, load_thresholds
-from t3.trust.local_writer import LocalRecordWriter
+from t3.trust.evio import EvidenceWriter
 from t3.trust.policy import PolicyClient
 from t3.trust.records import CONTROL_FIELDS
 from t3.trust.store import DynamoTrustStore, FileTrustStore, MemoryTrustStore
@@ -22,14 +22,14 @@ def rec(i, pred, meas=GOOD, model=("m", "v1"), **extra):
 
 
 def make(thresholds, **kw):
-    w = LocalRecordWriter()
+    w = EvidenceWriter()
     pc = PolicyClient(clock=lambda: 1000)
     g = TrustGate(kw.pop("store", MemoryTrustStore()), thresholds, pc, w, clock=lambda: "2026-11-02T00:00:00Z", **kw)
     return g, pc, w
 
 
 def controls(w):
-    return [r for (run, kind), rs in w.records.items() if kind == "control" for r in rs]
+    return [r for (run, kind), rs in w.memory.items() if kind == "control" for r in rs]
 
 
 def test_declared_thresholds_file_loads_with_hash():
@@ -164,7 +164,7 @@ def test_policy_failure_releases_the_claim(thresholds):
             raise RuntimeError("throttled")
 
     store = MemoryTrustStore()
-    g = TrustGate(store, thresholds, Boom(), LocalRecordWriter())
+    g = TrustGate(store, thresholds, Boom(), EvidenceWriter())
     for i in range(2):
         g.update(rec(i, BAD))
     with pytest.raises(RuntimeError):

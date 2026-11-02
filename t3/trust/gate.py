@@ -98,6 +98,7 @@ class TrustGate:
         self.writer = writer
         self.clock = clock or utc_now
         self.synthetic = synthetic
+        self.last_control_paths: list[str] = []
         th = self.thresholds
         self.keys = list(th["keys"])
         self.scales = {k: float(th["scales"][k]) for k in self.keys}
@@ -144,11 +145,18 @@ class TrustGate:
         th = self.thresholds
         sc = self.score(change_record["predicted_delta"], change_record["measured_delta"])
         st = self.store.get(mid, ver)
+        cid = change_record.get("change_id")
+        if cid and any(h.get("change_id") == cid and h.get("epoch") == st["epoch"] for h in st["history"]):
+            # a retried call (sync Lambda retry, resent apply): never score the same change twice
+            prev = [h for h in st["history"] if h.get("change_id") == cid][-1]
+            return {"model_id": mid, "version": ver, "trust_before": prev.get("trust_before"),
+                    "trust_after": prev["trust"], "e": prev["e"], "score": prev["score"], "action": None,
+                    "status": st["status"], "n": st["n"], "skipped": "duplicate change_id (already scored)"}
         before = st["trust"]
         st["m"], st["n"], st["trust"] = self.ewma_step(st["m"], st["n"], sc["score"], float(th["alpha"]))
         st["recent_e"] = (st.get("recent_e", []) + [sc["e"] if math.isfinite(sc["e"]) else 1e9])[-int(th["recent_window"]):]
         st["history"].append({"change_id": change_record.get("change_id"), "e": sc["e"] if math.isfinite(sc["e"]) else 1e9, "score": sc["score"],
-                              "trust": st["trust"], "epoch": st["epoch"]})
+                              "trust_before": before, "trust": st["trust"], "epoch": st["epoch"]})
         self.store.put(mid, ver, st)
         status = self.store.get(mid, ver)["status"]
         out = {"model_id": mid, "version": ver, "trust_before": before, "trust_after": st["trust"],
@@ -224,10 +232,11 @@ class TrustGate:
         return rec
 
     def _write(self, run_id: str, rec: dict) -> None:
+        self.last_control_paths = []
         if self.writer is None:
             return
         append = getattr(self.writer, "append_records", self.writer)
-        append(run_id, "control", [rec])
+        self.last_control_paths = list(append(run_id, "control", [rec]) or [])
 
     def state(self, model_id: str, version: str) -> dict[str, Any]:
         return self.store.get(model_id, version)
