@@ -110,6 +110,8 @@ export interface Ladder {
   rungs: Rung[]
   top_label: RungLabel
   has_viavi: boolean
+  /** a measured Viavi gain from a record not marked synthetic; the only state that may look like a result */
+  real_viavi: boolean
   label_ok: boolean
   retention: number | null
   retention_ci: [number, number] | null

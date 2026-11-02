@@ -187,3 +187,41 @@ def test_unknown_rung_label_or_wrong_unit_is_not_a_ladder():
     res["unit"] = "t3.trust-pause"
     assert logic.ladder_view(res) is None
     assert logic.latest_ladders([]) == []
+
+
+# ------------------------------------------------------------------ Viavi states: none, synthetic, real
+
+def _viavi_result():
+    return copy.deepcopy([r for r in all_results() if r["unit"] == "t3.ladder" and r["details"]["version"] == "v4"][0])
+
+
+def test_viavi_state_none_no_ladder_is_real():
+    reh = [r for r in all_results() if r["unit"] == "t3.ladder" and r["details"]["version"] == "v3"]
+    ls = logic.latest_ladders(reh)
+    assert len(ls) == 1 and not any(l["has_viavi"] or l["real_viavi"] for l in ls)
+    assert ls[0]["synthetic"] is True  # the rehearsal fixture is synthetic too
+
+
+def test_viavi_state_none_a_viavi_rung_without_a_gain_has_null_retention():
+    res = _viavi_result()
+    res["details"]["rungs"][1]["gain"] = None
+    res["details"]["rungs"][1]["gain_ci"] = None
+    v = logic.ladder_view(res)
+    assert v["retention"] is None and v["retention_ci"] is None and v["passed"] is None
+    assert v["real_viavi"] is False
+
+
+def test_viavi_state_synthetic_is_never_real():
+    v = logic.ladder_view(_viavi_result())
+    assert v["synthetic"] is True and v["has_viavi"] is True and v["real_viavi"] is False
+    assert v["retention"] == 0.45  # copied as recorded; the page labels it illustrative
+
+
+def test_viavi_state_real_needs_a_non_synthetic_record_with_a_gain():
+    res = _viavi_result()
+    res["synthetic"] = False
+    v = logic.ladder_view(res)
+    assert v["real_viavi"] is True and v["synthetic"] is False and v["retention"] == 0.45
+    res["details"]["rungs"][1]["twin_kind"] = "maveric-inprocess"  # label contradicts twin: not Viavi at all
+    v2 = logic.ladder_view(res)
+    assert v2["has_viavi"] is False and v2["real_viavi"] is False and v2["label_ok"] is False
