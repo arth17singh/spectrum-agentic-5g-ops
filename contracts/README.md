@@ -76,6 +76,8 @@ python contracts/gen.py --check    # exit 1 if anything is stale (or: git diff -
 python -m pytest contracts/tests -q
 ```
 
+The committed schema and TypeScript files were generated with pydantic 2.14.2, the same version pinned in `dashboard/backend/uv.lock`. Other pydantic 2.x versions may write the JSON Schema slightly differently. If yours does, regenerate with 2.14.2 before trusting a `git diff`.
+
 The fixtures are in `fixtures/<kind>/`:
 
 - `valid-*.json` files are all `synthetic: true`;
