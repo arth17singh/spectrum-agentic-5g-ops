@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -62,12 +63,36 @@ def _is_str(v) -> bool:
     return isinstance(v, str) and v.strip() != ""
 
 
-def validate_declaration(content: bytes, run_id_from_name: str) -> tuple[dict | None, list[str]]:
-    """(declaration, errors). The declaration keeps only the schema fields."""
+def _parse(content: bytes) -> tuple[object, list[str]]:
+    """Parse JSON defensively: any failure (bad UTF-8, bad JSON, nesting deep enough to raise
+    RecursionError, strings with lone surrogates that cannot be re-encoded) is an error, never a crash."""
     try:
         d = json.loads(content.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError) as e:
-        return None, [f"not valid JSON: {e}"]
+    except RecursionError:
+        return None, ["not valid JSON: nested too deeply"]
+    except Exception as e:  # noqa: BLE001
+        return None, [f"not valid JSON: {e.__class__.__name__}: {str(e)[:120]}"]
+    try:
+        json.dumps(d, ensure_ascii=False).encode("utf-8")
+    except RecursionError:
+        return None, ["not valid JSON: nested too deeply"]
+    except Exception:  # noqa: BLE001 - e.g. "\ud800": a lone surrogate is not valid Unicode text
+        return None, ["contains text that is not valid Unicode (for example a lone surrogate escape)"]
+    return d, []
+
+
+def validate_declaration(content: bytes, run_id_from_name: str) -> tuple[dict | None, list[str]]:
+    """(declaration, errors). The declaration keeps only the schema fields. Never raises."""
+    try:
+        return _validate_declaration(content, run_id_from_name)
+    except Exception as e:  # noqa: BLE001
+        return None, [f"could not be validated: {e.__class__.__name__}"]
+
+
+def _validate_declaration(content: bytes, run_id_from_name: str) -> tuple[dict | None, list[str]]:
+    d, errs = _parse(content)
+    if errs:
+        return None, errs
     if not isinstance(d, dict):
         return None, ["top level must be a JSON object"]
     errors: list[str] = []
@@ -75,7 +100,7 @@ def validate_declaration(content: bytes, run_id_from_name: str) -> tuple[dict | 
         if not _is_str(d.get(k)):
             errors.append(f"{k} must be a non-empty string")
     if _is_str(d.get("run_id")) and d["run_id"] != run_id_from_name:
-        errors.append(f"run_id {d['run_id']!r} does not match the file name {run_id_from_name!r}")
+        errors.append(f"run_id {ascii(d['run_id'])} does not match the file name {ascii(run_id_from_name)}")
     t = d.get("target")
     if not isinstance(t, dict):
         errors.append("target must be an object with metric and value")
@@ -94,10 +119,9 @@ def validate_declaration(content: bytes, run_id_from_name: str) -> tuple[dict | 
 
 
 def validate_judging(content: bytes) -> tuple[list[str] | None, list[str]]:
-    try:
-        d = json.loads(content.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError) as e:
-        return None, [f"not valid JSON: {e}"]
+    d, errs = _parse(content)
+    if errs:
+        return None, errs
     ids = d.get("run_ids") if isinstance(d, dict) else d
     if not isinstance(ids, list) or not all(_is_str(x) for x in ids):
         return None, ["expected a list of run ids, or an object with a run_ids list"]
@@ -111,9 +135,13 @@ def validate_judging(content: bytes) -> tuple[list[str] | None, list[str]]:
 class LocalSource:
     kind = "local"
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, max_cache_age_s: float = 30.0):
         self.root = root
-        self._cache: dict[str, tuple[int, int, str]] = {}  # rel -> (mtime_ns, size, sha256)
+        # rel -> (mtime_ns, size, sha256, hashed_at). The cache only saves work between close scans: an
+        # entry older than max_cache_age_s is re-hashed even if mtime and size look the same, because both
+        # can be set back by hand. `rebuild` re-hashes everything and is the authoritative check.
+        self._cache: dict[str, tuple[int, int, str, float]] = {}
+        self.max_cache_age_s = max_cache_age_s
 
     def describe(self) -> dict:
         return {"kind": self.kind, "uri": str(self.root), "time_basis": "file modification time"}
@@ -138,11 +166,13 @@ class LocalSource:
                 content = p.read_bytes() if kind in JSON_KINDS else None
                 if content is not None:
                     sha = hashlib.sha256(content).hexdigest()
-                elif cached and cached[:2] == (st.st_mtime_ns, st.st_size):
+                elif (cached and cached[:2] == (st.st_mtime_ns, st.st_size)
+                      and time.monotonic() - cached[3] < self.max_cache_age_s):
                     sha = cached[2]
                 else:
                     sha = _file_sha(p)
-                self._cache[rel] = (st.st_mtime_ns, st.st_size, sha)
+                    cached = None
+                self._cache[rel] = (st.st_mtime_ns, st.st_size, sha, cached[3] if cached else time.monotonic())
                 out.append(Artifact(rel, kind, run_id, sha, st.st_size,
                                     utc_iso(datetime.fromtimestamp(st.st_mtime, timezone.utc)), "local",
                                     content=content))
@@ -217,6 +247,6 @@ class S3Source:
         return out
 
 
-def default_source(root: Path) -> LocalSource | S3Source:
+def default_source(root: Path, max_cache_age_s: float = 30.0) -> LocalSource | S3Source:
     uri = os.environ.get("SPECTRUM_EVIDENCE_S3", "").strip()
-    return S3Source(uri) if uri else LocalSource(root)
+    return S3Source(uri) if uri else LocalSource(root, max_cache_age_s)

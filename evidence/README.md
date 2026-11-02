@@ -34,7 +34,12 @@ name must equal `run_id`). A file that does not match is still recorded, as an *
   time (file modification time, or S3 `LastModified` and `VersionId` when the S3 source is used).
 - Re-scanning adds nothing for unchanged files. A file whose content changes after it was recorded
   gets an `evidence.changed` record; the original record stays. A deleted file gets `evidence.missing`.
-- On startup the backend re-verifies the whole chain with `public_keys.json` only. If anything fails
+- A file that cannot be parsed or validated (bad JSON, deep nesting, invalid Unicode, a non-UTF-8 name)
+  is recorded as **invalid** with the hash of its raw bytes; it never stops the other files.
+- Scans skip re-hashing a file whose size and modification time are unchanged only within one poll
+  cycle; older cache entries are re-hashed. `rebuild` re-hashes every file and is the authoritative check.
+- When the chain does not verify, every per-run check is shown as "unverified (chain broken)".
+- On startup, and on every read of the evidence API, the backend re-verifies the whole chain with `public_keys.json` only. If anything fails
   it reports **BROKEN at #n** in the API and on the Evidence screen, stops appending, and changes nothing.
 
 ## Keys

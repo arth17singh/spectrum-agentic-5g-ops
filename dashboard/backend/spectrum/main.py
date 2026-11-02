@@ -25,6 +25,7 @@ from .access import TOKEN, AccessGate, is_loopback, log_phone_link
 from .adapters import load_adapters
 from .engine import Engine
 from .evidence.service import EvidenceService
+from .evidence.store import utc_iso
 
 MODE = os.environ.get("SPECTRUM_MODE", "mock")
 SEED = int(os.environ.get("SPECTRUM_SEED", "7"))
@@ -34,7 +35,15 @@ engine = Engine(seed=SEED)
 adapters = load_adapters(MODE)
 # The REAL evidence ledger lives beside the engine, never inside it: reset() rebuilds the engine (and
 # its bus) and must not touch it. Events resolve engine.bus at emit time for the same reason.
-evidence = EvidenceService(emit=lambda *a, **k: engine.bus.emit(*a, **k))
+def _emit_evidence(*a, **k) -> dict:
+    """Emit on the engine's current bus, stamped with real UTC time: evidence never uses the sim clock."""
+    ev = engine.bus.emit(*a, **k)
+    ev["ts"] = utc_iso()  # same dict the queues and history hold; the socket serialises it later
+    ev["clock"] = "wall"
+    return ev
+
+
+evidence = EvidenceService(emit=_emit_evidence)
 
 
 @asynccontextmanager
@@ -345,13 +354,13 @@ async def dossier(incident: str):
 
 @app.get("/api/evidence")
 async def evidence_snapshot():
-    evidence.check_disk()  # a hand edit to ledger.jsonl shows up on the next read, not only the next scan
+    evidence.check_disk(force=True)  # re-read and re-verify from disk on every read, never trust a cache
     return evidence.snapshot()
 
 
 @app.get("/api/evidence/chain")
 async def evidence_chain():
-    evidence.check_disk()  # serve the records as they are on disk now, for the browser to verify
+    evidence.check_disk(force=True)  # serve the records exactly as they are on disk now, for the browser to verify
     return evidence.chain()
 
 

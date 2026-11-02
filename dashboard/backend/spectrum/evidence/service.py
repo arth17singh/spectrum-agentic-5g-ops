@@ -16,12 +16,20 @@ from typing import Callable
 from ..core import KeyRing
 from ..engines.ledger import ANCHOR_EVERY, GENESIS
 from .sources import Artifact, default_source, validate_declaration, validate_judging
-from .store import (ANCHORS_FILE, KEY_ID, LEDGER_FILE, PUBKEYS_FILE, EvidenceLedger, PublicKeyRing, evidence_dir, fingerprint,
+from .store import (ANCHORS_FILE, KEY_ID, LEDGER_FILE, REPO_ROOT, PUBKEYS_FILE, EvidenceLedger, PublicKeyRing, evidence_dir, fingerprint,
                     key_file, load_disk, load_or_create_secret, public_keys_doc, utc_iso, verify_chain)
 
 log = logging.getLogger("spectrum.evidence")
 
 NOT_CHECKED = {"state": "not_checked", "detail": "not yet checked (later work)"}
+UNVERIFIED = {"state": "unverified", "detail": "unverified (chain broken): the ledger these checks come from does not verify"}
+CHECK_IDS = ("declared", "declared_before_outputs", "test_set_hash", "grader_recorded", "unchanged", "times_agree_aws",
+             "independent_grader")
+
+
+def clean(s: str) -> str:
+    """A string that is always valid UTF-8 (lone surrogates and undecodable bytes become escapes)."""
+    return s.encode("utf-8", "backslashreplace").decode("utf-8")
 
 
 def build_index(records: list[dict]) -> dict[str, dict]:
@@ -47,8 +55,10 @@ def build_index(records: list[dict]) -> dict[str, dict]:
     return idx
 
 
-def summarise_runs(records: list[dict]) -> tuple[list[dict], list[str]]:
-    """One summary per run id seen in the chain (or listed in judging.json), and the judged run ids."""
+def summarise_runs(records: list[dict], chain_ok: bool = True) -> tuple[list[dict], list[str]]:
+    """One summary per run id seen in the chain (or listed in judging.json), and the judged run ids.
+    With chain_ok=False (the ledger does not verify) every check is "unverified": nothing derived
+    from unverified records may be shown as passed."""
     runs: dict[str, dict] = {}
     judged: list[str] = []
 
@@ -96,7 +106,7 @@ def summarise_runs(records: list[dict]) -> tuple[list[dict], list[str]]:
     out = []
     for s in runs.values():
         s["artifacts"] = len(s.pop("paths"))
-        s["checks"] = run_checks(s)
+        s["checks"] = run_checks(s) if chain_ok else {k: dict(UNVERIFIED) for k in CHECK_IDS}
         out.append(s)
     out.sort(key=lambda s: (s["first_seq"] is None, s["first_seq"] or 0, s["run_id"]))
     return out, judged
@@ -141,9 +151,9 @@ class EvidenceService:
         self.key_path = Path(key_path or key_file())
         self.signer = KeyRing(load_or_create_secret(self.key_path))
         self.pub_hex = self.signer.public_hex(KEY_ID)
-        self.source = source or default_source(self.dir)
-        self.emit = emit or (lambda *a, **k: None)
         self.poll_s = float(poll_s or os.environ.get("SPECTRUM_EVIDENCE_POLL_S") or 30)
+        self.source = source or default_source(self.dir, max_cache_age_s=self.poll_s)
+        self.emit = emit or (lambda *a, **k: None)
         self.last_scan: dict | None = None
         self.source_error: str | None = None
         self._lock: asyncio.Lock | None = None
@@ -213,9 +223,10 @@ class EvidenceService:
 
     # ------------------------------------------------------------------ ingest
 
-    def check_disk(self) -> bool:
-        """Re-verify if ledger.jsonl changed on disk since we last wrote it. Returns True if still OK."""
-        if self._stat() != self._disk_stat:
+    def check_disk(self, force: bool = False) -> bool:
+        """Re-read and re-verify the files if they changed on disk since we last wrote them (always, with
+        force=True: a same-size edit with the mtime put back would fool the stat check). True if still OK."""
+        if force or self._stat() != self._disk_stat:
             was_ok = self.state == "ok"
             self.reload()
             if was_ok and self.state != "ok":
@@ -229,14 +240,25 @@ class EvidenceService:
             return counts
         appended: list[dict] = []
         seen = set()
-        for a in sorted(artifacts, key=lambda a: (a.source_time, a.path)):
+        for a in sorted(artifacts, key=lambda a: (a.source_time, clean(a.path))):
+            a.path, a.run_id = clean(a.path), clean(a.run_id)  # a non-UTF-8 file name must not break hashing
             seen.add(a.path)
             known = self.index.get(a.path)
             if known is None:
-                payload = self._artifact_payload(a)
+                # one bad file must never block the others: anything that goes wrong becomes an invalid record
+                try:
+                    payload = self._artifact_payload(a)
+                    rec = self._append("evidence.artifact", payload)
+                except OSError:
+                    raise  # the ledger file itself could not be written: stop, do not guess
+                except Exception as e:  # noqa: BLE001
+                    log.warning("evidence: %s could not be processed (%s)", a.path, e.__class__.__name__)
+                    payload = {**self._base(a), "status": "invalid",
+                               "errors": [f"could not be processed: {e.__class__.__name__}"]}
+                    rec = self._append("evidence.artifact", payload)
                 if payload.get("status") == "invalid":
                     counts["invalid"] += 1
-                appended.append(self._append("evidence.artifact", payload))
+                appended.append(rec)
                 counts["new"] += 1
             elif a.sha256 != known["last_sha"]:
                 appended.append(self._append("evidence.changed", {
@@ -375,19 +397,19 @@ class EvidenceService:
             "verify": self.verify_result,
             "key": {"key_id": KEY_ID, "alg": "Ed25519", "public_key_hex": self.pub_hex,
                     "fingerprint": fingerprint(self.pub_hex), "state": self.key_state, "file": PUBKEYS_FILE},
-            "dir": str(self.dir),
+            "dir": _display_dir(self.dir),
             "source": {**self.source.describe(), "error": self.source_error},
             "poll_s": self.poll_s,
             "last_scan": self.last_scan,
         }
 
     def snapshot(self) -> dict:
-        runs, judged = summarise_runs(self.ledger.records)
+        runs, judged = summarise_runs(self.ledger.records, self.verify_result["ok"])
         return {"real": True, "status": self.status(), "runs": runs, "judged": judged,
                 "recent": self.ledger.records[-30:]}
 
     def run_detail(self, run_id: str) -> dict | None:
-        runs, _ = summarise_runs(self.ledger.records)
+        runs, _ = summarise_runs(self.ledger.records, self.verify_result["ok"])
         s = next((r for r in runs if r["run_id"] == run_id), None)
         if s is None:
             return None
@@ -401,6 +423,14 @@ class EvidenceService:
             published = {}
         return {"records": self.ledger.records, "anchors": self.ledger.anchors, "public_keys": published,
                 "anchor_every": ANCHOR_EVERY}
+
+
+def _display_dir(d: Path) -> str:
+    """The evidence folder relative to the repo (never an absolute path: it would leak the home directory)."""
+    try:
+        return d.resolve().relative_to(REPO_ROOT).as_posix() or "."
+    except ValueError:
+        return d.name
 
 
 def _summary(rec: dict) -> str:

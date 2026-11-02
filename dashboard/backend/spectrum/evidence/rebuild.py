@@ -81,7 +81,7 @@ def rebuild(directory: Path, out=sys.stdout) -> int:
     for p in sorted(on_disk - set(idx)):
         say(f"note: {p} is not in the ledger yet (not ingested); it is not counted")
 
-    runs, judged = summarise_runs(records)
+    runs, judged = summarise_runs(records, chain_ok=v["ok"])
     say()
     say(f"{'run_id':<40} {'unit':<12} {'target':<22} {'model':<22} {'artifacts':>9}  status")
     for s in runs:
