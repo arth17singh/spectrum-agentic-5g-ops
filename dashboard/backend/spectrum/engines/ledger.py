@@ -86,22 +86,24 @@ class Ledger:
         leaves = [self.records[i - 1]["hash"] for i in range(start, end + 1)]
         root = merkle_levels(leaves)[-1][0]
         written = self.records[end - 1]["ts"]
+        anchor = {"n": n, "range": [start, end], "root": root, **self._anchor_location(n, root, written),
+                  "written_at": written}
+        self.anchors.append(anchor)
+        if emit:
+            self.bus.emit("ledger.anchor", "prove", f"anchor #{n} records {start}-{end}", {"anchor": anchor},
+                          "info", "ledger")
+
+    def _anchor_location(self, n: int, root: str, written: str) -> dict:
+        """Where an anchor is said to be stored. The demo ledger's S3 Object Lock fields are
+        simulated; a subclass that persists anchors elsewhere overrides this."""
         retain = (datetime.fromisoformat(written) + timedelta(days=2555)).date().isoformat()
-        anchor = {
-            "n": n,
-            "range": [start, end],
-            "root": root,
+        return {
             "s3_uri": f"s3://{ANCHOR_BUCKET}/anchors/{n:06d}.json",
             "version_id": sha256_hex(f"v{n}{root}")[:32],
             "etag": sha256_hex(root)[:32],
             "object_lock": "COMPLIANCE",
             "retain_until": retain,
-            "written_at": written,
         }
-        self.anchors.append(anchor)
-        if emit:
-            self.bus.emit("ledger.anchor", "prove", f"anchor #{n} records {start}-{end}", {"anchor": anchor},
-                          "info", "ledger")
 
     # -- verification ----------------------------------------------------------
 

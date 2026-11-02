@@ -68,14 +68,17 @@ _KEY_SECRET: bytes = os.environ.get("SPECTRUM_KEY_SECRET", "").encode() or os.ur
 
 
 class KeyRing:
-    def __init__(self) -> None:
+    def __init__(self, secret: bytes | None = None) -> None:
+        # `secret` lets a separate ledger (the evidence ledger) use its own persistent secret;
+        # the demo engine passes nothing and keeps the module-level per-run secret.
+        self._secret = secret or _KEY_SECRET
         self._keys: dict[str, Ed25519PrivateKey] = {}
         self.revoked: dict[str, str] = {}  # key_id -> iso time
 
     def _key(self, key_id: str) -> Ed25519PrivateKey:
         k = self._keys.get(key_id)
         if k is None:
-            raw = hmac.digest(_KEY_SECRET, key_id.encode(), "sha256")
+            raw = hmac.digest(self._secret, key_id.encode(), "sha256")
             k = Ed25519PrivateKey.from_private_bytes(raw)
             self._keys[key_id] = k
         return k
