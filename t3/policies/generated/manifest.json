@@ -4,40 +4,40 @@
       "actions": [
         "ran___predict"
       ],
-      "file": "pause/team13_ran_pause_predict_t2_response_v0.cedar",
+      "file": "pause/team13_ranpause_predict_t2_response_v0.cedar",
       "mode": "IGNORE_ALL_FINDINGS",
       "model_id": "t2-response",
-      "name": "team13_ran_pause_predict_t2_response_v0",
+      "name": "team13_ranpause_predict_t2_response_v0",
       "version": "v0"
     },
     {
       "actions": [
         "ran___predict"
       ],
-      "file": "pause/team13_ran_pause_predict_t2_response_v0_degraded.cedar",
+      "file": "pause/team13_ranpause_predict_t2_response_v0_degraded.cedar",
       "mode": "IGNORE_ALL_FINDINGS",
       "model_id": "t2-response",
-      "name": "team13_ran_pause_predict_t2_response_v0_degraded",
+      "name": "team13_ranpause_predict_t2_response_v0_degraded",
       "version": "v0-degraded"
     },
     {
       "actions": [
         "ran___propose"
       ],
-      "file": "pause/team13_ran_pause_propose_ppo_maveric_v0.cedar",
+      "file": "pause/team13_ranpause_propose_ppo_maveric_v0.cedar",
       "mode": "IGNORE_ALL_FINDINGS",
       "model_id": "ppo-maveric",
-      "name": "team13_ran_pause_propose_ppo_maveric_v0",
+      "name": "team13_ranpause_propose_ppo_maveric_v0",
       "version": "v0"
     },
     {
       "actions": [
-        "nlm13___ask"
+        "nlm___ask"
       ],
-      "file": "pause/team13_ran_pause_ask_otel_nlm_v0.cedar",
+      "file": "pause/team13_ranpause_ask_otel_nlm_v0.cedar",
       "mode": "IGNORE_ALL_FINDINGS",
       "model_id": "otel-nlm",
-      "name": "team13_ran_pause_ask_otel_nlm_v0",
+      "name": "team13_ranpause_ask_otel_nlm_v0",
       "version": "v0"
     }
   ],
@@ -84,7 +84,7 @@
     },
     {
       "actions": [
-        "nlm13___ask"
+        "nlm___ask"
       ],
       "file": "team13_ran_nlm_safe_questions.cedar",
       "mode": "FAIL_ON_ANY_FINDINGS",
@@ -92,7 +92,7 @@
     },
     {
       "actions": [
-        "nlm13___ask"
+        "nlm___ask"
       ],
       "file": "team13_ran_screen_nlm_answers.cedar",
       "mode": "IGNORE_ALL_FINDINGS",
@@ -105,7 +105,7 @@
         "ran___predict",
         "ran___preflight",
         "ran___apply_change",
-        "nlm13___ask"
+        "nlm___ask"
       ],
       "file": "team13_ran_require_case_id.cedar",
       "mode": "IGNORE_ALL_FINDINGS",
@@ -127,6 +127,6 @@
     "ran___predict",
     "ran___preflight",
     "ran___apply_change",
-    "nlm13___ask"
+    "nlm___ask"
   ]
 }

@@ -21,7 +21,9 @@ Rules (prefix `<team>_ran_`):
 - require_human_approval: forbid ran___apply_change unless the checkpoint injected
   approval == "APPROVED". The kit's interceptor rewrites the refusal only when the Cedar error
   mentions "require_human_approval", so that text must stay in the name;
-- pause_<tool>_<model>_<version>: templates (`pause_rule`) that withdraw one model-serving tool.
+- pause templates (`pause_rule`, prefix `<team>_ranpause_`, contract amendment 1 A8): withdraw one
+  model version by forbidding the tool that serves it, unless the caller names another version.
+  Never `<team>_pause_nlm...`: the kit's `resume nlm` deletes every rule with that prefix.
 """
 from __future__ import annotations
 
@@ -64,7 +66,7 @@ OUTPUT_PATHS = ["$.content[*].text", "$.result.content[*].text"]
 
 
 def _full(tool: str) -> str:
-    return catalog.nlm_tool() if tool == "@NLM@" else catalog.ran(tool)
+    return catalog.NLM_ASK if tool == "@NLM@" else catalog.ran(tool)
 
 
 def _action(full_name: str) -> str:
@@ -110,7 +112,7 @@ def rules(team: str = "team13") -> list[dict]:
         for t in tools:
             who_may.setdefault(_full(t), []).append(agent)
     out = []
-    nlm = catalog.nlm_tool()
+    nlm = catalog.NLM_ASK
     for full in catalog.all_tools():
         if full == nlm:
             continue
@@ -147,19 +149,28 @@ unless {{ context.input has approval && context.input.approval == "APPROVED" }};
     return out
 
 
-def pause_rule(model_id: str, version: str, team: str = "team13", suffix: str = "") -> dict:
-    """The forbid that withdraws one model version by refusing the tool that serves it.
+VERSION_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}")
 
-    Cedar cannot see which version a tool serves, so the forbid covers the whole tool; the name
-    records the (tool, model, version) that was paused. Policy names are unique in the account:
-    pass a `suffix` (e.g. a timestamp) to pause the same version again after a resume.
+
+def pause_rule(model_id: str, version: str, team: str = "team13", suffix: str = "") -> dict:
+    """The forbid that withdraws one model version (amendment 1, A8).
+
+    It refuses the tool that serves the model when the call names no version or names this one.
+    The tools refuse a named version they do not serve, so naming another version cannot reach the
+    paused model. The `has` guard matters: a forbid that reads a missing attribute errors instead of
+    denying. Policy names are unique in the account: pass a `suffix` (e.g. a timestamp) to pause
+    the same version again after a resume.
     """
     if model_id not in MODEL_TOOLS:
         raise KeyError(f"unknown model {model_id!r}; known: {sorted(MODEL_TOOLS)}")
+    if not VERSION_RE.fullmatch(version):
+        raise ValueError(f"version {version!r}: letters, digits, _ . : - only")
     tool = _full(MODEL_TOOLS[model_id])
-    name = safe_name(f"{team}_ran_pause", tool.split("___", 1)[1], model_id, version, suffix)
+    name = safe_name(f"{team}_ranpause", tool.split("___", 1)[1], model_id, version, suffix)
     return {"name": name, "mode": LOOSE, "actions": [tool], "model_id": model_id, "version": version,
-            "statement": f"forbid (principal, action == {_action(tool)}, resource == @GW@);"}
+            "statement": f"forbid (principal, action == {_action(tool)}, resource == @GW@)\n"
+                         f"when {{ !(context.input has model_version) || context.input.model_version == "
+                         f"{json.dumps(version)} }};"}
 
 
 def fill(statement: str, gateway_arn: str) -> str:
@@ -198,8 +209,8 @@ def check(rule_list: list[dict], team: str = "team13") -> list[str]:
         n, s = r["name"], r["statement"]
         if not NAME_RE.fullmatch(n) or len(n) > NAME_MAX:
             problems.append(f"{n}: illegal policy name")
-        if not n.startswith(f"{team}_ran_"):
-            problems.append(f"{n}: must start with {team}_ran_ (kit commands match on the team prefix)")
+        if not (n.startswith(f"{team}_ran_") or n.startswith(f"{team}_ranpause_")):
+            problems.append(f"{n}: must start with {team}_ran_ or {team}_ranpause_")
         if n.startswith(f"{team}_pause_nlm"):
             problems.append(f"{n}: the kit's 'resume nlm' would delete it")
         if n in names:

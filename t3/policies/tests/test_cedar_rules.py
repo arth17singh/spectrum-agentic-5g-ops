@@ -40,7 +40,7 @@ def test_rule_set():
     for t in ("propose", "predict", "preflight"):
         assert '["ran_optimizer"]' in rules[f"team13_ran_allow_{t}"]["statement"]
     nlm = rules["team13_ran_nlm_safe_questions"]["statement"]
-    assert '"nlm13___ask"' in nlm and '["ran_explainer"]' in nlm and "context.input.question" in nlm
+    assert '"nlm___ask"' in nlm and '["ran_explainer"]' in nlm and "context.input.question" in nlm
     assert nlm.count('.confidenceScore.lessThanOrEqual(decimal("0.4"))') == 2
     screen = rules["team13_ran_screen_nlm_answers"]
     assert screen["statement"].startswith("suppressOutput") and screen["mode"] == g.LOOSE
@@ -70,9 +70,14 @@ def test_checks_catch_mistakes():
 
 def test_pause_rules():
     r = g.pause_rule("t2-response", "v0-degraded")
-    assert r["name"] == "team13_ran_pause_predict_t2_response_v0_degraded" and r["mode"] == g.LOOSE
-    assert r["statement"] == 'forbid (principal, action == AgentCore::Action::"ran___predict", resource == @GW@);'
-    assert g.pause_rule("otel-nlm", "v0")["actions"] == ["nlm13___ask"]
+    assert r["name"] == "team13_ranpause_predict_t2_response_v0_degraded" and r["mode"] == g.LOOSE
+    assert r["statement"] == (
+        'forbid (principal, action == AgentCore::Action::"ran___predict", resource == @GW@)\n'
+        'when { !(context.input has model_version) || context.input.model_version == "v0-degraded" };')
+    assert not r["name"].startswith("team13_pause_nlm")  # the kit's `resume nlm` deletes that prefix
+    assert g.pause_rule("otel-nlm", "v0")["actions"] == ["nlm___ask"]
+    with pytest.raises(ValueError):
+        g.pause_rule("t2-response", 'v0" || true')  # no Cedar injection through the version
     assert g.pause_rule("ppo-maveric", "v0")["actions"] == ["ran___propose"]
     long = g.pause_rule("t2-response", "2026-11-02T23:59:59-sha-0123456789abcdef", suffix="1793651100")
     assert len(long["name"]) <= g.NAME_MAX and g.NAME_RE.fullmatch(long["name"])
