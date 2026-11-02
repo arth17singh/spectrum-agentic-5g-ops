@@ -21,6 +21,7 @@ W6 tools/**
 W6 dashboard/backend/spectrum/evidence/**
 W6 dashboard/backend/tests/test_evidence*.py
 W6 dashboard/frontend/src/features/evidence/**
+W6 dashboard/backend/tests/fixtures/records/layout/**
 
 W7a dashboard/backend/spectrum/main.py
 W7a dashboard/backend/spectrum/slices/__init__.py
@@ -52,6 +53,12 @@ W8 t3/agents/**
 
 W9 t2/**
 W9 t1/rl/**
+
+W10 t3/evals/**
+
+W11 silos/**
+
+W12 t1/evals/**
 
 lead **
 
