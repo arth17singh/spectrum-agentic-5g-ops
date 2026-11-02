@@ -114,6 +114,10 @@ POWER_ABS = RANGES["power_dbm"]
 TILT_ABS = RANGES["tilt_deg"]
 
 
+_LO = np.array([RANGES[c.split("[")[0]][0] for c in INPUT_COLUMNS])
+_HI = np.array([RANGES[c.split("[")[0]][1] for c in INPUT_COLUMNS])
+
+
 def col(field: str, cell: int | None = None) -> int:
     """Index of an input column."""
     return _COL[field if cell is None else f"{field}[{cell}]"]
@@ -157,6 +161,9 @@ def state_change_to_inputs(
     """One (state, filtered change) -> the 38 raw input values, in INPUT_COLUMNS order.
 
     Anything else in ``state`` (hour, phase, alarm, asleep, extra, ue_count, ...) is ignored.
+    A reported value outside its fixed contract range is clipped to the range, as the SDK's own
+    observation normalisation does (the twin can report a per-cell SINR p10 below -30 dB at a low
+    power with a high noise floor). Labels are computed from the unclipped state.
     """
     row = np.zeros(N_INPUTS)
     for i, v in enumerate(user_share(state)):
@@ -172,7 +179,7 @@ def state_change_to_inputs(
     for i in range(N_CELLS):
         row[col("d_power_db", i)] = dp[i]
         row[col("d_tilt_deg", i)] = dt[i]
-    return row
+    return np.clip(row, _LO, _HI)
 
 
 def delta_labels(after_change: Mapping[str, Any], after_noop: Mapping[str, Any]) -> np.ndarray:

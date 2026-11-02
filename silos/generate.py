@@ -291,7 +291,8 @@ def run_cluster(job: dict[str, Any]) -> dict[str, Any]:
             )
             res = filt.apply(np.concatenate([raw_dp, raw_dt]), state)
             fdp, fdt = res.filtered[:N_CELLS], res.filtered[N_CELLS:]
-            clipped = int(not np.array_equal(res.filtered, np.concatenate([raw_dp, raw_dt])))
+            # 1e-9 tolerance: truncating to one decimal can leave a float rounding error at a bound
+            clipped = int(np.abs(res.filtered - np.concatenate([raw_dp, raw_dt])).max() > 1e-9)
             x = state_change_to_inputs(state, fdp, fdt)
             kind = change_kind(fdp, fdt)
             snap = _snapshot(twin)

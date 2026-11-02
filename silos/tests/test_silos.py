@@ -53,6 +53,14 @@ def test_extraction_uses_shares_not_counts_and_ignores_forbidden_state_fields():
     assert F.check_input_ranges(x) == []
 
 
+def test_reported_values_outside_the_fixed_ranges_are_clipped_in_inputs_only():
+    s = _state()
+    s["sinr_p10_db"] = [-33.0, 0.0, 0.0, 0.0]
+    x = F.state_change_to_inputs(s, [0] * 4, [0] * 4)
+    assert x[F.col("sinr_p10_db", 0)] == -30.0 and F.check_input_ranges(x) == []
+    assert F.cluster_kpis(s)[2] == pytest.approx(-3.3)  # labels use the raw state
+
+
 def test_range_check_flags_bad_values():
     x = F.state_change_to_inputs(_state(), [0] * 4, [0] * 4)
     x[F.col("power_dbm", 0)] = 50.0
