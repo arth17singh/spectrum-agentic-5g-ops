@@ -72,42 +72,72 @@ def replay_rule(gate: TrustGate, scored: list[dict]) -> int | None:
     return None
 
 
-PROPOSAL_RULE = ("pause_below = (lowest post-warm-up EWMA trust of the healthy model over all calibration "
-                 "episodes) - 0.05, floored to 0.05; then tau = the smallest value on a 0.05 grid in "
-                 "[0.5, 5] at which the full rule pauses the healthy model in none of the calibration "
-                 "episodes")
+PROPOSAL_RULE = ("joint grid over alpha in {0.1, 0.15, 0.2, 0.3}, pause_below in {0.05, 0.10, ..., 0.70} and "
+                 "tau in {0.50, 0.55, ..., 5.00}, with warm-up, window, scales, dead bands and weights as declared. "
+                 "For each (alpha, pause_below) take the smallest tau at which the full rule pauses the healthy model "
+                 "in at most `calibration_false_pause_budget` (declared) of the calibration episodes. Among those, pick the most degraded episodes paused within "
+                 "max_changes_to_pause, then the smallest mean changes-to-pause (not paused counts as length + 1), "
+                 "then the largest healthy margin (lowest healthy post-warm-up trust minus pause_below)")
 
 
 def _with(gate: TrustGate, **over) -> TrustGate:
     th = dict(gate.thresholds)
     th.update(over)
+    th["watch_below"] = max(float(th["pause_below"]), float(th.get("watch_below", th["pause_below"])))
     return TrustGate(store=None, thresholds=th)
 
 
-def propose(gate: TrustGate, healthy_seqs, degraded_seqs) -> dict:
-    th = gate.thresholds
-    warm = int(th["warmup"])
+def _lowest_trust(seqs, alpha, warm):
     lows = []
-    for seq in healthy_seqs:
+    for seq in seqs:
         m, n = 0.0, 0
         for i, sc in enumerate(seq, start=1):
-            m, n, t = gate.ewma_step(m, n, sc["score"], float(th["alpha"]))
+            m, n, t = TrustGate.ewma_step(m, n, sc["score"], alpha)
             if i >= warm:
                 lows.append(t)
-    pause_below = math.floor((min(lows) - 0.05) / 0.05) * 0.05
-    pause_below = round(max(0.05, pause_below), 2)
-    tau = None
-    for k in range(10, 101):
-        cand = round(k * 0.05, 2)
-        g = _with(gate, tau=cand, pause_below=pause_below, watch_below=max(pause_below, float(th["watch_below"])))
-        if all(replay_rule(g, seq) is None for seq in healthy_seqs):
-            tau = cand
-            break
-    out = {"pause_below": pause_below, "tau": tau, "healthy_lowest_trust_after_warmup": min(lows)}
-    if tau is not None:
-        g = _with(gate, tau=tau, pause_below=pause_below, watch_below=max(pause_below, float(th["watch_below"])))
-        out["degraded_paused_at_with_proposal"] = [replay_rule(g, seq) for seq in degraded_seqs]
-    return out
+    return min(lows)
+
+
+def propose(gate: TrustGate, healthy_seqs, degraded_seqs, budget: int | None = None) -> dict:
+    th = gate.thresholds
+    max_n = int(th["max_changes_to_pause"])
+    budget = int(th.get("calibration_false_pause_budget", 0) if budget is None else budget)
+    best, best_key, n_ok = None, None, 0
+    for alpha in (0.1, 0.15, 0.2, 0.3):
+        low = _lowest_trust(healthy_seqs, alpha, int(th["warmup"]))
+        for pb_i in range(1, 15):
+            pb = round(pb_i * 0.05, 2)
+            for t_i in range(10, 101):
+                tau = round(t_i * 0.05, 2)
+                g = _with(gate, alpha=alpha, pause_below=pb, tau=tau)
+                h_at = [replay_rule(g, seq) for seq in healthy_seqs]
+                h_paused = sum(x is not None for x in h_at)
+                if h_paused > budget:
+                    continue
+                n_ok += 1
+                at = [replay_rule(g, seq) for seq in degraded_seqs]
+                within = sum(1 for x in at if x is not None and x <= max_n)
+                mean_at = float(np.mean([x if x is not None else len(seq) + 1 for x, seq in zip(at, degraded_seqs)]))
+                key = (within, -mean_at, -h_paused, low - pb)
+                if best_key is None or key > best_key:
+                    best_key = key
+                    best = {"alpha": alpha, "pause_below": pb, "tau": tau,
+                            "healthy_lowest_trust_after_warmup": low, "healthy_paused_episodes": h_paused,
+                            "healthy_paused_at": h_at, "false_pause_budget": budget,
+                            "degraded_paused_at": at, "degraded_paused_within_max": within,
+                            "degraded_episodes": len(degraded_seqs), "max_changes_to_pause": max_n}
+                break  # larger tau only weakens detection at this (alpha, pause_below)
+    return {"best": best, "settings_within_budget": n_ok}
+
+
+def repropose(path: str | Path, budget: int | None = None) -> dict:
+    """Re-run the proposal offline from a saved calibration file (its stored score sequences)."""
+    rep = json.loads(Path(path).read_text())
+    th, _ = load_thresholds()
+    gate = TrustGate(store=None, thresholds=th)
+    seqs = {v: m["sequences"] for v, m in rep["models"].items()}
+    h, d = list(seqs)
+    return propose(gate, seqs[h], seqs[d], budget)
 
 
 def calibrate(*, twin_factory, kpis, healthy, degraded, thresholds_path=None, n_changes=240,
@@ -140,6 +170,8 @@ def calibrate(*, twin_factory, kpis, healthy, degraded, thresholds_path=None, n_
             "episodes_paused": sum(x is not None for x in pauses),
             "paused_at": pauses,
             "per_change_e": [round(float(x), 6) for x in es],
+            "sequences": [[{"e": s["e"], "direction_agree": s["direction_agree"], "score": s["score"]} for s in seq]
+                          for seq in seqs],
         }
     proposal = propose(gate, [[gate.score(r["predicted_delta"][healthy.version], r["measured_delta"]) for r in ep] for ep in episodes],
                        [[gate.score(r["predicted_delta"][degraded.version], r["measured_delta"]) for r in ep] for ep in episodes])

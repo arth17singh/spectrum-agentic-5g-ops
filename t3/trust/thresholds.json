@@ -15,12 +15,21 @@
     "error": 0.5,
     "direction": 0.5
   },
-  "tau": 1.0,
+  "tau": 1.65,
   "recent_window": 3,
   "recent_needed": 2,
-  "alpha": 0.3,
+  "alpha": 0.1,
   "warmup": 3,
-  "watch_below": 0.6,
-  "pause_below": 0.45,
-  "max_changes_to_pause": 6
+  "watch_below": 0.45,
+  "pause_below": 0.3,
+  "max_changes_to_pause": 6,
+  "calibration_false_pause_budget": 1,
+  "notes": {
+    "rule": "after n >= warmup scored changes, pause when recent_needed of the last recent_window changes have e > tau, or the bias-corrected EWMA trust (alpha) of the per-change score falls below pause_below (amendment 1, A6)",
+    "scales": "std of the counterfactual KPI delta in the stand-in predictor's fit set (Maveric official preset, seeds 10000+, 300 random changes: 0.062, 0.036, 0.63 dB), so e = 1 means an error the size of a typical effect",
+    "direction_deadband": "materiality: a measured delta smaller than 2 % of UEs or 0.4 dB of p10 SINR is 'did not move' and not scored for direction",
+    "alpha_tau_pause_below": "chosen by t3.trust.calibrate's PROPOSAL_RULE on 288 replayed changes x 2 predictors (12 episodes x 24 changes, seeds 20000-20011): at most 1 of 12 healthy episodes paused, then most degraded episodes paused within 6 changes; in-sample, so the held-out check is the demo seeds",
+    "max_changes_to_pause": "declared target for the degraded-predictor demo",
+    "recalibrate": "rerun t3.trust.calibrate with W9's real Track 2 predictor before the scored run; these values fit the stand-in linear predictor"
+  }
 }
