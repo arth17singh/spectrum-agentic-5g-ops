@@ -77,13 +77,18 @@ The files keep `@GW@` in place of the Gateway ARN.
    - `may_change: [noc_lead]`.
 
    Without `may_change: [noc_lead]`, the interceptor marks every apply NOT_ALLOWED and nobody is asked to approve (290-297).
-2. **The lead creates our function** `team13-ran-tools` from W3b's image, with a role under `/bb26/` that carries the boundary. `register.py` prints the role policy, the settings and the environment the function needs.
-3. **Dry run:** `python -m t3.deploy.register --kit-dir <kit folder> --function-arn <arn>`. Read the plan.
-4. **Apply:** add `--apply --profile fyuz`. This does three things:
-   - puts the inline policy `team13-ran-tools-invoke` on the role `team13-gateway`;
+2. **IAM, in CloudShell (us-east-2):** `EVIDENCE_BUCKET=<team bucket> bash t3/deploy/iam_cloudshell.sh`. This session cannot create roles, so this step runs there. The script is idempotent, reads the account id at run time and contains no secrets. It does three things:
+   - creates `/bb26/team13-ran-tools`, a Lambda role with the event boundary. Its inline policy grants the approvals table (keys `chg-*` and `t3-*`), S3 get and put on `evidence/*`, its own logs, an async invoke of `team13-trust-gate`, the Bedrock stand-in model, and our SageMaker endpoint;
+   - creates `/bb26/team13-trust-gate`. Its inline policy grants create, delete, get and list of policies on our policy engine only, trust rows (`t3-trust#*`), control records and logs;
+   - puts the inline policy `team13-ran-tools-invoke` on the kit's role `team13-gateway`.
+3. **Push W3b's image** to ECR `team13-ran-tools` (arm64).
+4. **Dry run:** `python -m t3.deploy.register --kit-dir <kit folder> --evidence-bucket <bucket>`. It makes no IAM calls. Read the plan.
+5. **Apply:** add `--apply --profile fyuz`; add `--trust-live` when the trust gate may create real pause rules. This does four things:
+   - creates the ECR repository and its pull policy for Lambda;
+   - creates or updates `team13-ran-tools` (3008 MB, 120 s) and `team13-trust-gate` (same image, command `t3.trust.handler.handler`);
    - creates target `ran` and takes over target `nlm`;
    - waits for READY, then creates our rules.
-5. **Later kit deploys keep our wiring:**
+6. **Later kit deploys keep our wiring:**
    - the kit rewrites only its own inline policy (519), never `team13-ran-tools-invoke`;
    - it skips targets that already exist (673-674), so it leaves our `nlm` target alone;
    - it replaces only rules from its own list (723-737).
