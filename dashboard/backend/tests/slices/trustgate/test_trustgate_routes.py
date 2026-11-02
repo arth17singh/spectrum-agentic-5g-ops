@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from spectrum.slices.trustgate import router
 from spectrum.slices.trustgate.routes import get_reader
-from trustgate_fakes import FakeReader
+from slices.trustgate.trustgate_fakes import FakeReader
 
 
 def client(reader) -> TestClient:

@@ -1,7 +1,7 @@
 import copy
 
 from spectrum.slices.trustgate import logic
-from trustgate_fakes import FakeReader, all_of, all_results
+from slices.trustgate.trustgate_fakes import FakeReader, all_of, all_results
 
 HEALTHY = ("t2-response-mlp", "v1")
 DEGRADED = ("t2-response-mlp", "v1-degraded")
