@@ -132,7 +132,8 @@ def rec_body(r: dict) -> dict:
 
 def build(root: Path, case: str = "R", code_sha: str = BASE_SHA, run_id: str = RUN_ID, **opts) -> Path:
     """Write one fixture under root/<case>/ and return it. opts (for tests):
-      decl_lm, metric/op/value, item_overrides {idx: {...}}, append_after_ingest, pending_tail,
+      decl_lm, metric/op/value, item_overrides {idx: {...}}, append_after_ingest (mid-run, before the
+      result), append_after_result, pending_tail,
       no_ledger, no_job, no_logs, job_missing_in_aws, job_aws_start, extra_items,
       objects (Lambda layout, amendment A11: one S3 object per record, plus a change record timed by
       /aws/lambda/team13-ran-tools)"""
@@ -145,6 +146,10 @@ def build(root: Path, case: str = "R", code_sha: str = BASE_SHA, run_id: str = R
     its = items(run_id)
     for idx, over in (opts.get("item_overrides") or {}).items():
         its[idx].update(over)
+    extra = {**its[0], "item_id": "case-0006", "aws_time": "2026-11-02T18:28:30.000Z"}
+    early = its[:]  # what the ingester saw first when the run appends mid-run
+    if opts.get("append_after_ingest"):
+        its = its + [extra]
     jb = job(run_id, opts.get("job_aws_start", "2026-11-02T18:05:00.000Z"))
     n_pass = sum(1 for i in its if i["passed"])
     res = result(run_id, code_sha, value=n_pass / len(its) if metric == "pass_rate" else opts.get("result_value", 0),
@@ -175,6 +180,11 @@ def build(root: Path, case: str = "R", code_sha: str = BASE_SHA, run_id: str = R
     led = MiniLedger()
     for rel in sorted(files, key=lambda r: lm[r]):
         kind = {"declared": "declaration", "records": "record", "results": "result"}[rel.split("/")[0]]
+        if opts.get("append_after_ingest") and rel.endswith("item.jsonl"):
+            # mid-run: the ingester saw 5 lines, then the 6th (an evidence.appended record), before the result
+            led.add("evidence.artifact", rel, jsonl(early), run_id, kind, "2026-11-02T18:28:00.000Z")
+            led.add("evidence.appended", rel, files[rel], run_id, kind, lm[rel].replace("Z", ".000Z"))
+            continue
         led.add("evidence.artifact", rel, files[rel], run_id, kind, lm[rel].replace("Z", ".000Z"))
 
     # changes AFTER the ledger recorded the files
@@ -183,12 +193,11 @@ def build(root: Path, case: str = "R", code_sha: str = BASE_SHA, run_id: str = R
         its2[4]["passed"], its2[4]["score"] = True, 1.0  # the failed item now "passes"
         files[f"records/{run_id}/item.jsonl"] = jsonl(its2)
         files[f"results/{run_id}.json"] = doc(result(run_id, code_sha, value=1.0, passed=True))
-    if opts.get("append_after_ingest") or opts.get("pending_tail"):
-        extra = {**its[0], "item_id": "case-0006", "aws_time": "2026-11-02T18:28:30.000Z"}
+    if opts.get("append_after_result") or opts.get("pending_tail"):
         rel = f"records/{run_id}/item.jsonl"
         files[rel] = files[rel] + jsonl([extra])
-        if opts.get("append_after_ingest"):  # the ingester saw the append: an evidence.appended record
-            led.add("evidence.appended", rel, files[rel], run_id, "record", "2026-11-02T18:29:30.000Z")
+        if opts.get("append_after_result"):  # the ingester saw an append AFTER the result was recorded
+            led.add("evidence.appended", rel, files[rel], run_id, "record", "2026-11-02T18:40:00.000Z")
     if opts.get("extra_items"):
         rel = f"records/{run_id}/item.jsonl"
         files[rel] = files[rel] + jsonl(opts["extra_items"])
