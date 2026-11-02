@@ -8,7 +8,7 @@
 contract_version: "0.2"
 run_label: "silos-v1"
 episode_len: 10            # steps per episode (Viavi-like uses its own, 5)
-steps_per_cluster: 4000    # rows per training cluster, so rows are proportional to cluster counts
+steps_per_cluster: 3000   # rows per training cluster, so rows are proportional to cluster counts
 drift_margin_db: 2.0       # power may drift this far beyond the start region (clipped to 10..46)
 start_jitter_db: 1.0       # per-cell jitter of a start point around the episode's draw
 tilt_start_deg: [4.0, 12.0]    # same for every silo (the design varies power, not tilt)
