@@ -49,7 +49,7 @@ def label_scales(dataset: str | Path = DATASET, keys=("coverage_ratio", "sla_rat
     with np.load(dataset, allow_pickle=False) as z:
         names = [str(n) for n in z["label_names"]]
         y = z["y"][z["split"] == 0]
-    return {k: float(np.round(y[:, names.index(k)].std(), 4)) for k in keys}
+    return {k: round(float(np.asarray(y[:, names.index(k)], dtype=np.float64).std()), 4) for k in keys}
 
 
 def collect(twin_factory, kpis, predictors, *, n_changes, episode_len, seed, config, scenario, change_fn,
