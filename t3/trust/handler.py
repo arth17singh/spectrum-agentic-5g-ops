@@ -27,12 +27,26 @@ _GATE = None
 
 
 class _EvlibWriter:
-    """append_records through tools.evlib's default store (EVIDENCE_S3 / EVIDENCE_DIR)."""
+    """Control records through tools.evlib's validation and store, PutObject only.
+
+    evlib.append_records re-reads an existing object (s3:GetObject) when the key already exists;
+    the gate's role has no GetObject. The key is sha256 of the record's canonical line, so an
+    existing key means the identical record is already there: treat it as written."""
 
     def append_records(self, run_id, kind, records):
         from tools import evlib  # W6
 
-        return evlib.append_records(run_id, kind, records)
+        store = evlib.default_store()
+        if not isinstance(store, evlib.S3Store):
+            return evlib.append_records(run_id, kind, records, store=store)
+        out = []
+        for line in evlib._prepare(run_id, kind, records):
+            rel = f"records/{run_id}/{kind}/{evlib.record_key(line)}.json"
+            try:
+                out.append(store.put_new(rel, line))
+            except FileExistsError:
+                out.append(store.uri(rel))
+        return out
 
 
 def _build_gate():
@@ -69,21 +83,46 @@ def handle(gate, event) -> dict:
     if not isinstance(rec, dict) or rec.get("kind") != "change":
         return {"trust_before": None, "trust_after": None, "e": None, "score": None, "action": None,
                 "skipped": "event is not a change record"}
-    out = gate.update(rec)
+    try:
+        out = gate.update(rec)
+    except Exception as exc:  # e.g. create_policy failed: the trust update is stored, the pause will retry
+        out = _from_history(gate, rec)
+        out["error"] = f"{type(exc).__name__}: {exc}"[:300]
     resp = {"trust_before": out.get("trust_before"), "trust_after": out.get("trust_after"),
             "e": out.get("e"), "score": out.get("score"), "action": out.get("action"),
             "direction_agree": out.get("direction_agree"), "status": out.get("status"),
             "band": out.get("band"), "n": out.get("n"),
             "thresholds_sha256": gate.thresholds_sha256}
-    if out.get("skipped"):
-        resp["skipped"] = out["skipped"]
+    for k in ("skipped", "error"):
+        if out.get(k):
+            resp[k] = out[k]
+    mv = event.get("model_version") if isinstance(event, dict) else None
+    pv = (rec.get("predictor") or {}).get("version")
+    if mv is not None and pv is not None and str(mv) != str(pv):
+        resp["model_version_mismatch"] = {"payload": mv, "record": pv}  # the record's version is scored
     if out.get("action") == "pause":
         ctrl = out["control"]
         paths = gate.last_control_paths
         resp["control_record_key"] = PurePosixPath(paths[0]).stem if paths else None
         resp["policy_name"] = ctrl["policy_name"]
+        if gate.last_control_error:
+            resp["control_write_error"] = gate.last_control_error
     resp["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
     return resp
+
+
+def _from_history(gate, rec) -> dict:
+    """Trust values of `rec` from the store after a failure later in update (the pause step)."""
+    p = rec.get("predictor") or {}
+    try:
+        st = gate.state(str(p["model_id"]), str(p["version"]))
+        h = [x for x in st["history"] if x.get("change_id") == rec.get("change_id")]
+    except Exception:  # noqa: BLE001 - the store itself failed: nothing to report
+        return {"action": None}
+    if not h:
+        return {"action": None}
+    return {"trust_before": h[-1].get("trust_before"), "trust_after": h[-1]["trust"], "e": h[-1]["e"],
+            "score": h[-1]["score"], "action": None, "status": st["status"], "n": st["n"]}
 
 
 def handler(event, context=None):

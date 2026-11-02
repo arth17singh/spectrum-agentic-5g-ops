@@ -99,6 +99,7 @@ class TrustGate:
         self.clock = clock or utc_now
         self.synthetic = synthetic
         self.last_control_paths: list[str] = []
+        self.last_control_error: str | None = None
         th = self.thresholds
         self.keys = list(th["keys"])
         self.scales = {k: float(th["scales"][k]) for k in self.keys}
@@ -229,14 +230,21 @@ class TrustGate:
                                   time=self.clock(),
                                   synthetic=self.synthetic or bool(res.get("dry_run")))
         self._write(run_id, rec)
+        if self.last_control_error:
+            raise RuntimeError(f"resume applied but its control record was not written: {self.last_control_error}")
         return rec
 
     def _write(self, run_id: str, rec: dict) -> None:
-        self.last_control_paths = []
+        """Write one control record. A failure is kept in ``last_control_error`` instead of raised:
+        on a pause the forbid already exists, so the pause stands and the caller reports the gap."""
+        self.last_control_paths, self.last_control_error = [], None
         if self.writer is None:
             return
         append = getattr(self.writer, "append_records", self.writer)
-        self.last_control_paths = list(append(run_id, "control", [rec]) or [])
+        try:
+            self.last_control_paths = list(append(run_id, "control", [rec]) or [])
+        except Exception as exc:  # noqa: BLE001
+            self.last_control_error = f"{type(exc).__name__}: {exc}"[:300]
 
     def state(self, model_id: str, version: str) -> dict[str, Any]:
         return self.store.get(model_id, version)
