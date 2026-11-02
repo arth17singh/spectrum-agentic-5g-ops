@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -21,6 +22,9 @@ RULE_CLASSES = {"allow", "default_deny", "require_case_id", "require_human_appro
 REQUIRED = ("id", "caller", "tool", "args", "expect", "rule_class", "adversarial", "why")
 APPROVAL_STEPS = {"request", "after_approval", "replay"}
 PAUSE_WINDOWS = {"inside", "after_resume"}
+# amendment A2: `change` is one canonical string, cells sorted, one decimal with an explicit sign
+_ONE = r"cell=\d+;d_power_db=[+-]\d+\.\d;d_tilt_deg=[+-]\d+\.\d"
+CHANGE_RE = re.compile(rf"{_ONE}(\|{_ONE})*")
 
 
 def canonical(obj) -> str:
@@ -65,6 +69,11 @@ def validate(items: list[dict]) -> list[str]:
             problems.append(f"{where}: bad approval_step")
         if "pause_window" in it and it["pause_window"] not in PAUSE_WINDOWS:
             problems.append(f"{where}: bad pause_window")
+        if "case_slot" in it and not (isinstance(it["case_slot"], int) and 0 < it["case_slot"] < 100):
+            problems.append(f"{where}: case_slot must be an int 1-99")
+        change = (it.get("args") or {}).get("change") if isinstance(it.get("args"), dict) else None
+        if change is not None and not (isinstance(change, str) and CHANGE_RE.fullmatch(change)):
+            problems.append(f"{where}: change must be the canonical string (amendment A2)")
     return problems
 
 
