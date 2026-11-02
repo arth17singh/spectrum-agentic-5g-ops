@@ -1,0 +1,26 @@
+{
+  "schema": "t3.trust.thresholds/2",
+  "keys": ["coverage_ratio", "sla_ratio", "sinr_p10_db"],
+  "scales": {
+    "coverage_ratio": 0.06,
+    "sla_ratio": 0.036,
+    "sinr_p10_db": 0.63
+  },
+  "direction_deadband": {
+    "coverage_ratio": 0.02,
+    "sla_ratio": 0.02,
+    "sinr_p10_db": 0.4
+  },
+  "weights": {
+    "error": 0.5,
+    "direction": 0.5
+  },
+  "tau": 1.0,
+  "recent_window": 3,
+  "recent_needed": 2,
+  "alpha": 0.3,
+  "warmup": 3,
+  "watch_below": 0.6,
+  "pause_below": 0.45,
+  "max_changes_to_pause": 6
+}
