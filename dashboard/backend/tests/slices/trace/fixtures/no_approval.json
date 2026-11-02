@@ -1,0 +1,212 @@
+{
+ "decision": [
+  {
+   "schema_version": "1",
+   "kind": "decision",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:04:00Z",
+   "aws_time": "2026-11-02T20:04:00Z",
+   "aws_time_source": "cloudwatch:/team13/checkpoint",
+   "synthetic": true,
+   "case_id": "case-no-approval",
+   "trace_id": "t-case-no-approval",
+   "span_id": "s-200400",
+   "time": "2026-11-02T20:04:00Z",
+   "agent": "front-door",
+   "tool": "front___start_case",
+   "decision": "ALLOW",
+   "deciding_rule": "permit_front_door",
+   "reason": null,
+   "guardrail_scores": null,
+   "approval_id": null,
+   "source": "/team13/checkpoint",
+   "log_pointer": {
+    "log_group": "/team13/checkpoint",
+    "log_stream": "fixture",
+    "event_id": "synthetic-200400"
+   }
+  },
+  {
+   "schema_version": "1",
+   "kind": "decision",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:04:05Z",
+   "aws_time": "2026-11-02T20:04:05Z",
+   "aws_time_source": "cloudwatch:/team13/checkpoint",
+   "synthetic": true,
+   "case_id": "case-no-approval",
+   "trace_id": "t-case-no-approval",
+   "span_id": "s-200405",
+   "time": "2026-11-02T20:04:05Z",
+   "agent": "lead",
+   "tool": "swarm___ask_agent",
+   "decision": "ALLOW",
+   "deciding_rule": "team13_lead_may_ask_agents",
+   "reason": null,
+   "guardrail_scores": null,
+   "approval_id": null,
+   "source": "/team13/checkpoint",
+   "log_pointer": {
+    "log_group": "/team13/checkpoint",
+    "log_stream": "fixture",
+    "event_id": "synthetic-200405"
+   }
+  },
+  {
+   "schema_version": "1",
+   "kind": "decision",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:04:09Z",
+   "aws_time": "2026-11-02T20:04:09Z",
+   "aws_time_source": "cloudwatch:/team13/checkpoint",
+   "synthetic": true,
+   "case_id": "case-no-approval",
+   "trace_id": "t-case-no-approval",
+   "span_id": "s-200409",
+   "time": "2026-11-02T20:04:09Z",
+   "agent": "specialist",
+   "tool": "work___lookup",
+   "decision": "ALLOW",
+   "deciding_rule": "team13_specialist_lookup",
+   "reason": null,
+   "guardrail_scores": null,
+   "approval_id": null,
+   "source": "/team13/checkpoint",
+   "log_pointer": {
+    "log_group": "/team13/checkpoint",
+    "log_stream": "fixture",
+    "event_id": "synthetic-200409"
+   }
+  },
+  {
+   "schema_version": "1",
+   "kind": "decision",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:04:30Z",
+   "aws_time": "2026-11-02T20:04:30Z",
+   "aws_time_source": "cloudwatch:/team13/checkpoint",
+   "synthetic": true,
+   "case_id": "case-no-approval",
+   "trace_id": "t-case-no-approval",
+   "span_id": "s-200430",
+   "time": "2026-11-02T20:04:30Z",
+   "agent": "lead",
+   "tool": "ran___apply_change",
+   "decision": "ALLOW",
+   "deciding_rule": "team13_may_apply_change",
+   "reason": null,
+   "guardrail_scores": null,
+   "approval_id": null,
+   "source": "/team13/checkpoint",
+   "log_pointer": {
+    "log_group": "/team13/checkpoint",
+    "log_stream": "fixture",
+    "event_id": "synthetic-200430"
+   }
+  },
+  {
+   "schema_version": "1",
+   "kind": "decision",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:04:50Z",
+   "aws_time": "2026-11-02T20:04:50Z",
+   "aws_time_source": "cloudwatch:/team13/checkpoint",
+   "synthetic": true,
+   "case_id": "case-no-approval",
+   "trace_id": "t-case-no-approval",
+   "span_id": "s-200450",
+   "time": "2026-11-02T20:04:50Z",
+   "agent": "lead",
+   "tool": "ran___observe",
+   "decision": "ALLOW",
+   "deciding_rule": "team13_lead_observe",
+   "reason": null,
+   "guardrail_scores": null,
+   "approval_id": null,
+   "source": "/team13/checkpoint",
+   "log_pointer": {
+    "log_group": "/team13/checkpoint",
+    "log_stream": "fixture",
+    "event_id": "synthetic-200450"
+   }
+  }
+ ],
+ "change": [
+  {
+   "schema_version": "1",
+   "kind": "change",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:04:40Z",
+   "aws_time": "2026-11-02T20:04:40Z",
+   "aws_time_source": "dynamodb:applied_at",
+   "synthetic": true,
+   "case_id": "case-no-approval",
+   "change_id": "chg-cccccccccccc",
+   "item_id": "step-0",
+   "change": [
+    {
+     "cell": 2,
+     "d_power_db": 0.0,
+     "d_tilt_deg": -2.0
+    }
+   ],
+   "change_text": "cell=2;d_power_db=+0.0;d_tilt_deg=-2.0",
+   "twin": {
+    "kind": "maveric-inprocess",
+    "version": "synthetic",
+    "scenario": "synthetic",
+    "seed": 1,
+    "step": 3
+   },
+   "baseline_kpis": {
+    "coverage_ratio": 0.8,
+    "sla_ratio": 0.75,
+    "sinr_p10_db": -1.0,
+    "sinr_mean_db": 6.0
+   },
+   "measured_kpis": {
+    "coverage_ratio": 0.84,
+    "sla_ratio": 0.78,
+    "sinr_p10_db": -0.6,
+    "sinr_mean_db": 6.3
+   },
+   "measured_delta": {
+    "coverage_ratio": 0.04,
+    "sla_ratio": 0.03,
+    "sinr_p10_db": 0.4,
+    "sinr_mean_db": 0.3
+   },
+   "scored": true,
+   "probe": false,
+   "policy": {
+    "model_id": "ppo",
+    "version": "synthetic-1"
+   },
+   "predicted_delta": {
+    "coverage_ratio": 0.05,
+    "sla_ratio": 0.04,
+    "sinr_p10_db": 0.6
+   },
+   "predictor": {
+    "model_id": "t2-response",
+    "version": "synthetic-1"
+   },
+   "error": {
+    "coverage_ratio": 0.01,
+    "sla_ratio": 0.01,
+    "sinr_p10_db": 0.2,
+    "summary": 0.07333333333333332
+   },
+   "direction_agree": true,
+   "trust_before": 0.8,
+   "trust_after": 0.78
+  }
+ ],
+ "control": []
+}

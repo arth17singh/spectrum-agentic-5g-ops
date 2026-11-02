@@ -1,0 +1,240 @@
+{
+ "decision": [
+  {
+   "schema_version": "1",
+   "kind": "decision",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:05:00Z",
+   "aws_time": "2026-11-02T20:05:00Z",
+   "aws_time_source": "cloudwatch:/team13/checkpoint",
+   "synthetic": true,
+   "case_id": "case-probe",
+   "trace_id": "t-case-probe",
+   "span_id": "s-200500",
+   "time": "2026-11-02T20:05:00Z",
+   "agent": "front-door",
+   "tool": "front___start_case",
+   "decision": "ALLOW",
+   "deciding_rule": "permit_front_door",
+   "reason": null,
+   "guardrail_scores": null,
+   "approval_id": null,
+   "source": "/team13/checkpoint",
+   "log_pointer": {
+    "log_group": "/team13/checkpoint",
+    "log_stream": "fixture",
+    "event_id": "synthetic-200500"
+   }
+  },
+  {
+   "schema_version": "1",
+   "kind": "decision",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:05:05Z",
+   "aws_time": "2026-11-02T20:05:05Z",
+   "aws_time_source": "cloudwatch:/team13/checkpoint",
+   "synthetic": true,
+   "case_id": "case-probe",
+   "trace_id": "t-case-probe",
+   "span_id": "s-200505",
+   "time": "2026-11-02T20:05:05Z",
+   "agent": "noc_lead",
+   "tool": "swarm___ask_agent",
+   "decision": "ALLOW",
+   "deciding_rule": "team13_lead_may_ask_agents",
+   "reason": null,
+   "guardrail_scores": null,
+   "approval_id": null,
+   "source": "/team13/checkpoint",
+   "log_pointer": {
+    "log_group": "/team13/checkpoint",
+    "log_stream": "fixture",
+    "event_id": "synthetic-200505"
+   }
+  },
+  {
+   "schema_version": "1",
+   "kind": "decision",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:05:09Z",
+   "aws_time": "2026-11-02T20:05:09Z",
+   "aws_time_source": "cloudwatch:/team13/checkpoint",
+   "synthetic": true,
+   "case_id": "case-probe",
+   "trace_id": "t-case-probe",
+   "span_id": "s-200509",
+   "time": "2026-11-02T20:05:09Z",
+   "agent": "ran_monitor",
+   "tool": "ran___observe",
+   "decision": "ALLOW",
+   "deciding_rule": "team13_monitor_observe",
+   "reason": null,
+   "guardrail_scores": null,
+   "approval_id": null,
+   "source": "/team13/checkpoint",
+   "log_pointer": {
+    "log_group": "/team13/checkpoint",
+    "log_stream": "fixture",
+    "event_id": "synthetic-200509"
+   }
+  },
+  {
+   "schema_version": "1",
+   "kind": "decision",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:05:20Z",
+   "aws_time": "2026-11-02T20:05:20Z",
+   "aws_time_source": "cloudwatch:/team13/checkpoint",
+   "synthetic": true,
+   "case_id": "case-probe",
+   "trace_id": "t-case-probe",
+   "span_id": "s-200520",
+   "time": "2026-11-02T20:05:20Z",
+   "agent": "noc_lead",
+   "tool": "ran___apply_change",
+   "decision": "DENY",
+   "deciding_rule": "team13_require_human_approval",
+   "reason": "needs a person's approval",
+   "guardrail_scores": null,
+   "approval_id": "chg-dddddddddddd",
+   "source": "/team13/checkpoint",
+   "log_pointer": {
+    "log_group": "/team13/checkpoint",
+    "log_stream": "fixture",
+    "event_id": "synthetic-200520"
+   }
+  },
+  {
+   "schema_version": "1",
+   "kind": "decision",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:05:40Z",
+   "aws_time": "2026-11-02T20:05:40Z",
+   "aws_time_source": "cloudwatch:/team13/checkpoint",
+   "synthetic": true,
+   "case_id": "case-probe",
+   "trace_id": "t-case-probe",
+   "span_id": "s-200540",
+   "time": "2026-11-02T20:05:40Z",
+   "agent": "noc_lead",
+   "tool": "ran___apply_change",
+   "decision": "ALLOW",
+   "deciding_rule": "team13_may_apply_change",
+   "reason": null,
+   "guardrail_scores": null,
+   "approval_id": "chg-dddddddddddd",
+   "source": "/team13/checkpoint",
+   "log_pointer": {
+    "log_group": "/team13/checkpoint",
+    "log_stream": "fixture",
+    "event_id": "synthetic-200540"
+   }
+  },
+  {
+   "schema_version": "1",
+   "kind": "decision",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:05:41Z",
+   "aws_time": "2026-11-02T20:05:41Z",
+   "aws_time_source": "cloudwatch:/aws/lambda/team13-ran-tools",
+   "synthetic": true,
+   "record": "change_applied",
+   "case_id": "case-probe",
+   "time": "2026-11-02T20:05:41Z",
+   "agent": "ran___apply_change",
+   "tool": "ran___apply_change",
+   "decision": "ALLOW",
+   "source": "/aws/lambda/team13-ran-tools",
+   "approval_id": "chg-dddddddddddd",
+   "change_text": "cell=2;d_power_db=+0.0;d_tilt_deg=-2.0"
+  },
+  {
+   "schema_version": "1",
+   "kind": "decision",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:05:50Z",
+   "aws_time": "2026-11-02T20:05:50Z",
+   "aws_time_source": "cloudwatch:/team13/checkpoint",
+   "synthetic": true,
+   "case_id": "case-probe",
+   "trace_id": "t-case-probe",
+   "span_id": "s-200550",
+   "time": "2026-11-02T20:05:50Z",
+   "agent": "ran_monitor",
+   "tool": "ran___observe",
+   "decision": "ALLOW",
+   "deciding_rule": "team13_monitor_observe",
+   "reason": null,
+   "guardrail_scores": null,
+   "approval_id": null,
+   "source": "/team13/checkpoint",
+   "log_pointer": {
+    "log_group": "/team13/checkpoint",
+    "log_stream": "fixture",
+    "event_id": "synthetic-200550"
+   }
+  }
+ ],
+ "change": [
+  {
+   "schema_version": "1",
+   "kind": "change",
+   "run_id": "run-synthetic-1",
+   "team": "team13",
+   "created_at": "2026-11-02T20:05:40Z",
+   "aws_time": "2026-11-02T20:05:40Z",
+   "aws_time_source": "dynamodb:applied_at",
+   "synthetic": true,
+   "case_id": "case-probe",
+   "change_id": "chg-dddddddddddd",
+   "item_id": "probe-1",
+   "change": [
+    {
+     "cell": 2,
+     "d_power_db": 0.0,
+     "d_tilt_deg": -2.0
+    }
+   ],
+   "change_text": "cell=2;d_power_db=+0.0;d_tilt_deg=-2.0",
+   "twin": {
+    "kind": "maveric-inprocess",
+    "version": "synthetic",
+    "scenario": "synthetic",
+    "seed": 1,
+    "step": 3
+   },
+   "baseline_kpis": {
+    "coverage_ratio": 0.8,
+    "sla_ratio": 0.75,
+    "sinr_p10_db": -1.0,
+    "sinr_mean_db": 6.0
+   },
+   "measured_kpis": {
+    "coverage_ratio": 0.84,
+    "sla_ratio": 0.78,
+    "sinr_p10_db": -0.6,
+    "sinr_mean_db": 6.3
+   },
+   "measured_delta": {
+    "coverage_ratio": 0.04,
+    "sla_ratio": 0.03,
+    "sinr_p10_db": 0.4,
+    "sinr_mean_db": 0.3
+   },
+   "scored": true,
+   "probe": true,
+   "policy": {
+    "model_id": "ppo",
+    "version": "synthetic-1"
+   }
+  }
+ ],
+ "control": []
+}

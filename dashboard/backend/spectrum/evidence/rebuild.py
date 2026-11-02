@@ -69,6 +69,20 @@ def rebuild(directory: Path, out=sys.stdout) -> int:
             problems.append(f"{path}: MISSING (ingested at #{first['seq']})")
             continue
         got = _sha(f)
+        appends = [ev for ev in e["events"] if ev["type"] == "evidence.appended"]
+        if appends and not any(ev["type"] == "evidence.changed" for ev in e["events"]):
+            # an append-only records file: every recorded (sha256, size) must still be the file's first bytes
+            data = f.read_bytes()
+            for rec in [first, *appends]:
+                p = rec["payload"]
+                if not isinstance(p.get("size"), int) or hashlib.sha256(data[: p["size"]]).hexdigest() != p["sha256"]:
+                    problems.append(f"{path}: CHANGED: the content recorded at #{rec['seq']} is no longer the start "
+                                    "of the file")
+                    break
+            else:
+                if got != e["last_sha"]:
+                    problems.append(f"{path}: grew after its last ledger record #{appends[-1]['seq']} (not ingested yet)")
+            continue
         want = first["payload"]["sha256"]
         if got != want:
             problems.append(f"{path}: CHANGED since ingest at #{first['seq']} (sha256 {want[:12]}… is now {got[:12]}…)")

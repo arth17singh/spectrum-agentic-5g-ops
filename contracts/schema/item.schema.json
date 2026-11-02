@@ -1,0 +1,173 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "$id": "https://team13.invalid/contracts/item.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One graded test item. Stored as records/<run_id>/item/<key>.json or in records/<run_id>/item.jsonl.",
+  "properties": {
+    "aws_time": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Time taken from an AWS source; null when there is none.",
+      "title": "Aws Time"
+    },
+    "aws_time_source": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime.",
+      "title": "Aws Time Source"
+    },
+    "backend": {
+      "minLength": 1,
+      "title": "Backend",
+      "type": "string"
+    },
+    "cost_usd": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cost Usd"
+    },
+    "created_at": {
+      "description": "When our code wrote the record (UTC, trailing Z).",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "extra": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Extra",
+      "type": "object"
+    },
+    "grader": {
+      "minLength": 1,
+      "title": "Grader",
+      "type": "string"
+    },
+    "input_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Sha256",
+      "type": "string"
+    },
+    "item_id": {
+      "minLength": 1,
+      "title": "Item Id",
+      "type": "string"
+    },
+    "kind": {
+      "const": "item",
+      "default": "item",
+      "title": "Kind",
+      "type": "string"
+    },
+    "latency_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latency Ms"
+    },
+    "output_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Output Sha256",
+      "type": "string"
+    },
+    "passed": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Passed"
+    },
+    "run_id": {
+      "description": "The run this record belongs to; safe as a path segment.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Score"
+    },
+    "synthetic": {
+      "description": "True for fixtures, dry runs and anything not measured on a real system.",
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "team": {
+      "const": "team13",
+      "default": "team13",
+      "title": "Team",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "team",
+    "run_id",
+    "created_at",
+    "synthetic",
+    "item_id",
+    "input_sha256",
+    "output_sha256",
+    "grader",
+    "backend"
+  ],
+  "title": "ItemRecord",
+  "type": "object"
+}

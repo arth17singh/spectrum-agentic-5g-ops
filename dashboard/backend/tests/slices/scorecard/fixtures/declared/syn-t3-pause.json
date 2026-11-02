@@ -1,0 +1,18 @@
+{
+  "unit": "t3.pause",
+  "track": "track-3",
+  "target": {
+    "metric": "first_refusal_s",
+    "op": "<=",
+    "value": 60,
+    "unit": "s"
+  },
+  "n_items": 5,
+  "test_set_sha256": "c586bd84471c0360659422014531b57d2be67d2cad883ef99a04a0b0ef7346a6",
+  "model_id": "synthetic-model",
+  "grader": "synthetic-grader",
+  "code_sha": "63f5210e7b51845c32342e690381f4c241a826abc075d3debdad37de6b40851f",
+  "region": "us-east-2",
+  "declared_at": "2026-11-02T10:00:00Z",
+  "synthetic": true
+}

@@ -1,0 +1,65 @@
+{
+  "kind": "twin-parity",
+  "created_at": "2026-11-02T20:23:29+00:00",
+  "tolerance": {
+    "relative": 1e-06,
+    "absolute": 1e-12
+  },
+  "compared": "ReplayTwin (in-process, installed SDK assets) vs organisers' adapter (local, maveric backend)",
+  "ran_rl_installed": "1.2.9",
+  "ran_rl_adapter_source": "1.2.9",
+  "preset": "official",
+  "cases": [
+    {
+      "scenario": "nominal",
+      "seed": 7,
+      "steps": 12,
+      "state_fields_compared": 637,
+      "state_max_rel_diff": 0.0,
+      "state_worst_field": null,
+      "state_mismatches": [],
+      "action_log_fields_compared": 349,
+      "action_log_max_rel_diff": 0.0,
+      "action_log_mismatches": [],
+      "from_log_state_equal": true,
+      "steps_with_clamping": 9,
+      "steps_with_alarm_freeze": 0,
+      "passed": true
+    },
+    {
+      "scenario": "congestion",
+      "seed": 11,
+      "steps": 12,
+      "state_fields_compared": 637,
+      "state_max_rel_diff": 0.0,
+      "state_worst_field": null,
+      "state_mismatches": [],
+      "action_log_fields_compared": 368,
+      "action_log_max_rel_diff": 0.0,
+      "action_log_mismatches": [],
+      "from_log_state_equal": true,
+      "steps_with_clamping": 10,
+      "steps_with_alarm_freeze": 0,
+      "passed": true
+    },
+    {
+      "scenario": "outage_cell_2",
+      "seed": 3,
+      "steps": 12,
+      "state_fields_compared": 637,
+      "state_max_rel_diff": 0.0,
+      "state_worst_field": null,
+      "state_mismatches": [],
+      "action_log_fields_compared": 364,
+      "action_log_max_rel_diff": 0.0,
+      "action_log_mismatches": [],
+      "from_log_state_equal": true,
+      "steps_with_clamping": 9,
+      "steps_with_alarm_freeze": 4,
+      "passed": true
+    }
+  ],
+  "state_fields_compared": 1911,
+  "max_rel_diff": 0.0,
+  "passed": true
+}

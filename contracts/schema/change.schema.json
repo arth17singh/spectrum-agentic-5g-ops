@@ -1,0 +1,451 @@
+{
+  "$defs": {
+    "CellChange": {
+      "additionalProperties": false,
+      "properties": {
+        "cell": {
+          "description": "Cell index in the twin's per-cell arrays (0-based).",
+          "minimum": 0,
+          "title": "Cell",
+          "type": "integer"
+        },
+        "d_power_db": {
+          "title": "D Power Db",
+          "type": "number"
+        },
+        "d_tilt_deg": {
+          "title": "D Tilt Deg",
+          "type": "number"
+        }
+      },
+      "required": [
+        "cell",
+        "d_power_db",
+        "d_tilt_deg"
+      ],
+      "title": "CellChange",
+      "type": "object"
+    },
+    "ChangeTwin": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "maveric-inprocess",
+            "maveric-hosted",
+            "viavi",
+            "none"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "scenario": {
+          "minLength": 1,
+          "title": "Scenario",
+          "type": "string"
+        },
+        "seed": {
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "step": {
+          "description": "Twin step at which the change was applied.",
+          "minimum": 0,
+          "title": "Step",
+          "type": "integer"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "scenario",
+        "seed",
+        "step"
+      ],
+      "title": "ChangeTwin",
+      "type": "object"
+    },
+    "KpiDelta": {
+      "additionalProperties": false,
+      "description": "KPI change against the no-change counterfactual at the same step (A5).",
+      "properties": {
+        "coverage_ratio": {
+          "description": "Change of a ratio, in [-1, 1].",
+          "maximum": 1,
+          "minimum": -1,
+          "title": "Coverage Ratio",
+          "type": "number"
+        },
+        "sinr_mean_db": {
+          "title": "Sinr Mean Db",
+          "type": "number"
+        },
+        "sinr_p10_db": {
+          "title": "Sinr P10 Db",
+          "type": "number"
+        },
+        "sla_ratio": {
+          "description": "Change of a ratio, in [-1, 1].",
+          "maximum": 1,
+          "minimum": -1,
+          "title": "Sla Ratio",
+          "type": "number"
+        }
+      },
+      "required": [
+        "coverage_ratio",
+        "sla_ratio",
+        "sinr_p10_db",
+        "sinr_mean_db"
+      ],
+      "title": "KpiDelta",
+      "type": "object"
+    },
+    "KpiError": {
+      "additionalProperties": false,
+      "description": "Absolute error per KPI delta, plus one summary number the trust gate scores.",
+      "properties": {
+        "coverage_ratio": {
+          "minimum": 0,
+          "title": "Coverage Ratio",
+          "type": "number"
+        },
+        "sinr_mean_db": {
+          "minimum": 0,
+          "title": "Sinr Mean Db",
+          "type": "number"
+        },
+        "sinr_p10_db": {
+          "minimum": 0,
+          "title": "Sinr P10 Db",
+          "type": "number"
+        },
+        "sla_ratio": {
+          "minimum": 0,
+          "title": "Sla Ratio",
+          "type": "number"
+        },
+        "summary": {
+          "minimum": 0,
+          "title": "Summary",
+          "type": "number"
+        }
+      },
+      "required": [
+        "coverage_ratio",
+        "sla_ratio",
+        "sinr_p10_db",
+        "sinr_mean_db",
+        "summary"
+      ],
+      "title": "KpiError",
+      "type": "object"
+    },
+    "Kpis": {
+      "additionalProperties": false,
+      "properties": {
+        "coverage_ratio": {
+          "description": "A ratio in [0, 1].",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Coverage Ratio",
+          "type": "number"
+        },
+        "sinr_mean_db": {
+          "title": "Sinr Mean Db",
+          "type": "number"
+        },
+        "sinr_p10_db": {
+          "title": "Sinr P10 Db",
+          "type": "number"
+        },
+        "sla_ratio": {
+          "description": "A ratio in [0, 1].",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Sla Ratio",
+          "type": "number"
+        }
+      },
+      "required": [
+        "coverage_ratio",
+        "sla_ratio",
+        "sinr_p10_db",
+        "sinr_mean_db"
+      ],
+      "title": "Kpis",
+      "type": "object"
+    },
+    "ModelRef": {
+      "additionalProperties": false,
+      "properties": {
+        "model_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "title": "Model Id",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_id",
+        "version"
+      ],
+      "title": "ModelRef",
+      "type": "object"
+    }
+  },
+  "$id": "https://team13.invalid/contracts/change.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One applied change: measured KPI delta vs the no-change counterfactual, and the predicted delta.\n\nAmendment 1 (A2, A5, A14, A15). Stored as records/<run_id>/change/<change_id>.json\n(one object per record, Lambdas) or appended to records/<run_id>/change.jsonl (batch).\n\nPython-only rules:\n- change_text == canon(change) and change == parse(change_text) (store the rounded list);\n- measured_delta == measured_kpis - baseline_kpis (abs tol 1e-6);\n- error.<kpi> == |predicted_delta - measured_delta| (abs tol 1e-6); error needs predicted_delta;\n- scored: false requires unscored_reason (e.g. \"clipped\"); scored: true forbids it;\n- scored: true requires predictor, predicted_delta, error and direction_agree; scored: false\n  makes them optional (reasons: \"probe\", \"clipped\", \"no_prediction\" when ran___predict is paused).",
+  "properties": {
+    "aws_time": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Time taken from an AWS source; null when there is none.",
+      "title": "Aws Time"
+    },
+    "aws_time_source": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime.",
+      "title": "Aws Time Source"
+    },
+    "baseline_kpis": {
+      "$ref": "#/$defs/Kpis",
+      "description": "KPIs of the no-change replay at the same step."
+    },
+    "case_id": {
+      "minLength": 1,
+      "title": "Case Id",
+      "type": "string"
+    },
+    "change": {
+      "description": "parse(change_text): the change as applied.",
+      "items": {
+        "$ref": "#/$defs/CellChange"
+      },
+      "minItems": 1,
+      "title": "Change",
+      "type": "array"
+    },
+    "change_id": {
+      "description": "Approval id: \"chg-\" + sha256(json.dumps([case_id, item_id, change_text]))[:12].",
+      "pattern": "^chg-[0-9a-f]{12}$",
+      "title": "Change Id",
+      "type": "string"
+    },
+    "change_text": {
+      "description": "Canonical change string (A2).",
+      "pattern": "^cell=(?:0|[1-9][0-9]*);d_power_db=[+-](?:0|[1-9][0-9]*)\\.[0-9];d_tilt_deg=[+-](?:0|[1-9][0-9]*)\\.[0-9](?:\\|cell=(?:0|[1-9][0-9]*);d_power_db=[+-](?:0|[1-9][0-9]*)\\.[0-9];d_tilt_deg=[+-](?:0|[1-9][0-9]*)\\.[0-9])*$",
+      "title": "Change Text",
+      "type": "string"
+    },
+    "created_at": {
+      "description": "When our code wrote the record (UTC, trailing Z).",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "direction_agree": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Direction Agree"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/KpiError"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Per-KPI |predicted_delta - measured_delta|, unrounded."
+    },
+    "item_id": {
+      "description": "Step id from ran___propose, e.g. \"step-3\".",
+      "minLength": 1,
+      "title": "Item Id",
+      "type": "string"
+    },
+    "kind": {
+      "const": "change",
+      "default": "change",
+      "title": "Kind",
+      "type": "string"
+    },
+    "measured_delta": {
+      "$ref": "#/$defs/KpiDelta",
+      "description": "measured_kpis - baseline_kpis."
+    },
+    "measured_kpis": {
+      "$ref": "#/$defs/Kpis",
+      "description": "KPIs after the change at the same step."
+    },
+    "policy": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModelRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "predicted_delta": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/KpiDelta"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "predictor": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModelRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "probe": {
+      "description": "True for a fixed change applied with no model (A14).",
+      "title": "Probe",
+      "type": "boolean"
+    },
+    "run_id": {
+      "description": "The run this record belongs to; safe as a path segment.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scored": {
+      "description": "False when the change must not count toward trust (e.g. clipped).",
+      "title": "Scored",
+      "type": "boolean"
+    },
+    "synthetic": {
+      "description": "True for fixtures, dry runs and anything not measured on a real system.",
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "team": {
+      "const": "team13",
+      "default": "team13",
+      "title": "Team",
+      "type": "string"
+    },
+    "trust_after": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trust After"
+    },
+    "trust_before": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trust Before"
+    },
+    "twin": {
+      "$ref": "#/$defs/ChangeTwin"
+    },
+    "unscored_reason": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Required when scored is false: \"probe\", \"clipped\" or \"no_prediction\".",
+      "title": "Unscored Reason"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "team",
+    "run_id",
+    "created_at",
+    "synthetic",
+    "case_id",
+    "change_id",
+    "item_id",
+    "change",
+    "change_text",
+    "twin",
+    "baseline_kpis",
+    "measured_kpis",
+    "measured_delta",
+    "scored",
+    "probe"
+  ],
+  "title": "ChangeRecord",
+  "type": "object"
+}

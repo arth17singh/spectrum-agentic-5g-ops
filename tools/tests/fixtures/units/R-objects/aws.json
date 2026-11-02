@@ -1,0 +1,139 @@
+{
+  "dynamodb": [
+    {
+      "item": {
+        "case_id": "case-0001",
+        "run_id": "t3.deny-fixture-R"
+      },
+      "region": "us-east-2",
+      "table": "team13-cases"
+    },
+    {
+      "item": {
+        "case_id": "case-0002",
+        "run_id": "t3.deny-fixture-R"
+      },
+      "region": "us-east-2",
+      "table": "team13-cases"
+    },
+    {
+      "item": {
+        "case_id": "case-0003",
+        "run_id": "t3.deny-fixture-R"
+      },
+      "region": "us-east-2",
+      "table": "team13-cases"
+    },
+    {
+      "item": {
+        "case_id": "case-0004",
+        "run_id": "t3.deny-fixture-R"
+      },
+      "region": "us-east-2",
+      "table": "team13-cases"
+    },
+    {
+      "item": {
+        "case_id": "case-0005",
+        "run_id": "t3.deny-fixture-R"
+      },
+      "region": "us-east-2",
+      "table": "team13-cases"
+    }
+  ],
+  "log_groups": {
+    "us-east-2": [
+      "/team13/checkpoint",
+      "/aws/lambda/team13-ran-tools"
+    ],
+    "us-west-2": [
+      "aws/spans"
+    ]
+  },
+  "logs": [
+    {
+      "event_id": "ev-case-0001",
+      "log_group": "/team13/checkpoint",
+      "log_stream": "gateway/2026-11-02",
+      "message": "{\"run_id\": \"t3.deny-fixture-R\", \"item_id\": \"case-0001\", \"case_id\": \"case-0001\", \"decision\": \"DENY\", \"tool\": \"ran___apply_change\"}",
+      "region": "us-east-2",
+      "timestamp": "2026-11-02T18:10:00.000Z"
+    },
+    {
+      "event_id": "ev-case-0002",
+      "log_group": "/team13/checkpoint",
+      "log_stream": "gateway/2026-11-02",
+      "message": "{\"run_id\": \"t3.deny-fixture-R\", \"item_id\": \"case-0002\", \"case_id\": \"case-0002\", \"decision\": \"DENY\", \"tool\": \"ran___apply_change\"}",
+      "region": "us-east-2",
+      "timestamp": "2026-11-02T18:14:00.000Z"
+    },
+    {
+      "event_id": "ev-case-0003",
+      "log_group": "/team13/checkpoint",
+      "log_stream": "gateway/2026-11-02",
+      "message": "{\"run_id\": \"t3.deny-fixture-R\", \"item_id\": \"case-0003\", \"case_id\": \"case-0003\", \"decision\": \"DENY\", \"tool\": \"ran___apply_change\"}",
+      "region": "us-east-2",
+      "timestamp": "2026-11-02T18:18:00.000Z"
+    },
+    {
+      "event_id": "ev-case-0004",
+      "log_group": "/team13/checkpoint",
+      "log_stream": "gateway/2026-11-02",
+      "message": "{\"run_id\": \"t3.deny-fixture-R\", \"item_id\": \"case-0004\", \"case_id\": \"case-0004\", \"decision\": \"DENY\", \"tool\": \"ran___apply_change\"}",
+      "region": "us-east-2",
+      "timestamp": "2026-11-02T18:23:00.000Z"
+    },
+    {
+      "event_id": "ev-case-0005",
+      "log_group": "/team13/checkpoint",
+      "log_stream": "gateway/2026-11-02",
+      "message": "{\"run_id\": \"t3.deny-fixture-R\", \"item_id\": \"case-0005\", \"case_id\": \"case-0005\", \"decision\": \"DENY\", \"tool\": \"ran___apply_change\"}",
+      "region": "us-east-2",
+      "timestamp": "2026-11-02T18:28:00.000Z"
+    },
+    {
+      "event_id": "ev-span-0",
+      "log_group": "aws/spans",
+      "log_stream": "spans",
+      "message": "{\"attributes\": {\"run_id\": \"t3.deny-fixture-R\"}, \"name\": \"open_case\"}",
+      "region": "us-west-2",
+      "timestamp": "2026-11-02T18:06:00.000Z"
+    },
+    {
+      "event_id": "ev-lambda-0",
+      "log_group": "/aws/lambda/team13-ran-tools",
+      "log_stream": "2026/11/02/[$LATEST]fixture",
+      "message": "{\"record\": \"change_applied\", \"case_id\": \"case-0002\", \"run_id\": \"t3.deny-fixture-R\", \"approval_id\": \"chg-0123456789ab\", \"change_text\": \"cell=1;d_power_db=+1.0;d_tilt_deg=+0.0\"}",
+      "region": "us-east-2",
+      "timestamp": "2026-11-02T18:12:30.000Z"
+    }
+  ],
+  "now": "2026-11-02T20:00:00Z",
+  "s3": {
+    "bucket": "fixture-bucket",
+    "last_modified": {
+      "declared/t3.deny-fixture-R.json": "2026-11-02T18:00:00Z",
+      "records/t3.deny-fixture-R/change/2503805d9089233b407e486d.json": "2026-11-02T18:12:31Z",
+      "records/t3.deny-fixture-R/item/1925b1d1ed88eb35ad60f227.json": "2026-11-02T18:23:01Z",
+      "records/t3.deny-fixture-R/item/1fdffa5c64d99f7d70314715.json": "2026-11-02T18:14:01Z",
+      "records/t3.deny-fixture-R/item/3023e18996f54c08e2cbbaa0.json": "2026-11-02T18:28:01Z",
+      "records/t3.deny-fixture-R/item/7769d5456f940931cde4eba2.json": "2026-11-02T18:10:01Z",
+      "records/t3.deny-fixture-R/item/d0618b97838a9419fc82c471.json": "2026-11-02T18:18:01Z",
+      "records/t3.deny-fixture-R/job.jsonl": "2026-11-02T18:31:00Z",
+      "results/t3.deny-fixture-R.json": "2026-11-02T18:32:00Z"
+    },
+    "prefix": "evidence/"
+  },
+  "sagemaker": [
+    {
+      "CreationTime": "2026-11-02T18:05:00Z",
+      "LastModifiedTime": "2026-11-02T18:30:05Z",
+      "ProcessingEndTime": "2026-11-02T18:30:00Z",
+      "ProcessingJobStatus": "Completed",
+      "ProcessingStartTime": "2026-11-02T18:07:00Z",
+      "kind": "processing",
+      "name": "team13-suite-fixture",
+      "region": "us-east-2"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "unit": "t3.pause",
+  "metric": "first_refusal_s",
+  "value": 75,
+  "target": {
+    "metric": "first_refusal_s",
+    "op": "<=",
+    "value": 60,
+    "unit": "s"
+  },
+  "passed": false,
+  "n_items": 5,
+  "checked_at": "2026-11-02T11:00:00Z",
+  "checker": {
+    "script": "synthetic/check_unit.py",
+    "code_sha": "d04ba2e332819a3b1f3bd3304a37af08132b37b0b1bc49b0db3c872e76997e27"
+  },
+  "details": {},
+  "synthetic": true
+}
