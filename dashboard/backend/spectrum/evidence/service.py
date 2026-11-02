@@ -15,7 +15,7 @@ from typing import Callable
 
 from ..core import KeyRing
 from ..engines.ledger import ANCHOR_EVERY, GENESIS
-from .sources import Artifact, default_source, validate_declaration, validate_judging
+from .sources import Artifact, default_source, is_append_only, validate_declaration, validate_judging
 from .store import (ANCHORS_FILE, KEY_ID, LEDGER_FILE, display_path, PUBKEYS_FILE, EvidenceLedger, PublicKeyRing, evidence_dir, fingerprint,
                     key_file, load_disk, load_or_create_secret, public_keys_doc, utc_iso, verify_chain)
 
@@ -33,7 +33,7 @@ def clean(s: str) -> str:
 
 
 def build_index(records: list[dict]) -> dict[str, dict]:
-    """path -> {first, last_sha, missing, events}: the ingest state, rebuilt from the chain itself."""
+    """path -> {first, last_sha, last_size, missing, events}: the ingest state, rebuilt from the chain itself."""
     idx: dict[str, dict] = {}
     for r in records:
         p = r.get("payload") or {}
@@ -42,12 +42,13 @@ def build_index(records: list[dict]) -> dict[str, dict]:
             continue
         t = r.get("type")
         if t == "evidence.artifact" and path not in idx:
-            idx[path] = {"first": r, "last_sha": p.get("sha256"), "missing": False, "events": []}
+            idx[path] = {"first": r, "last_sha": p.get("sha256"), "last_size": p.get("size"), "missing": False,
+                         "events": []}
         elif path in idx:
             e = idx[path]
             e["events"].append(r)
-            if t == "evidence.changed":
-                e["last_sha"], e["missing"] = p.get("sha256"), False
+            if t in ("evidence.changed", "evidence.appended"):
+                e["last_sha"], e["last_size"], e["missing"] = p.get("sha256"), p.get("size"), False
             elif t == "evidence.missing":
                 e["missing"] = True
             elif t == "evidence.reappeared":
@@ -66,6 +67,7 @@ def summarise_runs(records: list[dict], chain_ok: bool = True) -> tuple[list[dic
         return runs.setdefault(rid, {"run_id": rid, "declaration": None, "declaration_status": "missing",
                                      "declaration_errors": [], "declared_at": None, "declared_seq": None,
                                      "paths": set(), "kinds": {}, "first_output_at": None, "changed": [],
+                                     "appended": [],
                                      "missing": [], "records": 0, "first_seq": None, "last_seq": None,
                                      "last_ts": None, "judged": False})
 
@@ -92,12 +94,14 @@ def summarise_runs(records: list[dict], chain_ok: bool = True) -> tuple[list[dic
                     s["declaration"], s["declaration_status"] = p.get("declaration"), "valid"
                 else:
                     s["declaration_status"], s["declaration_errors"] = "invalid", p.get("errors") or []
-            elif p["kind"] == "output":
+            elif p["kind"] in ("output", "record"):
                 st = p.get("source_time")
                 if st and (s["first_output_at"] is None or st < s["first_output_at"]):
                     s["first_output_at"] = st
         elif t == "evidence.changed":
             s["changed"].append({"path": p["path"], "seq": r["seq"]})
+        elif t == "evidence.appended":
+            s["appended"].append({"path": p["path"], "seq": r["seq"]})
         elif t == "evidence.missing":
             s["missing"].append({"path": p["path"], "seq": r["seq"]})
     for rid in judged:
@@ -136,6 +140,9 @@ def run_checks(s: dict) -> dict:
     checks["grader_recorded"] = ok(d["grader"]) if d else bad("no valid declaration")
     if s["changed"] or s["missing"]:
         checks["unchanged"] = bad(f"{len(s['changed'])} changed, {len(s['missing'])} missing since ingest")
+    elif s.get("appended"):
+        checks["unchanged"] = ok(f"no artifact edited; {len(s['appended'])} append(s) to a records .jsonl file, "
+                                 "each verified to keep the earlier content as its first lines")
     else:
         checks["unchanged"] = ok("every artifact still has its ingested hash")
     checks["times_agree_aws"] = dict(NOT_CHECKED)
@@ -234,7 +241,8 @@ class EvidenceService:
         return self.state == "ok"
 
     def ingest(self, artifacts: list[Artifact]) -> dict:
-        counts = {"seen": len(artifacts), "new": 0, "changed": 0, "missing": 0, "reappeared": 0, "invalid": 0}
+        counts = {"seen": len(artifacts), "new": 0, "changed": 0, "appended": 0, "missing": 0, "reappeared": 0,
+                  "invalid": 0}
         if not self.check_disk(force=True):  # re-read and re-verify from disk before every scan
             counts["skipped"] = self.problem()
             return counts
@@ -260,6 +268,11 @@ class EvidenceService:
                     counts["invalid"] += 1
                 appended.append(rec)
                 counts["new"] += 1
+            elif a.sha256 != known["last_sha"] and self._is_append(a, known):
+                appended.append(self._append("evidence.appended", {
+                    **self._base(a), "previous_sha256": known["last_sha"], "previous_size": known["last_size"],
+                    "original_seq": known["first"]["seq"]}))
+                counts["appended"] += 1
             elif a.sha256 != known["last_sha"]:
                 appended.append(self._append("evidence.changed", {
                     **self._base(a), "previous_sha256": known["last_sha"],
@@ -289,16 +302,30 @@ class EvidenceService:
                       self.snapshot(), "debug", "evidence-ingester")
         return counts
 
+    def _is_append(self, a: Artifact, known: dict) -> bool:
+        """True if a records .jsonl file grew by whole lines and its first bytes are exactly what the ledger
+        last recorded. Anything else (an edit, a shrink, a partial line) is a change."""
+        n = known.get("last_size")
+        if not (is_append_only(a.path) and isinstance(n, int) and 0 < n < a.size):
+            return False
+        try:
+            # the old content is the file's first n bytes, and the new content also ends on a line boundary
+            return (self.source.prefix_sha256(a, n) == known["last_sha"]
+                    and self.source.prefix_sha256(a, a.size) == a.sha256)
+        except Exception:  # noqa: BLE001 - if the prefix cannot be read, report a change, never assume an append
+            return False
+
     def _append(self, type: str, payload: dict) -> dict:
         rec = self.ledger.append_persisted(type, payload)
         path = payload["path"]
         if type == "evidence.artifact":
-            self.index[path] = {"first": rec, "last_sha": payload["sha256"], "missing": False, "events": []}
+            self.index[path] = {"first": rec, "last_sha": payload["sha256"], "last_size": payload.get("size"),
+                                "missing": False, "events": []}
             return rec
         e = self.index[path]
         e["events"].append(rec)
-        if type == "evidence.changed":
-            e["last_sha"], e["missing"] = payload["sha256"], False
+        if type in ("evidence.changed", "evidence.appended"):
+            e["last_sha"], e["last_size"], e["missing"] = payload["sha256"], payload.get("size"), False
         else:
             e["missing"] = type == "evidence.missing"
         return rec
@@ -435,4 +462,6 @@ def _summary(rec: dict) -> str:
         return f"#{rec['seq']} CHANGED after ingest: {p['path']} (first recorded at #{p['original_seq']})"
     if t == "evidence.missing":
         return f"#{rec['seq']} MISSING: {p['path']} (recorded at #{p['original_seq']})"
+    if t == "evidence.appended":
+        return f"#{rec['seq']} appended to {p['path']} (earlier content intact; first recorded at #{p['original_seq']})"
     return f"#{rec['seq']} {t} {p.get('path', '')}"
