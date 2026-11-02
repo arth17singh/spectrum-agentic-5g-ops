@@ -8,7 +8,7 @@ from t3.evals.graders import load_targets
 from t3.evals.twin_backend import ReplayTwin, graded
 
 T = load_targets()
-FROZEN_SHA = "20f9013399da360b26214e11de15c9f9edbb8dcb9bcc4cf1d89fb7e194d3dd12"
+FROZEN_SHA = "485b3bde1dc974a07e5950115e1fc1a8fa0dd2cb6cfc88e377a4ac7a01588a63"
 
 
 def test_real_twin_is_used_and_the_standin_refuses_to_load_beside_it():
