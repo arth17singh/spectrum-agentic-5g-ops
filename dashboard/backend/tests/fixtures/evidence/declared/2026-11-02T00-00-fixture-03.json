@@ -1,0 +1,9 @@
+{
+  "run_id": "2026-11-02T00-00-fixture-03",
+  "unit": "knowledge",
+  "target": {
+    "metric": "exact_match"
+  },
+  "test_set_sha256": "3a7bd3e2",
+  "model_id": "fixture-model-0.6b"
+}

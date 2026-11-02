@@ -1,5 +1,5 @@
 # SPECTRUM console: one-command dev and demo.
-.PHONY: dev api web install test check build demo
+.PHONY: dev api web install test check build demo evidence-rebuild
 
 install:            ## install backend + frontend dependencies
 	cd backend && uv sync --group dev
@@ -24,3 +24,6 @@ build:              ## production frontend bundle (served by the backend on :878
 
 demo: build         ## demo-day mode: a single process serves API + built UI on :8787; phones need the access token
 	cd backend && PYTHONPATH=. uv run uvicorn spectrum.main:app --host 0.0.0.0 --port 8787
+
+evidence-rebuild:   ## offline: re-verify evidence/ (chain, signatures, file hashes) and reprint per-run results
+	cd backend && uv run python -m spectrum.evidence rebuild $(if $(DIR),--dir $(DIR),)

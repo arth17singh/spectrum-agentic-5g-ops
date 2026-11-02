@@ -1,0 +1,12 @@
+{
+  "run_id": "2026-11-02T00-00-fixture-02",
+  "unit": "reasoning",
+  "target": {
+    "metric": "accuracy",
+    "value": 0.65
+  },
+  "test_set_sha256": "26752e30c664043a27c9cb9a154c01608abdf14cb9975b9646145ade4e3fa6b1",
+  "model_id": "fixture-model-8b",
+  "grader": "rule-based-parser-v2",
+  "note": "SYNTHETIC FIXTURE"
+}

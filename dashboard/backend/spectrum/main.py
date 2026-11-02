@@ -24,6 +24,7 @@ from pydantic import BaseModel
 from .access import TOKEN, AccessGate, is_loopback, log_phone_link
 from .adapters import load_adapters
 from .engine import Engine
+from .evidence.service import EvidenceService
 
 MODE = os.environ.get("SPECTRUM_MODE", "mock")
 SEED = int(os.environ.get("SPECTRUM_SEED", "7"))
@@ -31,14 +32,19 @@ FLAGS_FILE = Path(__file__).parent / "flags.json"
 
 engine = Engine(seed=SEED)
 adapters = load_adapters(MODE)
+# The REAL evidence ledger lives beside the engine, never inside it: reset() rebuilds the engine (and
+# its bus) and must not touch it. Events resolve engine.bus at emit time for the same reason.
+evidence = EvidenceService(emit=lambda *a, **k: engine.bus.emit(*a, **k))
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log_phone_link(_lan_ip())
     task = asyncio.create_task(engine.run())
+    ev_task = asyncio.create_task(evidence.run())
     yield
     task.cancel()
+    ev_task.cancel()
 
 
 # Every handler is `async def` on purpose: it then runs on the event-loop thread, serialised with
@@ -70,7 +76,7 @@ async def remote_flags():
 
 @app.get("/api/snapshot")
 async def snapshot():
-    return engine.snapshot()
+    return {**engine.snapshot(), "evidence": evidence.snapshot()}
 
 
 # --------------------------------------------------------------------------- simulation
@@ -333,6 +339,36 @@ async def provenance_latest():
 async def dossier(incident: str):
     from .provenance import dossier as build_dossier
     return build_dossier(engine, incident)
+
+
+# --------------------------------------------------------------------------- evidence (REAL, persisted)
+
+@app.get("/api/evidence")
+async def evidence_snapshot():
+    return evidence.snapshot()
+
+
+@app.get("/api/evidence/chain")
+async def evidence_chain():
+    return evidence.chain()
+
+
+@app.get("/api/evidence/runs/{run_id}")
+async def evidence_run(run_id: str):
+    d = evidence.run_detail(run_id)
+    if d is None:
+        raise HTTPException(404, f"no evidence for run {run_id!r}")
+    return d
+
+
+@app.post("/api/evidence/scan")
+async def evidence_scan():
+    return ok(scan=await evidence.scan(), evidence=evidence.snapshot())
+
+
+@app.post("/api/evidence/verify")
+async def evidence_verify():
+    return ok(verify=evidence.verify_now(), evidence=evidence.snapshot())
 
 
 # --------------------------------------------------------------------------- director
