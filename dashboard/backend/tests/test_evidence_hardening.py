@@ -87,10 +87,82 @@ def test_reads_reverify_from_disk_even_if_size_and_mtime_are_restored(app_with_f
     assert c.get("/api/evidence").json()["status"]["state"] == "broken"
 
 
-def test_status_never_shows_an_absolute_path(app_with_fixture):  # noqa: F811
+def _strings(obj):
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            yield from _strings(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _strings(v)
+
+
+def test_no_absolute_path_anywhere_in_the_evidence_payloads(app_with_fixture):  # noqa: F811
     main, s, d = app_with_fixture
     c = TestClient(main.app, client=("127.0.0.1", 50000))
-    assert not c.get("/api/evidence").json()["status"]["dir"].startswith("/")
+    c.post("/api/evidence/scan")
+    home = os.path.expanduser("~")
+    for payload in (c.get("/api/evidence").json(), c.get("/api/snapshot").json()["evidence"]):
+        leaked = [x for x in _strings(payload) if x.startswith("/") or home in x or str(d) in x]
+        assert not leaked, leaked
+        assert payload["status"]["source"]["uri"] and payload["status"]["dir"]
+
+
+def test_rebuild_never_prints_ok_for_a_broken_chain(tmp_path):
+    d = make_dir(tmp_path)
+    service(d, tmp_path).scan_sync()
+    recs = lines(d)
+    recs[1]["payload"]["size"] = 1
+    (d / LEDGER_FILE).write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in recs))
+    out = io.StringIO()
+    assert rebuild(d, out) == 2
+    rows = [ln for ln in out.getvalue().splitlines() if ln.startswith("2026-11-02T00-00-fixture-")]
+    assert len(rows) == 3
+    assert all("UNVERIFIED (chain broken)" in ln and " OK" not in ln for ln in rows), rows
+
+
+@pytest.mark.parametrize("big", [2 ** 53 + 1, -(2 ** 60), 10 ** 30])
+def test_integers_beyond_2_53_make_a_declaration_invalid(tmp_path, big):
+    d = make_dir(tmp_path)
+    decl = {"run_id": "RID", "unit": "u", "target": {"metric": "exact_match", "value": big},
+            "test_set_sha256": "a" * 64, "model_id": "m", "grader": "g"}
+    (d / "declared" / "RID.json").write_text(json.dumps(decl))
+    s = service(d, tmp_path)
+    s.scan_sync()
+    p = next(r for r in s.ledger.records if r["payload"]["path"] == "declared/RID.json")["payload"]
+    assert p["status"] == "invalid" and any("2^53" in e for e in p["errors"])
+    # the boundary itself is still a valid declaration
+    (d / "declared" / "RID2.json").write_text(json.dumps(dict(decl, run_id="RID2", target={"metric": "m", "value": 2 ** 53})))
+    s.scan_sync()
+    assert next(r for r in s.ledger.records if r["payload"]["path"] == "declared/RID2.json")["payload"]["status"] == "valid"
+
+
+def _same_size_edit_with_mtime_restored(f):
+    st = f.stat()
+    text = f.read_text()
+    i = text.index('"size": ') + len('"size": ')
+    f.write_text(text[:i] + ("1" if text[i] != "1" else "2") + text[i + 1:])
+    os.utime(f, ns=(st.st_atime_ns, st.st_mtime_ns))
+    assert f.stat().st_size == st.st_size and f.stat().st_mtime_ns == st.st_mtime_ns
+
+
+def test_the_poll_scan_rereads_a_same_size_edit_with_mtime_restored(tmp_path):
+    d = make_dir(tmp_path)
+    s = service(d, tmp_path)
+    s.scan_sync()
+    _same_size_edit_with_mtime_restored(d / LEDGER_FILE)
+    assert s.state == "ok"  # nothing has looked yet
+    assert s.scan_sync().get("skipped")  # the scan (the poll loop's ingest) re-reads first and refuses to append
+    assert s.state == "broken"
+
+
+def test_snapshot_rereads_a_same_size_edit_with_mtime_restored(app_with_fixture):  # noqa: F811
+    main, s, d = app_with_fixture
+    c = TestClient(main.app, client=("127.0.0.1", 50000))
+    c.post("/api/evidence/scan")
+    _same_size_edit_with_mtime_restored(d / LEDGER_FILE)
+    assert c.get("/api/snapshot").json()["evidence"]["status"]["state"] == "broken"
 
 
 def test_local_source_rehashes_old_cache_entries(tmp_path):

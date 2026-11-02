@@ -88,7 +88,10 @@ def rebuild(directory: Path, out=sys.stdout) -> int:
         d = s["declaration"] or {}
         tgt = f"{d['target']['metric']} {d['target']['value']}" if d else "-"
         bad = [k for k, c in s["checks"].items() if c["state"] == "fail"]
-        status = "OK" if not bad else "FAIL " + ",".join(bad)
+        if not v["ok"]:
+            status = "UNVERIFIED (chain broken)"
+        else:
+            status = "OK" if not bad else "FAIL " + ",".join(bad)
         if s["judged"]:
             status += " (judged)"
         say(f"{s['run_id']:<40} {d.get('unit', '-'):<12} {tgt:<22} {d.get('model_id', '-'):<22} "

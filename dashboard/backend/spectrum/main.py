@@ -85,6 +85,7 @@ async def remote_flags():
 
 @app.get("/api/snapshot")
 async def snapshot():
+    evidence.check_disk(force=True)  # the evidence part is re-read and re-verified from disk, as /api/evidence is
     return {**engine.snapshot(), "evidence": evidence.snapshot()}
 
 

@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .store import RESERVED, utc_iso
+from .store import RESERVED, display_path, utc_iso
 
 RUN_DIRS = {"outputs": "output", "records": "record", "logs": "log"}
 JSON_KINDS = {"declaration", "judging"}
@@ -78,7 +78,29 @@ def _parse(content: bytes) -> tuple[object, list[str]]:
         return None, ["not valid JSON: nested too deeply"]
     except Exception:  # noqa: BLE001 - e.g. "\ud800": a lone surrogate is not valid Unicode text
         return None, ["contains text that is not valid Unicode (for example a lone surrogate escape)"]
+    big = _first_unsafe_int(d)
+    if big is not None:
+        return None, [f"integer {big} is larger than 2^53 in magnitude; it cannot be represented exactly in "
+                      "JavaScript, so the browser could not re-verify it (write it as a string)"]
     return d, []
+
+
+MAX_SAFE = 2 ** 53
+
+
+def _first_unsafe_int(obj) -> int | None:
+    stack = [obj]  # iterative: the nesting depth was already bounded by json itself
+    while stack:
+        x = stack.pop()
+        if isinstance(x, bool):
+            continue
+        if isinstance(x, int) and abs(x) > MAX_SAFE:
+            return x
+        if isinstance(x, dict):
+            stack.extend(x.values())
+        elif isinstance(x, list):
+            stack.extend(x)
+    return None
 
 
 def validate_declaration(content: bytes, run_id_from_name: str) -> tuple[dict | None, list[str]]:
@@ -144,7 +166,7 @@ class LocalSource:
         self.max_cache_age_s = max_cache_age_s
 
     def describe(self) -> dict:
-        return {"kind": self.kind, "uri": str(self.root), "time_basis": "file modification time"}
+        return {"kind": self.kind, "uri": display_path(self.root), "time_basis": "file modification time"}
 
     def list_artifacts(self) -> list[Artifact]:
         out: list[Artifact] = []

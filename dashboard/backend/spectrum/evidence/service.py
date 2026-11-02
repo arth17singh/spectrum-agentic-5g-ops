@@ -16,7 +16,7 @@ from typing import Callable
 from ..core import KeyRing
 from ..engines.ledger import ANCHOR_EVERY, GENESIS
 from .sources import Artifact, default_source, validate_declaration, validate_judging
-from .store import (ANCHORS_FILE, KEY_ID, LEDGER_FILE, REPO_ROOT, PUBKEYS_FILE, EvidenceLedger, PublicKeyRing, evidence_dir, fingerprint,
+from .store import (ANCHORS_FILE, KEY_ID, LEDGER_FILE, display_path, PUBKEYS_FILE, EvidenceLedger, PublicKeyRing, evidence_dir, fingerprint,
                     key_file, load_disk, load_or_create_secret, public_keys_doc, utc_iso, verify_chain)
 
 log = logging.getLogger("spectrum.evidence")
@@ -235,7 +235,7 @@ class EvidenceService:
 
     def ingest(self, artifacts: list[Artifact]) -> dict:
         counts = {"seen": len(artifacts), "new": 0, "changed": 0, "missing": 0, "reappeared": 0, "invalid": 0}
-        if not self.check_disk():
+        if not self.check_disk(force=True):  # re-read and re-verify from disk before every scan
             counts["skipped"] = self.problem()
             return counts
         appended: list[dict] = []
@@ -397,7 +397,7 @@ class EvidenceService:
             "verify": self.verify_result,
             "key": {"key_id": KEY_ID, "alg": "Ed25519", "public_key_hex": self.pub_hex,
                     "fingerprint": fingerprint(self.pub_hex), "state": self.key_state, "file": PUBKEYS_FILE},
-            "dir": _display_dir(self.dir),
+            "dir": display_path(self.dir),
             "source": {**self.source.describe(), "error": self.source_error},
             "poll_s": self.poll_s,
             "last_scan": self.last_scan,
@@ -423,14 +423,6 @@ class EvidenceService:
             published = {}
         return {"records": self.ledger.records, "anchors": self.ledger.anchors, "public_keys": published,
                 "anchor_every": ANCHOR_EVERY}
-
-
-def _display_dir(d: Path) -> str:
-    """The evidence folder relative to the repo (never an absolute path: it would leak the home directory)."""
-    try:
-        return d.resolve().relative_to(REPO_ROOT).as_posix() or "."
-    except ValueError:
-        return d.name
 
 
 def _summary(rec: dict) -> str:

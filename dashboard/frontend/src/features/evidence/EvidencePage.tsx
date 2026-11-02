@@ -227,7 +227,10 @@ function CheckIcons({ checks }: { checks: Rec }) {
 
 function RunRow({ r, open, onToggle }: { r: Rec; open: boolean; onToggle: () => void }) {
   const d: Rec | null = r.declaration
-  const checked = CHECKS.filter((c) => ['pass', 'fail'].includes(r.checks?.[c.id]?.state)).length
+  const count = (st: string) => CHECKS.filter((c) => r.checks?.[c.id]?.state === st).length
+  const checked = count('pass') + count('fail')
+  const waiting = count('pending')
+  const notYet = count('not_checked')
   const unverified = CHECKS.every((c) => r.checks?.[c.id]?.state === 'unverified')
   return (
     <tr onClick={onToggle} aria-expanded={open} className={clsx('cursor-pointer border-b border-line/60', open ? 'bg-s2' : 'hover:bg-s2/60')}>
@@ -251,7 +254,7 @@ function RunRow({ r, open, onToggle }: { r: Rec; open: boolean; onToggle: () => 
         <div>
           <CheckIcons checks={r.checks} />
           <div className="tnum mt-0.5 max-w-[164px] text-micro text-ink-3">
-            {unverified ? 'unverified (chain broken)' : <><span className="whitespace-nowrap">{checked} of {CHECKS.length} checked</span>{' '}<span className="whitespace-nowrap">({CHECKS.length - checked} not yet checked)</span></>}
+            {unverified ? 'unverified (chain broken)' : <><span className="whitespace-nowrap">{checked} of {CHECKS.length} checked</span>{' '}<span className="whitespace-nowrap">({waiting ? `${waiting} waiting, ` : ''}{notYet} not yet checked)</span></>}
           </div>
         </div>
       </td>

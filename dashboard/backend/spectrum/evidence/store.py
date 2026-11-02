@@ -49,6 +49,14 @@ def key_file() -> Path:
     return Path(os.environ.get("SPECTRUM_EVIDENCE_KEY") or DEFAULT_KEY_FILE)
 
 
+def display_path(d: Path) -> str:
+    """A path relative to the repo (never absolute: it would leak the home directory), else its name."""
+    try:
+        return Path(d).resolve().relative_to(REPO_ROOT).as_posix() or "."
+    except ValueError:
+        return Path(d).name
+
+
 def utc_iso(dt: datetime | None = None) -> str:
     dt = dt or datetime.now(timezone.utc)
     return dt.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
