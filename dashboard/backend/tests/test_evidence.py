@@ -90,6 +90,18 @@ def test_anchor_every_32_records_is_persisted_and_verified(tmp_path):
     assert s3.state == "broken" and "anchor #1" in s3.problem()
 
 
+def test_an_anchor_edit_while_running_is_caught(tmp_path):
+    d = make_dir(tmp_path)
+    for i in range(30):
+        (d / "outputs" / R1 / f"extra-{i:03d}.json").write_text(json.dumps({"i": i}))
+    s = service(d, tmp_path)
+    s.scan_sync()
+    a = lines(d, ANCHORS_FILE)[0]
+    a["root"] = "ab" * 32
+    (d / ANCHORS_FILE).write_text(json.dumps(a) + "\n")
+    assert s.check_disk() is False and "anchor #1" in s.problem()
+
+
 # ---------------------------------------------------------------------------- tamper / key
 
 def test_tampered_ledger_is_reported_at_the_exact_seq_and_never_repaired(tmp_path):

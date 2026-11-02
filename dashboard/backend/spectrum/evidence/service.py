@@ -16,7 +16,7 @@ from typing import Callable
 from ..core import KeyRing
 from ..engines.ledger import ANCHOR_EVERY, GENESIS
 from .sources import Artifact, default_source, validate_declaration, validate_judging
-from .store import (KEY_ID, LEDGER_FILE, PUBKEYS_FILE, EvidenceLedger, PublicKeyRing, evidence_dir, fingerprint,
+from .store import (ANCHORS_FILE, KEY_ID, LEDGER_FILE, PUBKEYS_FILE, EvidenceLedger, PublicKeyRing, evidence_dir, fingerprint,
                     key_file, load_disk, load_or_create_secret, public_keys_doc, utc_iso, verify_chain)
 
 log = logging.getLogger("spectrum.evidence")
@@ -184,11 +184,14 @@ class EvidenceService:
         return self.verify_result
 
     def _stat(self):
-        try:
-            st = (self.dir / LEDGER_FILE).stat()
-            return (st.st_size, st.st_mtime_ns)
-        except FileNotFoundError:
-            return None
+        out = []
+        for name in (LEDGER_FILE, ANCHORS_FILE):
+            try:
+                st = (self.dir / name).stat()
+                out.append((st.st_size, st.st_mtime_ns))
+            except FileNotFoundError:
+                out.append(None)
+        return tuple(out)
 
     @property
     def state(self) -> str:
