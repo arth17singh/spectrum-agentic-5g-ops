@@ -27,8 +27,8 @@ import math
 import threading
 from typing import Any
 
-from twin._change import dec, filter_change, with_kpis
-from twin.kpis import headline
+from twin._change import canon_change, dec, filter_change, parse_change, with_kpis  # noqa: F401
+from twin.kpis import HEADLINE, headline
 from twin.presets import config_hash, resolve_config
 
 SCHEMA = 1
@@ -92,6 +92,36 @@ def _new_twin(cfg: dict[str, Any], reuse_models: bool) -> Any:
         return _clone(_PROTOTYPES[key])
 
 
+def _snapshot(twin: Any) -> Any:
+    """An independent copy of a twin IN ITS CURRENT STATE (mid-episode), sharing only read-only models.
+
+    Copies every mutable attribute ``MavericDigitalTwin`` changes in place or per step: the per-cell
+    arrays, the UE arrays and motion state, and the random generator (so the copy continues the
+    same random stream). Relies on ran-rl 1.2.9 attribute names; a test proves the copy and the
+    original then evolve identically.
+    """
+    new = _clone(twin)
+    for name in ("_ue", "_speed", "_heading", "_heading_mean"):
+        setattr(new, name, getattr(twin, name).copy())
+    new._rng = copy.deepcopy(twin._rng)
+    return new
+
+
+# One twin object per config for the life of the process (Lambda container): reset() per call
+# instead of constructing. Only one ReplayTwin may hold it at a time (a lease).
+_SHARED: dict[str, list[Any]] = {}  # key -> [twin, current lease]
+
+
+def _lease_shared(cfg: dict[str, Any]) -> tuple[Any, object, str]:
+    key = config_hash(cfg)
+    with _LOCK:
+        if key not in _SHARED:
+            _SHARED[key] = [_build_twin(cfg), None]
+        lease = object()
+        _SHARED[key][1] = lease
+        return _SHARED[key][0], lease, key
+
+
 # --- ReplayTwin ---------------------------------------------------------------------------------
 
 
@@ -105,6 +135,10 @@ class ReplayTwin:
         config: None (official), a preset name, or a dict (see ``twin.presets``).
         reuse_models: share the loaded GP models between instances with the same config (saves
             about 0.1 s per instance; results are identical, which the tests check).
+        shared: Lambda mode. Use ONE twin object per config for the whole process and only
+            ``reset()`` it per call (W3b: flat memory, about 40% faster than rebuilding). The new
+            instance takes over the shared twin; an older shared instance of the same config then
+            raises on use. Use ``ReplayTwin.cached(...)`` / ``from_log(..., shared=True)``.
     """
 
     def __init__(
@@ -114,19 +148,35 @@ class ReplayTwin:
         config: dict[str, Any] | str | None = None,
         *,
         reuse_models: bool = True,
+        shared: bool = False,
     ) -> None:
         self.scenario = scenario
         self.seed = int(seed)
         self.config = resolve_config(config)
-        self._twin = _new_twin(self.config, reuse_models)
+        self._lease: object | None = None
+        self._lease_key: str | None = None
+        if shared:
+            self._twin, self._lease, self._lease_key = _lease_shared(self.config)
+        else:
+            self._twin = _new_twin(self.config, reuse_models)
         self._safety: Any = None
         self._state: dict[str, Any] | None = None
         self.action_log: list[dict[str, Any]] = []
 
     # -- episode --------------------------------------------------------------------------------
 
+    @classmethod
+    def cached(cls, scenario: str, seed: int, config: dict[str, Any] | str | None = None) -> ReplayTwin:
+        """Cached-factory form for Lambda: ``ReplayTwin(..., shared=True)``."""
+        return cls(scenario, seed, config, shared=True)
+
+    def _check_lease(self) -> None:
+        if self._lease_key is not None and _SHARED[self._lease_key][1] is not self._lease:
+            raise RuntimeError("this shared ReplayTwin was superseded by a newer one of the same config")
+
     def reset(self) -> dict[str, Any]:
         """Start the episode (clears the action log) and return the initial state."""
+        self._check_lease()
         from ran_rl.env.config import SafetyBounds
         from ran_rl.env.safety import ActionSafetyFilter
 
@@ -139,24 +189,76 @@ class ReplayTwin:
         return copy.deepcopy(self._state)
 
     def apply(self, change: list[dict[str, Any]]) -> dict[str, Any]:
-        """Apply ``[{cell, d_power_db, d_tilt_deg}]`` through the safety filter, advance one step.
+        """Apply ``[{cell, d_power_db, d_tilt_deg}]`` (or the canonical string
+        ``cell=1;d_power_db=+2.0;d_tilt_deg=-1.0|cell=2;...``) through the safety filter, advance one step.
 
         The request and what the filter let through are appended to ``action_log``. An empty list
         is a no-op step. Returns the new state.
         """
         if self._state is None:
             raise RuntimeError("call reset() first")
+        self._check_lease()
         action, entry = filter_change(change, self._state, self._safety, len(self.action_log))
         self._twin.apply_action(action)
         self._state = self._twin.advance(self.config["step_seconds"])
         self.action_log.append(with_kpis(entry, self._state))
         return copy.deepcopy(self._state)
 
+    # -- counterfactuals (contract amendment A5) -----------------------------------------------
+
+    def _trial(self, change: list[dict[str, Any]] | str) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Apply ``change`` and advance one step on a SNAPSHOT; the live twin is untouched."""
+        if self._state is None:
+            raise RuntimeError("call reset() first")
+        self._check_lease()
+        action, entry = filter_change(change, self._state, self._safety, len(self.action_log))
+        trial = _snapshot(self._twin)
+        trial.apply_action(action)
+        state = trial.advance(self.config["step_seconds"])
+        return state, entry
+
+    def noop_kpis(self) -> dict[str, float]:
+        """Headline KPIs after advancing one step with NO change, from the current state.
+
+        Does not mutate the live twin (it advances a snapshot).
+        """
+        state, _ = self._trial([])
+        return headline(state)
+
+    def counterfactual(self, change: list[dict[str, Any]] | str) -> dict[str, Any]:
+        """Effect of ``change`` against the no-change counterfactual at the same step.
+
+        Returns ``{baseline, after, delta, clamped, rules, requested, filtered}`` where baseline
+        is the KPIs after a no-change step, after is the KPIs after the change and a step, and
+        delta = after - baseline for coverage_ratio, sla_ratio, sinr_p10_db and sinr_mean_db.
+        Both futures start from the same state and the same random stream, so UE motion is
+        identical and the difference is caused by the change only (exact, not statistical).
+        ``clamped`` is true if the safety filter altered the request (record it as unscored).
+        The live twin (state, log, step) is NOT changed.
+        """
+        after_state, entry = self._trial(change)
+        base_state, _ = self._trial([])
+        after, baseline = headline(after_state), headline(base_state)
+        return {
+            "baseline": baseline,
+            "after": after,
+            "delta": {k: after[k] - baseline[k] for k in HEADLINE},
+            "clamped": entry["clamped"],
+            "rules": entry["rules"],
+            "requested": entry["requested"],
+            "filtered": entry["filtered"],
+        }
+
+    def counterfactual_delta(self, change: list[dict[str, Any]] | str) -> dict[str, float]:
+        """``counterfactual(change)["delta"]``: {coverage_ratio, sla_ratio, sinr_p10_db, sinr_mean_db}."""
+        return self.counterfactual(change)["delta"]
+
     # -- views ----------------------------------------------------------------------------------
 
     @property
     def state(self) -> dict[str, Any]:
         """A copy of the latest state."""
+        self._check_lease()
         if self._state is None:
             raise RuntimeError("call reset() first")
         return copy.deepcopy(self._state)
@@ -198,13 +300,14 @@ class ReplayTwin:
         *,
         verify: bool = True,
         reuse_models: bool = True,
+        shared: bool = False,
     ) -> ReplayTwin:
         """Rebuild a twin and replay ``action_log``; the result is in the identical state.
 
         The requested changes are replayed (not the filtered ones), so the filter runs again; with
         ``verify`` the filtered vectors and the post-step KPIs must match what was logged.
         """
-        twin = cls(scenario, seed, config, reuse_models=reuse_models)
+        twin = cls(scenario, seed, config, reuse_models=reuse_models, shared=shared)
         twin.reset()
         for i, logged in enumerate(action_log):
             if logged.get("step", i) != i:

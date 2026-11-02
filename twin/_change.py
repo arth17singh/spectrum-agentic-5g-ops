@@ -28,11 +28,54 @@ def dec(x: float | str) -> float:
     return float(x)  # float("nan"), float("inf"), float("-inf") all parse
 
 
-def normalise_change(change: list[dict[str, Any]], n_cells: int) -> list[dict[str, Any]]:
+_CANON_KEYS = ("cell", "d_power_db", "d_tilt_deg")
+
+
+def parse_change(text: str) -> list[dict[str, Any]]:
+    """Parse the canonical change string (contract amendment A2).
+
+    ``cell=<int>;d_power_db=<+x.x>;d_tilt_deg=<+x.x>``, several cells joined with ``|``. A tiny local
+    parser (equivalent to team13_contracts.change.parse for valid input); it is strict: all three
+    fields, in that order, nothing else. The empty string is the empty change.
+    """
+    text = text.strip()
+    if not text:
+        return []
+    out = []
+    for part in text.split("|"):
+        fields = part.split(";")
+        pairs = [f.split("=", 1) for f in fields]
+        if [p[0] for p in pairs if len(p) == 2] != list(_CANON_KEYS) or len(pairs) != 3:
+            raise ValueError(f"bad change item {part!r}; want cell=<int>;d_power_db=<+x.x>;d_tilt_deg=<+x.x>")
+        try:
+            out.append(
+                {"cell": int(pairs[0][1]), "d_power_db": float(pairs[1][1]), "d_tilt_deg": float(pairs[2][1])}
+            )
+        except ValueError as exc:
+            raise ValueError(f"bad number in change item {part!r}") from exc
+    return out
+
+
+def canon_change(change: list[dict[str, Any]] | str) -> str:
+    """Canonical string of a change: sorted by cell, one decimal, explicit sign (``+0.0`` for zero)."""
+    items = parse_change(change) if isinstance(change, str) else change
+    merged: dict[int, list[float]] = {}
+    for it in items:
+        m = merged.setdefault(int(it["cell"]), [0.0, 0.0])
+        m[0] += dec(it.get("d_power_db", 0.0))
+        m[1] += dec(it.get("d_tilt_deg", 0.0))
+    fmt = lambda x: f"{round(x, 1) + 0.0:+.1f}"
+    return "|".join(f"cell={c};d_power_db={fmt(v[0])};d_tilt_deg={fmt(v[1])}" for c, v in sorted(merged.items()))
+
+
+def normalise_change(change: list[dict[str, Any]] | str, n_cells: int) -> list[dict[str, Any]]:
     """Validate a change and return it as ``[{cell, d_power_db, d_tilt_deg}]`` with plain types.
 
-    Missing deltas default to 0. Two items for the same cell add up (the same as one item with the sum).
+    Accepts the list form or the canonical string. Missing deltas default to 0. Two items for the
+    same cell add up (the same as one item with the sum).
     """
+    if isinstance(change, str):
+        change = parse_change(change)
     if not isinstance(change, (list, tuple)):
         raise TypeError("change must be a list of {cell, d_power_db, d_tilt_deg}")
     out = []
