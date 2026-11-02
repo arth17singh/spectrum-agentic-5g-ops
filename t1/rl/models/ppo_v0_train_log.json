@@ -1,0 +1,502 @@
+{
+  "label": "v0, local, not federated / not the official job",
+  "algorithm": "PPO (stable-baselines3 MultiInputPolicy)",
+  "n_envs": 8,
+  "n_steps_per_env": 512,
+  "batch_size": 256,
+  "seed": 42,
+  "log_std_init": -0.5,
+  "timesteps": 396112,
+  "wall_seconds": 1800.1,
+  "stopped_by": "time_box",
+  "scenarios": [
+    "low_load",
+    "nominal",
+    "congestion",
+    "interference",
+    "mobility_stress",
+    "outage"
+  ],
+  "curve": [
+    {
+      "timesteps": 4096,
+      "wall_s": 10.7,
+      "ep_rew_mean": 8.577143170000001
+    },
+    {
+      "timesteps": 8192,
+      "wall_s": 22.0,
+      "ep_rew_mean": 9.83729501
+    },
+    {
+      "timesteps": 12288,
+      "wall_s": 33.6,
+      "ep_rew_mean": 11.44635812
+    },
+    {
+      "timesteps": 16384,
+      "wall_s": 44.6,
+      "ep_rew_mean": 13.82031568
+    },
+    {
+      "timesteps": 20480,
+      "wall_s": 55.5,
+      "ep_rew_mean": 14.335079579999999
+    },
+    {
+      "timesteps": 24576,
+      "wall_s": 67.7,
+      "ep_rew_mean": 16.51598432
+    },
+    {
+      "timesteps": 28672,
+      "wall_s": 79.5,
+      "ep_rew_mean": 17.304558110000002
+    },
+    {
+      "timesteps": 32768,
+      "wall_s": 91.2,
+      "ep_rew_mean": 18.72825202
+    },
+    {
+      "timesteps": 36864,
+      "wall_s": 102.7,
+      "ep_rew_mean": 20.27414339
+    },
+    {
+      "timesteps": 40960,
+      "wall_s": 113.4,
+      "ep_rew_mean": 21.70445704
+    },
+    {
+      "timesteps": 45056,
+      "wall_s": 124.1,
+      "ep_rew_mean": 21.8063395
+    },
+    {
+      "timesteps": 49152,
+      "wall_s": 134.4,
+      "ep_rew_mean": 22.8500318
+    },
+    {
+      "timesteps": 53248,
+      "wall_s": 145.0,
+      "ep_rew_mean": 23.007761839999997
+    },
+    {
+      "timesteps": 57344,
+      "wall_s": 156.0,
+      "ep_rew_mean": 23.201379780000003
+    },
+    {
+      "timesteps": 61440,
+      "wall_s": 168.1,
+      "ep_rew_mean": 23.876422480000002
+    },
+    {
+      "timesteps": 65536,
+      "wall_s": 186.6,
+      "ep_rew_mean": 24.816365930000003
+    },
+    {
+      "timesteps": 69632,
+      "wall_s": 205.4,
+      "ep_rew_mean": 24.48696281
+    },
+    {
+      "timesteps": 73728,
+      "wall_s": 223.6,
+      "ep_rew_mean": 25.08022143
+    },
+    {
+      "timesteps": 77824,
+      "wall_s": 242.2,
+      "ep_rew_mean": 25.17746291
+    },
+    {
+      "timesteps": 81920,
+      "wall_s": 261.1,
+      "ep_rew_mean": 25.86780787
+    },
+    {
+      "timesteps": 86016,
+      "wall_s": 279.2,
+      "ep_rew_mean": 25.812401599999998
+    },
+    {
+      "timesteps": 90112,
+      "wall_s": 292.7,
+      "ep_rew_mean": 26.56777134
+    },
+    {
+      "timesteps": 94208,
+      "wall_s": 305.7,
+      "ep_rew_mean": 26.96959502
+    },
+    {
+      "timesteps": 98304,
+      "wall_s": 317.6,
+      "ep_rew_mean": 26.740747980000002
+    },
+    {
+      "timesteps": 102400,
+      "wall_s": 328.6,
+      "ep_rew_mean": 27.090753730000003
+    },
+    {
+      "timesteps": 106496,
+      "wall_s": 339.3,
+      "ep_rew_mean": 27.05768127
+    },
+    {
+      "timesteps": 110592,
+      "wall_s": 351.0,
+      "ep_rew_mean": 27.66285421
+    },
+    {
+      "timesteps": 114688,
+      "wall_s": 362.2,
+      "ep_rew_mean": 27.34597029
+    },
+    {
+      "timesteps": 118784,
+      "wall_s": 375.5,
+      "ep_rew_mean": 27.03786943
+    },
+    {
+      "timesteps": 122880,
+      "wall_s": 390.1,
+      "ep_rew_mean": 27.564756120000002
+    },
+    {
+      "timesteps": 126976,
+      "wall_s": 417.8,
+      "ep_rew_mean": 27.381290149999998
+    },
+    {
+      "timesteps": 131072,
+      "wall_s": 437.8,
+      "ep_rew_mean": 27.328099029999997
+    },
+    {
+      "timesteps": 135168,
+      "wall_s": 455.8,
+      "ep_rew_mean": 27.83290705
+    },
+    {
+      "timesteps": 139264,
+      "wall_s": 472.8,
+      "ep_rew_mean": 27.48697392
+    },
+    {
+      "timesteps": 143360,
+      "wall_s": 490.5,
+      "ep_rew_mean": 27.49622725
+    },
+    {
+      "timesteps": 147456,
+      "wall_s": 507.0,
+      "ep_rew_mean": 27.353590250000003
+    },
+    {
+      "timesteps": 151552,
+      "wall_s": 524.2,
+      "ep_rew_mean": 27.65427474
+    },
+    {
+      "timesteps": 155648,
+      "wall_s": 537.9,
+      "ep_rew_mean": 27.68451015
+    },
+    {
+      "timesteps": 159744,
+      "wall_s": 548.3,
+      "ep_rew_mean": 27.60774222
+    },
+    {
+      "timesteps": 163840,
+      "wall_s": 559.2,
+      "ep_rew_mean": 27.47427004
+    },
+    {
+      "timesteps": 167936,
+      "wall_s": 571.8,
+      "ep_rew_mean": 28.1710582
+    },
+    {
+      "timesteps": 172032,
+      "wall_s": 581.8,
+      "ep_rew_mean": 28.099447650000002
+    },
+    {
+      "timesteps": 176128,
+      "wall_s": 592.0,
+      "ep_rew_mean": 27.659638989999998
+    },
+    {
+      "timesteps": 180224,
+      "wall_s": 601.8,
+      "ep_rew_mean": 28.20772279
+    },
+    {
+      "timesteps": 184320,
+      "wall_s": 611.7,
+      "ep_rew_mean": 27.99620154
+    },
+    {
+      "timesteps": 188416,
+      "wall_s": 621.5,
+      "ep_rew_mean": 27.96337087
+    },
+    {
+      "timesteps": 192512,
+      "wall_s": 631.3,
+      "ep_rew_mean": 27.87466571
+    },
+    {
+      "timesteps": 196608,
+      "wall_s": 641.1,
+      "ep_rew_mean": 27.950074639999997
+    },
+    {
+      "timesteps": 200704,
+      "wall_s": 651.5,
+      "ep_rew_mean": 28.188738039999997
+    },
+    {
+      "timesteps": 204800,
+      "wall_s": 662.0,
+      "ep_rew_mean": 27.907166529999998
+    },
+    {
+      "timesteps": 208896,
+      "wall_s": 674.2,
+      "ep_rew_mean": 27.95030786
+    },
+    {
+      "timesteps": 212992,
+      "wall_s": 685.5,
+      "ep_rew_mean": 28.15097102
+    },
+    {
+      "timesteps": 217088,
+      "wall_s": 699.8,
+      "ep_rew_mean": 28.05781172
+    },
+    {
+      "timesteps": 221184,
+      "wall_s": 713.6,
+      "ep_rew_mean": 28.17631071
+    },
+    {
+      "timesteps": 225280,
+      "wall_s": 725.8,
+      "ep_rew_mean": 28.30625894
+    },
+    {
+      "timesteps": 229376,
+      "wall_s": 737.9,
+      "ep_rew_mean": 28.0920892
+    },
+    {
+      "timesteps": 233472,
+      "wall_s": 749.6,
+      "ep_rew_mean": 28.25514485
+    },
+    {
+      "timesteps": 237568,
+      "wall_s": 760.6,
+      "ep_rew_mean": 28.01609402
+    },
+    {
+      "timesteps": 241664,
+      "wall_s": 771.6,
+      "ep_rew_mean": 28.00019697
+    },
+    {
+      "timesteps": 245760,
+      "wall_s": 782.4,
+      "ep_rew_mean": 28.43891911
+    },
+    {
+      "timesteps": 249856,
+      "wall_s": 793.6,
+      "ep_rew_mean": 28.410165659999997
+    },
+    {
+      "timesteps": 253952,
+      "wall_s": 804.6,
+      "ep_rew_mean": 28.284257349999997
+    },
+    {
+      "timesteps": 258048,
+      "wall_s": 815.0,
+      "ep_rew_mean": 28.235680130000002
+    },
+    {
+      "timesteps": 262144,
+      "wall_s": 825.2,
+      "ep_rew_mean": 28.47464739
+    },
+    {
+      "timesteps": 266240,
+      "wall_s": 835.5,
+      "ep_rew_mean": 28.254488700000003
+    },
+    {
+      "timesteps": 270336,
+      "wall_s": 845.2,
+      "ep_rew_mean": 27.9571033
+    },
+    {
+      "timesteps": 274432,
+      "wall_s": 856.7,
+      "ep_rew_mean": 28.605301490000002
+    },
+    {
+      "timesteps": 278528,
+      "wall_s": 876.1,
+      "ep_rew_mean": 28.288588330000003
+    },
+    {
+      "timesteps": 282624,
+      "wall_s": 953.2,
+      "ep_rew_mean": 28.340075270000003
+    },
+    {
+      "timesteps": 286720,
+      "wall_s": 1031.2,
+      "ep_rew_mean": 28.27818171
+    },
+    {
+      "timesteps": 290816,
+      "wall_s": 1104.7,
+      "ep_rew_mean": 28.425543010000002
+    },
+    {
+      "timesteps": 294912,
+      "wall_s": 1175.8,
+      "ep_rew_mean": 28.81357285
+    },
+    {
+      "timesteps": 299008,
+      "wall_s": 1241.4,
+      "ep_rew_mean": 28.55539381
+    },
+    {
+      "timesteps": 303104,
+      "wall_s": 1304.9,
+      "ep_rew_mean": 28.46954565
+    },
+    {
+      "timesteps": 307200,
+      "wall_s": 1348.9,
+      "ep_rew_mean": 28.37027662
+    },
+    {
+      "timesteps": 311296,
+      "wall_s": 1396.3,
+      "ep_rew_mean": 28.37793999
+    },
+    {
+      "timesteps": 315392,
+      "wall_s": 1437.0,
+      "ep_rew_mean": 28.40675962
+    },
+    {
+      "timesteps": 319488,
+      "wall_s": 1478.7,
+      "ep_rew_mean": 28.307752479999998
+    },
+    {
+      "timesteps": 323584,
+      "wall_s": 1506.6,
+      "ep_rew_mean": 28.387221760000003
+    },
+    {
+      "timesteps": 327680,
+      "wall_s": 1529.1,
+      "ep_rew_mean": 28.32737317
+    },
+    {
+      "timesteps": 331776,
+      "wall_s": 1543.9,
+      "ep_rew_mean": 28.4639485
+    },
+    {
+      "timesteps": 335872,
+      "wall_s": 1557.2,
+      "ep_rew_mean": 28.6734259
+    },
+    {
+      "timesteps": 339968,
+      "wall_s": 1569.6,
+      "ep_rew_mean": 28.630766429999998
+    },
+    {
+      "timesteps": 344064,
+      "wall_s": 1582.1,
+      "ep_rew_mean": 28.45858157
+    },
+    {
+      "timesteps": 348160,
+      "wall_s": 1594.3,
+      "ep_rew_mean": 28.55793232
+    },
+    {
+      "timesteps": 352256,
+      "wall_s": 1606.8,
+      "ep_rew_mean": 28.635515249999997
+    },
+    {
+      "timesteps": 356352,
+      "wall_s": 1618.4,
+      "ep_rew_mean": 28.36432024
+    },
+    {
+      "timesteps": 360448,
+      "wall_s": 1630.4,
+      "ep_rew_mean": 28.53694822
+    },
+    {
+      "timesteps": 364544,
+      "wall_s": 1642.2,
+      "ep_rew_mean": 28.626340369999998
+    },
+    {
+      "timesteps": 368640,
+      "wall_s": 1653.2,
+      "ep_rew_mean": 28.69493701
+    },
+    {
+      "timesteps": 372736,
+      "wall_s": 1665.2,
+      "ep_rew_mean": 28.467516609999997
+    },
+    {
+      "timesteps": 376832,
+      "wall_s": 1686.7,
+      "ep_rew_mean": 28.4026765
+    },
+    {
+      "timesteps": 380928,
+      "wall_s": 1707.7,
+      "ep_rew_mean": 28.25475478
+    },
+    {
+      "timesteps": 385024,
+      "wall_s": 1728.8,
+      "ep_rew_mean": 28.51276996
+    },
+    {
+      "timesteps": 389120,
+      "wall_s": 1751.9,
+      "ep_rew_mean": 28.77130205
+    },
+    {
+      "timesteps": 393216,
+      "wall_s": 1774.1,
+      "ep_rew_mean": 28.491469579999997
+    }
+  ]
+}
