@@ -1,19 +1,26 @@
-// Feature registry. One line per feature module: delete the line (and the folder) to remove a
-// screen; the shell, navigation, palette and hotkeys all derive from this list.
-import type { FeatureManifest } from '@/core/features'
-import mission from './mission/manifest'
-import federation from './federation/manifest'
-import proving from './proving/manifest'
-import release from './release/manifest'
-import swarm from './swarm/manifest'
-import oversight from './oversight/manifest'
-import trust from './trust/manifest'
-import audit from './audit/manifest'
-import evidence from './evidence/manifest'
-import observability from './observability/manifest'
-import settings from './settings/manifest'
-import mobile from './mobile/manifest'
-import presenter from './presenter/manifest'
-import dossier from './audit/dossierManifest'
+// Feature registry. Every src/features/<x>/manifest.ts registers itself: add a folder with a
+// manifest to add a screen, delete the folder to remove it. The shell, navigation, palette and
+// hotkeys all derive from this list, ordered by nav.order.
+import { registryProblems, type FeatureManifest } from '@/core/features'
 
-export const features: FeatureManifest[] = [mission, federation, proving, release, swarm, oversight, trust, audit, evidence, observability, settings, mobile, presenter, dossier]
+const modules = import.meta.glob<FeatureManifest>(['./*/manifest.ts', './audit/dossierManifest.ts'], { eager: true, import: 'default' })
+
+// Screens whose numbers are all measured, until their own manifest says so (data: 'real').
+const REAL_BY_DEFAULT = new Set(['screen.evidence'])
+
+const folderOf = new Map<string, string>()
+for (const [path, m] of Object.entries(modules)) folderOf.set(m.id, path.split('/')[1])
+
+export const features: FeatureManifest[] = Object.values(modules)
+  .map((m) => ({ ...m, data: m.data ?? (REAL_BY_DEFAULT.has(m.id) ? 'real' : 'mock') }) as FeatureManifest)
+  .sort((a, b) => a.nav.order - b.nav.order || a.id.localeCompare(b.id))
+
+/** The shell screens backed by real records, in nav order: what the demo rail lists. */
+export const realFeatures = (): FeatureManifest[] => features.filter((f) => f.data === 'real' && !f.bare)
+
+const problems = registryProblems(features, (id) => folderOf.get(id))
+if (problems.length) {
+  // the route smoke fails on console errors, so a clash is caught at the merge gate; dev stops outright
+  console.error('[features] registry problems:\n' + problems.join('\n'))
+  if (import.meta.env.DEV) throw new Error('feature registry: ' + problems.join('; '))
+}
