@@ -1,44 +1,32 @@
 """Headline KPIs from a twin state dict (the SDK's own keys; see ran_rl.twin.base).
 
-Returned dict:
+THE definition shared with the Track 2 predictor (t2/kpis.py cluster_kpis): predicted and measured
+values must come from the same formulas or the trust gate compares different quantities.
 
-    coverage_ratio   state["coverage_ratio"]   (twin field: share of UEs with serving RSRP above the
-                                                coverage threshold)
-    sla_ratio        state["sla_ratio"]        (twin field: share of UEs with SINR above the SLA threshold)
-    sinr_mean_db     UE-count-weighted mean of the per-cell sinr_mean_db. Exact: the mean over all
-                     UEs equals the count-weighted mean of the per-cell means.
-    sinr_p10_db      ESTIMATE of the pooled 10th percentile of SINR over all UEs (see below)
-    rsrp_p10_dbm     ESTIMATE of the pooled 10th percentile of serving RSRP (same method)
-    per_cell         one dict per cell: the twin's own per-cell fields
-    p10_method       "gaussian-mixture"
+    coverage_ratio   state["coverage_ratio"]   (twin field)
+    sla_ratio        state["sla_ratio"]        (twin field)
+    sinr_mean_db     sum_i share_i * sinr_mean_db[i]   (exact cluster mean)
+    sinr_p10_db      sum_i share_i * sinr_p10_db[i]    (APPROXIMATION: user-share-weighted mean of
+                     the per-cell p10s, not the pooled 10th percentile; no twin state carries it)
+    rsrp_p10_dbm     sum_i share_i * rsrp_p10_dbm[i]  (same approximation)
 
-Why the cluster p10 values are estimates: the twin reports a 10th percentile per cell, not per
-UE, and a percentile of a pool cannot be computed exactly from per-group percentiles. The twin
-does not provide a pooled p10. We estimate it so that it uses only the twin's own fields:
+share_i = state["user_share"][i] if present, else ue_count[i] / sum(ue_count), else uniform when
+nobody is attached. Cells with no UEs have weight 0 (their floor values do not count).
 
-  1. Per occupied cell (ue_count > 0) take mean m and p10 p; model the cell's values as a normal
-     with sigma = (m - p) / 1.2816 (z of the 10th percentile), floored at 1e-3.
-  2. The pooled distribution is the ue_count-weighted mixture of those normals; solve
-     F(x) = 0.10 by bisection.
-
-Bounds: for large cells the pooled p10 lies between the smallest and largest per-cell p10
-(``sinr_p10_db_bounds``, ``rsrp_p10_dbm_bounds``; the estimate is clamped to them). With very few UEs
-in a cell, percentile interpolation can put the exact value slightly outside (seen: up to 0.2 dB).
-
-Accuracy, measured against the exact pooled percentile over 64 (preset x scenario x seed) states
-(tests/test_kpis.py): SINR p10 max abs error 1.1 dB, mean +0.3 dB (biased high); RSRP p10 max abs
-error 5.6 dB, mean +1.2 dB. ``ReplayTwin.exact_kpis()`` gives the exact pooled numbers for the
-in-process twin. Use the SAME function (this one) on predicted and measured states so that
-errors are comparable; the estimate preserves direction of change well but is not a UE-level value.
-
-Cells with no UEs report the twin's floor values (-140 dBm / -30 dB); they are excluded from the
-pooled numbers and listed in per_cell with ue_count 0.
+Diagnostics only, NOT for scoring: ``sinr_p10_mixture_db`` / ``rsrp_p10_mixture_dbm`` estimate the
+pooled p10 by fitting a normal per occupied cell (sigma = (mean - p10) / 1.2816) and solving the
+count-weighted mixture CDF = 0.10 by bisection; ``*_bounds`` are the min and max per-cell p10.
+Against the exact pooled percentile (``ReplayTwin.exact_kpis()``) over 64 states the mixture had
+SINR p10 max abs error 1.1 dB and RSRP 5.6 dB (tests/test_kpis.py measures the share-weighted
+error too). ``per_cell`` carries the twin's per-cell fields.
 """
 
 from __future__ import annotations
 
 import math
 from typing import Any
+
+import numpy as np
 
 _Z10 = 1.2815515655446004  # standard normal 10th percentile magnitude
 _SIGMA_FLOOR = 1e-3
@@ -81,21 +69,25 @@ def _pooled_p10(counts: list[int], means: list[float], p10s: list[float]) -> tup
     return estimate, low_bound, high_bound
 
 
+def user_share(state: dict[str, Any]) -> np.ndarray:
+    """Per-cell share of users: ``user_share`` if given, else ue_count / sum, else uniform."""
+    if "user_share" in state:
+        return np.asarray(state["user_share"], dtype=np.float64)
+    c = np.asarray(state["ue_count"], dtype=np.float64)
+    return c / c.sum() if c.sum() > 0 else np.full(len(c), 1.0 / len(c))
+
+
 def kpis(state: dict[str, Any]) -> dict[str, Any]:
     """Headline KPIs of one twin state. See the module docstring for how each is obtained."""
     counts = [int(c) for c in state["ue_count"]]
-    total = sum(counts)
     n = len(counts)
+    w = user_share(state)
     sinr_means = [float(v) for v in state["sinr_mean_db"]]
-    sinr_mean = (
-        sum(c * m for c, m in zip(counts, sinr_means, strict=True)) / total if total else float("nan")
-    )
-    sinr_p10, sinr_lo, sinr_hi = _pooled_p10(counts, sinr_means, [float(v) for v in state["sinr_p10_db"]])
-    rsrp_p10, rsrp_lo, rsrp_hi = _pooled_p10(
-        counts,
-        [float(v) for v in state["rsrp_mean_dbm"]],
-        [float(v) for v in state["rsrp_p10_dbm"]],
-    )
+    sinr_p10s = [float(v) for v in state["sinr_p10_db"]]
+    rsrp_means = [float(v) for v in state["rsrp_mean_dbm"]]
+    rsrp_p10s = [float(v) for v in state["rsrp_p10_dbm"]]
+    mix_sinr, sinr_lo, sinr_hi = _pooled_p10(counts, sinr_means, sinr_p10s)
+    mix_rsrp, rsrp_lo, rsrp_hi = _pooled_p10(counts, rsrp_means, rsrp_p10s)
     per_cell = []
     for i in range(n):
         row: dict[str, Any] = {"cell": i}
@@ -106,14 +98,16 @@ def kpis(state: dict[str, Any]) -> dict[str, Any]:
     return {
         "coverage_ratio": float(state["coverage_ratio"]),
         "sla_ratio": float(state["sla_ratio"]),
-        "sinr_p10_db": sinr_p10,
-        "sinr_mean_db": sinr_mean,
-        "rsrp_p10_dbm": rsrp_p10,
+        "sinr_p10_db": float(np.dot(w, np.asarray(sinr_p10s, dtype=np.float64))),
+        "sinr_mean_db": float(np.dot(w, np.asarray(sinr_means, dtype=np.float64))),
+        "rsrp_p10_dbm": float(np.dot(w, np.asarray(rsrp_p10s, dtype=np.float64))),
         "per_cell": per_cell,
+        "sinr_p10_mixture_db": mix_sinr,
+        "rsrp_p10_mixture_dbm": mix_rsrp,
         "sinr_p10_db_bounds": [sinr_lo, sinr_hi],
         "rsrp_p10_dbm_bounds": [rsrp_lo, rsrp_hi],
-        "p10_method": "gaussian-mixture",
-        "n_ues": total,
+        "p10_method": "user-share-weighted-mean",
+        "n_ues": sum(counts),
     }
 
 
