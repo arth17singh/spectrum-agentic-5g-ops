@@ -14,6 +14,7 @@ case "$stream" in
   contracts) stream=W1 ;; twin) stream=W2 ;; tools) stream=W3 ;; suite) stream=W4 ;; trust) stream=W5 ;;
   evidence) stream=W6 ;; c1|C1) stream=W7a ;; trace) stream=W7b ;; trustgate) stream=W7c ;;
   scorecard) stream=W7d ;; agents) stream=W8 ;; models) stream=W9 ;;
+  v1|V1) stream=W7d ;; v2|V2) stream=W7b ;; v3|V3) stream=W7c ;;  # the review's V-slice names
 esac
 grep -q "^$stream " "$owners" || { echo "check-owners: unknown stream '$stream' (see $owners)"; exit 2; }
 
@@ -48,6 +49,9 @@ while IFS= read -r p; do
   fi
   if [ "$owned" = 0 ]; then echo "NOT OWNED by $stream: $p"; bad=$((bad + 1)); fi
 done <<< "$paths"
+
+# an empty list is never a pass: stdin that is neither a pipe nor a tty (make, CI) reads as empty
+if [ "$n" -eq 0 ]; then echo "check-owners: no paths to check (pipe git diff --name-only, or run from a tty)"; exit 2; fi
 
 if [ "$bad" -gt 0 ]; then echo "check-owners: $bad of $n path(s) outside $stream"; exit 1; fi
 echo "check-owners: $n path(s), all owned by $stream"
