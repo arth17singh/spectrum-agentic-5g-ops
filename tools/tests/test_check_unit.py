@@ -132,9 +132,71 @@ def test_record_time_outside_the_aws_window_fails(tmp_path):
     assert code == 1 and states(ck)["c"] == "FAIL" and "outside the AWS window" in text(ck)
 
 
-def test_record_without_aws_time_fails(tmp_path):
-    code, ck, _ = check(unitfix.build(tmp_path, "R", HEAD, item_overrides={0: {"aws_time": None}}))
-    assert code == 1 and "no aws_time" in text(ck)
+NULL_TIME = {"aws_time": None, "aws_time_source": None}
+
+
+def test_null_aws_time_with_no_aws_source_fails(tmp_path):
+    """An item in a batch .jsonl (no own S3 object) naming no case or log pointer: nothing in AWS dates it."""
+    code, ck, _ = check(unitfix.build(tmp_path, "R", HEAD, item_overrides={0: dict(NULL_TIME)}))
+    assert code == 1 and "aws_time is null and no AWS source gives it" in text(ck)
+
+
+def test_null_aws_time_derived_from_the_records_own_s3_object(tmp_path):
+    fx = unitfix.build(tmp_path, "R-objects", HEAD, objects=True, change_overrides=NULL_TIME,
+                       item_overrides={i: dict(NULL_TIME) for i in range(5)})
+    code, ck, _ = check(fx)
+    assert code == 0, text(ck)
+    assert len(ck.derived) == 6 and all(x["source"].startswith("s3:LastModified records/") for x in ck.derived)
+    chg = next(x for x in ck.derived if "/change/" in x["source"])
+    assert chg["aws_time"] == "2026-11-02T18:12:31.000Z"  # AWS's time for the object, not anything we wrote
+    assert "AWS time derived from: s3:LastModified 6" in text(ck)
+
+
+def test_null_aws_time_derived_from_the_change_applied_log_line(tmp_path):
+    fx = unitfix.build(tmp_path, "R", HEAD, change_jsonl=True, change_overrides=NULL_TIME)
+    code, ck, _ = check(fx)
+    assert code == 0, text(ck)
+    (x,) = ck.derived
+    assert x["aws_time"] == "2026-11-02T18:12:30.000Z"
+    assert x["source"].startswith("cloudwatch:/aws/lambda/team13-ran-tools (us-east-2")
+
+
+def test_null_aws_time_derived_from_a_log_pointer(tmp_path):
+    ptr = {"log_group": "/team13/checkpoint", "log_stream": "gateway/2026-11-02", "event_id": "x"}
+    fx = unitfix.build(tmp_path, "R", HEAD,
+                       item_overrides={2: {**NULL_TIME, "log_pointer": ptr, "case_id": "case-0003"}})
+    code, ck, _ = check(fx)
+    assert code == 0, text(ck)
+    (x,) = ck.derived
+    assert x["aws_time"] == "2026-11-02T18:18:00.000Z" and x["source"].startswith("cloudwatch:/team13/checkpoint")
+
+
+def test_change_applied_line_must_name_the_same_change_id(tmp_path):
+    fx = unitfix.build(tmp_path, "R", HEAD, change_jsonl=True,
+                       change_overrides={**NULL_TIME, "change_id": "chg-ffffffffffff"})
+    code, ck, _ = check(fx)
+    assert code == 1 and "no AWS source gives it" in text(ck)
+
+
+def test_derived_time_outside_the_window_fails(tmp_path):
+    fx = unitfix.build(tmp_path, "R-objects", HEAD, objects=True, change_overrides=NULL_TIME,
+                       change_lm="2026-11-02T19:45:00Z")
+    code, ck, _ = check(fx)
+    assert code == 1 and "derived AWS time 2026-11-02T19:45:00.000Z" in text(ck)
+
+
+def test_present_aws_time_is_still_verified_against_the_window(tmp_path):
+    fx = unitfix.build(tmp_path, "R-objects", HEAD, objects=True,
+                       change_overrides={"aws_time": "2026-11-02T17:00:00.000Z"})
+    code, ck, _ = check(fx)
+    assert code == 1 and "is outside the AWS window" in text(ck) and not ck.derived
+
+
+def test_derived_times_are_listed_in_json(tmp_path, capsys):
+    fx = unitfix.build(tmp_path, "R", HEAD, change_jsonl=True, change_overrides=NULL_TIME)
+    assert check_unit.main([RID, "--offline", str(fx), "--json"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["derived_aws_times"][0]["source"].startswith("cloudwatch:/aws/lambda/team13-ran-tools")
 
 
 def test_record_from_another_run_fails(tmp_path):

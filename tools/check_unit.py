@@ -8,8 +8,13 @@ This script verifies them as five checks:
   [a] declared before the run: declared/<run_id>.json exists and is valid, and its storage time (S3
       LastModified, or the git commit time of the file) is strictly before the run's FIRST AWS time.
   [b] code: the declared code_sha is a commit in this git repo.
-  [c] records: records/<run_id>/*.jsonl exist, every record carries this run_id, and every record's
-      aws_time lies inside the run's AWS window (and, on S3, not after its file's LastModified).
+  [c] records: records/<run_id>/ holds records (both layouts), every record carries this run_id, and every
+      record's AWS time lies inside the run's AWS window. A record's aws_time, when present, is verified
+      (and, on S3, must not be after its file's LastModified). When aws_time is null (a Lambda cannot know
+      it at write time) it is derived from AWS: (1) the S3 LastModified of its per-record object
+      records/<run_id>/<kind>/<key>.json, else (2) the timestamp of its log event (its log_pointer, else
+      the change_applied line in /aws/lambda/team13-ran-tools naming its run, case and change id). The
+      source used is reported per record; the record fails only when neither exists.
   [d] unchanged: each evidence file's sha256 matches the evidence ledger's entries (when a ledger is
       available); a records file may only have grown by whole lines (append), never been edited.
   [e] result: results/<run_id>.json exists and its value and pass/fail recompute from the item records.
@@ -389,6 +394,8 @@ class Checker:
         self.window: tuple[datetime, datetime] | None = None
         self.window_sources: list[tuple[str, datetime, datetime]] = []
         self.start_sources: list[tuple[str, datetime, datetime]] = []
+        self.derived: list[dict] = []  # records written with aws_time null, and the AWS source used instead
+        self._events: list[dict] | None = None
 
     # ----------------------------------------------------------------- loading
 
@@ -600,7 +607,16 @@ class Checker:
                 if r.get("kind") not in (None, kind):
                     offenders.append(f"{where}: kind {r.get('kind')!r} filed under {kind}")
                 if r.get("aws_time") is None:
-                    offenders.append(f"{where}: no aws_time")
+                    # A Lambda cannot know its own AWS time when it writes: derive it from what AWS recorded.
+                    got = self.derive_time(r, rel, lm)
+                    if got is None:
+                        offenders.append(f"{where}: aws_time is null and no AWS source gives it (no per-record S3 "
+                                         "object, no matching log event)")
+                        continue
+                    t, src = got
+                    self.derived.append({"record": where, "aws_time": iso(t), "source": src})
+                    if self.window is not None and not (lo <= t <= hi):
+                        offenders.append(f"{where}: derived AWS time {iso(t)} ({src}) is outside the AWS window")
                     continue
                 if not (isinstance(r.get("aws_time_source"), str) and r["aws_time_source"].strip()):
                     offenders.append(f"{where}: aws_time has no aws_time_source")
@@ -613,10 +629,75 @@ class Checker:
                     offenders.append(f"{where}: aws_time {iso(t)} is outside the AWS window")
                 if lm is not None and t > lm + self.slack:
                     offenders.append(f"{where}: aws_time {iso(t)} is after its file was written to S3 ({iso(lm)})")
+        if self.derived:
+            by_src: dict[str, int] = {}
+            for x in self.derived:
+                kind_of = x["source"].split(" ", 1)[0]
+                by_src[kind_of] = by_src.get(kind_of, 0) + 1
+            c.note(f"{len(self.derived)} record(s) had aws_time null; AWS time derived from: "
+                   + ", ".join(f"{k} {n}" for k, n in sorted(by_src.items())))
+            for x in self.derived[:20]:
+                c.note(f"  {x['record']}: {x['aws_time']} from {x['source']}")
+            if len(self.derived) > 20:
+                c.note(f"  ... and {len(self.derived) - 20} more (all listed in --json)")
         for o in offenders[:12]:
             c.fail(o)
         if len(offenders) > 12:
             c.fail(f"... and {len(offenders) - 12} more")
+
+    LAMBDA_GROUP = "/aws/lambda/team13-ran-tools"
+
+    def derive_time(self, r: dict, rel: str, lm: datetime | None) -> tuple[datetime, str] | None:
+        """AWS time for a record written without one, from AWS sources only, in order:
+        (1) the S3 LastModified of its own per-record object records/<run>/<kind>/<key>.json;
+        (2) the timestamp of its log event: the event its log_pointer names, else the change_applied line in
+            /aws/lambda/team13-ran-tools that names its run, case (and change id, when it has one)."""
+        if lm is not None and rel.count("/") == 3 and rel.endswith(".json"):
+            return lm, f"s3:LastModified {rel}"
+        events = self._run_events()
+        ptr = r.get("log_pointer") if isinstance(r.get("log_pointer"), dict) else None
+        case = r.get("case_id")
+        change = r.get("change_id")
+        cands = []
+        if ptr and ptr.get("log_group"):
+            cands = [e for e in events if e["group"] == ptr["log_group"]
+                     and (not ptr.get("log_stream") or e["stream"] == ptr["log_stream"])
+                     and (not case or case in e["message"])]
+            exact = [e for e in cands if ptr.get("event_id") and e["ptr"] == ptr["event_id"]]
+            cands = exact or cands
+        if not cands and isinstance(case, str) and case:
+            cands = [e for e in events if e["group"] == self.LAMBDA_GROUP and "change_applied" in e["message"]
+                     and case in e["message"]]
+            if change:
+                cands = [e for e in cands if change in e["message"]]
+        if not cands:
+            return None
+        e = min(cands, key=lambda x: x["time"])
+        more = f", {len(cands)} matching events, earliest used" if len(cands) > 1 else ""
+        return e["time"], f"cloudwatch:{e['group']} ({e['region']}, stream {e['stream']}{more})"
+
+    def _run_events(self) -> list[dict]:
+        """Every log event that mentions the run id, once per Region and log group (cached)."""
+        if self._events is not None:
+            return self._events
+        self._events = []
+        decl_t = self.decl_time[0] if getattr(self, "decl_time", None) else None
+        q_start, q_end = (decl_t or self.now) - self.lookback, self.now + timedelta(minutes=1)
+        query = (f'filter @message like "{self.run_id}" '
+                 "| fields @timestamp, @log, @logStream, @message, @ptr | sort @timestamp asc | limit 10000")
+        groups = list(self.log_groups) + ([self.LAMBDA_GROUP] if self.LAMBDA_GROUP not in self.log_groups else [])
+        for region in self.regions:
+            for group in groups:
+                try:
+                    rows = run_insights(self.aws, region, group, query, q_start, q_end, self.poll_s)
+                except Exception as e:  # noqa: BLE001
+                    self.parts["c"].cannot(f"Logs Insights on {group} ({region}) failed ({err_code(e)})")
+                    continue
+                for row in rows or []:
+                    self._events.append({"region": region, "group": group, "stream": row.get("@logStream", ""),
+                                         "time": insights_time(row["@timestamp"]), "message": row.get("@message", ""),
+                                         "ptr": row.get("@ptr", "")})
+        return self._events
 
     def part_d(self) -> None:
         d = self.parts["d"]
@@ -793,6 +874,7 @@ class Checker:
         return {"run_id": self.run_id, "exit": self.exit_code(), "evidence": self.ev.describe(),
                 "window": [iso(self.window[0]), iso(self.window[1])] if self.window else None,
                 "window_sources": [[s[0], iso(s[1]), iso(s[2])] for s in self.window_sources],
+                "derived_aws_times": self.derived,
                 "first_aws_time": iso(min(s[1] for s in self.start_sources)) if self.start_sources else None,
                 "parts": {k: {"state": p.state, "title": p.title, "lines": p.lines} for k, p in self.parts.items()}}
 

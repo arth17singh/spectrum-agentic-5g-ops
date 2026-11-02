@@ -67,7 +67,7 @@ def job(run_id: str, aws_start="2026-11-02T18:05:00.000Z") -> dict:
             "est_cost_usd": 0.02}
 
 
-def change(run_id: str) -> dict:
+def change(run_id: str, **over) -> dict:
     """A change record (amendment A15 fields), written by the apply tool Lambda."""
     kp = {"coverage_ratio": 0.91, "sla_ratio": 0.87, "sinr_p10_db": 1.5, "sinr_mean_db": 9.0}
     meas = {"coverage_ratio": 0.92, "sla_ratio": 0.88, "sinr_p10_db": 1.75, "sinr_mean_db": 9.25}
@@ -79,7 +79,7 @@ def change(run_id: str) -> dict:
             "twin": {"kind": "maveric-inprocess", "version": "1.2.9", "scenario": "official", "seed": 7, "step": 0},
             "baseline_kpis": kp, "measured_kpis": meas,
             "measured_delta": {k: meas[k] - kp[k] for k in kp},
-            "scored": False, "unscored_reason": "probe", "probe": True}
+            "scored": False, "unscored_reason": "probe", "probe": True, **over}
 
 
 def result(run_id: str, code_sha: str, value=0.8, passed=True, n=5, metric="pass_rate", op=">=", target=0.8) -> dict:
@@ -170,11 +170,15 @@ def build(root: Path, case: str = "R", code_sha: str = BASE_SHA, run_id: str = R
         for it in its:
             line = jsonl([it])
             rel = f"records/{run_id}/item/{hashlib.sha256(line).hexdigest()[:24]}.json"
-            files[rel], lm[rel] = line, it["aws_time"].replace(":00.000Z", ":01Z")
-        ch = change(run_id)
+            when = next(t for iid, _, _, t in ITEMS if iid == it["item_id"])  # the item's event time
+            files[rel], lm[rel] = line, when.replace(":00.000Z", ":01Z")
+        ch = change(run_id, **opts.get("change_overrides", {}))
         line = jsonl([ch])
         rel = f"records/{run_id}/change/{hashlib.sha256(line).hexdigest()[:24]}.json"
-        files[rel], lm[rel] = line, "2026-11-02T18:12:31Z"
+        files[rel], lm[rel] = line, opts.get("change_lm", "2026-11-02T18:12:31Z")
+    if opts.get("change_jsonl"):  # a batch-written change.jsonl (no per-record object, so no own LastModified)
+        rel = f"records/{run_id}/change.jsonl"
+        files[rel], lm[rel] = jsonl([change(run_id, **opts.get("change_overrides", {}))]), "2026-11-02T18:29:30Z"
     if case != "R-missing-result":
         files[f"results/{run_id}.json"] = doc(res)
         lm[f"results/{run_id}.json"] = "2026-11-02T18:32:00Z"
@@ -222,7 +226,7 @@ def build(root: Path, case: str = "R", code_sha: str = BASE_SHA, run_id: str = R
                        "timestamp": "2026-11-02T18:06:00.000Z",
                        "message": json.dumps({"attributes": {"run_id": run_id}, "name": "open_case"}),
                        "event_id": "ev-span-0"})
-        if opts.get("objects"):
+        if opts.get("objects") or opts.get("change_jsonl"):
             events.append({"region": "us-east-2", "log_group": "/aws/lambda/team13-ran-tools",
                            "log_stream": "2026/11/02/[$LATEST]fixture", "timestamp": "2026-11-02T18:12:30.000Z",
                            "message": json.dumps({"record": "change_applied", "case_id": "case-0002", "run_id": run_id,
