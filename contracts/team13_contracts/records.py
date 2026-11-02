@@ -196,7 +196,12 @@ class DeclaredRecord(Envelope):
     target: Target
     baseline_run_id: Optional[SafeId] = None
     n_items: PosInt
+    n_cases: Optional[NonNegInt] = Field(default=None, description="How many cases the run opens (suite).")
     test_set_sha256: Sha256Hex
+    subset: Optional[NonEmptyStr] = Field(
+        default=None,
+        description='Deterministic filter over the frozen test set, e.g. "expect=DENY"; n_items counts the subset.',
+    )
     prompt_sha256: Optional[Sha256Hex] = None
     parser: Optional[NonEmptyStr] = None
     decoding: Optional[FreeDict] = None

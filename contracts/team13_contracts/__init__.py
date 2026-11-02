@@ -1,7 +1,7 @@
 """Team13 evidence record contracts (schema_version "1")."""
 
 from . import change
-from .io import UnknownKind, canonical_json, dump_record, is_valid, parse_record, sha256_of
+from .io import UnknownKind, canonical_json, dump_record, is_valid, parse_record, sha256_of, validate_record
 from .records import (
     KINDS,
     KPI_KEYS,
@@ -65,4 +65,5 @@ __all__ = [
     "parse_record",
     "sha256_of",
     "utc_iso",
+    "validate_record",
 ]

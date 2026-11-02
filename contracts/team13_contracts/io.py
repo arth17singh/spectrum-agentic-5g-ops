@@ -55,6 +55,14 @@ def sha256_of(obj: Any) -> str:
     return hashlib.sha256(canonical_json(obj).encode("utf-8")).hexdigest()
 
 
+def validate_record(rec: Mapping[str, Any]) -> Envelope:
+    """Validate one record dict; return the parsed model or raise (UnknownKind, ValidationError, TypeError).
+
+    Alias of parse_record, under the name the evidence library calls.
+    """
+    return parse_record(rec)
+
+
 def is_valid(d: Mapping[str, Any]) -> bool:
     try:
         parse_record(d)

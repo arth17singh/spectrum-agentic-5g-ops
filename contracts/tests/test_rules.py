@@ -155,6 +155,36 @@ def test_control_by_ok(by):
     parse_record(raw)
 
 
+def test_validate_record_is_exported_and_raises():
+    from team13_contracts import ResultRecord, validate_record
+
+    assert isinstance(validate_record(load(RESULT)), ResultRecord)
+    raw = load(RESULT)
+    raw["value"] = "1"
+    with pytest.raises(ValidationError):
+        validate_record(raw)
+
+
+def test_declared_n_cases_and_subset_optional():
+    raw = load("declared/valid-t3-trust-pause.json")
+    assert "n_cases" not in raw and "subset" not in raw
+    m = parse_record(raw)
+    assert m.n_cases is None and m.subset is None
+    raw["n_cases"] = 0
+    parse_record(raw)
+    for bad_n in (-1, 1.0, True, "3"):
+        raw["n_cases"] = bad_n
+        bad(raw)
+
+
+def test_one_frozen_suite_backs_two_units():
+    deny = parse_record(load("declared/valid-t3-deny.json"))
+    allow = parse_record(load("declared/valid-t3-allow-same-suite.json"))
+    assert deny.test_set_sha256 == allow.test_set_sha256
+    assert (deny.subset, allow.subset) == ("expect=DENY", "expect=ALLOW")
+    assert deny.n_items != allow.n_items and deny.unit != allow.unit
+
+
 @pytest.mark.parametrize("run_id", ["../x", "a/b", ".hidden", "", "x" * 200])
 def test_run_id_is_a_safe_path_segment(run_id):
     raw = load(RESULT)
