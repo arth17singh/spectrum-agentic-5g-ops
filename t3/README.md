@@ -14,24 +14,30 @@ One Lambda (`t3.tools.app.handler`, image, 3008 MB, 120 s) serves every tool. Th
 | `ran___propose` | ran_optimizer | `case_id`, `model_version?` | `item_id` (`step-<n>`), `change` (canonical string), `policy {model_id, version}` |
 | `ran___predict` | ran_optimizer | `case_id`, `item_id`, `change`, `model_version?` | `predicted_delta` (KPI change compared with doing nothing), `predictor`. Stored in the case row |
 | `ran___preflight` | ran_optimizer | `case_id`, `change` | `baseline_kpis`, `measured_kpis`, `measured_delta` and `clipped`, all on a copy. Changes nothing, and the trust gate does not score it |
-| `ran___apply_change` | noc_lead, after a person's approval | `case_id`, `item_id`, `change`, `reason?`, `approval?` (the checkpoint sets it), `special_context?` | `applied`, `approval_id`, `measured_delta`, `predicted_delta`, `error`, `direction_agree`, `scored`, `unscored_reason`, `evidence` |
+| `ran___apply_change` | noc_lead, after a person's approval | `case_id`, `item_id`, `change`, `reason?`, `approval?` (the checkpoint sets it), `special_context?` | `applied`, `approval_id`, `measured_delta`, `predicted_delta`, `prediction_error` (the record's `error`), `direction_agree`, `scored`, `unscored_reason`, `trust`, `evidence` |
 | `nlm___ask` | ran_explainer, if the question passes the prompt-attack guardrail | `case_id`, `question`, `model_version?` | `answer`, `answered_by {kind, id, version, model_label, stand_in}` |
 
 **The change string (A2).** A change is written `cell=<int>;d_power_db=<+x.x>;d_tilt_deg=<+x.x>`. For several cells, join them with `|` and sort them by cell. Each value has one decimal and an explicit sign, and zero is written `+0.0`. Agents copy the string verbatim from `ran___propose`. The approval id hashes the exact string the agent sends.
 
 **Apply.** The approval id is computed as `"chg-" + sha256(json.dumps([case_id, item_id, change]))[:12]`, the same key as the kit's `change_key` (128-131). After the person approves, apply runs these steps:
 
-1. It replays the case twice: once with no change (the baseline) and once with the change (the measurement). It computes `measured_delta = measured − baseline` (A5).
+1. It measures the change against the no-change counterfactual at the same step (A5), giving `measured_delta = measured − baseline`. It uses W2's `ReplayTwin.counterfactual` when the twin has it; otherwise it replays twice, once with no change (the baseline) and once with the change.
 2. It runs one DynamoDB `TransactWriteItems` that does two things together:
    - moves the approval from APPROVED to APPLIED, using the kit's own conditional update (161-167);
    - writes the case row.
    One approval therefore applies exactly one change. A second identical call is refused as "already applied".
 3. It reads the prediction that `ran___predict` stored for the same `change`, preferring the one with the same `item_id`. It never runs a model itself (A4).
-4. It writes a `change` record (A15) to `records/<run_id>/change/<approval_id>.json`, one object per record (A11).
+4. For a scored change, it calls the `team13-trust-gate` Lambda **synchronously**:
+   - The call is `RequestResponse` with a 5 s read timeout (`T3_TRUST_TIMEOUT_S`) and no retries.
+   - The payload is `{record, model_version}`, where `model_version` is the stored predictor's version.
+   - The gate answers `{trust_before, trust_after, e, score, action, control_record_key?}`.
+   - If the gate errors or times out, the trust fields stay null and the result's `trust.note` says why. The apply never fails because of the gate.
+   - The gate keeps the policy-write rights; the tools only invoke it (A7).
+5. It writes the `change` record (A15) once, with `trust_before` and `trust_after` from the gate, to `records/<run_id>/change/<approval_id>.json` (one object per record, A11).
    - A clipped change is recorded with `scored: false, unscored_reason: "clipped"`.
    - A change with no prediction is recorded with `unscored_reason: "no_prediction"`.
-5. It prints a `{"record": "change_applied", case_id, run_id, approval_id, change_text}` line.
-6. It invokes the `team13-trust-gate` Lambda asynchronously with the record (A7). The tools themselves never write policies.
+   - Neither unscored case calls the gate.
+6. It prints a `{"record": "change_applied", case_id, run_id, approval_id, change_text}` line.
 
 **`error`** is computed exactly on the deltas, with no rounding:
 - for each KPI, `|pred_Δ − meas_Δ|`;
@@ -78,7 +84,7 @@ The files keep `@GW@` in place of the Gateway ARN.
 
    Without `may_change: [noc_lead]`, the interceptor marks every apply NOT_ALLOWED and nobody is asked to approve (290-297).
 2. **IAM, in CloudShell (us-east-2):** `EVIDENCE_BUCKET=<team bucket> bash t3/deploy/iam_cloudshell.sh`. This session cannot create roles, so this step runs there. The script is idempotent, reads the account id at run time and contains no secrets. It does three things:
-   - creates `/bb26/team13-ran-tools`, a Lambda role with the event boundary. Its inline policy grants the approvals table (keys `chg-*` and `t3-*`), S3 get and put on `evidence/*`, its own logs, an async invoke of `team13-trust-gate`, the Bedrock stand-in model, and our SageMaker endpoint;
+   - creates `/bb26/team13-ran-tools`, a Lambda role with the event boundary. Its inline policy grants the approvals table (keys `chg-*` and `t3-*`), S3 get and put on `evidence/*`, its own logs, a synchronous invoke of `team13-trust-gate`, the Bedrock stand-in model, and our SageMaker endpoint;
    - creates `/bb26/team13-trust-gate`. Its inline policy grants create, delete, get and list of policies on our policy engine only, trust rows (`t3-trust#*`), control records and logs;
    - puts the inline policy `team13-ran-tools-invoke` on the kit's role `team13-gateway`.
 3. **Push W3b's image** to ECR `team13-ran-tools` (arm64).

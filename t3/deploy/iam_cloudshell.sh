@@ -86,7 +86,7 @@ put_policy "$TOOLS_FN" "$TOOLS_FN" "$(cat <<EOF
   "Condition": {"ForAllValues:StringLike": {"dynamodb:LeadingKeys": ["chg-*", "t3-*"]}}},
  {"Sid": "Evidence", "Effect": "Allow", "Action": ["s3:PutObject", "s3:GetObject"],
   "Resource": "arn:aws:s3:::${EVIDENCE_BUCKET}/evidence/*"},
- {"Sid": "TrustGateAsync", "Effect": "Allow", "Action": "lambda:InvokeFunction",
+ {"Sid": "TrustGateInvoke", "Effect": "Allow", "Action": "lambda:InvokeFunction",
   "Resource": "arn:aws:lambda:${REGION}:${ACCOUNT}:function:${TRUST_FN}"},
  {"Sid": "StandInNlm", "Effect": "Allow", "Action": "bedrock:InvokeModel",
   "Resource": ["arn:aws:bedrock:*::foundation-model/${STANDIN_MODEL}",

@@ -249,8 +249,13 @@ def test_change_record_has_run_id_predicted_and_measured():
     assert rec["error"]["coverage_ratio"] == pytest.approx(0.0, abs=1e-12)  # unbiased fake predictor
     assert set(rec["error"]) == set(app.KPI_KEYS) | {"summary"}
     assert rec["direction_agree"] is True
-    assert rec["trust_before"] is None and rec["trust_after"] is None  # the gate runs asynchronously
-    assert w.trust.records == [rec] and out["trust"]["invoked"] == "team13-trust-gate"
+    # the gate was asked synchronously BEFORE the record was written, so the record carries its answer
+    assert rec["trust_before"] == 1.0 and rec["trust_after"] == 1.0
+    [payload] = w.trust.payloads
+    assert payload["model_version"] == "v0-test"
+    assert {k: v for k, v in payload["record"].items() if not k.startswith("trust_")} == \
+        {k: v for k, v in rec.items() if not k.startswith("trust_")}
+    assert out["trust"]["action"] is None and out["trust"]["e"] == rec["error"]["summary"]
     json.dumps(rec, allow_nan=False)
 
 
@@ -265,6 +270,8 @@ def test_apply_reads_the_stored_prediction_and_never_runs_the_model():
     rec = w.records()[0]
     assert rec["error"]["summary"] > 0
     assert rec["error"]["summary"] == pytest.approx(sum(rec["error"][k] / s for k, s in w.deps.scales.items()) / 3)
+    assert (rec["trust_before"], rec["trust_after"]) == (1.0, 0.5)
+    assert out["trust"]["action"] == "pause" and out["trust"]["control_record_key"] == "ctl-0001"
 
 
 def test_clipped_change_is_recorded_unscored():
@@ -288,16 +295,58 @@ def test_apply_without_prediction_is_unscored():
     assert w.records()[0]["predicted_delta"] is None and w.trust.records == []
 
 
-def test_trust_gate_failure_does_not_undo_the_change():
+@pytest.mark.parametrize("mode,text", [("timeout", "ReadTimeoutError"), ("error", "Unhandled")])
+def test_trust_gate_timeout_or_error_never_fails_the_apply(mode, text):
     w = World()
+    w.trust = FakeTrustInvoker(mode)
+    w.call("ran___predict", case_id=CASE, item_id="step-0", change=CHANGE)
+    key = w.approved(APPLY)
+    out = w.call("ran___apply_change", **APPLY)
+    assert out["applied"] is True and not out.get("error") and w.ddb.plain(key)["status"] == "APPLIED"
+    assert text in out["trust"]["note"] and "left null" in out["trust"]["note"]
+    [rec] = w.records()   # written once, with null trust fields
+    assert rec["trust_before"] is None and rec["trust_after"] is None and rec["scored"] is True
+    assert len(w.trust.payloads) == 1
 
-    def broken(record):
-        raise RuntimeError("throttled")
-    w.trust = broken
+
+def test_trust_gate_off_leaves_trust_null():
+    w = World(trust=False)
     w.call("ran___predict", case_id=CASE, item_id="step-0", change=CHANGE)
     w.approved(APPLY)
     out = w.call("ran___apply_change", **APPLY)
-    assert out["applied"] and "throttled" in out["trust"]["error"] and len(w.records()) == 1
+    assert out["applied"] and "not configured" in out["trust"]["note"]
+    assert w.records()[0]["trust_after"] is None
+
+
+def test_default_invoker_is_synchronous_with_a_short_timeout(monkeypatch):
+    """Deps.from_env builds a RequestResponse invoker with a ~5 s read timeout and no retries."""
+    import io as _io
+    import boto3
+    calls = {}
+
+    class FakeLambda:
+        def invoke(self, **kw):
+            calls["invoke"] = kw
+            return {"StatusCode": 200, "Payload": _io.BytesIO(b'{"trust_before": 0.9, "trust_after": 0.8}')}
+
+    def fake_client(service, config=None, **kw):
+        calls["service"], calls["config"] = service, config
+        return FakeLambda()
+    monkeypatch.setattr(boto3, "client", fake_client)
+    deps = app.Deps.from_env({"T3_STORE": "local:/tmp/unused-t3", "T3_EVIDENCE": "local:/tmp/unused-t3"})
+    out = deps.trust_invoker()({"record": {"kind": "change"}, "model_version": "v1"})
+    assert out == {"trust_before": 0.9, "trust_after": 0.8}
+    assert calls["invoke"]["InvocationType"] == "RequestResponse"
+    assert calls["invoke"]["FunctionName"] == "team13-trust-gate"
+    assert calls["config"].read_timeout == 5.0 and calls["config"].retries == {"max_attempts": 0}
+
+    class Failing(FakeLambda):
+        def invoke(self, **kw):
+            return {"StatusCode": 200, "FunctionError": "Unhandled", "Payload": _io.BytesIO(b'{"errorMessage": "x"}')}
+    monkeypatch.setattr(boto3, "client", lambda service, config=None, **kw: Failing())
+    deps = app.Deps.from_env({"T3_STORE": "local:/tmp/unused-t3", "T3_EVIDENCE": "local:/tmp/unused-t3"})
+    with pytest.raises(RuntimeError):
+        deps.trust_invoker()({"record": {}})
 
 
 def test_run_id_comes_from_the_active_run_row():
@@ -485,7 +534,7 @@ def test_counterfactual_from_twin_matches_the_two_replay_fallback():
     w_cf, cf = _apply_once(FakeTwinCF)
     w_rp, rp = _apply_once(FakeTwin)
     assert w_cf.call("ran___observe", case_id=CASE)["twin"]["step"] == 1
-    for k in ("baseline_kpis", "measured_kpis", "measured_delta", "error", "direction_agree"):
+    for k in ("baseline_kpis", "measured_kpis", "measured_delta", "prediction_error", "direction_agree"):
         assert cf[k] == rp[k], k
     assert w_cf.case_doc()["action_log"] == w_rp.case_doc()["action_log"]
 
