@@ -1,6 +1,6 @@
 {
-  "graders": "t1-graders-v1",
-  "manifest_version": 1,
+  "graders": "t1-graders-v2",
+  "manifest_version": 2,
   "parser": "t1-parse-v1",
   "prompt": {
     "file": "t1/evals/prompt.txt",
@@ -10,6 +10,16 @@
     "dev_fraction": 0.2,
     "rule": "dev if sha256(unit, item_id, salt)[:8] % 10000 < dev_fraction * 10000",
     "salt": "t1-split-v1"
+  },
+  "superseded": {
+    "commit": "2959c9b",
+    "reason": "built on twin_standin.py and a local canonical-change fallback; re-frozen on W2 twin.replay.ReplayTwin and W1 team13_contracts.change before any model was run. Same 80 item ids, specs and prompt text; the reference values (noop_kpi, rule/oracle/constant gain) are now stored unrounded (they were rounded to 6 decimals, so they differed from the replay by up to 3.3e-7) and meta.twin names the W2 replay",
+    "units": {
+      "execution": {
+        "sha256": "4686121964eaf4811fec665ac73927af8ee8f32ffe5375e3c4074f87dc80b72c",
+        "test_sha256": "8ac4c54536f8affdfdc75bccbed02f4d0ece78ad81e6ef0d93e44e858cdc0feb"
+      }
+    }
   },
   "units": {
     "execution": {
@@ -23,15 +33,15 @@
       "file": "t1/evals/items/execution.jsonl",
       "generator": "t1/evals/gen_execution.py",
       "n_items": 80,
-      "sha256": "4686121964eaf4811fec665ac73927af8ee8f32ffe5375e3c4074f87dc80b72c",
+      "sha256": "63d04053892d118721eed5c40460c9ae0c878043d464db7b9edc10e2223efd74",
       "splits": {
         "dev": {
           "n": 17,
-          "sha256": "54c6d99ade377794d06e9c1e9461be7bedf32a967894d6f2a2e854e6de7f348c"
+          "sha256": "44a8e421a6bd50b8fe83406c28a220421a66cca9fda87be5b92f771fe977e069"
         },
         "test": {
           "n": 63,
-          "sha256": "8ac4c54536f8affdfdc75bccbed02f4d0ece78ad81e6ef0d93e44e858cdc0feb"
+          "sha256": "5dbc837713851902e455d750534f7aee49c9b7a1b7836439c280f2606615fc22"
         }
       },
       "twin": {
