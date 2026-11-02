@@ -1,0 +1,61 @@
+{
+  "schema_version": "1",
+  "kind": "change",
+  "run_id": "t3-trust-20261102-a",
+  "team": "team13",
+  "created_at": "2026-11-02T20:20:31.007Z",
+  "aws_time": null,
+  "aws_time_source": null,
+  "synthetic": true,
+  "case_id": "case-0011",
+  "change_id": "chg-ec31682fde56",
+  "twin": {
+    "kind": "maveric-inprocess",
+    "version": "ran-rl-1.2.9",
+    "scenario": "interference",
+    "seed": 11,
+    "step": 4
+  },
+  "change": [
+    {
+      "cell": 1,
+      "d_power": -2,
+      "d_tilt_deg": 1
+    },
+    {
+      "cell": 3,
+      "d_power_db": -1,
+      "d_tilt_deg": 0.5
+    }
+  ],
+  "predictor": {
+    "model_id": "t2-response-mlp",
+    "version": "v1"
+  },
+  "policy": {
+    "model_id": "t1-ppo-maveric",
+    "version": "v3"
+  },
+  "predicted": {
+    "coverage_ratio": 0.912,
+    "sla_ratio": 0.874,
+    "sinr_p10_db": 2.35,
+    "sinr_mean_db": 11.8
+  },
+  "measured": {
+    "coverage_ratio": 0.905,
+    "sla_ratio": 0.869,
+    "sinr_p10_db": 2.1,
+    "sinr_mean_db": 11.62
+  },
+  "error": {
+    "coverage_ratio": 0.007,
+    "sla_ratio": 0.005,
+    "sinr_p10_db": 0.25,
+    "sinr_mean_db": 0.18,
+    "summary": 0.0712
+  },
+  "direction_agree": true,
+  "trust_before": 0.82,
+  "trust_after": 0.84
+}

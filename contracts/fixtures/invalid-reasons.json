@@ -1,0 +1,19 @@
+{
+  "change/invalid-change-id-format.json": "change_id is not chg- followed by 12 hex characters",
+  "change/invalid-change-item-wrong-key.json": "change[0] uses d_power instead of d_power_db",
+  "change/invalid-ratio-above-one.json": "measured.coverage_ratio is 1.3; ratios are in [0, 1]",
+  "control/invalid-action-not-in-enum.json": "action is \"stop\"; the enum is pause | resume",
+  "control/invalid-by-not-pseudonym.json": "by is a bare name; must be person:<pseudonym> or trust-gate",
+  "decision/invalid-decision-lowercase.json": "decision is \"deny\"; the enum is ALLOW | DENY",
+  "decision/invalid-time-not-iso-utc.json": "time has no T separator and no Z suffix",
+  "declared/invalid-n-items-string.json": "n_items is the string \"12\"; numbers must be JSON numbers",
+  "declared/invalid-op-not-in-enum.json": "target.op is '=>', not one of >=, <=, ==, >, <",
+  "item/invalid-input-sha-not-hex.json": "input_sha256 is not 64 lowercase hex characters",
+  "item/invalid-synthetic-string.json": "synthetic is the string \"true\", not a boolean",
+  "job/invalid-job-kind.json": "job_kind is \"notebook\"; the enum is training | processing | endpoint | lambda",
+  "job/invalid-missing-billable-s.json": "billable_s is missing",
+  "model/invalid-model-id-path.json": "model_id contains slashes; it must be a safe path segment",
+  "model/invalid-status.json": "status is \"deployed\"; the enum is candidate | approved | paused | withdrawn",
+  "result/invalid-team.json": "team is \"team12\"; must be team13",
+  "result/invalid-value-string.json": "value is the string \"1.0\"; numbers must be JSON numbers"
+}
