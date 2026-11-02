@@ -75,7 +75,13 @@ export function SourceChip({ aws, mock }: { aws: string; mock?: string }) {
 }
 
 /** The counterpart of SourceChip's flask: this panel shows only measured, persisted, verifiable data. */
-export function RealChip({ title = 'Real data: nothing on this panel is simulated' }: { title?: string }) {
+export function RealChip({ title = 'Real data: nothing on this panel is simulated', muted = false }: { title?: string; muted?: boolean }) {
+  if (muted)
+    return (
+      <span className="flex items-center rounded border border-line px-1.5 py-0.5 text-micro font-semibold tracking-[0.04em] text-ink-3" title={title}>
+        REAL · UNVERIFIED
+      </span>
+    )
   return (
     <span className="flex items-center gap-1 rounded border px-1.5 py-0.5 text-micro font-semibold tracking-[0.04em] text-good-ink"
       style={{ borderColor: 'color-mix(in oklab, var(--good) 45%, transparent)', background: 'color-mix(in oklab, var(--good) 8%, transparent)' }}

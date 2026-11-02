@@ -3,7 +3,8 @@ import { api } from '@/core/api'
 import { ed25519Supported, ed25519Verify, merkleRoot, recordHash } from '@/core/canonical'
 import type { LedgerRecord, Rec } from '@/core/types'
 
-// Independent check of the evidence ledger in this browser: fetch every record as stored on disk,
+// Independent check of the evidence ledger in this browser: fetch every record as stored on disk
+// (the server re-reads ledger.jsonl and anchors.jsonl from disk for every /api/evidence/chain call),
 // then walk from genesis recomputing each SHA-256 (canonical.ts, the same code the Audit screen
 // uses), checking each link, each Ed25519 signature against the PUBLISHED public key, and every
 // Merkle anchor root. Stops at the first failure and reports its exact seq.
@@ -70,6 +71,12 @@ export function useBrowserVerify() {
         if (i % 200 === 199) setS((p) => ({ ...p, checked: seq, total: records.length }))
       }
       let anchorsChecked = 0
+      const expected = Math.floor(records.length / every)
+      if (!broken && anchors.length !== expected) {
+        // same rule as the server (store.py verify_chain): one anchor per full 32 records, no more, no fewer
+        broken = { seq: anchors.length < expected ? (anchors.length + 1) * every : records.length,
+          reason: `${anchors.length} Merkle anchors on disk, ${expected} expected for ${records.length} records` }
+      }
       if (!broken) {
         for (const a of anchors) {
           const [start, end] = a.range as [number, number]

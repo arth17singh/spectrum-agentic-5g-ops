@@ -30,6 +30,7 @@
   --good: #0ca30c;
   --good-ink: #3cc93c;
   --warn: #fab219;
+  --warn-ink: #fab219;
   --serious: #ec835a;
   --critical: #d03b3b;
   --critical-ink: #f07070;
@@ -73,6 +74,7 @@
   --prove: #c94f1e;
 
   --good-ink: #067806;
+  --warn-ink: #8a5a00;
   --critical-ink: #b42323;
 
   --s1: #2a78d6;
@@ -108,6 +110,7 @@
   --color-good: var(--good);
   --color-good-ink: var(--good-ink);
   --color-warn: var(--warn);
+  --color-warn-ink: var(--warn-ink);
   --color-serious: var(--serious);
   --color-critical: var(--critical);
   --color-critical-ink: var(--critical-ink);

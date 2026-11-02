@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import {
-  ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleX, Clock3, FileCheck2, FolderTree, KeyRound, Loader2,
-  RefreshCw, ShieldCheck, ShieldX,
+  ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleHelp, CircleX, Clock3, FileCheck2, FolderTree, KeyRound,
+  Loader2, RefreshCw, Shield, ShieldCheck, ShieldX, TriangleAlert,
 } from 'lucide-react'
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { ChainStrip, glyphFor, type BlockState } from '@/charts/ChainStrip'
@@ -10,7 +10,7 @@ import { bytes, shortHash } from '@/core/format'
 import { EMPTY, useLive } from '@/core/store'
 import type { LedgerRecord, Rec } from '@/core/types'
 import { toast } from '@/core/ui-store'
-import { Button, CodeBlock, Hash, PageHeader, Panel, RealChip, SignatureBadge, StatusPill } from '@/ui'
+import { Button, CodeBlock, Hash, PageHeader, Panel, RealChip, StatusPill } from '@/ui'
 import manifest from './manifest'
 import { useBrowserVerify, type BrowserVerify } from './verify'
 
@@ -30,8 +30,9 @@ const CHECKS: { id: string; label: string; short: string; about: string }[] = [
 const STATE: Record<string, { Icon: typeof CircleCheck; color: string; word: string }> = {
   pass: { Icon: CircleCheck, color: 'var(--good-ink)', word: 'Pass' },
   fail: { Icon: CircleX, color: 'var(--critical-ink)', word: 'Fail' },
-  pending: { Icon: Clock3, color: 'var(--warn)', word: 'Waiting' },
+  pending: { Icon: Clock3, color: 'var(--warn-ink)', word: 'Waiting' },
   not_checked: { Icon: CircleDashed, color: 'var(--ink-3)', word: 'Not yet checked' },
+  unverified: { Icon: CircleHelp, color: 'var(--ink-3)', word: 'Unverified (chain broken)' },
 }
 
 /** Real wall-clock UTC, never the demo's simulated clock. */
@@ -69,7 +70,7 @@ export default function EvidencePage() {
     <div>
       <PageHeader title={manifest.title} description={manifest.description} tracks={manifest.tracks}
         actions={<>
-          <RealChip title="Every number on this screen is read from the persisted evidence ledger. Nothing is simulated." />
+          <RealChip muted={state !== 'ok'} title={state === 'ok' ? 'Every number on this screen is read from the persisted evidence ledger. Nothing is simulated.' : 'Real data, but the ledger does not verify: treat everything here as unverified.'} />
           <Button icon={<RefreshCw size={14} className={clsx(scanning && 'animate-spin')} />} disabled={scanning} onClick={scan}>Scan now</Button>
           <Button variant="primary" icon={<ShieldCheck size={14} />} disabled={bv.phase === 'running' || records === 0} onClick={bv.run}>
             {bv.phase === 'running' ? 'Verifying…' : 'Verify in browser'}
@@ -77,10 +78,10 @@ export default function EvidencePage() {
         </>} />
       {state !== 'ok' && <ProblemBanner st={st} />}
       <StatusStrip st={st} />
-      {bv.phase !== 'idle' && <BrowserResult bv={bv} fp={st.key?.fingerprint} />}
+      {bv.phase !== 'idle' && <BrowserResult bv={bv} fp={st.key?.fingerprint} server={st} />}
 
       <Panel id="runs" plane="prove" className="mt-4" title="Runs" subtitle={runs.length ? `${runs.length} run id${runs.length === 1 ? '' : 's'} in the ledger${ev.judged?.length ? `, ${ev.judged.length} listed in judging.json` : ''}` : 'none yet'}
-        actions={<RealChip />} flush>
+        flush>
         {runs.length === 0 ? <EmptyRuns st={st} /> : (
           <div className="overflow-x-auto">
             <table className="w-full text-cap">
@@ -108,7 +109,7 @@ export default function EvidencePage() {
         )}
       </Panel>
 
-      <div className="mt-4 grid grid-cols-12 gap-4">
+      <div className="mt-4 grid grid-cols-12 items-start gap-4">
         <div className="col-span-12 xl:col-span-7"><RecentRecords recent={ev.recent ?? EMPTY} /></div>
         <div className="col-span-12 xl:col-span-5"><ChecksLegend /></div>
       </div>
@@ -128,7 +129,13 @@ function StatusStrip({ st }: { st: Rec }) {
       {sub && <div className="truncate text-micro text-ink-3">{sub}</div>}
     </div>
   )
-  const chain = st.state === 'ok'
+  const n: number = st.records ?? 0
+  const every: number = st.anchor_every ?? 32
+  const expected = Math.floor(n / every)
+  const anchorsMissing = (st.anchors ?? 0) < expected
+  const chain = st.state === 'ok' && n === 0
+    ? <span className="text-ink-3">No records yet</span>
+    : st.state === 'ok'
     ? <span className="flex items-center gap-1.5 text-good-ink"><ShieldCheck size={18} />Intact</span>
     : st.state === 'key_mismatch'
       ? <span className="flex items-center gap-1.5 text-critical-ink"><KeyRound size={18} />Key mismatch</span>
@@ -139,8 +146,10 @@ function StatusStrip({ st }: { st: Rec }) {
     <div className="grid grid-cols-2 gap-4 rounded-[10px] border border-line bg-s1 px-5 py-4 md:grid-cols-5">
       {tile('Chain status', chain, <span title={`verified ${v.at ?? ''} in ${v.elapsed_ms ?? '—'} ms`}>checked with public_keys.json</span>)}
       {tile('Records', <span className="tnum">{(st.records ?? 0).toLocaleString()}</span>, 'signed, appended to ledger.jsonl')}
-      {tile('Last anchor', a ? <span className="tnum">#{a.n} <span className="text-[14px] font-normal text-ink-2">{a.range[0]}–{a.range[1]}</span></span> : <span className="text-ink-3">None yet</span>,
-        a ? <span className="mono">root {shortHash(a.root, 10, 6)}</span> : `first Merkle root at record ${st.anchor_every ?? 32}`)}
+      {tile('Last anchor', anchorsMissing ? <span className="flex items-center gap-1.5 text-critical-ink"><ShieldX size={18} />Missing</span>
+        : a ? <span className="tnum">#{a.n} <span className="text-[14px] font-normal text-ink-2">{a.range[0]}–{a.range[1]}</span></span> : <span className="text-ink-3">None yet</span>,
+        anchorsMissing ? `${st.anchors ?? 0} on disk, ${expected} expected for ${n} records`
+          : a ? <span className="mono">root {shortHash(a.root, 10, 6)}</span> : `first Merkle root at record ${every}`)}
       {tile('Signing key', <span className="mono text-[15px]">{shortHash(st.key?.fingerprint?.replace('SHA256:', ''), 10, 6)}</span>,
         <span title={st.key?.public_key_hex}>Ed25519 · {st.key?.key_id}</span>)}
       {tile('Source', src.kind === 's3' ? 'S3, read-only' : 'Local folder',
@@ -174,13 +183,16 @@ function ProblemBanner({ st }: { st: Rec }) {
   )
 }
 
-function BrowserResult({ bv, fp }: { bv: BrowserVerify; fp?: string }) {
+function BrowserResult({ bv, fp, server }: { bv: BrowserVerify; fp?: string; server: Rec }) {
   const k = bv.total ? bv.checked / bv.total : bv.phase === 'ok' ? 1 : 0
+  // never show a green browser verdict next to a red server status
+  const disagree = bv.phase === 'ok' && server.state !== 'ok'
   return (
     <div className="mt-3 rounded-[10px] border border-line bg-s1 px-5 py-3">
       <div className="mb-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-cap">
         {bv.phase === 'running' && <span className="flex items-center gap-1.5 font-medium text-ink-1"><Loader2 size={14} className="animate-spin" /> Verifying in this browser…</span>}
-        {bv.phase === 'ok' && <span className="tnum flex items-center gap-1.5 font-medium text-good-ink"><ShieldCheck size={14} /> Verified {bv.total.toLocaleString()} / {bv.total.toLocaleString()} records in this browser in {bv.ms.toFixed(1)} ms</span>}
+        {bv.phase === 'ok' && !disagree && <span className="tnum flex items-center gap-1.5 font-medium text-good-ink"><ShieldCheck size={14} /> Verified {bv.total.toLocaleString()} / {bv.total.toLocaleString()} records in this browser in {bv.ms.toFixed(1)} ms</span>}
+        {disagree && <span className="flex items-center gap-1.5 font-medium" style={{ color: 'var(--warn-ink)' }}><TriangleAlert size={14} /> The {bv.total.toLocaleString()} records served verify in this browser, but the server reports: {server.problem}</span>}
         {bv.phase === 'broken' && bv.broken && <span className="tnum flex items-center gap-1.5 font-medium text-critical-ink"><ShieldX size={14} /> BROKEN at #{bv.broken.seq.toLocaleString()}: {bv.broken.reason}</span>}
         {bv.phase === 'error' && <span className="font-medium text-critical-ink">Verification could not run: {bv.error}</span>}
         {(bv.phase === 'ok' || bv.phase === 'broken') && (
@@ -190,7 +202,7 @@ function BrowserResult({ bv, fp }: { bv: BrowserVerify; fp?: string }) {
         )}
       </div>
       <div className="h-1 overflow-hidden rounded-full bg-s3">
-        <div className="h-full rounded-full transition-[width] duration-100" style={{ width: `${k * 100}%`, background: bv.phase === 'broken' || bv.phase === 'error' ? 'var(--critical)' : bv.phase === 'ok' ? 'var(--good)' : 'var(--release)' }} />
+        <div className="h-full rounded-full transition-[width] duration-100" style={{ width: `${k * 100}%`, background: bv.phase === 'broken' || bv.phase === 'error' ? 'var(--critical)' : disagree ? 'var(--warn)' : bv.phase === 'ok' ? 'var(--good)' : 'var(--release)' }} />
       </div>
     </div>
   )
@@ -215,8 +227,8 @@ function CheckIcons({ checks }: { checks: Rec }) {
 
 function RunRow({ r, open, onToggle }: { r: Rec; open: boolean; onToggle: () => void }) {
   const d: Rec | null = r.declaration
-  const known = CHECKS.filter((c) => ['pass', 'fail'].includes(r.checks?.[c.id]?.state))
-  const passed = known.filter((c) => r.checks[c.id].state === 'pass').length
+  const checked = CHECKS.filter((c) => ['pass', 'fail'].includes(r.checks?.[c.id]?.state)).length
+  const unverified = CHECKS.every((c) => r.checks?.[c.id]?.state === 'unverified')
   return (
     <tr onClick={onToggle} aria-expanded={open} className={clsx('cursor-pointer border-b border-line/60', open ? 'bg-s2' : 'hover:bg-s2/60')}>
       <td className="pl-3 text-ink-3">{open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</td>
@@ -236,9 +248,11 @@ function RunRow({ r, open, onToggle }: { r: Rec; open: boolean; onToggle: () => 
       <td className="px-3 whitespace-nowrap">{d ? <Hash value={d.test_set_sha256} head={8} tail={4} /> : <span className="text-ink-3">—</span>}</td>
       <td className="tnum px-3 text-right text-ink-1">{r.artifacts}</td>
       <td className="px-3">
-        <div className="flex items-center gap-2 whitespace-nowrap">
+        <div>
           <CheckIcons checks={r.checks} />
-          <span className="tnum text-micro text-ink-3">{passed}/{known.length}</span>
+          <div className="tnum mt-0.5 max-w-[164px] text-micro text-ink-3">
+            {unverified ? 'unverified (chain broken)' : <><span className="whitespace-nowrap">{checked} of {CHECKS.length} checked</span>{' '}<span className="whitespace-nowrap">({CHECKS.length - checked} not yet checked)</span></>}
+          </div>
         </div>
       </td>
     </tr>
@@ -260,7 +274,7 @@ function RunDetail({ runId, summary, bv, records, fp }: { runId: string; summary
   return (
     <div className="grid grid-cols-12 gap-4 px-4 py-4">
       <div className="col-span-12 2xl:col-span-4">
-        <div className="mb-2 text-micro font-medium text-ink-3">Checks for this run</div>
+        <div className="mb-2 text-micro font-medium text-ink-3">Checks for this run{CHECKS.every((c) => summary.checks?.[c.id]?.state === 'unverified') ? ': unverified, because the ledger they come from does not verify' : ''}</div>
         <ul className="grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line md:grid-cols-2 2xl:grid-cols-1">
           {CHECKS.map((c) => {
             const k = summary.checks?.[c.id] ?? { state: 'not_checked' }
@@ -273,7 +287,7 @@ function RunDetail({ runId, summary, bv, records, fp }: { runId: string; summary
                     <span className="text-ink-1">{c.label}</span>
                     <span className="shrink-0 text-micro" style={{ color: s.color }}>{s.word}</span>
                   </div>
-                  {k.detail && <div className="mono truncate text-micro text-ink-3" title={k.detail}>{k.detail}</div>}
+                  {k.detail && k.state !== 'unverified' && <div className="mono truncate text-micro text-ink-3" title={k.detail}>{k.detail}</div>}
                 </div>
               </li>
             )
@@ -298,7 +312,7 @@ function RunDetail({ runId, summary, bv, records, fp }: { runId: string; summary
               <table className="w-full text-cap">
                 <thead className="sticky top-0 bg-s1">
                   <tr className="border-b border-line text-left text-micro text-ink-3">
-                    {['#', 'Recorded (UTC)', 'Record', 'File', 'File SHA-256', 'Size', 'Record hash', 'Sig'].map((h) => <th key={h} className="px-2.5 py-1.5 font-medium whitespace-nowrap">{h}</th>)}
+                    {['#', 'Recorded (UTC)', 'Record', 'File', 'File SHA-256', 'Size', 'Record hash', 'Verified'].map((h) => <th key={h} className="px-2.5 py-1.5 font-medium whitespace-nowrap">{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -319,7 +333,7 @@ function RunDetail({ runId, summary, bv, records, fp }: { runId: string; summary
                         <td className="tnum px-2.5 whitespace-nowrap text-ink-3">{p.size != null ? bytes(p.size) : '—'}</td>
                         <td className="px-2.5 whitespace-nowrap"><Hash value={r.hash} head={6} tail={4} /></td>
                         <td className="px-2.5">
-                          {bst === 'fail' ? <StatusPill status="tampered" size="sm" /> : <SignatureBadge compact state={bst === 'ok' ? 'verified' : 'signed'} keyId={r.key_id} />}
+                          <SigCell state={bst} />
                         </td>
                       </tr>
                     )
@@ -333,6 +347,13 @@ function RunDetail({ runId, summary, bv, records, fp }: { runId: string; summary
       </div>
     </div>
   )
+}
+
+/** Green only after this browser verified the record; until then a neutral "signed, not verified here". */
+function SigCell({ state }: { state?: BlockState }) {
+  if (state === 'fail') return <StatusPill status="tampered" size="sm" />
+  if (state === 'ok') return <span title="Hash, link and Ed25519 signature verified in this browser"><ShieldCheck size={13} className="text-good-ink" aria-label="verified in this browser" /></span>
+  return <span title={state === 'unverified' ? 'Not verified: after the break' : 'Signed; not verified in this browser yet (press Verify in browser)'}><Shield size={13} className="text-ink-3" aria-label="signed, not verified here" /></span>
 }
 
 function RecordBody({ r, fp }: { r: LedgerRecord; fp?: string }) {
@@ -393,10 +414,17 @@ function EmptyRuns({ st }: { st: Rec }) {
   )
 }
 
+/** "outputs/<run_id>/item-0001.json" -> "outputs/…/item-0001.json": the run is already a column elsewhere, the file name must always show. */
+const shortPath = (p?: string) => {
+  if (!p) return '—'
+  const parts = p.split('/')
+  return parts.length > 2 ? `${parts[0]}/…/${parts[parts.length - 1]}` : p
+}
+
 function RecentRecords({ recent }: { recent: LedgerRecord[] }) {
   const rows = [...recent].reverse().slice(0, 12)
   return (
-    <Panel id="evidence-recent" plane="prove" title="Latest ledger records" subtitle="newest first, as persisted" actions={<RealChip />} flush className="h-full">
+    <Panel id="evidence-recent" plane="prove" title="Latest ledger records" subtitle="newest first, as persisted" flush>
       {rows.length === 0 ? <div className="px-4 py-6 text-center text-cap text-ink-3">The ledger is empty. The first record is written when the first artifact is found.</div> : (
         <div className="max-h-[320px] overflow-auto">
           <table className="w-full text-cap">
@@ -414,8 +442,8 @@ function RecentRecords({ recent }: { recent: LedgerRecord[] }) {
                     <td className="tnum mono px-3 py-1.5 text-ink-1">{r.seq}</td>
                     <td className="tnum mono px-3 whitespace-nowrap text-ink-3">{utc(r.ts, false)}</td>
                     <td className="px-3 whitespace-nowrap"><span className={clsx('flex items-center gap-1.5', warn ? 'text-critical-ink' : 'text-ink-2')}><G size={12} />{r.type.replace('evidence.', '')}{r.payload?.status === 'invalid' ? ' (invalid)' : ''}</span></td>
-                    <td className="mono max-w-[360px] truncate px-3 text-ink-2" title={r.payload?.path}>{r.payload?.path}</td>
-                    <td className="mono px-3 text-ink-2">{shortHash(r.hash, 8, 4)}</td>
+                    <td className="mono max-w-[300px] truncate px-3 text-ink-2" title={r.payload?.path}>{shortPath(r.payload?.path)}</td>
+                    <td className="mono px-3 whitespace-nowrap text-ink-2">{shortHash(r.hash, 8, 4)}</td>
                   </tr>
                 )
               })}
@@ -429,17 +457,14 @@ function RecentRecords({ recent }: { recent: LedgerRecord[] }) {
 
 function ChecksLegend() {
   return (
-    <Panel id="evidence-checks" plane="prove" title="What each check means" subtitle="per run" className="h-full">
+    <Panel id="evidence-checks" plane="prove" title="What each check means" subtitle="per run">
       <ul className="space-y-2">
-        {CHECKS.map((c) => {
-          const s = c.id === 'times_agree_aws' || c.id === 'independent_grader' ? STATE.not_checked : STATE.pass
-          return (
-            <li key={c.id} className="flex items-start gap-2 text-cap">
-              <s.Icon size={14} className="mt-0.5 shrink-0" style={{ color: c.id === 'times_agree_aws' || c.id === 'independent_grader' ? 'var(--ink-3)' : 'var(--ink-2)' }} aria-hidden />
-              <div><span className="text-ink-1">{c.label}.</span> <span className="text-ink-3">{c.about}</span></div>
-            </li>
-          )
-        })}
+        {CHECKS.map((c) => (
+          <li key={c.id} className="flex items-start gap-2.5 text-cap">
+            <span aria-hidden className="mt-[7px] size-1.5 shrink-0 rounded-full bg-ink-3" />
+            <div><span className="text-ink-1">{c.label}.</span> <span className="text-ink-3">{c.about}</span></div>
+          </li>
+        ))}
       </ul>
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-3 text-micro text-ink-3">
         {Object.entries(STATE).map(([k, s]) => <span key={k} className="flex items-center gap-1"><s.Icon size={12} style={{ color: s.color }} />{s.word}</span>)}
