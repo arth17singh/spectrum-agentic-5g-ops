@@ -1,0 +1,631 @@
+{
+ "run_id": "t3trust-20261102T210440Z",
+ "thresholds_sha256": "aa1d1d752695eba9635e690c54e0179e4587f5e35e46475458695c79ceae600c",
+ "thresholds": {
+  "schema": "t3.trust.thresholds/2",
+  "keys": [
+   "coverage_ratio",
+   "sla_ratio",
+   "sinr_p10_db"
+  ],
+  "scales": {
+   "coverage_ratio": 0.06,
+   "sla_ratio": 0.036,
+   "sinr_p10_db": 0.63
+  },
+  "direction_deadband": {
+   "coverage_ratio": 0.02,
+   "sla_ratio": 0.02,
+   "sinr_p10_db": 0.4
+  },
+  "weights": {
+   "error": 0.5,
+   "direction": 0.5
+  },
+  "tau": 1.65,
+  "recent_window": 3,
+  "recent_needed": 2,
+  "alpha": 0.1,
+  "warmup": 3,
+  "watch_below": 0.45,
+  "pause_below": 0.3,
+  "max_changes_to_pause": 6,
+  "calibration_false_pause_budget": 1,
+  "notes": {
+   "rule": "after n >= warmup scored changes, pause when recent_needed of the last recent_window changes have e > tau, or the bias-corrected EWMA trust (alpha) of the per-change score falls below pause_below (amendment 1, A6)",
+   "scales": "std of the counterfactual KPI delta in the stand-in predictor's fit set (Maveric official preset, seeds 10000+, 300 random changes: 0.062, 0.036, 0.63 dB), so e = 1 means an error the size of a typical effect",
+   "direction_deadband": "materiality: a measured delta smaller than 2 % of UEs or 0.4 dB of p10 SINR is 'did not move' and not scored for direction",
+   "alpha_tau_pause_below": "chosen by t3.trust.calibrate's PROPOSAL_RULE on 288 replayed changes x 2 predictors (12 episodes x 24 changes, seeds 20000-20011): at most 1 of 12 healthy episodes paused, then most degraded episodes paused within 6 changes; in-sample, so the held-out check is the demo seeds",
+   "max_changes_to_pause": "declared target for the degraded-predictor demo",
+   "recalibrate": "rerun t3.trust.calibrate with W9's real Track 2 predictor before the scored run; these values fit the stand-in linear predictor"
+  }
+ },
+ "scenario": "nominal",
+ "seed": 0,
+ "config": "official",
+ "policy_calls": [
+  {
+   "op": "create_policy",
+   "kwargs": {
+    "policyEngineId": "dry-run-engine",
+    "name": "team13_ranpause_a6cad82392_1793653518",
+    "validationMode": "IGNORE_ALL_FINDINGS",
+    "description": "trust-gate pause of standin-linear@v1-flipped: trust 0.022 < pause line 0.3 after 3 scored changes; last change chg-74665913e370 e=1.044 direction_agree=False",
+    "definition": {
+     "policy": {
+      "statement": "forbid (principal, action == AgentCore::Action::\"ran___predict\", resource == AgentCore::Gateway::\"arn:aws:bedrock-agentcore:us-east-2:000000000000:gateway/dry-run-placeholder\")\nwhen { !(context.input has model_version) || context.input.model_version == \"v1-flipped\" };"
+     }
+    }
+   },
+   "dry_run": true
+  }
+ ],
+ "cases": [
+  {
+   "case_id": "case-t3trust--v1",
+   "model_id": "standin-linear",
+   "version": "v1",
+   "changes": 24,
+   "scored": 24,
+   "clipped": 0,
+   "paused_at_change": null,
+   "refused_after_pause": 0,
+   "final_trust": 0.6123324112695577,
+   "min_trust_after_warmup": 0.5826606174246688,
+   "e_over_tau": 0,
+   "trust_trajectory": [
+    0.9159,
+    0.9097,
+    0.8775,
+    0.8699,
+    0.8518,
+    0.8414,
+    0.8293,
+    0.8112,
+    0.7096,
+    0.7157,
+    0.7431,
+    0.6677,
+    0.6609,
+    0.6513,
+    0.6534,
+    0.673,
+    0.7003,
+    0.7149,
+    0.6447,
+    0.6116,
+    0.5827,
+    0.597,
+    0.6065,
+    0.6123
+   ],
+   "e_trajectory": [
+    0.1682,
+    0.1917,
+    0.3554,
+    0.2973,
+    0.2041,
+    0.3934,
+    0.4442,
+    0.2734,
+    0.6224,
+    0.2507,
+    0.1925,
+    0.5958,
+    0.7664,
+    0.4127,
+    0.6655,
+    0.3739,
+    0.0991,
+    0.3522,
+    0.8921,
+    0.646,
+    0.2921,
+    0.5764,
+    0.6332,
+    0.6791
+   ],
+   "rows": [
+    {
+     "i": 1,
+     "refused": false,
+     "e": 0.16822814532273803,
+     "direction_agree": true,
+     "score": 0.9158859273386311,
+     "trust": 0.9158859273386313,
+     "band": "warm-up",
+     "action": null
+    },
+    {
+     "i": 2,
+     "refused": false,
+     "e": 0.1917202014236774,
+     "direction_agree": true,
+     "score": 0.9041398992881613,
+     "trust": 0.9097038073120683,
+     "band": "warm-up",
+     "action": null
+    },
+    {
+     "i": 3,
+     "refused": false,
+     "e": 0.3553507239046391,
+     "direction_agree": true,
+     "score": 0.8223246380476804,
+     "trust": 0.8774605714211504,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 4,
+     "refused": false,
+     "e": 0.2973316556501679,
+     "direction_agree": true,
+     "score": 0.851334172174916,
+     "trust": 0.8698634794623732,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 5,
+     "refused": false,
+     "e": 0.20411199895703694,
+     "direction_agree": null,
+     "score": 0.7958880010429631,
+     "trust": 0.8517990907003382,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 6,
+     "refused": false,
+     "e": 0.3934480430366842,
+     "direction_agree": true,
+     "score": 0.8032759784816579,
+     "trust": 0.8414432737768173,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 7,
+     "refused": false,
+     "e": 0.4442195954501918,
+     "direction_agree": true,
+     "score": 0.7778902022749041,
+     "trust": 0.8292614271475922,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 8,
+     "refused": false,
+     "e": 0.27336206841349914,
+     "direction_agree": null,
+     "score": 0.7266379315865008,
+     "trust": 0.8112425356345869,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 9,
+     "refused": false,
+     "e": 0.6224320178931401,
+     "direction_agree": false,
+     "score": 0.18878399105342997,
+     "trust": 0.7096298415428389,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 10,
+     "refused": false,
+     "e": 0.25068709664627165,
+     "direction_agree": null,
+     "score": 0.7493129033537284,
+     "trust": 0.7157225404881926,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 11,
+     "refused": false,
+     "e": 0.19251512209113328,
+     "direction_agree": true,
+     "score": 0.9037424389544333,
+     "trust": 0.7431231236792005,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 12,
+     "refused": false,
+     "e": 0.5958396623519296,
+     "direction_agree": false,
+     "score": 0.20208016882403518,
+     "trust": 0.6677238448123052,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 13,
+     "refused": false,
+     "e": 0.766438623590914,
+     "direction_agree": true,
+     "score": 0.616780688204543,
+     "trust": 0.660893295048094,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 14,
+     "refused": false,
+     "e": 0.41271218219311256,
+     "direction_agree": null,
+     "score": 0.5872878178068874,
+     "trust": 0.6513494133055949,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 15,
+     "refused": false,
+     "e": 0.6655189092737435,
+     "direction_agree": true,
+     "score": 0.6672405453631283,
+     "trust": 0.6533505409468778,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 16,
+     "refused": false,
+     "e": 0.3738726577606118,
+     "direction_agree": true,
+     "score": 0.8130636711196941,
+     "trust": 0.672954508782206,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 17,
+     "refused": false,
+     "e": 0.09907151363827509,
+     "direction_agree": null,
+     "score": 0.900928486361725,
+     "trust": 0.7003148384289778,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 18,
+     "refused": false,
+     "e": 0.3521704046747525,
+     "direction_agree": true,
+     "score": 0.8239147976626238,
+     "trust": 0.7148576292344974,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 19,
+     "refused": false,
+     "e": 0.8921232099792453,
+     "direction_agree": null,
+     "score": 0.10787679002075468,
+     "trust": 0.6446795238996634,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 20,
+     "refused": false,
+     "e": 0.6459947575300736,
+     "direction_agree": null,
+     "score": 0.3540052424699264,
+     "trust": 0.6115890689443418,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 21,
+     "refused": false,
+     "e": 0.29208445405632694,
+     "direction_agree": false,
+     "score": 0.3539577729718365,
+     "trust": 0.5826606174246688,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 22,
+     "refused": false,
+     "e": 0.5764214030105882,
+     "direction_agree": true,
+     "score": 0.7117892984947058,
+     "trust": 0.5969840117243559,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 23,
+     "refused": false,
+     "e": 0.6331977427618777,
+     "direction_agree": true,
+     "score": 0.6834011286190611,
+     "trust": 0.6064661164918062,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 24,
+     "refused": false,
+     "e": 0.6791005408305897,
+     "direction_agree": true,
+     "score": 0.6604497295847052,
+     "trust": 0.6123324112695577,
+     "band": "trusted",
+     "action": null
+    }
+   ]
+  },
+  {
+   "case_id": "case-t3trust--v1-flipped",
+   "model_id": "standin-linear",
+   "version": "v1-flipped",
+   "changes": 24,
+   "scored": 3,
+   "clipped": 0,
+   "paused_at_change": 3,
+   "refused_after_pause": 21,
+   "final_trust": 0.02226027275618198,
+   "min_trust_after_warmup": 0.02226027275618198,
+   "e_over_tau": 0,
+   "trust_trajectory": [
+    0.0271,
+    0.0353,
+    0.0223
+   ],
+   "e_trajectory": [
+    0.9458,
+    0.9148,
+    1.0443
+   ],
+   "rows": [
+    {
+     "i": 1,
+     "refused": false,
+     "e": 0.9457513811824901,
+     "direction_agree": false,
+     "score": 0.027124309408754932,
+     "trust": 0.02712430940875494,
+     "band": "warm-up",
+     "action": null
+    },
+    {
+     "i": 2,
+     "refused": false,
+     "e": 0.9147674476707519,
+     "direction_agree": false,
+     "score": 0.042616276164624045,
+     "trust": 0.03527797612237027,
+     "band": "warm-up",
+     "action": null
+    },
+    {
+     "i": 3,
+     "refused": false,
+     "e": 1.0443478585413404,
+     "direction_agree": false,
+     "score": 0.0,
+     "trust": 0.02226027275618198,
+     "band": "below-pause-line",
+     "action": "pause"
+    },
+    {
+     "i": 4,
+     "refused": true
+    },
+    {
+     "i": 5,
+     "refused": true
+    },
+    {
+     "i": 6,
+     "refused": true
+    },
+    {
+     "i": 7,
+     "refused": true
+    },
+    {
+     "i": 8,
+     "refused": true
+    },
+    {
+     "i": 9,
+     "refused": true
+    },
+    {
+     "i": 10,
+     "refused": true
+    },
+    {
+     "i": 11,
+     "refused": true
+    },
+    {
+     "i": 12,
+     "refused": true
+    },
+    {
+     "i": 13,
+     "refused": true
+    },
+    {
+     "i": 14,
+     "refused": true
+    },
+    {
+     "i": 15,
+     "refused": true
+    },
+    {
+     "i": 16,
+     "refused": true
+    },
+    {
+     "i": 17,
+     "refused": true
+    },
+    {
+     "i": 18,
+     "refused": true
+    },
+    {
+     "i": 19,
+     "refused": true
+    },
+    {
+     "i": 20,
+     "refused": true
+    },
+    {
+     "i": 21,
+     "refused": true
+    },
+    {
+     "i": 22,
+     "refused": true
+    },
+    {
+     "i": 23,
+     "refused": true
+    },
+    {
+     "i": 24,
+     "refused": true
+    }
+   ]
+  }
+ ],
+ "twin_impl": "t3.trust.standin_twin (stand-in for twin.replay; in-process Maveric via ran_rl)",
+ "predictor_impl": "t3.trust.standin_predictors (stand-in for t2.predict)",
+ "policy_client": "dry-run (no AWS call; forbid simulated in process)",
+ "fit": {
+  "n_steps": 400,
+  "episodes": 34,
+  "episode_len": 12,
+  "seed": 7,
+  "config": "official",
+  "scenario": "nominal",
+  "target": "counterfactual effect (with change - no change, same forked state)",
+  "r2_in_sample": {
+   "coverage_ratio": 0.8787,
+   "sla_ratio": 0.2683,
+   "sinr_p10_db": 0.2734,
+   "sinr_mean_db": 0.7642
+  },
+  "resid_std": {
+   "coverage_ratio": 0.0223,
+   "sla_ratio": 0.0303,
+   "sinr_p10_db": 0.5646,
+   "sinr_mean_db": 0.2936
+  },
+  "target_std": {
+   "coverage_ratio": 0.0641,
+   "sla_ratio": 0.0354,
+   "sinr_p10_db": 0.6624,
+   "sinr_mean_db": 0.6045
+  },
+  "mean_drift": {
+   "coverage_ratio": -0.0,
+   "sla_ratio": 0.0001,
+   "sinr_p10_db": -0.0288,
+   "sinr_mean_db": -0.0009
+  }
+ },
+ "script_sha256": "bb53f1173c0bd7481226644068a8b72483ec15065469748be00389400f4df842",
+ "code_sha": "8cb4cb29c817f1a0a4dbd23dbaee764270c0900c",
+ "elapsed_s": 48.95,
+ "robustness": {
+  "seeds": 10,
+  "twin_seeds": "1000..1009",
+  "healthy_false_pauses": 0,
+  "degraded_paused": 10,
+  "degraded_paused_within_declared": 10,
+  "degraded_paused_at": [
+   3,
+   4,
+   3,
+   3,
+   3,
+   4,
+   3,
+   4,
+   3,
+   3
+  ],
+  "rows": [
+   {
+    "seed": 1000,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.5051194671714831,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1001,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.6297285215397217,
+    "degraded_paused_at": 4
+   },
+   {
+    "seed": 1002,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.6672466014379944,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1003,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.6313524652833674,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1004,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.4676545727797975,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1005,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.5353858623009528,
+    "degraded_paused_at": 4
+   },
+   {
+    "seed": 1006,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.671541875296779,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1007,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.5859623984344269,
+    "degraded_paused_at": 4
+   },
+   {
+    "seed": 1008,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.5245795262081678,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1009,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.5683041224652898,
+    "degraded_paused_at": 3
+   }
+  ]
+ }
+}
