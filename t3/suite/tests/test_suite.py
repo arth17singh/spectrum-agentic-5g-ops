@@ -307,6 +307,13 @@ def test_check_cli_offline(tmp_path):
             str(tmp_path / "cp.json"), "--spans-json", str(tmp_path / "spans.json"), "--no-write",
             "--evidence-dir", str(tmp_path)]
     assert check.main(args) == 0
+    # the per-record layout of amendment A11 reads the same
+    folder = tmp_path / "records" / "t3-test-run" / "item"
+    folder.mkdir(parents=True)
+    for i, r in enumerate(records):
+        (folder / f"{i:03d}.json").write_text(json.dumps(r))
+    assert check.read_records("t3-test-run", "item", tmp_path) == records
+    assert check.main(args[:2] + args[4:]) == 0
 
 
 # ---------- pause floor ----------

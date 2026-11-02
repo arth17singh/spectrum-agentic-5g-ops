@@ -272,6 +272,16 @@ def read_jsonl(path) -> list[dict]:
     return [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def read_records(run_id, kind, ev_dir) -> list[dict]:
+    """Both storage layouts (amendment A11): records/<run>/<kind>.jsonl and records/<run>/<kind>/<key>.json."""
+    base = Path(ev_dir) / "records" / run_id
+    recs = read_jsonl(base / f"{kind}.jsonl")
+    folder = base / kind
+    if folder.is_dir():
+        recs += [json.loads(p.read_text(encoding="utf-8")) for p in sorted(folder.glob("*.json"))]
+    return recs
+
+
 def read_declared(run_id, ev_dir) -> dict | None:
     p = Path(ev_dir) / "declared" / f"{run_id}.json"
     return json.loads(p.read_text()) if p.exists() else None
@@ -317,7 +327,7 @@ def main(argv=None) -> int:
     ap.add_argument("--synthetic", action="store_true", help="mark the records synthetic (fixtures, dry runs)")
     a = ap.parse_args(argv)
     ev_dir = evidence_dir(a.evidence_dir)
-    records = read_jsonl(a.runner_records or ev_dir / "records" / a.run_id / "item.jsonl")
+    records = read_jsonl(a.runner_records) if a.runner_records else read_records(a.run_id, "item", ev_dir)
     items = runner_items(records)
     if not items:
         print(f"no runner records for {a.run_id}")
