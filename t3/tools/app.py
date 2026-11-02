@@ -107,6 +107,17 @@ def delta(after: dict, before: dict) -> dict:
     return {k: (None if after[k] is None or before[k] is None else after[k] - before[k]) for k in KPI_KEYS}
 
 
+def _close(a: Any, b: Any) -> bool:
+    """Same structure, floats equal to 1e-6 relative (W2's replay tolerance across platforms)."""
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(_close(a[k], b[k]) for k in a)
+    if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+        return len(a) == len(b) and all(_close(x, y) for x, y in zip(a, b))
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)) and not isinstance(a, bool):
+        return math.isclose(a, b, rel_tol=1e-6, abs_tol=1e-9)
+    return a == b
+
+
 def _sign(d: float, band: float) -> int:
     return 0 if abs(d) <= band else (1 if d > 0 else -1)
 
@@ -296,7 +307,7 @@ class Tools:
         for i, logged in enumerate(case.get("action_log") or []):
             state = twin.apply(logged["change"])
             new = twin.action_log[-1]
-            if "filtered" in logged and jsonable(new.get("filtered")) != logged["filtered"]:
+            if "filtered" in logged and not _close(jsonable(new.get("filtered")), logged["filtered"]):
                 raise ReplayMismatch(f"case {case['case_id']} step {i}: the safety filter now passes "
                                      f"{new.get('filtered')} where the log has {logged['filtered']}")
         return twin, state
