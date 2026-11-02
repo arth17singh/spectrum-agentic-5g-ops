@@ -11,8 +11,10 @@ Design points
  * The twin is driven directly (ran_rl twin + the SDK's ActionSafetyFilter), not through the Gym
    env, so a row's change is exactly what the twin applied.
  * Every step the generator also runs the ZERO-change counterfactual from the same twin snapshot
-   (same RNG stream, so the same UE movement): `y_nochange`. It is metadata for evaluation
-   (the causal effect of a change = y - y_nochange), never an input.
+   (same RNG stream, so the same UE movement). The LABEL `y` is the DELTA
+   KPIs(after the change, advanced one step) - KPIs(same step advanced with no change), per contract
+   amendment 1 (A5); this cancels mobility drift. The levels are kept as metadata (`y_level`,
+   `y_nochange`), never inputs.
  * Start power/tilt are varied (not a change, so the per-step limits do not apply), including
    an exact Viavi-like start (40 dBm, 6 deg) in ~10% of episodes.
  * Scenarios: nominal, low_load, congestion, interference, mobility_stress. `outage` is left out
@@ -203,8 +205,10 @@ def generate(episodes: int, steps: int, workers: int, base_seed: int = BASE_SEED
             out[k].extend(v)
     arr = {
         "x": np.asarray(out["x"], dtype=np.float32),
-        "y": np.asarray(out["y"], dtype=np.float32),
-        "y_nochange": np.asarray(out["y0"], dtype=np.float32),
+        # LABELS (contract amendment 1, A5): KPI DELTA against the no-op counterfactual at the same step
+        "y": (np.asarray(out["y"], dtype=np.float64) - np.asarray(out["y0"], dtype=np.float64)).astype(np.float32),
+        "y_level": np.asarray(out["y"], dtype=np.float32),  # metadata: next-step KPI levels after the change
+        "y_nochange": np.asarray(out["y0"], dtype=np.float32),  # metadata: levels with no change
         "seed": np.asarray(out["seed"], dtype=np.int64),
         "step": np.asarray(out["t"], dtype=np.int16),
         "scenario": np.asarray(out["scenario"], dtype=np.int8),
@@ -263,8 +267,9 @@ def save(arr: dict[str, np.ndarray], out_dir: Path, *, episodes: int, steps: int
         },
         "inputs": FEATURE_NAMES,
         "labels": list(LABELS),
+        "label_kind": "delta vs the no-op counterfactual at the same step (amendment 1, A5)",
         "metadata_never_inputs": ["seed", "step", "scenario", "start_kind", "change_kind",
-                                  "start_power_mean", "start_tilt_mean", "split", "y_nochange"],
+                                  "start_power_mean", "start_tilt_mean", "split", "y_level", "y_nochange"],
         "counts": {
             "by_scenario": {n: int((arr["scenario"] == i).sum()) for i, n in enumerate(SCENARIOS)},
             "by_change_kind": {n: int((arr["change_kind"] == i).sum()) for i, n in enumerate(CHANGE_KINDS)},
