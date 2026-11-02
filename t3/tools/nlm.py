@@ -1,11 +1,11 @@
-"""The NLM behind `nlm13___ask`: our tuned OTel model on a SageMaker endpoint, or a labelled stand-in.
+"""The NLM behind `nlm___ask`: our tuned OTel model on a SageMaker endpoint, or a labelled stand-in.
 
 - `NLM_ENDPOINT` set: `sagemaker-runtime.invoke_endpoint` (boto3 signs it with SigV4).
   `NLM_PAYLOAD` picks the body: `messages` (default; OpenAI-style chat body, which the LMI/vLLM
   and TGI containers accept) or `tgi` (`{"inputs", "parameters"}`).
 - else `NLM_STANDIN_MODEL` set: Bedrock `converse` with that model id, labelled a stand-in.
 - else: an error saying no NLM is configured.
-Every answer carries `answered_by {kind, id, stand_in}` so nobody mistakes the stand-in for our model.
+Every answer carries `answered_by {kind, id, version, stand_in}` so nobody mistakes the stand-in for our model.
 Clients are created lazily, so importing this module makes no network call.
 """
 from __future__ import annotations
@@ -31,11 +31,13 @@ class NLM:
     def describe(self) -> dict:
         if self.env.get("NLM_ENDPOINT"):
             return {"kind": "sagemaker-endpoint", "id": self.env["NLM_ENDPOINT"],
+                    "version": self.env.get("NLM_MODEL_VERSION", "v0"),
                     "model_label": self.env.get("NLM_MODEL_LABEL", "team13 tuned OTel model"), "stand_in": False}
         if self.env.get("NLM_STANDIN_MODEL"):
             return {"kind": "bedrock-standin", "id": self.env["NLM_STANDIN_MODEL"],
+                    "version": self.env.get("NLM_MODEL_VERSION", "standin"),
                     "model_label": "stand-in: NOT our tuned model", "stand_in": True}
-        return {"kind": "none", "id": None, "stand_in": None}
+        return {"kind": "none", "id": None, "version": None, "stand_in": None}
 
     def ask(self, question: str) -> dict:
         who = self.describe()

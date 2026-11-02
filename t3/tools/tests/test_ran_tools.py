@@ -6,47 +6,60 @@ import json
 
 import pytest
 
-from fakes import (FakeBedrock, FakePolicy, FakePredictor, FakeS3, FakeSageMaker, FakeTable, FakeTrust, FakeTwin,
-                   ListWriter, context, fake_kpis)
-from t3.tools import app, catalog, evidence, nlm, store
+from fakes import (FakeBedrock, FakeDynamo, FakePolicy, FakePredictor, FakeS3, FakeSageMaker, FakeTrustInvoker,
+                   FakeTwin, MemoryWriter, context, fake_kpis)
+from t3.tools import app, catalog, changes, evidence, nlm, store
 
 CASE = "case-1a2b3c4d"
-CHANGE = {"cells": [{"cell": 2, "d_power_db": 0, "d_tilt_deg": 2}]}
-KIT_STYLE_ARGS = {"case_id": CASE, "item_id": "cell-2", "change": CHANGE, "reason": "raise coverage"}
+CHANGE = "cell=2;d_power_db=+0.0;d_tilt_deg=+2.0"
+APPLY = {"case_id": CASE, "item_id": "step-0", "change": CHANGE, "reason": "raise coverage"}
 
 
 def kit_key(args):
-    """The approval id exactly as the organisers' interceptor computes it (written out here independently)."""
+    """The approval id exactly as the organisers' interceptor computes it (written out independently)."""
     return "chg-" + hashlib.sha256(json.dumps([args.get("case_id"), args.get("item_id"), args.get("change")])
                                    .encode()).hexdigest()[:12]
 
 
 class World:
-    def __init__(self, emulate=False, predictor=None, trust=None, policy=None, nlm_obj=None):
-        self.cases_table, self.approvals_table = FakeTable("case_id"), FakeTable("pk")
-        self.writer, self.trust = ListWriter(), trust if trust is not None else FakeTrust()
+    def __init__(self, predictor=None, policy=None, nlm_obj=None, run_id=None, trust=True):
+        self.ddb = FakeDynamo()
+        if run_id:
+            self.ddb.set_plain("t3-active", run_id=run_id)  # written by the runner
+        self.writer = MemoryWriter()
+        self.trust = FakeTrustInvoker()
         self.predictor = predictor if predictor is not None else FakePredictor()
         self.deps = app.Deps(
-            cases=store.DynamoCaseStore(self.cases_table), approvals=store.DynamoApprovalStore(self.approvals_table),
-            twin_factory=FakeTwin, kpis=fake_kpis, predictor=lambda: self.predictor,
-            policy=lambda: policy if policy is not None else FakePolicy(), trust=lambda: self.trust,
-            writer=lambda: self.writer, nlm=nlm_obj, emulate_interceptor=emulate, synthetic=True,
-            now=lambda: "2026-11-02T20:00:00.000Z")
+            store=store.DynamoStore("team13-approvals", client=self.ddb), twin_factory=FakeTwin, kpis=fake_kpis,
+            predictor=lambda: self.predictor, policy=lambda: policy if policy is not None else FakePolicy(),
+            trust_invoker=(lambda: self.trust) if trust else (lambda: None), writer=lambda: self.writer,
+            nlm=nlm_obj or nlm.NLM(env={}), synthetic=True, now=lambda: "2026-11-02T20:00:00.000Z",
+            scales={"coverage_ratio": 0.01, "sla_ratio": 0.01, "sinr_p10_db": 0.5})
         app.set_deps(self.deps)
 
     def call(self, tool, **args):
         return app.handler(args, context(tool))
 
-    # what the kit's interceptor and `approve` command do to the approvals table
     def interceptor_creates_pending(self, args):
         key = kit_key(args)
-        self.approvals_table.items.setdefault(key, {"pk": key, "status": "PENDING", "case_id": args["case_id"],
-                                                    "agent": "noc_lead", "created_at": 0})
+        if key not in self.ddb.items:
+            self.ddb.set_plain(key, status="PENDING", case_id=args["case_id"], agent="noc_lead", created_at=0)
         return key
 
     def person_approves(self, key):
-        assert self.approvals_table.items[key]["status"] == "PENDING"
-        self.approvals_table.items[key].update(status="APPROVED", decided_by="person:test")
+        assert self.ddb.plain(key)["status"] == "PENDING"
+        self.ddb.items[key]["status"] = {"S": "APPROVED"}
+
+    def approved(self, args):
+        key = self.interceptor_creates_pending(args)
+        self.person_approves(key)
+        return key
+
+    def case_doc(self, case_id=CASE):
+        return json.loads(self.ddb.plain(f"t3-{case_id}")["doc"])
+
+    def records(self):
+        return list(self.writer.records.values())
 
 
 @pytest.fixture(autouse=True)
@@ -57,258 +70,358 @@ def _reset():
 
 # ---------------------------------------------------------------- dispatch and case_id
 def test_dispatch_by_gateway_tool_name():
-    w = World(nlm_obj=nlm.NLM(env={}))
-    assert set(app._dispatch_table(app.Tools(w.deps))) == set(catalog.all_tools())
+    w = World()
+    assert set(app._dispatch_table(app.Tools(w.deps))) == set(catalog.all_tools()) | {"nlm___ask_nlm"}
     obs = w.call("ran___observe", case_id=CASE)
     assert obs["twin"]["step"] == 0 and "coverage_ratio" in obs["kpis"]
     prop = w.call("ran___propose", case_id=CASE)
-    assert prop["change"] == {"cells": [{"cell": 2, "d_power_db": 0.0, "d_tilt_deg": 2.0}]}
-    assert prop["policy"] == {"model_id": "ppo-maveric", "version": "v0-test"}
-    pred = w.call("ran___predict", case_id=CASE, change=CHANGE)
-    assert set(pred["predicted"]) == set(app.KPI_KEYS)
+    assert prop == {"case_id": CASE, "run_id": f"adhoc-{CASE}", "item_id": "step-0", "change": CHANGE,
+                    "policy": {"model_id": "ppo-maveric", "version": "v0-test"}, "note": prop["note"]}
+    pred = w.call("ran___predict", case_id=CASE, item_id="step-0", change=CHANGE)
+    assert set(pred["predicted_delta"]) == set(app.KPI_KEYS)
     pre = w.call("ran___preflight", case_id=CASE, change=CHANGE)
-    assert pre["after"]["coverage_ratio"] > pre["before"]["coverage_ratio"]
+    assert pre["measured_delta"]["coverage_ratio"] == pytest.approx(pred["predicted_delta"]["coverage_ratio"])
     assert w.call("ran___observe", case_id=CASE)["twin"]["step"] == 0  # preflight changed nothing
-    ask = w.call("nlm13___ask", case_id=CASE, question="What is tilt?")
-    assert "No NLM is configured" in ask["error"]
+    for tool in ("nlm___ask", "nlm___ask_nlm"):
+        assert "No NLM is configured" in w.call(tool, case_id=CASE, question="What is tilt?")["error"]
     assert "unknown tool" in w.call("work___lookup", case_id=CASE)["error"]
     assert "unknown tool" in app.handler({"case_id": CASE}, None)["error"]
 
 
-def test_tool_name_from_event_for_local_runs():
+def test_tool_name_fallback_only_when_enabled():
     w = World()
-    out = app.handler({"__tool__": "ran___observe", "case_id": CASE}, None)
-    assert out["case_id"] == CASE and "__tool__" not in w.cases_table.items[CASE]["doc"]
+    event = {"_tool": "ran___observe", "case_id": CASE}
+    assert "unknown tool" in app.handler(dict(event), None)["error"]
+    w.deps.tool_name_fallback = True
+    out = app.handler(dict(event), None)
+    assert out["case_id"] == CASE and "_tool" not in w.case_doc()
+    # the Gateway's name always wins over the event
+    assert "kpis" in app.handler({"_tool": "ran___apply_change", "case_id": CASE}, context("ran___observe"))
 
 
 @pytest.mark.parametrize("tool", catalog.all_tools())
 @pytest.mark.parametrize("case_id", [None, "", "   ", 7, "../etc/passwd"])
 def test_every_tool_refuses_without_a_case_id(tool, case_id):
-    w = World(nlm_obj=nlm.NLM(env={}))
-    args = {"change": CHANGE, "item_id": "cell-2", "reason": "r", "question": "q"}
+    w = World()
+    args = {"change": CHANGE, "item_id": "step-0", "reason": "r", "question": "q"}
     if case_id is not None:
         args["case_id"] = case_id
     out = app.handler(args, context(tool))
     assert "error" in out and "case_id" in out["error"]
-    assert w.cases_table.items == {} and w.writer.records == []
+    assert w.ddb.items == {} and w.writer.records == {}
 
 
-def test_malformed_change_is_refused_before_any_approval_is_used():
+def test_bad_change_is_refused_before_the_approval_is_used():
     w = World()
-    bad = dict(KIT_STYLE_ARGS, change={"cells": [{"cell": "two", "d_power_db": 0, "d_tilt_deg": 1}]})
-    key = w.interceptor_creates_pending(bad)
-    w.person_approves(key)
+    bad = dict(APPLY, change="cell=two;d_power_db=+0.0;d_tilt_deg=+1.0")
+    key = w.approved(bad)
     out = w.call("ran___apply_change", **bad)
-    assert "cell index" in out["error"]
-    assert w.approvals_table.items[key]["status"] == "APPROVED"  # still usable
+    assert "bad change" in out["error"]
+    assert w.ddb.plain(key)["status"] == "APPROVED"  # still usable
+    for text in ("cell=1;d_power_db=+0.25;d_tilt_deg=+0.0", "cell=1;d_power_db=+0.0;d_tilt_deg=+0.0|"
+                 "cell=1;d_power_db=+1.0;d_tilt_deg=+0.0", ""):
+        assert "bad change" in w.call("ran___predict", case_id=CASE, change=text)["error"]
+
+
+# ---------------------------------------------------------------- the canonical change (A2)
+def test_canonical_change_text():
+    cells = [{"cell": 3, "d_power_db": -1.0, "d_tilt_deg": 0.0}, {"cell": 1, "d_power_db": 0.5, "d_tilt_deg": -0.0}]
+    text = changes.canon(cells)
+    assert text == "cell=1;d_power_db=+0.5;d_tilt_deg=+0.0|cell=3;d_power_db=-1.0;d_tilt_deg=+0.0"
+    assert changes.canon(changes.parse(text)) == text
+    assert changes.parse("cell=3;d_power_db=-1;d_tilt_deg=0|cell=1;d_power_db=0.5;d_tilt_deg=-0.0") == \
+        changes.parse(text)
+    assert changes.canon(changes.round_items([{"cell": 0, "d_power_db": 1.04, "d_tilt_deg": -0.96}])) == \
+        "cell=0;d_power_db=+1.0;d_tilt_deg=-1.0"
 
 
 # ---------------------------------------------------------------- approvals (kit semantics)
 def test_change_key_is_the_kits_key():
-    assert app.change_key(KIT_STYLE_ARGS) == kit_key(KIT_STYLE_ARGS)
+    assert app.change_key(APPLY) == kit_key(APPLY)
     assert app.change_key({"case_id": "c", "item_id": "i", "change": "setting=6"}) == kit_key(
         {"case_id": "c", "item_id": "i", "change": "setting=6"})
-    # The key hashes the change as sent: the same cells in another key order are a different approval.
-    reordered = dict(KIT_STYLE_ARGS, change={"cells": [{"d_tilt_deg": 2, "cell": 2, "d_power_db": 0}]})
-    assert app.change_key(reordered) != app.change_key(KIT_STYLE_ARGS)
-    # ...but the same change for matching a prediction.
-    assert app.change_hash(app.parse_change(reordered["change"])) == app.change_hash(app.parse_change(CHANGE))
 
 
 def test_apply_refused_while_pending():
     w = World()
-    key = w.interceptor_creates_pending(KIT_STYLE_ARGS)
-    out = w.call("ran___apply_change", **KIT_STYLE_ARGS, approval="PENDING")
+    key = w.interceptor_creates_pending(APPLY)
+    out = w.call("ran___apply_change", **APPLY, approval="PENDING")
     assert out["applied"] is False and out["approval_id"] == key and out["approval"] == "PENDING"
     assert "needs a person's approval" in out["error"] and key in out["error"]
-    assert w.approvals_table.items[key]["status"] == "PENDING"
-    assert w.writer.records == [] and CASE not in w.cases_table.items
+    assert w.ddb.plain(key)["status"] == "PENDING"
+    assert w.writer.records == {} and f"t3-{CASE}" not in w.ddb.items
 
 
 def test_apply_refused_without_any_approval_row():
     w = World()
-    out = w.call("ran___apply_change", **KIT_STYLE_ARGS)
+    out = w.call("ran___apply_change", **APPLY)
     assert out["applied"] is False and out["approval"] == "MISSING"
-    assert w.approvals_table.items == {}  # in AWS only the kit's interceptor creates approval rows
+    assert w.ddb.items == {}  # in AWS only the kit's interceptor creates approval rows
 
 
 def test_apply_refused_when_rejected():
     w = World()
-    key = w.interceptor_creates_pending(KIT_STYLE_ARGS)
-    w.approvals_table.items[key]["status"] = "REJECTED"
-    out = w.call("ran___apply_change", **KIT_STYLE_ARGS)
-    assert out["applied"] is False and "already rejected" in out["error"]
+    key = w.interceptor_creates_pending(APPLY)
+    w.ddb.items[key]["status"] = {"S": "REJECTED"}
+    assert "already rejected" in w.call("ran___apply_change", **APPLY)["error"]
 
 
 def test_applied_once_after_approval_then_refused_as_already_applied():
     w = World()
-    key = w.interceptor_creates_pending(KIT_STYLE_ARGS)
-    w.person_approves(key)
+    key = w.approved(APPLY)
     # a forged approval argument does nothing: only the table decides
-    first = w.call("ran___apply_change", **KIT_STYLE_ARGS, approval="APPROVED",
-                   special_context={"x-auth-email": "someone"})
+    first = w.call("ran___apply_change", **APPLY, approval="APPROVED", special_context={"x-auth-email": "someone"})
     assert first["applied"] is True and first["approval_id"] == key
-    assert w.approvals_table.items[key]["status"] == "APPLIED"
-    update = [c for c in w.approvals_table.calls if c[0] == "update_item"]
-    assert update == [("update_item", {"pk": key}, "SET #s = :applied, applied_at = :t", "#s = :approved")]
+    assert w.ddb.plain(key)["status"] == "APPLIED"
+    [tx] = [c for c in w.ddb.calls if c[0] == "transact_write_items"]
+    upd, put = tx[1]["TransactItems"]
+    assert upd["Update"]["Key"] == {"pk": {"S": key}}
+    assert upd["Update"]["UpdateExpression"] == "SET #s = :applied, applied_at = :t"
+    assert upd["Update"]["ConditionExpression"] == "#s = :approved"
+    assert put["Put"]["Item"]["pk"] == {"S": f"t3-{CASE}"} and "status" not in put["Put"]["Item"]
     assert w.call("ran___observe", case_id=CASE)["twin"]["step"] == 1
 
-    second = w.call("ran___apply_change", **KIT_STYLE_ARGS, approval="APPROVED")
+    second = w.call("ran___apply_change", **APPLY, approval="APPROVED")
     assert second["applied"] is False and "already applied" in second["error"]
     assert w.call("ran___observe", case_id=CASE)["twin"]["step"] == 1  # the twin moved once
-    assert len(w.writer.records) == 1
+    assert len(w.records()) == 1
 
 
-# ---------------------------------------------------------------- the change record
-def test_change_record_has_run_id_predicted_and_measured():
+def test_lost_race_on_the_approval_applies_nothing():
+    """The status read said APPROVED, but another call applied it first: the transaction refuses."""
     w = World()
-    w.cases_table.items[CASE] = {"case_id": CASE, "run_id": "r-20261102-a"}  # written by the runner
-    pred = w.call("ran___predict", case_id=CASE, change=CHANGE)
-    w.call("ran___propose", case_id=CASE)
-    key = w.interceptor_creates_pending(KIT_STYLE_ARGS)
-    w.person_approves(key)
-    out = w.call("ran___apply_change", **KIT_STYLE_ARGS)
+    key = w.approved(APPLY)
+    real = w.deps.store.approval_status
+    w.deps.store.approval_status = lambda k: "APPROVED"
+    w.ddb.items[key]["status"] = {"S": "APPLIED"}
+    out = w.call("ran___apply_change", **APPLY)
+    w.deps.store.approval_status = real
+    assert out["applied"] is False and "already applied" in out["error"]
+    assert w.case_doc()["action_log"] == [] and w.records() == []
+
+
+def test_case_row_conflict_is_retried():
+    w = World()
+    key = w.approved(APPLY)
+    w.call("ran___observe", case_id=CASE)
+    s = w.deps.store
+    real_get = s.get_case
+    bumped = {"done": False}
+
+    def racing_get(case_id):
+        case = real_get(case_id)
+        if not bumped["done"]:  # someone else writes the row after we read it
+            bumped["done"] = True
+            s.put_case(dict(case), case["version"])
+        return case
+    s.get_case = racing_get
+    out = w.call("ran___apply_change", **APPLY)
+    assert out["applied"] is True and w.ddb.plain(key)["status"] == "APPLIED"
+    assert len(w.case_doc()["action_log"]) == 1
+
+
+# ---------------------------------------------------------------- the change record (A15)
+def test_change_record_has_run_id_predicted_and_measured():
+    w = World(run_id="r-20261102-a")
+    prop = w.call("ran___propose", case_id=CASE)
+    pred = w.call("ran___predict", case_id=CASE, item_id=prop["item_id"], change=prop["change"])
+    args = {"case_id": CASE, "item_id": prop["item_id"], "change": prop["change"], "reason": "r"}
+    key = w.approved(args)
+    out = w.call("ran___apply_change", **args)
     assert out["applied"] and out["run_id"] == "r-20261102-a"
 
-    [(run_id, kind, rec)] = w.writer.records
-    assert (run_id, kind) == ("r-20261102-a", "change")
+    [(path, rec)] = list(w.writer.records.items())
+    assert path == f"records/r-20261102-a/change/{key}.json"
     assert rec["run_id"] == "r-20261102-a" and rec["kind"] == "change" and rec["team"] == "team13"
-    assert rec["schema_version"] == "1" and rec["synthetic"] is True
-    assert rec["case_id"] == CASE and rec["change_id"] == key
-    assert rec["change"] == [{"cell": 2, "d_power_db": 0.0, "d_tilt_deg": 2.0}]
+    assert rec["schema_version"] == "1" and rec["synthetic"] is True and rec["probe"] is False
+    assert rec["case_id"] == CASE and rec["change_id"] == key and rec["item_id"] == "step-0"
+    assert rec["change"] == [{"cell": 2, "d_power_db": 0.0, "d_tilt_deg": 2.0}] and rec["change_text"] == CHANGE
     assert rec["twin"] == {"kind": "maveric-inprocess", "version": "unknown", "scenario": "nominal", "seed": 0,
-                           "step": 1}
-    assert rec["predicted"] == pred["predicted"]
-    assert set(rec["measured"]) == set(app.KPI_KEYS)
-    observed = w.call("ran___observe", case_id=CASE)["kpis"]
-    assert rec["measured"] == {k: observed[k] for k in app.KPI_KEYS}
+                           "step": 0}
+    assert rec["predicted_delta"] == pred["predicted_delta"]
     assert rec["predictor"] == {"model_id": "t2-response", "version": "v0-test"}
-    assert rec["policy"] == {"model_id": "ppo-maveric", "version": "v0-test"}  # the proposal had the same change
+    assert rec["policy"] == {"model_id": "ppo-maveric", "version": "v0-test"}
+    for k in app.KPI_KEYS:
+        assert rec["measured_delta"][k] == rec["measured_kpis"][k] - rec["baseline_kpis"][k]
+    observed = w.call("ran___observe", case_id=CASE)["kpis"]
+    assert rec["measured_kpis"] == {k: observed[k] for k in app.KPI_KEYS}
+    assert rec["scored"] is True and rec["unscored_reason"] is None
     assert rec["error"]["coverage_ratio"] == pytest.approx(0.0, abs=1e-12)  # unbiased fake predictor
+    assert set(rec["error"]) == set(app.KPI_KEYS) | {"summary"}
     assert rec["direction_agree"] is True
-    assert rec["trust_before"] == 1.0 and rec["trust_after"] == 1.0
-    assert w.trust.updates[0]["predicted"] == pred["predicted"]
+    assert rec["trust_before"] is None and rec["trust_after"] is None  # the gate runs asynchronously
+    assert w.trust.records == [rec] and out["trust"]["invoked"] == "team13-trust-gate"
     json.dumps(rec, allow_nan=False)
 
 
-def test_wrong_direction_prediction_lowers_trust_and_reports_pause():
+def test_apply_reads_the_stored_prediction_and_never_runs_the_model():
     w = World(predictor=FakePredictor(flip=True))
-    w.call("ran___predict", case_id=CASE, change=CHANGE)
-    key = w.interceptor_creates_pending(KIT_STYLE_ARGS)
-    w.person_approves(key)
-    out = w.call("ran___apply_change", **KIT_STYLE_ARGS)
-    assert out["direction_agree"] is False and out["trust"]["action"] == "pause"
-    rec = w.writer.records[0][2]
-    assert rec["direction_agree"] is False and rec["trust_after"] == 0.5
+    w.call("ran___predict", case_id=CASE, item_id="step-0", change=CHANGE)
+    assert len(w.predictor.calls) == 1
+    w.approved(APPLY)
+    out = w.call("ran___apply_change", **APPLY)
+    assert len(w.predictor.calls) == 1   # apply did not call the predictor (A4)
+    assert out["direction_agree"] is False and out["scored"] is True
+    rec = w.records()[0]
     assert rec["error"]["summary"] > 0
+    assert rec["error"]["summary"] == pytest.approx(sum(rec["error"][k] / s for k, s in w.deps.scales.items()) / 3)
 
 
-def test_apply_without_prediction_writes_unscored_record_and_skips_trust():
+def test_clipped_change_is_recorded_unscored():
     w = World()
-    key = w.interceptor_creates_pending(KIT_STYLE_ARGS)
-    w.person_approves(key)
-    out = w.call("ran___apply_change", **KIT_STYLE_ARGS)
-    assert out["applied"] and "nothing to score" in out["note"]
-    rec = w.writer.records[0][2]
-    assert rec["predicted"] is None and rec["direction_agree"] is None and rec["measured"]
-    assert w.trust.updates == []
+    big = dict(APPLY, change="cell=1;d_power_db=+5.0;d_tilt_deg=+0.0")
+    w.call("ran___predict", case_id=CASE, item_id="step-0", change=big["change"])
+    w.approved(big)
+    out = w.call("ran___apply_change", **big)
+    assert out["applied"] and out["clipped"] is True
+    rec = w.records()[0]
+    assert rec["scored"] is False and rec["unscored_reason"] == "clipped"
+    assert rec["error"] is None and rec["direction_agree"] is None
+    assert w.trust.records == []  # nothing to score
 
 
-def test_run_id_sources():
+def test_apply_without_prediction_is_unscored():
+    w = World()
+    w.approved(APPLY)
+    out = w.call("ran___apply_change", **APPLY)
+    assert out["applied"] and out["unscored_reason"] == "no_prediction"
+    assert w.records()[0]["predicted_delta"] is None and w.trust.records == []
+
+
+def test_trust_gate_failure_does_not_undo_the_change():
+    w = World()
+
+    def broken(record):
+        raise RuntimeError("throttled")
+    w.trust = broken
+    w.call("ran___predict", case_id=CASE, item_id="step-0", change=CHANGE)
+    w.approved(APPLY)
+    out = w.call("ran___apply_change", **APPLY)
+    assert out["applied"] and "throttled" in out["trust"]["error"] and len(w.records()) == 1
+
+
+def test_run_id_comes_from_the_active_run_row():
     w = World()
     assert w.call("ran___observe", case_id="case-00000001")["run_id"] == "adhoc-case-00000001"
-    assert w.call("ran___observe", case_id="case-00000002", run_id="run_id: r-7")["run_id"] == "r-7"
-    assert w.call("ran___observe", case_id="case-00000003", run_id="r-8")["run_id"] == "r-8"
-    w.cases_table.items["case-00000004"] = {"case_id": "case-00000004", "run_id": "r-runner", "seed": 5}
-    out = w.call("ran___observe", case_id="case-00000004", run_id="r-other")
-    assert out["run_id"] == "r-runner" and out["twin"]["seed"] == 5  # the runner's row wins
-    # the first call fixes the run_id for the life of the case
-    assert w.call("ran___observe", case_id="case-00000001", run_id="r-late")["run_id"] == "adhoc-case-00000001"
+    w.ddb.set_plain("t3-active", run_id="r-7")
+    assert w.call("ran___observe", case_id="case-00000002")["run_id"] == "r-7"
+    w.ddb.set_plain("t3-active", run_id="r-8")
+    assert w.call("ran___observe", case_id="case-00000002")["run_id"] == "r-7"  # fixed for the case's life
+    assert "status" not in w.ddb.items["t3-case-00000002"]   # the kit's approve never lists case rows
 
 
-def test_replay_is_deterministic_and_stateless():
+def test_replay_is_deterministic_and_the_twin_is_cached():
     w = World()
-    for i, d in enumerate((1, -1, 2)):
-        args = dict(KIT_STYLE_ARGS, item_id=f"cell-2-{i}", change={"cells": [{"cell": 2, "d_power_db": d,
-                                                                                "d_tilt_deg": 0}]})
-        w.person_approves(w.interceptor_creates_pending(args))
+    FakeTwin.instances = 0
+    for i, d in enumerate((1.0, -1.0, 2.0)):
+        args = dict(APPLY, item_id=f"step-{i}", change=f"cell=2;d_power_db={d:+.1f};d_tilt_deg=+0.0")
+        w.approved(args)
         assert w.call("ran___apply_change", **args)["applied"]
     obs = w.call("ran___observe", case_id=CASE)
     assert obs["twin"]["step"] == 3
     assert obs["kpis"]["per_cell"][2]["power_dbm"] == 42.0  # 40 + 1 - 1 + 2, rebuilt from the action log
-    doc = json.loads(w.cases_table.items[CASE]["doc"])
-    assert set(doc) == set(store.CASE_FIELDS) and len(doc["action_log"]) == 3
+    assert FakeTwin.instances == 1  # one cached twin object, reset per use (A16)
+    doc = w.case_doc()
+    assert set(doc) == set(store.CASE_FIELDS) and [e["step"] for e in doc["action_log"]] == [0, 1, 2]
 
 
-def test_case_row_conflict_is_detected():
+def test_replay_mismatch_is_reported():
     w = World()
-    w.call("ran___observe", case_id=CASE)
-    s = store.DynamoCaseStore(w.cases_table)
-    case = s.get(CASE)
-    s.put(dict(case), case["version"])
-    with pytest.raises(store.ConflictError):
-        s.put(dict(case), case["version"])
+    w.approved(APPLY)
+    w.call("ran___apply_change", **APPLY)
+    doc = w.case_doc()
+    doc["action_log"][0]["filtered"]["tilt"][2] = 1.5
+    row = w.ddb.items[f"t3-{CASE}"]
+    row["doc"] = {"S": json.dumps(doc)}
+    assert "ReplayMismatch" in w.call("ran___observe", case_id=CASE)["error"]
+
+
+def test_model_version_must_be_the_served_one():
+    w = World()
+    assert "not being served" in w.call("ran___predict", case_id=CASE, change=CHANGE, model_version="v9")["error"]
+    assert "predicted_delta" in w.call("ran___predict", case_id=CASE, change=CHANGE, model_version="v0-test")
+    assert "not being served" in w.call("ran___propose", case_id=CASE, model_version="v9")["error"]
 
 
 # ---------------------------------------------------------------- local mode (W3b's Docker runs)
 def test_local_store_emulates_the_interceptor(tmp_path):
-    cases, approvals, emulate = store.from_env({"T3_STORE": f"local:{tmp_path}"})
-    assert emulate is True
+    s = store.from_env({"T3_STORE": f"local:{tmp_path}"})
+    assert s.emulate_interceptor is True
+    s.set_active_run_id("r-local")
     writer = evidence.LocalWriter(tmp_path / "ev")
-    app.set_deps(app.Deps(cases=cases, approvals=approvals, twin_factory=FakeTwin, kpis=fake_kpis,
-                          predictor=lambda: FakePredictor(), writer=lambda: writer, emulate_interceptor=True))
-    ctx = context("ran___apply_change")
-    app.handler({"case_id": CASE, "change": CHANGE}, context("ran___predict"))
-    first = app.handler(dict(KIT_STYLE_ARGS), ctx)
+    app.set_deps(app.Deps(store=s, twin_factory=FakeTwin, kpis=fake_kpis, predictor=lambda: FakePredictor(),
+                          writer=lambda: writer, tool_name_fallback=True))
+    app.handler({"_tool": "ran___predict", "case_id": CASE, "item_id": "step-0", "change": CHANGE}, None)
+    first = app.handler({"_tool": "ran___apply_change", **APPLY}, None)
     assert first["applied"] is False and first["approval"] == "PENDING"
-    assert [r["pk"] for r in approvals.pending()] == [kit_key(KIT_STYLE_ARGS)]
+    assert [r["pk"] for r in s.pending()] == [kit_key(APPLY)]
     assert store.main([str(tmp_path), "approve", first["approval_id"], "looks", "fine"]) == 0
-    assert app.handler(dict(KIT_STYLE_ARGS), ctx)["applied"] is True
-    assert "already applied" in app.handler(dict(KIT_STYLE_ARGS), ctx)["error"]
-    lines = (tmp_path / "ev/records/adhoc-case-1a2b3c4d/change.jsonl").read_text().splitlines()
-    assert len(lines) == 1 and json.loads(lines[0])["predicted"] is not None
+    assert app.handler({"_tool": "ran___apply_change", **APPLY}, None)["applied"] is True
+    assert "already applied" in app.handler({"_tool": "ran___apply_change", **APPLY}, None)["error"]
+    rec = json.loads((tmp_path / f"ev/records/r-local/change/{first['approval_id']}.json").read_text())
+    assert rec["predicted_delta"] is not None and rec["run_id"] == "r-local"
 
 
-def test_store_selection_errors():
+def test_w3b_sample_event_shape_still_parses():
+    """W3b's events send `change` as a list; the AWS schema sends a string. Both parse the same."""
+    assert changes.parse([{"cell": 0, "d_power_db": 1.0, "d_tilt_deg": -1.0}]) == \
+        changes.parse("cell=0;d_power_db=+1.0;d_tilt_deg=-1.0")
+
+
+def test_store_selection_errors(tmp_path):
     with pytest.raises(ValueError):
         store.from_env({})
     with pytest.raises(ValueError):
         store.from_env({"T3_STORE": "redis:x"})
+    assert isinstance(store.from_env({"APPROVALS_TABLE": "team13-approvals"}), store.DynamoStore)
     with pytest.raises(ValueError):
-        store.LocalCaseStore("/tmp/unused-never-written")._path("../x")
+        store.LocalStore(tmp_path).get_case("../x")
 
 
-# ---------------------------------------------------------------- evidence writers
-def test_s3_writer_appends_with_conditions():
+# ---------------------------------------------------------------- evidence writers (A11)
+def test_s3_writer_one_object_per_record_never_overwritten():
     s3 = FakeS3()
     w = evidence.S3Writer("bucket", "evidence", client=s3)
-    assert w.append_records("r-1", "change", [{"a": 1}]) == "s3://bucket/evidence/records/r-1/change.jsonl"
-    w.append_records("r-1", "change", [{"a": 2}])
-    body = s3.objects[("bucket", "evidence/records/r-1/change.jsonl")][0].decode().splitlines()
-    assert [json.loads(x)["a"] for x in body] == [1, 2]
-    assert s3.puts[0][2] == "*" and s3.puts[1][1] is not None
+    loc = w.put_record("r-1", "change", "chg-0123456789ab", {"a": 1})
+    assert loc == "s3://bucket/evidence/records/r-1/change/chg-0123456789ab.json"
+    with pytest.raises(evidence.RecordExists):
+        w.put_record("r-1", "change", "chg-0123456789ab", {"a": 2})
+    assert json.loads(s3.objects[("bucket", "evidence/records/r-1/change/chg-0123456789ab.json")]) == {"a": 1}
     with pytest.raises(ValueError):
-        w.append_records("../r", "change", [{}])
+        w.put_record("../r", "change", "k", {})
 
 
-def test_evidence_selection():
-    assert isinstance(evidence.from_env({"T3_EVIDENCE": "local:/x"}), evidence.LocalWriter)
+def test_local_writer_and_selection(tmp_path):
+    w = evidence.from_env({"T3_EVIDENCE": f"local:{tmp_path}"})
+    w.put_record("r-1", "change", "k1", {"a": 1})
+    assert (tmp_path / "records/r-1/change/k1.json").exists()
+    with pytest.raises(evidence.RecordExists):
+        w.put_record("r-1", "change", "k1", {"a": 1})
     s3w = evidence.from_env({"T3_EVIDENCE": "s3://b/p/q"})
     assert (s3w.bucket, s3w.prefix) == ("b", "p/q")
     with pytest.raises(ValueError):
-        evidence.from_env({"T3_EVIDENCE": "ftp://x"})
+        evidence.from_env({})
 
 
 def test_evidence_failure_does_not_hide_the_applied_change():
     w = World()
 
     class Broken:
-        def append_records(self, *a):
+        def put_record(self, *a):
             raise OSError("disk full")
     w.deps.writer = lambda: Broken()
-    w.person_approves(w.interceptor_creates_pending(KIT_STYLE_ARGS))
-    out = w.call("ran___apply_change", **KIT_STYLE_ARGS)
+    w.approved(APPLY)
+    out = w.call("ran___apply_change", **APPLY)
     assert out["applied"] is True and "disk full" in out["evidence_error"]
+
+
+def test_change_applied_log_line(capsys):
+    w = World(run_id="r-9")
+    key = w.approved(APPLY)
+    w.call("ran___apply_change", **APPLY)
+    lines = [json.loads(x) for x in capsys.readouterr().out.splitlines()]
+    [line] = [x for x in lines if x.get("record") == "change_applied"]
+    assert (line["case_id"], line["run_id"], line["approval_id"], line["change_text"]) == (CASE, "r-9", key, CHANGE)
 
 
 # ---------------------------------------------------------------- NLM
@@ -316,21 +429,23 @@ def test_nlm_sagemaker_endpoint_is_labelled():
     sm = FakeSageMaker({"choices": [{"message": {"content": " Tilt aims the beam. "}}]})
     w = World(nlm_obj=nlm.NLM(env={"NLM_ENDPOINT": "team13-otel-tuned", "NLM_STANDIN_MODEL": "x"},
                               client_factory=lambda svc: {"sagemaker-runtime": sm}[svc]))
-    out = w.call("nlm13___ask", case_id=CASE, question="What is tilt?")
+    out = w.call("nlm___ask", case_id=CASE, question="What is tilt?")
     assert out["answer"] == "Tilt aims the beam."
     assert out["answered_by"]["kind"] == "sagemaker-endpoint" and out["answered_by"]["stand_in"] is False
     body = json.loads(sm.calls[0]["Body"])
     assert sm.calls[0]["EndpointName"] == "team13-otel-tuned" and body["messages"][1]["content"] == "What is tilt?"
+    assert w.call("nlm___ask_nlm", case_id=CASE, question="q")["answer"]  # the kit's tool name, same code
+    assert "not being served" in w.call("nlm___ask", case_id=CASE, question="q", model_version="v7")["error"]
 
 
 def test_nlm_standin_is_labelled_as_standin():
     br = FakeBedrock("A stand-in answer.")
     w = World(nlm_obj=nlm.NLM(env={"NLM_STANDIN_MODEL": "openai.gpt-oss-20b-1:0"},
                               client_factory=lambda svc: {"bedrock-runtime": br}[svc]))
-    out = w.call("nlm13___ask", case_id=CASE, question="What is SINR?")
+    out = w.call("nlm___ask", case_id=CASE, question="What is SINR?")
     assert out["answer"] == "A stand-in answer."
-    assert out["answered_by"] == {"kind": "bedrock-standin", "id": "openai.gpt-oss-20b-1:0",
-                                  "model_label": "stand-in: NOT our tuned model", "stand_in": True}
+    assert out["answered_by"]["kind"] == "bedrock-standin" and out["answered_by"]["stand_in"] is True
+    assert out["answered_by"]["model_label"] == "stand-in: NOT our tuned model"
     assert br.calls[0]["modelId"] == "openai.gpt-oss-20b-1:0"
 
 
@@ -341,21 +456,3 @@ def test_nlm_tgi_payload_and_parsing():
     assert "inputs" in json.loads(sm.calls[0]["Body"])
     with pytest.raises(ValueError):
         nlm.parse_generation({"nothing": 1})
-
-
-def test_nlm_target_name_is_ours_not_the_kits(monkeypatch):
-    monkeypatch.setenv("T3_NLM_TARGET", "nlm")
-    with pytest.raises(ValueError):
-        catalog.nlm_target()
-    monkeypatch.setenv("T3_NLM_TARGET", "bad_name")
-    with pytest.raises(ValueError):
-        catalog.nlm_target()
-
-
-# ---------------------------------------------------------------- change parsing
-def test_change_may_arrive_as_json_text():
-    assert app.parse_change(json.dumps(CHANGE)) == [{"cell": 2, "d_power_db": 0.0, "d_tilt_deg": 2.0}]
-    for bad in ({}, {"cells": []}, {"cells": [{"cell": 1}, {"cell": 1}]}, {"cells": [{"cell": True}]},
-                {"cells": [{"cell": 1, "d_power_db": float("nan")}]}, "not json", [1]):
-        with pytest.raises(app.ToolError):
-            app.parse_change(bad)
