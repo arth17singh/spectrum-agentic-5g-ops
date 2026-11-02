@@ -39,6 +39,16 @@ from typing import Any, Callable
 from .records import direction_agreement, error_e, make_control_record, utc_now
 
 THRESHOLDS_PATH = Path(__file__).with_name("thresholds.json")
+# Declared threshold sets. v1 is the default until the lead approves a switch.
+THRESHOLDS_BY_VERSION = {"v1": THRESHOLDS_PATH, "v2": Path(__file__).with_name("thresholds_v2.json")}
+DEFAULT_THRESHOLDS_VERSION = "v1"
+
+
+def thresholds_path(version: str | None = None) -> Path:
+    v = version or DEFAULT_THRESHOLDS_VERSION
+    if v not in THRESHOLDS_BY_VERSION:
+        raise ValueError(f"unknown thresholds version {v!r}; known: {sorted(THRESHOLDS_BY_VERSION)}")
+    return THRESHOLDS_BY_VERSION[v]
 
 
 def load_thresholds(path: str | Path = THRESHOLDS_PATH) -> tuple[dict, str]:

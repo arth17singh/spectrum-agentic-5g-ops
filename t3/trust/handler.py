@@ -12,6 +12,7 @@ waiting for ACTIVE, to answer in about 2 s) and writes its own ``control`` recor
 Configuration (environment only; nothing secret lives in code):
     T3_TRUST_STORE      "memory" | "file:<path>" | "ddb:<table>"     (default memory: tests only)
     T3_TRUST_LIVE       "1" creates/deletes real Cedar policies; anything else is a dry run
+    T3_TRUST_THRESHOLDS "v1" (default; thresholds.json) or "v2" (thresholds_v2.json), only after the lead approves
     T3_GATEWAY_ARN      the kit Gateway's ARN                         (required when live)
     T3_POLICY_ENGINE_ID the kit policy engine's id                    (required when live)
     EVIDENCE_S3 / EVIDENCE_DIR   where control records go (tools.evlib's own variables)
@@ -74,7 +75,12 @@ def _build_gate():
     else:
         from .evio import EvidenceWriter
         writer = EvidenceWriter()  # memory: tests and local runs without an evidence target
-    return TrustGate(store, None, pc, writer, synthetic=not live)
+    from .gate import thresholds_path
+
+    version = os.environ.get("T3_TRUST_THRESHOLDS", "v1")  # v1 until the lead approves a switch
+    gate = TrustGate(store, thresholds_path(version), pc, writer, synthetic=not live)
+    gate.thresholds_version = version
+    return gate
 
 
 def handle(gate, event) -> dict:
@@ -92,7 +98,8 @@ def handle(gate, event) -> dict:
             "e": out.get("e"), "score": out.get("score"), "action": out.get("action"),
             "direction_agree": out.get("direction_agree"), "status": out.get("status"),
             "band": out.get("band"), "n": out.get("n"),
-            "thresholds_sha256": gate.thresholds_sha256}
+            "thresholds_sha256": gate.thresholds_sha256,
+            "thresholds_version": getattr(gate, "thresholds_version", None)}
     for k in ("skipped", "error"):
         if out.get(k):
             resp[k] = out[k]

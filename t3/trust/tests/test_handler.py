@@ -59,6 +59,27 @@ def test_handler_builds_a_dry_run_gate_from_env(monkeypatch, tmp_path):
     assert (tmp_path / "trust.json").exists()
 
 
+def test_thresholds_by_version_default_v1(monkeypatch, tmp_path):
+    from t3.trust.gate import THRESHOLDS_BY_VERSION, load_thresholds, thresholds_path
+
+    assert thresholds_path() == THRESHOLDS_BY_VERSION["v1"]
+    with pytest.raises(ValueError):
+        thresholds_path("v3")
+    th2, sha2 = load_thresholds(thresholds_path("v2"))  # the declared v2 file validates
+    assert th2["version"] == "v2" and th2["warmup"] == 3 and th2["recent_needed"] == 2 and th2["recent_window"] == 3
+    monkeypatch.setenv("T3_TRUST_STORE", "memory")
+    monkeypatch.delenv("EVIDENCE_S3", raising=False)
+    monkeypatch.delenv("EVIDENCE_DIR", raising=False)
+    monkeypatch.delenv("T3_TRUST_THRESHOLDS", raising=False)
+    monkeypatch.setattr(h, "_GATE", None)
+    out = h.handler({"record": rec(1, GOOD)})
+    assert out["thresholds_version"] == "v1" and out["thresholds_sha256"] == load_thresholds(thresholds_path("v1"))[1]
+    monkeypatch.setenv("T3_TRUST_THRESHOLDS", "v2")
+    monkeypatch.setattr(h, "_GATE", None)
+    out = h.handler({"record": rec(1, GOOD)})
+    assert out["thresholds_version"] == "v2" and out["thresholds_sha256"] == sha2
+
+
 # ------------------------------------------------------------------ role limits (/bb26/team13-trust-gate)
 ALLOWED_AC = {"create_policy", "delete_policy", "get_policy", "list_policies"}
 GW = "arn:aws:bedrock-agentcore:us-east-2:123456789012:gateway/gw-abc"
