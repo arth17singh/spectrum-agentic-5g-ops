@@ -1,0 +1,428 @@
+{
+ "what": "one-shot evaluation on fresh twin seeds",
+ "code_sha": "ed7d3c4ecd9914bcda6db59a036158332bd1e83b",
+ "started_at": "20261102T212612Z",
+ "twin": "twin.replay.ReplayTwin official/nominal",
+ "script_sha256": "bb53f1173c0bd7481226644068a8b72483ec15065469748be00389400f4df842",
+ "seeds": [
+  2000,
+  2019
+ ],
+ "criterion": {
+  "eval_twin_seeds": [
+   2000,
+   2019
+  ],
+  "script": "t3/trust/scripted_changes.json (24 changes)",
+  "healthy_false_pauses_max": 2,
+  "degraded_paused_by_change_6_min": 19,
+  "runs": 20
+ },
+ "versions": {
+  "v2": {
+   "thresholds_sha256": "395ed282e042b4c365f6ad2d92f5b8e560511df1cfc6b572d3aed369a7fef852",
+   "alpha": 0.1,
+   "tau": 1.1,
+   "pause_below": 0.5,
+   "scales": {
+    "coverage_ratio": 0.0333,
+    "sla_ratio": 0.0391,
+    "sinr_p10_db": 0.8046
+   },
+   "healthy_false_pauses": 6,
+   "healthy_paused_at": [
+    null,
+    null,
+    3,
+    null,
+    3,
+    null,
+    null,
+    3,
+    3,
+    null,
+    20,
+    null,
+    null,
+    null,
+    3,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "degraded_paused_by_6": 20,
+   "degraded_paused_any": 20,
+   "degraded_paused_at": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "runs": 20,
+   "criterion_passed": false,
+   "rows": [
+    {
+     "seed": 2000,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2000-fa8a",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.5013437897059444,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2001,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2001-5b5e",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.6300008550892771,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2002,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2002-d62b",
+     "healthy_paused_at": 3,
+     "healthy_min_trust": 0.47616745818145517,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2003,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2003-0b7f",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.6196574762221781,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2004,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2004-4abe",
+     "healthy_paused_at": 3,
+     "healthy_min_trust": 0.3415759975799482,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2005,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2005-8086",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.5764304641739341,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2006,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2006-c9e6",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.7214774488298846,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2007,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2007-e2de",
+     "healthy_paused_at": 3,
+     "healthy_min_trust": 0.39204864173888126,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2008,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2008-7df8",
+     "healthy_paused_at": 3,
+     "healthy_min_trust": 0.33725143809350006,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2009,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2009-ae81",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.6208038446485661,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2010,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2010-8cee",
+     "healthy_paused_at": 20,
+     "healthy_min_trust": 0.6145970779483381,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2011,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2011-b631",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.7282852967165763,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2012,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2012-bf32",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.6508666217428629,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2013,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2013-b02e",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.5800361464064765,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2014,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2014-6773",
+     "healthy_paused_at": 3,
+     "healthy_min_trust": 0.4397045983624641,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2015,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2015-73e0",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.6941264992050753,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2016,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2016-66bd",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.5705388123526646,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2017,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2017-a6b7",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.5494111915546852,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2018,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2018-ac5b",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.707487463377568,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2019,
+     "run_id": "t3.trust-eval-v2-20261102T212612Z-2019-727c",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.6484652957114969,
+     "degraded_paused_at": 3
+    }
+   ]
+  },
+  "v1": {
+   "thresholds_sha256": "d051c1e05efbca5491fd90741ea835a3c83d0ba55ef320dfaf76cc24df4af74b",
+   "alpha": 0.15,
+   "tau": 0.65,
+   "pause_below": 0.4,
+   "scales": {
+    "coverage_ratio": 0.057,
+    "sla_ratio": 0.0389,
+    "sinr_p10_db": 0.8862
+   },
+   "healthy_false_pauses": 8,
+   "healthy_paused_at": [
+    24,
+    null,
+    null,
+    null,
+    null,
+    4,
+    null,
+    3,
+    3,
+    null,
+    15,
+    null,
+    null,
+    null,
+    15,
+    null,
+    19,
+    19,
+    null,
+    null
+   ],
+   "degraded_paused_by_6": 20,
+   "degraded_paused_any": 20,
+   "degraded_paused_at": [
+    3,
+    4,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    4,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "runs": 20,
+   "criterion_passed": false,
+   "rows": [
+    {
+     "seed": 2000,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2000-4d3a",
+     "healthy_paused_at": 24,
+     "healthy_min_trust": 0.5624151473056267,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2001,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2001-302c",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.6552591816692082,
+     "degraded_paused_at": 4
+    },
+    {
+     "seed": 2002,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2002-caea",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.49330598133998343,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2003,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2003-2073",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.624203384653527,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2004,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2004-8c50",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.40508611109424286,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2005,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2005-27f8",
+     "healthy_paused_at": 4,
+     "healthy_min_trust": 0.6229231970670879,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2006,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2006-2b96",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.7378359362158524,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2007,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2007-22bc",
+     "healthy_paused_at": 3,
+     "healthy_min_trust": 0.46771724014654364,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2008,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2008-6593",
+     "healthy_paused_at": 3,
+     "healthy_min_trust": 0.3886232530721375,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2009,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2009-43a2",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.6689122313608621,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2010,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2010-6496",
+     "healthy_paused_at": 15,
+     "healthy_min_trust": 0.7017081042181479,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2011,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2011-0d85",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.7681238893701091,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2012,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2012-9f6f",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.6645391227389095,
+     "degraded_paused_at": 4
+    },
+    {
+     "seed": 2013,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2013-1fa7",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.5953595416959279,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2014,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2014-db39",
+     "healthy_paused_at": 15,
+     "healthy_min_trust": 0.5001925969615152,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2015,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2015-7d37",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.7240395679352747,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2016,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2016-2fd8",
+     "healthy_paused_at": 19,
+     "healthy_min_trust": 0.5741653222242369,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2017,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2017-93cd",
+     "healthy_paused_at": 19,
+     "healthy_min_trust": 0.5489676033444988,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2018,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2018-6b8c",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.7426854738702695,
+     "degraded_paused_at": 3
+    },
+    {
+     "seed": 2019,
+     "run_id": "t3.trust-eval-v1-20261102T212612Z-2019-57df",
+     "healthy_paused_at": null,
+     "healthy_min_trust": 0.6319335138222936,
+     "degraded_paused_at": 3
+    }
+   ]
+  }
+ },
+ "finished_at": "20261102T212636Z"
+}
