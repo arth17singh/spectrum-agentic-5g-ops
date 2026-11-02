@@ -4,6 +4,8 @@ from __future__ import annotations
 import copy
 import json
 import random
+import re
+from pathlib import Path
 
 import pytest
 
@@ -488,3 +490,93 @@ def test_permits_table_matches_the_agents_prompts():
             short = tool.split("___")[1]
             if tool in PERMITS[agent]:
                 assert short in text, (agent, tool)
+
+
+# ---------- agents ----------
+AGENTS_DIR = Path(__file__).resolve().parents[2] / "agents"
+
+
+def prompt_example(text):
+    lines = text.splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.startswith('{"role"'))
+    for end in range(start + 1, len(lines) + 1):
+        try:
+            return json.loads("\n".join(lines[start:end]))
+        except ValueError:
+            continue
+    raise AssertionError("no JSON example in the prompt")
+
+
+@pytest.mark.parametrize("agent", ["ran_monitor", "ran_optimizer", "ran_explainer"])
+def test_student_prompt_example_matches_its_schema(agent):
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = json.loads((AGENTS_DIR / "schemas" / f"{agent}.schema.json").read_text())
+    jsonschema.Draft202012Validator.check_schema(schema)
+    example = prompt_example((AGENTS_DIR / f"{agent}.md").read_text())
+    assert example["case_id"] == "case-..."  # the prompt shows a placeholder; a real answer has the case id
+    example["case_id"] = "case-0a1b2c3d"
+    jsonschema.validate(example, schema)
+    assert len(json.dumps(example).split()) <= 120
+    if "change" in example:  # a non-canonical change string is rejected
+        bad = dict(example, change="cell 2: -1 dB power, +1 deg tilt")
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(bad, schema)
+
+
+def test_kit_template_holds_placeholders_only():
+    kit = json.loads((AGENTS_DIR / "kit.json.template").read_text())
+    assert kit["name"] == "team13" and kit["region"] == "us-east-2" and kit["lead"] == "noc_lead"
+    assert kit["specialists"] == ["ran_monitor", "ran_optimizer", "ran_explainer"]
+    assert kit["may_change"] == ["noc_lead"]
+    assert "YOUR-IP" in kit["builder_host"] and "paste" in kit["a2a_token"]
+    assert all("paste" in v for v in kit["a2a_agents"].values())
+    text = (AGENTS_DIR / "kit.json.template").read_text() + (AGENTS_DIR / "BUILDER_CHECKLIST.md").read_text()
+    assert not re.search(r"\b\d{12}\b", text) and not re.search(r"\d+-\d+-\d+-\d+\.sslip", text)
+    assert not re.search(r"eyJ[A-Za-z0-9_-]{10,}", text)  # no JWT
+
+
+def test_lead_prompt_carries_the_rules():
+    text = (AGENTS_DIR / "noc_lead.md").read_text()
+    for must in ("open_case", "case_id", "apply_change", "approval id", "Approved.", "exactly the same",
+                 "verify", "character for character", "run_id"):
+        assert must in text, must
+    assert text.index("ask ran_monitor") < text.index("ask ran_optimizer") < text.index("ask ran_explainer")
+
+
+def test_brain_smoke_dry_run_and_fake_conversation(capsys):
+    from t3.agents import brain_smoke
+    assert brain_smoke.main([]) == 0
+    assert "Nothing sent" in capsys.readouterr().out
+
+    clock, ddb = Clock(), FakeDDB()
+    state = {"turn": 0, "case": "case-1234abcd"}
+
+    def post(url, body, headers, timeout):
+        req = json.loads(body)
+        tool, args = req["params"]["name"], req["params"]["arguments"]
+        if tool == "front___start_case":
+            assert "run_id: smoke-test" in args["request"]
+            payload = {"case_id": state["case"], "state": "TASK_STATE_SUBMITTED"}
+        elif tool == "front___continue_case":
+            state["turn"] += 1
+            payload = {"case_id": state["case"], "state": "TASK_STATE_SUBMITTED"}
+        else:
+            replies = [f"{state['case']}: waiting for approval chg-cccccccccccc",
+                       f"{state['case']}: change applied and verified", f"{state['case']}: it held"]
+            waiting = [{"approval_id": "chg-cccccccccccc", "change": "{}"}] if state["turn"] == 0 else []
+            payload = {"state": "TASK_STATE_COMPLETED", "reply": replies[state["turn"]],
+                       "waiting_approvals": waiting}
+        return 200, {}, json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"content": [
+            {"type": "text", "text": json.dumps(payload)}]}})
+
+    gw = common.Gateway("https://x.invalid", common.Tokens(env=tokens_env()), post=post, clock=clock)
+    t_start = clock()
+
+    def sleep(s):  # the person approves after a while
+        clock.sleep(s)
+        if clock() - t_start > 30:
+            ddb.approvals()["chg-cccccccccccc"] = {"pk": "chg-cccccccccccc", "status": "APPROVED"}
+    out = brain_smoke.converse(gw, ddb, "team13-approvals", tag="smoke-test", sleep=sleep, clock=clock,
+                               log=lambda *a: None)
+    assert out["passed"], out["checks"]
+    assert ddb.writes == []  # read only

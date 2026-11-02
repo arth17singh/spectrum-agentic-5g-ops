@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "team13/t3/agents/ran_optimizer.schema.json",
+  "title": "ran_optimizer answer",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "case_id",
+    "item_id",
+    "change",
+    "predicted_delta",
+    "preflight",
+    "policy",
+    "predictor",
+    "confidence",
+    "notes"
+  ],
+  "properties": {
+    "role": {
+      "const": "ran_optimizer"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^case-[A-Za-z0-9-]+$"
+    },
+    "item_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^step-\\d+$"
+    },
+    "change": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^cell=\\d+;d_power_db=[+-]\\d+\\.\\d;d_tilt_deg=[+-]\\d+\\.\\d(\\|cell=\\d+;d_power_db=[+-]\\d+\\.\\d;d_tilt_deg=[+-]\\d+\\.\\d)*$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "predicted_delta": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "coverage_ratio": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sla_ratio": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sinr_p10_db": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sinr_mean_db": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "preflight": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "coverage_ratio": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sla_ratio": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sinr_p10_db": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sinr_mean_db": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "positive": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "policy": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "model_id",
+        "version"
+      ],
+      "properties": {
+        "model_id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "predictor": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "model_id",
+        "version"
+      ],
+      "properties": {
+        "model_id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 400
+    }
+  }
+}
