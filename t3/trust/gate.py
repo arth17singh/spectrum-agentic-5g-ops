@@ -147,7 +147,7 @@ class TrustGate:
         before = st["trust"]
         st["m"], st["n"], st["trust"] = self.ewma_step(st["m"], st["n"], sc["score"], float(th["alpha"]))
         st["recent_e"] = (st.get("recent_e", []) + [sc["e"] if math.isfinite(sc["e"]) else 1e9])[-int(th["recent_window"]):]
-        st["history"].append({"change_id": change_record.get("change_id"), "e": sc["e"], "score": sc["score"],
+        st["history"].append({"change_id": change_record.get("change_id"), "e": sc["e"] if math.isfinite(sc["e"]) else 1e9, "score": sc["score"],
                               "trust": st["trust"], "epoch": st["epoch"]})
         self.store.put(mid, ver, st)
         status = self.store.get(mid, ver)["status"]

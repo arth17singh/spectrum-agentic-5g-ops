@@ -43,7 +43,7 @@ import numpy as np
 
 from .records import make_result_record
 from .retention import bootstrap_mean_ci, bootstrap_retention, retention
-from .stepping import predicted_delta
+from .stepping import baseline_twin, predicted_delta
 
 LABELS = {"maveric": "MAVERIC", "rehearsal": "REHEARSAL (Viavi-like Maveric)", "viavi": "VIAVI"}
 OBJECTIVE = {"coverage_ratio": 1.0, "sla_ratio": 1.0, "sinr_p10_db": 0.05}
@@ -83,7 +83,7 @@ def case_gain(model, twin_factory, kpis, *, scenario, seed, config, changes) -> 
     for change in changes:
         pick = choose(model, state, change)
         if paired:
-            ref = twin_factory.from_log(scenario, seed, config, [list(c) for c in tw.action_log])
+            ref = baseline_twin(tw, twin_factory, scenario, seed, config)
             base = kpis(ref.apply([]))
         else:
             base = kpis(base_tw.apply([]))

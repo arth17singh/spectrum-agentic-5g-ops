@@ -41,9 +41,17 @@ def was_clipped(before: dict, after: dict, change: list[dict]) -> bool:
     return False
 
 
+def baseline_twin(tw, twin_factory, scenario, seed, config):
+    """The same twin at the same step, for the no-change branch: ``tw.fork()`` when the twin has
+    one (fast path), else ``twin_factory.from_log`` (the contract interface; exact on replay)."""
+    if hasattr(tw, "fork"):
+        return tw.fork()
+    return twin_factory.from_log(scenario, seed, config, [list(c) for c in tw.action_log])
+
+
 def step_with_counterfactual(tw, twin_factory, kpis, change: list[dict], *, scenario, seed,
                              config, before_state: dict) -> dict[str, Any]:
-    ref = twin_factory.from_log(scenario, seed, config, [list(c) for c in tw.action_log])
+    ref = baseline_twin(tw, twin_factory, scenario, seed, config)
     baseline = kpis(ref.apply([]))
     after = tw.apply(change)
     measured = kpis(after)

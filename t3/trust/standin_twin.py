@@ -175,6 +175,21 @@ class StandinReplayTwin:
         self.step += 1
         return self._state
 
+    def fork(self) -> "StandinReplayTwin":
+        """An independent copy at the same step (same UEs, RNG state, settings and log). Equivalent
+        to ``from_log(scenario, seed, config, action_log)`` but O(1); shares only the read-only GP
+        models and topology."""
+        new = copy.copy(self)
+        tw = copy.copy(self._tw)
+        for k, v in list(vars(tw).items()):
+            if isinstance(v, np.ndarray):
+                setattr(tw, k, v.copy())
+        tw._rng = copy.deepcopy(self._tw._rng)
+        new._tw = tw
+        new.action_log = [[dict(c) for c in step] for step in self.action_log]
+        new._state = copy.deepcopy(self._state)
+        return new
+
     def observe(self) -> dict:
         return self._state if self._state is not None else self.reset()
 
