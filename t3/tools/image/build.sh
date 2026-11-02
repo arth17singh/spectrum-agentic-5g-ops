@@ -33,7 +33,7 @@ for pkg in twin t2 t1 t3 contracts tools; do
   if [ -d "$REPO/$pkg" ]; then
     rsync -a \
       --exclude '__pycache__' --exclude '*.pyc' --exclude 'tests' --exclude '.pytest_cache' \
-      --exclude 'image' \
+      --exclude '/tools/image' \
       "$REPO/$pkg/" "$STAGE/src/$pkg/"
     echo "staged package: $pkg"
   else

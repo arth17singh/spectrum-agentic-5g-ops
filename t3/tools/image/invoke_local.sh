@@ -53,7 +53,7 @@ docker run -d --name "$NAME" --platform linux/arm64 \
   -e T3_STORE=local:/tmp/t3store \
   -e T3_TOOL_NAME_FALLBACK=1 \
   -e AWS_REGION=us-east-2 -e AWS_DEFAULT_REGION=us-east-2 \
-  "$IMAGE" "${CMD_ARGS[@]}" >/dev/null
+  "$IMAGE" ${CMD_ARGS[@]+"${CMD_ARGS[@]}"} >/dev/null
 
 # Wait until the RIE answers (it listens immediately; the function module loads on first invoke).
 for _ in $(seq 1 50); do
@@ -62,6 +62,9 @@ for _ in $(seq 1 50); do
 done
 
 for ev in "${EVENTS[@]}"; do
+  # Allow paths relative to this directory (events/smoke_5.json) as well as to the cwd.
+  if [ ! -f "$ev" ] && [ -f "$HERE/$ev" ]; then ev="$HERE/$ev"; fi
+  [ -f "$ev" ] || { echo "event file not found: $ev" >&2; exit 1; }
   echo "--- POST $ev"
   curl -s -o /tmp/t3_invoke_out.json -w "http=%{http_code} total=%{time_total}s\n" \
     -XPOST "http://127.0.0.1:${PORT}/2015-03-31/functions/function/invocations" \

@@ -73,14 +73,20 @@ policy must allow `lambda.amazonaws.com` (`ecr:BatchGetImage`, `ecr:GetDownloadU
 
 ## Measured on this laptop (Docker Desktop, arm64, smoke handler)
 
-Image: 2.42 GB on disk, 536 MB compressed (what ECR stores). Smoke handler, median of 6 warm calls
-(client-side, includes a tiny PPO load and predict):
+Image: 2.06 GB on disk, 467 MB compressed (what ECR stores). Smoke handler, median of 6 warm calls
+(client-side, includes a tiny PPO predict). Numbers vary by about 30% with laptop load.
 
 | container limit | cold first call | 5 steps | 10 steps | 20 steps | peak (docker stats) |
 |---|---|---|---|---|---|
-| 3 GB, 2 CPU | 1.5 s | 0.23 s | 0.30 s | 0.45 s | 760 MiB |
-| 2 GB, 1.2 CPU | 1.4 s | 0.31 s | 0.46 s | 0.71 s | 756 MiB |
+| 3 GB, 2 CPU | 1.5-2.0 s | 0.23-0.29 s | 0.30-0.39 s | 0.45-0.62 s | 760-830 MiB |
+| 2 GB, 1.2 CPU | 1.4-1.9 s | 0.31-0.41 s | 0.46-0.58 s | 0.71-0.91 s | 760-830 MiB |
 | 1 GB, 0.6 CPU | 2.9 s | 0.83 s | 1.19 s | 1.69 s | 848 MiB (near the limit) |
+
+**Recommendation:** Lambda memory 3008 MB (at least 2048 MB), timeout 120 s. A twin rebuilt every call
+climbs to about 950 MB RSS over 30 calls, and the real handler adds boto3 and a real PPO. 120 s is below
+the kit's A2A (240 s), HTTP (270 s) and Lambda (300 s) waits, so a stuck replay surfaces as a Lambda
+error instead of the caller giving up first. Local cold start excludes the image pull: expect 5-15 s on
+real Lambda, so send one warm-up invocation before the demo.
 
 Re-run `invoke_local.sh --smoke` to reproduce. Key points:
 - a warm container that rebuilds the twin every call grows ~15 MB per call up to ~950 MB RSS;

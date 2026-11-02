@@ -20,24 +20,22 @@ ENV PIP_NO_CACHE_DIR=1 \
     OMP_NUM_THREADS=2 \
     MKL_NUM_THREADS=2
 
-# 1. CPU-only torch from the PyTorch CPU index (version matches the shared dev env).
-RUN pip install --index-url https://download.pytorch.org/whl/cpu torch==2.15.0
+# 1. CPU-only torch from the PyTorch CPU index (version matches the shared dev env); drop headers/tests.
+RUN pip install --index-url https://download.pytorch.org/whl/cpu torch==2.15.0 \
+ && rm -rf /var/lang/lib/python3.12/site-packages/torch/include \
+           /var/lang/lib/python3.12/site-packages/torch/test
 
 # 2. The rest from PyPI. Key libraries are pinned to the dev env versions so the parity test
 #    (in-process replay vs adapter server) runs the same numerics everywhere.
 RUN pip install \
       numpy==2.5.4 pandas==2.3.3 scipy==1.18.1 scikit-learn==1.9.1 \
       gymnasium==1.4.0 gpytorch==1.15.2 stable-baselines3==2.9.2 \
-      pydantic==2.14.2 pyyaml python-dotenv httpx boto3==1.43.123
+      pydantic==2.14.2 pyyaml python-dotenv httpx boto3==1.43.123 \
+ && python -c "import pathlib, shutil; [shutil.rmtree(d, ignore_errors=True) for d in list(pathlib.Path('/var/lang/lib/python3.12/site-packages').rglob('tests')) if d.is_dir()]"
 
 # 3. The organisers' SDK wheel, from the staging context. --no-deps: everything it needs is above.
-#    Also trims torch headers and tests, which a Lambda never uses.
 COPY wheel/ /tmp/wheel/
-RUN pip install --no-deps /tmp/wheel/*.whl \
- && rm -rf /tmp/wheel \
- && rm -rf /var/lang/lib/python3.12/site-packages/torch/include \
-           /var/lang/lib/python3.12/site-packages/torch/test \
- && python -c "import pathlib, shutil; [shutil.rmtree(d, ignore_errors=True) for d in list(pathlib.Path('/var/lang/lib/python3.12/site-packages').rglob('tests')) if d.is_dir()]"
+RUN pip install --no-deps /tmp/wheel/*.whl && rm -rf /tmp/wheel
 
 # Smoke test assets: a PPO trained for about 1 s on the local twin at build time, so SB3 is proven.
 COPY smoke/ ${LAMBDA_TASK_ROOT}/smoke/
