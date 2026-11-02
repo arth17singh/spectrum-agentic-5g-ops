@@ -8,7 +8,14 @@ import pytest
 
 from t1.evals import run as R
 from t1.evals.clients import BedrockClient, Completion, Pricing, SageMakerClient
-from t1.evals.evidence import check
+from team13_contracts import validate_record
+from tools import evlib
+
+
+def check(rec):
+    """Both validators the evidence chain uses: W1's pydantic contract and W6's evlib checks."""
+    validate_record(rec)
+    evlib.validate(rec)
 
 
 def _args(tmp_path, *extra):
@@ -19,7 +26,8 @@ def _load(tmp_path, run_id):
     declared = json.loads((tmp_path / "declared" / f"{run_id}.json").read_text())
     items = [json.loads(x) for x in (tmp_path / "records" / run_id / "item.jsonl").read_text().splitlines()]
     result = json.loads((tmp_path / "results" / f"{run_id}.json").read_text())
-    outputs = [json.loads(x) for x in (tmp_path / "outputs" / run_id / "outputs.jsonl").read_text().splitlines()]
+    outputs = [json.loads(x) for f in sorted((tmp_path / "outputs" / run_id).glob("outputs-*.jsonl"))
+               for x in f.read_text().splitlines()]
     return declared, items, result, outputs
 
 
@@ -31,6 +39,7 @@ def test_dry_run_records_valid(tmp_path, unit):
         check(rec)
         assert rec["synthetic"] is True and rec["run_id"] == r["run_id"]
     assert declared["n_items"] == len(items) == result["n_items"]
+    assert evlib.read_records(r["run_id"], "item", store=evlib.LocalStore(tmp_path)) == items
     assert declared["declared_at"] <= items[0]["created_at"]  # declared before the first call
     assert declared["prompt_sha256"] and declared["parser"] and declared["decoding"]["temperature"] == 0.0
     # every output is stored and its hash matches the item record

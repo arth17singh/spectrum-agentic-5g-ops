@@ -64,22 +64,44 @@ def test_execution_sample_regenerates_identically():
         assert dumps(again) == dumps(it)
 
 
-def test_execution_fork_equals_fresh_replay():
+def test_execution_uses_the_real_twin():
+    from t1.evals import twin_access
+    from twin.replay import ReplayTwin
+
+    assert twin_access.ReplayTwin is ReplayTwin
+    import t1.evals as pkg
+
+    assert not (pkg.REPO_ROOT / "t1" / "evals" / "twin_standin.py").exists()
+
+
+def test_counterfactual_equals_fresh_replay():
     pytest.importorskip("ran_rl")
     from t1.evals import canon as C
-    from t1.evals import gen_execution as E
-    from t1.evals.twin_standin import ReplayTwin
+    from t1.evals import twin_access as T
 
     it = json.loads(_frozen("execution")[0])
-    spec = E._spec(it["meta"]["family"], it["meta"]["gen_index"])
-    base = E.build_state(spec)
-    forked = E._fork(base).apply(C.parse(it["expected"]["oracle_change"]))
-    fresh = ReplayTwin.from_log(spec["scenario"], spec["seed"], None,
-                                [{"change": C.parse(p)} for p in spec["prefix"]])
-    again = fresh.apply(C.parse(it["expected"]["oracle_change"]))
-    assert forked["coverage_ratio"] == again["coverage_ratio"]
-    assert forked["sla_ratio"] == again["sla_ratio"]
-    assert forked["sinr_mean_db"] == again["sinr_mean_db"]
+    m = it["meta"]
+    tw = T.case(m["scenario"], m["seed"], m["prefix"])
+    o = T.outcome(tw, it["expected"]["oracle_change"])
+    fresh = T.case(m["scenario"], m["seed"], m["prefix"])
+    after = fresh.apply(C.parse(it["expected"]["oracle_change"]))
+    assert o["after"] == T.kpi(after)
+    noop = T.case(m["scenario"], m["seed"], m["prefix"]).apply([])
+    assert o["noop"] == T.kpi(noop) == it["expected"]["noop_kpi"]
+
+
+def test_no_twin_drift_on_any_execution_item():
+    """Every frozen execution item replays to its frozen no-op KPI, rule gain and best-of-K gain."""
+    pytest.importorskip("ran_rl")
+    from t1.evals import twin_access as T
+
+    for line in _frozen("execution"):
+        it = json.loads(line)
+        m, e = it["meta"], it["expected"]
+        tw = T.case(m["scenario"], m["seed"], m["prefix"])
+        assert T.outcome(tw, "")["noop"] == e["noop_kpi"], it["item_id"]
+        assert T.outcome(tw, e["rule_change"])["gain"] == e["rule_gain"], it["item_id"]
+        assert T.outcome(tw, e["oracle_change"])["gain"] == e["oracle_gain"], it["item_id"]
 
 
 def test_knowledge_matches_pinned_source_when_cached():

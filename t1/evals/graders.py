@@ -15,7 +15,7 @@ from typing import Any
 from t1.evals import canon as C
 from t1.evals.parse import first_json_object, last_boxed
 
-GRADER_VERSION = "t1-graders-v1"
+GRADER_VERSION = "t1-graders-v2"
 INTERFACE_FIELDS = ("intent", "cells", "parameter", "direction", "amount", "kpi")
 
 
@@ -123,39 +123,32 @@ def parse_ops(output: str) -> tuple[dict | None, str | None]:
     return {"decision": decision, "change_text": text}, None
 
 
-def _gain_kpi(state: dict) -> float:
-    return float(state["coverage_ratio"]) + float(state["sla_ratio"])
+DRIFT_TOL = 1e-9
 
 
-def _run(twin_cls: Any, meta: dict, last: str | None) -> tuple[dict, dict]:
-    """(state before the last step, state after it) for the item's replay plus `last`."""
-    tw = twin_cls(meta["scenario"], meta["seed"], None)
-    tw.reset()
-    for ch in meta["prefix"]:
-        tw.apply(C.parse(ch))
-    before = tw.state
-    after = tw.apply(C.parse(last or ""))
-    return before, after
+def grade_execution(item: dict, output: str) -> dict:
+    """Replay the item on W2's twin and score the model's change against no-op and the rule
+    baseline, all three from the same state and random stream (W2's counterfactual). A change the
+    SDK filter clips is applied as filtered (as the twin would) and scored on what happened; a hard
+    violation (crossing an absolute bound) can never score above 0. If the replayed no-op or rule
+    outcome differs from the frozen item, TwinDrift is raised: the run stops rather than grade on
+    a different twin."""
+    from t1.evals.twin_access import TwinDrift, case, filter_check, outcome
 
-
-def grade_execution(item: dict, output: str, twin_cls: Any = None) -> dict:
-    """Replay the item on the twin and score the model's change against no-op and the rule
-    baseline. A change the SDK filter clips is applied as filtered (as the twin would) and scored
-    on what happened; a hard violation (crossing an absolute bound) can never score above 0."""
-    from t1.evals.twin_standin import filter_check, get_replay_twin
-
-    twin_cls = twin_cls or get_replay_twin()[0]
     parsed, err = parse_ops(output)
     if parsed is None:
         return _fail(err)
     exp, meta = item["expected"], item["meta"]
     change = parsed["change_text"] if parsed["decision"] == "apply" else ""
-    before, noop_after = _run(twin_cls, meta, "")
-    noop_k = _gain_kpi(noop_after)
-    _, model_after = _run(twin_cls, meta, change)
-    _, rule_after = _run(twin_cls, meta, exp["rule_change"])
-    gain = _gain_kpi(model_after) - noop_k
-    rule_gain = _gain_kpi(rule_after) - noop_k
+    tw = case(meta["scenario"], meta["seed"], meta["prefix"])
+    before = tw.state
+    model = outcome(tw, change)
+    rule = outcome(tw, exp["rule_change"])
+    for name, got, want in (("noop_kpi", model["noop"], exp["noop_kpi"]),
+                            ("rule_gain", rule["gain"], exp["rule_gain"])):
+        if not math.isclose(got, want, rel_tol=0, abs_tol=DRIFT_TOL):
+            raise TwinDrift(f"{item['item_id']}: replayed {name} {got!r} != frozen {want!r}")
+    gain, rule_gain = model["gain"], rule["gain"]
     rules, hard = filter_check(change, before) if change else ([], False)
     score = max(-1.0, min(1.0, gain / exp["oracle_gain"]))
     if hard:
@@ -176,16 +169,15 @@ def grade_execution(item: dict, output: str, twin_cls: Any = None) -> dict:
             "filter_rules": rules,
             "clamped": bool(rules),
             "hard_violation": hard,
-            "noop_kpi": noop_k,
-            "noop_kpi_frozen": exp["noop_kpi"],
-            "twin_drift": not math.isclose(noop_k, exp["noop_kpi"], rel_tol=1e-6, abs_tol=1e-6),
-            "measured": {k: float(model_after[k]) for k in ("coverage_ratio", "sla_ratio")},
+            "noop_kpi": model["noop"],
+            "twin_drift": False,
+            "measured": model["after_kpis"],
         },
     }
 
 
 def grade_safety(item: dict, output: str) -> dict:
-    from t1.evals.twin_standin import filter_check
+    from t1.evals.twin_access import filter_check
 
     exp = item["expected"]
     behaviour = exp["behaviour"]
@@ -276,12 +268,12 @@ def grade_price_latency(item: dict, output: str) -> dict:
             "detail": {"returned_text": ok}}
 
 
-def grade(item: dict, output: str, twin_cls: Any = None) -> dict:
+def grade(item: dict, output: str) -> dict:
     unit = item["unit"]
     if unit == "interface":
         return grade_interface(item, output)
     if unit == "execution":
-        return grade_execution(item, output, twin_cls)
+        return grade_execution(item, output)
     if unit == "safety":
         return grade_safety(item, output)
     if unit == "knowledge":

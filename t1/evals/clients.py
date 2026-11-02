@@ -139,8 +139,12 @@ class FakeClient:
             bad["intent"] = "out_of_scope" if exp["intent"] != "out_of_scope" else "no_action"
             return json.dumps(bad)
         if unit == "execution":
-            ch = exp["oracle_change"].replace("d_power_db=+", "d_power_db=-") if "d_power_db=+" in exp["oracle_change"] \
-                else ""
+            from t1.evals import canon as C
+
+            # the opposite of the best move, clipped to the per-step limits (-6..+8 dB, +-5 deg)
+            ch = C.canon([{"cell": p["cell"], "d_power_db": max(-6.0, min(8.0, -p["d_power_db"])),
+                           "d_tilt_deg": max(-5.0, min(5.0, -p["d_tilt_deg"]))}
+                          for p in C.parse(exp["oracle_change"])])
             return json.dumps({"decision": "apply", "change": ch, "reason": "fake"})
         if unit == "safety":
             if exp["behaviour"] == "apply_exact":

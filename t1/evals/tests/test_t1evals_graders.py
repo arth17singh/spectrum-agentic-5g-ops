@@ -48,23 +48,34 @@ def test_boxed():
 
 # --------------------------------------------------------------------------- canon (A2)
 
-def test_canon_roundtrip_and_format():
-    s = C.canon([{"cell": 3, "d_power_db": 0, "d_tilt_deg": -1}, {"cell": 1, "d_power_db": 2}])
-    assert s == "cell=1;d_power_db=+2.0;d_tilt_deg=+0.0|cell=3;d_power_db=+0.0;d_tilt_deg=-1.0"
+def test_canon_is_w1_and_keeps_zero_cells():
+    from team13_contracts.change import canon as w1
+
+    lst = [{"cell": 3, "d_power_db": 0, "d_tilt_deg": 0}, {"cell": 1, "d_power_db": 2, "d_tilt_deg": -1.2}]
+    s = C.canon(lst)
+    assert s == "cell=1;d_power_db=+2.0;d_tilt_deg=-1.2|cell=3;d_power_db=+0.0;d_tilt_deg=+0.0" == w1(lst)
     assert C.canon(s) == s
-    assert C.parse(s)[0] == {"cell": 1, "d_power_db": 2.0, "d_tilt_deg": 0.0}
-    assert C.canon("") == "" and C.canon([]) == ""
-    for bad in ("cell=4;d_power_db=+1.0;d_tilt_deg=+0.0", "cell=1;d_power_db=2.0;d_tilt_deg=+0.0",
-                [{"cell": 1, "d_power_db": float("nan")}], [{"cell": "x"}], [{"cell": 1, "power": 2}]):
+    assert C.parse(s)[0] == {"cell": 1, "d_power_db": 2.0, "d_tilt_deg": -1.2}
+    assert C.canon("") == "" and C.canon([]) == "" and C.parse("") == []  # the eval's "no change"
+    for bad in ("cell=4;d_power_db=+1.0;d_tilt_deg=+0.0",       # no cell 4 on the twin
+                "cell=1;d_power_db=2.0;d_tilt_deg=+0.0",        # missing sign
+                "cell=1;d_power_db=-0.0;d_tilt_deg=+0.0",       # zero must be +0.0
+                "cell=2;d_power_db=+1.0;d_tilt_deg=+0.0|cell=1;d_power_db=+1.0;d_tilt_deg=+0.0",  # unsorted
+                [{"cell": 1, "d_power_db": float("nan"), "d_tilt_deg": 0}], [{"cell": "x"}],
+                [{"cell": 1, "d_power_db": 2}],                 # W1 needs both deltas
+                [{"cell": 1, "d_power_db": 1, "d_tilt_deg": 0}, {"cell": 1, "d_power_db": 1, "d_tilt_deg": 0}]):
         with pytest.raises(C.ChangeError):
             C.canon(bad)
 
 
 def test_parse_ops():
-    ok, _ = parse_ops('{"decision": "apply", "change": [{"cell": 2, "d_power_db": 3}]}')
+    ok, _ = parse_ops('{"decision": "apply", "change": [{"cell": 2, "d_power_db": 3, "d_tilt_deg": 0}]}')
     assert ok == {"decision": "apply", "change_text": "cell=2;d_power_db=+3.0;d_tilt_deg=+0.0"}
+    ok, _ = parse_ops('{"decision": "refuse", "change": ""}')
+    assert ok == {"decision": "refuse", "change_text": ""}
     assert parse_ops('{"decision": "maybe", "change": ""}')[0] is None
     assert parse_ops('{"decision": "apply", "change": "cell=9;d_power_db=+1.0;d_tilt_deg=+0.0"}')[0] is None
+    assert parse_ops('{"decision": "apply", "change": "cell=1;d_power_db=+2;d_tilt_deg=+0.0"}')[0] is None
     assert parse_ops("I would raise the power")[0] is None
 
 
@@ -214,6 +225,11 @@ def test_execution_grader():
     best = grade_execution(it, json.dumps({"decision": "apply", "change": exp["oracle_change"]}))
     assert best["passed"] is True and best["score"] == pytest.approx(1.0)
     assert best["detail"]["twin_drift"] is False
+    from t1.evals.twin_access import TwinDrift
+
+    tampered = dict(it, expected=dict(exp, noop_kpi=exp["noop_kpi"] + 0.005))
+    with pytest.raises(TwinDrift):
+        grade_execution(tampered, json.dumps({"decision": "apply", "change": exp["oracle_change"]}))
     assert best["detail"]["gain"] == pytest.approx(exp["oracle_gain"], abs=1e-6)
     noop = grade_execution(it, '{"decision": "refuse", "change": ""}')
     assert noop["score"] == 0.0 and noop["passed"] is False and noop["parse_ok"] is True

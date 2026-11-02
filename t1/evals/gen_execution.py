@@ -1,7 +1,7 @@
 """Execution items: in-process Maveric twin states with a known degradation.
 
-Each item is (scenario, seed, prefix): reset the SDK's in-process Maveric twin (official
-defaults) with `scenario` and `seed`, then apply each change in `prefix` in order (the injected
+Each item is (scenario, seed, prefix): reset W2's ReplayTwin (the SDK's in-process Maveric twin,
+official preset) with `scenario` and `seed`, then apply each change in `prefix` in order (the injected
 fault and some no-op steps). The model sees the resulting state and proposes one change.
 
 Grading (graders.grade_execution) replays the item from scratch and compares three next steps
@@ -19,15 +19,13 @@ the fault. Fault families (the hidden ground truth, in meta.fault):
   interference     SDK interference scenario (+3 dB power, -2 degrees tilt on every cell)
   congestion       SDK congestion scenario (hotspot on cell 0, 1.5x load)
 Only states where the best-of-K gain is at least MIN_ORACLE_GAIN are kept, so every item has a
-fix worth finding, and where the fixed answer CONSTANT_CHANGE earns at most half of it. Seeds are drawn from SEED_BASE upward; SFT data must not use seeds >= SEED_BASE.
+fix worth finding, and where the fixed answer CONSTANT_CHANGE earns at most half of it.
+Seeds are drawn from SEED_BASE upward; SFT data must not use seeds >= SEED_BASE.
 """
 
 from __future__ import annotations
 
-import copy
 from typing import Any
-
-import numpy as np
 
 from t1.evals import canon as C
 from t1.evals.common import h, item, pick, render_state
@@ -110,62 +108,47 @@ def _spec(family: str, j: int) -> dict[str, Any]:
     return {"scenario": scenario, "seed": seed, "prefix": prefix, "fault": fault}
 
 
-def _fork(tw: Any) -> Any:
-    """An independent copy of a stand-in ReplayTwin mid-episode (generation-time speed-up only;
-    tests check that a fork and a from-scratch replay give identical KPIs)."""
-    new = copy.copy(tw)
-    inner = copy.copy(tw._twin)
-    for name, v in vars(tw._twin).items():
-        if isinstance(v, (np.ndarray, np.random.Generator, list, dict)) and name not in ("_models", "_cells", "_scenarios"):
-            setattr(inner, name, copy.deepcopy(v))
-    new._twin = inner
-    new._state = copy.deepcopy(tw._state)
-    new.action_log = copy.deepcopy(tw.action_log)
-    return new
-
-
 def build_state(spec: dict[str, Any]) -> Any:
-    from t1.evals.twin_standin import ReplayTwin
+    """W2's ReplayTwin, reset and run through the item's prefix."""
+    from t1.evals.twin_access import case
 
-    tw = ReplayTwin(spec["scenario"], spec["seed"], None)
-    tw.reset()
-    for ch in spec["prefix"]:
-        tw.apply(C.parse(ch))
-    return tw
+    return case(spec["scenario"], spec["seed"], spec["prefix"])
 
 
 def reference(spec: dict[str, Any]) -> dict[str, Any] | None:
-    from t1.evals.twin_standin import rule_baseline_change
+    """Best-of-K, rule baseline and fixed-answer outcomes, each from W2's counterfactual (the
+    change and the no-change step from the same state and random stream)."""
+    from t1.evals.twin_access import outcome, rule_baseline_change
 
-    base = build_state(spec)
-    state = base.state
-    noop_k = kpi(_fork(base).apply([]))
+    tw = build_state(spec)
+    state = tw.state
+    noop_k = None
     best, best_gain = "", float("-inf")
     for cand in candidates():
-        tw = _fork(base)
-        g = kpi(tw.apply(C.parse(cand))) - noop_k
-        if tw.action_log[-1]["clamped"]:
+        o = outcome(tw, cand)
+        noop_k = o["noop"]
+        if o["clamped"]:
             continue  # the reference is a change the filter lets through untouched
-        if g > best_gain + 1e-12:
-            best, best_gain = cand, g
+        if o["gain"] > best_gain + 1e-12:
+            best, best_gain = cand, o["gain"]
     rule = rule_baseline_change(state)
-    rule_gain = kpi(_fork(base).apply(C.parse(rule))) - noop_k
-    const_gain = kpi(_fork(base).apply(C.parse(CONSTANT_CHANGE))) - noop_k
+    rule_gain = outcome(tw, rule)["gain"]
+    const_gain = outcome(tw, CONSTANT_CHANGE)["gain"]
     if best_gain < MIN_ORACLE_GAIN or const_gain > CONSTANT_MAX_SHARE * best_gain:
         return None
     return {
         "state": state,
-        "noop_kpi": round(noop_k, 6),
+        "noop_kpi": noop_k,
         "oracle_change": best,
-        "oracle_gain": round(best_gain, 6),
+        "oracle_gain": best_gain,
         "rule_change": rule,
-        "rule_gain": round(rule_gain, 6),
-        "constant_gain": round(const_gain, 6),
+        "rule_gain": rule_gain,
+        "constant_gain": const_gain,
     }
 
 
 def make_item(family: str, n: int, spec: dict[str, Any], ref: dict[str, Any], gen_index: int) -> dict:
-    from t1.evals.twin_standin import sdk_version
+    from t1.evals.twin_access import TWIN_SOURCE, sdk_version
 
     k = (SEED, family, n)
     return item(
@@ -187,7 +170,8 @@ def make_item(family: str, n: int, spec: dict[str, Any], ref: dict[str, Any], ge
         {
             "family": family,
             "gen": SEED,
-            "twin": {"kind": "maveric-inprocess", "config": "official", "sdk_version": sdk_version()},
+            "twin": {"kind": "maveric-inprocess", "config": "official", "sdk_version": sdk_version(),
+                     "replay": TWIN_SOURCE},
             "scenario": spec["scenario"],
             "seed": spec["seed"],
             "prefix": spec["prefix"],

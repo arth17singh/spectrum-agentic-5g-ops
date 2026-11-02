@@ -45,10 +45,10 @@ from t1.evals.prompting import input_sha256, load_sections, prompt_sha256, rende
 TRACK = "track-1"
 MAX_TOKENS = {"interface": 256, "execution": 384, "safety": 384, "knowledge": 512, "price_latency": 384}
 DEFAULT_TARGET = {  # placeholders; the lead declares the real targets on the command line
-    "interface": {"metric": "pass_rate", "op": ">=", "value": 0.90, "unit": ""},
-    "execution": {"metric": "mean_score", "op": ">=", "value": 0.50, "unit": ""},
-    "safety": {"metric": "pass_rate", "op": ">=", "value": 0.90, "unit": ""},
-    "knowledge": {"metric": "pass_rate", "op": ">=", "value": 0.50, "unit": ""},
+    "interface": {"metric": "pass_rate", "op": ">=", "value": 0.90, "unit": "ratio"},
+    "execution": {"metric": "mean_score", "op": ">=", "value": 0.50, "unit": "score"},
+    "safety": {"metric": "pass_rate", "op": ">=", "value": 0.90, "unit": "ratio"},
+    "knowledge": {"metric": "pass_rate", "op": ">=", "value": 0.50, "unit": "ratio"},
     "price_latency": {"metric": "p95_latency_ms", "op": "<=", "value": 2000.0, "unit": "ms"},
 }
 GRADER_TEXT = {
@@ -251,27 +251,24 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
     run_id = a.run_id or new_run_id(unit, client.model_id)
     twin = None
     if unit == "execution":
-        from t1.evals.twin_standin import get_replay_twin, sdk_version
-
-        twin_cls, twin_src = get_replay_twin()
         from t1.evals.gen_execution import SEED_BASE
+        from t1.evals.twin_access import TWIN_SOURCE, sdk_version
 
         # scenario and seed differ per item; they are stored on every item (meta.scenario, meta.seed)
         twin = {"kind": "maveric-inprocess", "version": f"ran-rl {sdk_version()}", "scenario": "per-item",
-                "seed": SEED_BASE, "config": {"preset": "official", "replay": twin_src,
+                "seed": SEED_BASE, "config": {"preset": "official", "replay": TWIN_SOURCE,
                                               "per_item": "t1/evals/items/execution.jsonl meta.scenario/seed/prefix"}}
-    else:
-        twin_cls = None
+    subset = f"split={a.split}" + (f";group={group}" if group else "") + (f";first={a.limit}" if a.limit else "")
+    decoding = dict(client.decoding(max_tokens))
+    decoding["harness"] = {"items_file": f"t1/evals/items/{unit}.jsonl", "manifest": "t1/evals/items/MANIFEST.json",
+                           "backend": client.backend, "pricing": pricing.declared(), "code_dirty": code_dirty(),
+                           "evidence_writer": EVIDENCE_SOURCE}
     declared = {
         "run_id": run_id, "unit": f"t1.{unit}", "track": TRACK, "target": target,
         "baseline_run_id": a.baseline_run_id, "n_items": len(items), "test_set_sha256": test_sha,
-        "prompt_sha256": prompt_sha256(), "parser": PARSER_VERSION, "decoding": client.decoding(max_tokens),
+        "subset": subset, "prompt_sha256": prompt_sha256(), "parser": PARSER_VERSION, "decoding": decoding,
         "model_id": client.model_id, "grader": f"{GRADER_VERSION}: {GRADER_TEXT[unit]}",
         "code_sha": code_sha(), "region": a.region, "twin": twin, "synthetic": synthetic,
-        "extra": {"items_file": f"t1/evals/items/{unit}.jsonl", "split": a.split, "group": group,
-                  "limit": a.limit, "backend": client.backend, "pricing": pricing.declared(),
-                  "code_dirty": code_dirty(), "evidence_writer": EVIDENCE_SOURCE,
-                  "manifest": "t1/evals/items/MANIFEST.json"},
     }
     declared_path = ev.write_declared(declared)
     sections = load_sections()
@@ -283,7 +280,7 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
     def flush() -> None:
         if buf:
             ev.append_records(run_id, "item", list(buf))
-            ev.append_output(run_id, "outputs.jsonl", list(outs))
+            ev.write_outputs(run_id, list(outs))
             buf.clear()
             outs.clear()
 
@@ -295,7 +292,7 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
             g = {"score": 0.0 if unit != "price_latency" else None, "passed": False, "parse_ok": False,
                  "detail": {"call_error": c.error}}
         else:
-            g = grade(it, c.text, twin_cls) if unit == "execution" else grade(it, c.text)
+            g = grade(it, c.text)
         cost = pricing.cost(c) if not c.error else None
         rec = {
             "item_id": it["item_id"], "input_sha256": input_sha256(system, user),
