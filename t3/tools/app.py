@@ -82,6 +82,24 @@ def parse_change(raw: Any) -> tuple[list[dict], str]:
                         "cell=2;d_power_db=+0.0;d_tilt_deg=-2.0") from exc
 
 
+def is_no_change(raw: Any) -> bool:
+    """True for an empty proposal ([] / "" / None) or one whose every cell is zero after the
+    canonical one-decimal rounding. Anything else (including malformed input) is not a no-op."""
+    if raw is None or raw == [] or (isinstance(raw, str) and not raw.strip()):
+        return True
+    if isinstance(raw, str):
+        try:
+            raw = changes.parse(raw)
+        except (ValueError, TypeError):
+            return False
+    if not isinstance(raw, (list, tuple)) or not all(isinstance(c, dict) for c in raw):
+        return False
+    try:
+        return all(round(float(c.get(k, 0.0)), 1) == 0.0 for c in raw for k in ("d_power_db", "d_tilt_deg"))
+    except (TypeError, ValueError):
+        return False
+
+
 def jsonable(v: Any) -> Any:
     """numpy scalars/arrays -> plain JSON; NaN/inf -> None."""
     if hasattr(v, "tolist"):
@@ -376,9 +394,18 @@ class Tools:
             raise ToolError("no RL policy is configured (T1_POLICY_PATH)")
         check_model_version(args, policy.version, "policy")
         _, state = self.replay(case)
-        _, text = parse_change(changes.canon(changes.round_items(jsonable(policy.propose(state)))))
+        raw = jsonable(policy.propose(state))
         step = len(case["action_log"])
         meta = {"model_id": str(policy.model_id), "version": str(policy.version)}
+        if is_no_change(raw):  # W1's canon refuses an empty change; a no-op is an answer, not an error
+            audit(record="ran_no_change", case_id=case["case_id"], run_id=case["run_id"], step=step, policy=meta)
+            return {"case_id": case["case_id"], "run_id": case["run_id"], "no_change": True, "item_id": None,
+                    "change": None, "policy": meta, "step": step, "reason": "policy proposes no change"}
+        try:
+            text = changes.canon(changes.round_items(raw))
+        except (ValueError, TypeError) as exc:
+            raise ToolError(f"the RL policy proposed an unusable change: {exc}") from exc
+        _, text = parse_change(text)
         item_id = f"step-{step}"
         self._remember(case, {"kind": "propose", "item_id": item_id, "change_text": text, "policy": meta,
                               "step": step, "at": self.d.now()})
@@ -425,6 +452,9 @@ class Tools:
         require_case_id(args)
         item_id = require_item_id(args)
         cells, text = parse_change(args.get("change"))  # a bad change is refused before any approval is used
+        if is_no_change(cells):
+            raise ToolError("nothing to apply: every cell of this change is zero (use ran___propose's no_change "
+                            "answer instead of applying)")
         key = change_key(args)
         store = self.d.store
         if store.emulate_interceptor:  # local runs only: no Gateway in front of us
