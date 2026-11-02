@@ -171,6 +171,60 @@ def compare(value: float, op: str, target: float) -> bool:
             "<": value < target}[op]
 
 
+# Fields the contract's DeclaredRecord accepts (W1 forbids unknown keys); everything else of ours goes
+# into twin.config, which is a free-form object.
+DECLARED_FIELDS = frozenset({
+    "schema_version", "kind", "run_id", "team", "created_at", "aws_time", "aws_time_source", "synthetic",
+    "unit", "track", "target", "baseline_run_id", "n_items", "n_cases", "test_set_sha256", "subset",
+    "prompt_sha256", "parser", "decoding", "model_id", "grader", "code_sha", "region", "twin", "declared_at",
+})
+REGION = "us-east-2"  # the team's region (where this evidence is kept); the run itself is local and offline
+
+
+def build_declared(run_id: str, operator: str, op: Any, unit: dict[str, Any], incidents: list[dict[str, Any]],
+                   digest: str, baseline_run_ids: list[str], targets: dict[str, Any]) -> dict[str, Any]:
+    d = {
+        "run_id": run_id,
+        "synthetic": bool(getattr(op, "synthetic", False)),
+        "unit": unit["unit"],
+        "track": "track-3",
+        "target": unit["target"],
+        "n_items": len(incidents),
+        "test_set_sha256": digest,
+        "model_id": op.model_id,
+        "grader": GRADER_ID,
+        "code_sha": code_sha(),
+        "region": REGION,
+        "twin": {
+            "kind": "maveric-inprocess",
+            "version": twin_version(),
+            "scenario": "incident-suite",
+            "seed": min(i["seed"] for i in incidents),
+            "config": {
+                "backend": BACKEND,
+                "suite": "t3/evals/suite/incidents-test.jsonl",
+                "suite_version": inc_mod.SUITE_VERSION,
+                "presets": sorted({i["preset"] for i in incidents}),
+                "tiers": sorted({i.get("tier", "visible") for i in incidents}),
+                "seeds": "one per incident (see the suite); twin.seed is the smallest",
+                "eval": {
+                    "operator": operator,
+                    "targets_sha256": hashlib.sha256(TARGETS_PATH.read_bytes()).hexdigest(),
+                    "episode": targets["episode"],
+                    "executed": "local, offline, in-process twin (no AWS call)",
+                    "evidence_writer": EVLIB,
+                },
+            },
+        },
+    }
+    if baseline_run_ids:
+        d["baseline_run_id"] = baseline_run_ids[0]
+    unknown = set(d) - DECLARED_FIELDS
+    if unknown:
+        raise ValueError(f"declared carries keys the contract forbids: {sorted(unknown)}")
+    return d
+
+
 def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers: int = 1,
         allow_dirty: bool = False, op_kwargs: dict[str, Any] | None = None, run_id: str | None = None) -> dict[str, Any]:
     single_thread()
@@ -185,37 +239,7 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
     ev = Evidence(evidence_dir)
     run_id = run_id or new_run_id(f"t3.evals.{operator}")
     synthetic = bool(getattr(op, "synthetic", False))
-    declared = {
-        "run_id": run_id,
-        "synthetic": synthetic,
-        "unit": unit["unit"],
-        "track": "track-3",
-        "target": unit["target"],
-        "baseline_run_id": baseline_run_ids[0] if baseline_run_ids else None,
-        "n_items": len(incidents),
-        "test_set_sha256": digest,
-        "model_id": op.model_id,
-        "grader": GRADER_ID,
-        "code_sha": code_sha(),
-        "region": "local",
-        "twin": {
-            "kind": "maveric-inprocess",
-            "version": twin_version(),
-            "scenario": "incident-suite",
-            "seed": min(i["seed"] for i in incidents),
-            "config": {
-                "backend": BACKEND,
-                "suite": "t3/evals/suite/incidents-test.jsonl",
-                "suite_version": inc_mod.SUITE_VERSION,
-                "presets": sorted({i["preset"] for i in incidents}),
-                "seeds": "one per incident (see the suite)",
-            },
-        },
-        "operator": operator,
-        "targets_sha256": hashlib.sha256(TARGETS_PATH.read_bytes()).hexdigest(),
-        "episode": targets["episode"],
-        "evidence_writer": EVLIB,
-    }
+    declared = build_declared(run_id, operator, op, unit, incidents, digest, baseline_run_ids, targets)
     ev.write_declared(declared)
     t0 = time.time()
     if workers > 1 and operator != "swarm":

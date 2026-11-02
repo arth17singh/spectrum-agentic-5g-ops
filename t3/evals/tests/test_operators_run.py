@@ -131,3 +131,25 @@ def test_end_to_end_run_writes_declared_items_result_and_gain(tmp_path):
     assert g["value"] == pytest.approx(cand["details"]["mean_recovery"] - base["details"]["mean_recovery"])
     with pytest.raises(FileExistsError):
         R.run("no_action", tmp_path, [], allow_dirty=True, run_id="t-noact")
+
+
+ITEM_FIELDS = {"schema_version", "kind", "run_id", "team", "created_at", "aws_time", "aws_time_source", "synthetic",
+               "item_id", "input_sha256", "output_sha256", "score", "passed", "grader", "backend", "latency_ms",
+               "cost_usd", "extra"}
+
+
+def test_records_only_use_contract_fields(tmp_path):
+    import re
+
+    R.run("no_action", tmp_path, [], allow_dirty=True, run_id="t-c1")
+    decl = json.loads((tmp_path / "declared" / "t-c1.json").read_text())
+    assert set(decl) <= R.DECLARED_FIELDS
+    assert set(decl["twin"]) <= {"kind", "version", "scenario", "seed", "config"}
+    assert decl["twin"]["kind"] in ("maveric-inprocess", "maveric-hosted", "viavi", "none")
+    assert re.match(r"^[a-z]{2}(-gov|-iso[a-z]?)?-[a-z]+-\d$", decl["region"])
+    assert re.match(r"^[0-9a-f]{40}$", decl["code_sha"])
+    items = [json.loads(x) for x in (tmp_path / "records" / "t-c1" / "item.jsonl").read_text().splitlines()]
+    assert all(set(i) <= ITEM_FIELDS for i in items)
+    res = json.loads((tmp_path / "results" / "t-c1.json").read_text())
+    assert res["metric"] == res["target"]["metric"]
+    assert res["passed"] == (res["value"] <= res["target"]["value"])
