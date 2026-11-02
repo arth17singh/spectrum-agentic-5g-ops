@@ -133,6 +133,22 @@ def test_end_to_end_run_writes_declared_items_result_and_gain(tmp_path):
         R.run("no_action", tmp_path, [], allow_dirty=True, run_id="t-noact")
 
 
+def test_swarm_measured_kpis_that_disagree_with_our_twin_are_recorded():
+    class Lying:
+        synthetic = True
+
+        def open_case(self, case):
+            return "case-y"
+
+        def step(self, case_id, state, history):
+            return {"change_text": "", "applied": False, "measured_kpis": {"coverage_ratio": 2.0}}
+
+    item = R.run_incident(INC, SwarmOperator(Lying()), T)
+    assert len(item["extra"]["kpi_mismatch"]) == T["episode"]["operator_steps"]
+    ok = R.run_incident(INC, SwarmOperator(DryRunSwarmClient()), T)
+    assert "kpi_mismatch" not in ok["extra"]
+
+
 ITEM_FIELDS = {"schema_version", "kind", "run_id", "team", "created_at", "aws_time", "aws_time_source", "synthetic",
                "item_id", "input_sha256", "output_sha256", "score", "passed", "grader", "backend", "latency_ms",
                "cost_usd", "extra"}

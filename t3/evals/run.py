@@ -92,6 +92,17 @@ def run_incident(incident: dict[str, Any], op: Any, targets: dict[str, Any], run
     }
     if hasattr(op, "extra"):
         extra["operator_extra"] = op.extra()
+    # A live operator (swarm) may report the KPIs its own twin measured; they must match ours.
+    mismatch = []
+    for i, tr in enumerate(getattr(op, "trace", []) or []):
+        got = tr.get("measured_kpis") if isinstance(tr, dict) else None
+        if got and i < len(history):
+            bad = {k: [got[k], history[i]["kpis"][k]] for k in keys
+                   if k in got and not math.isclose(got[k], history[i]["kpis"][k], rel_tol=REPLAY_TOL, abs_tol=1e-8)}
+            if bad:
+                mismatch.append({"step": history[i]["step"], "theirs_vs_ours": bad})
+    if mismatch:
+        extra["kpi_mismatch"] = mismatch
     return {
         "item_id": incident["incident_id"],
         "input_sha256": sha256_text(inc_mod.canonical_line(incident)),
