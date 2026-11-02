@@ -53,7 +53,17 @@ export interface DeclaredTwin {
   config?: { [key: string]: JsonValue } | null;
 }
 
-/** Absolute error per KPI, plus one summary number the trust gate scores. */
+/** KPI change against the no-change counterfactual at the same step (A5). */
+export interface KpiDelta {
+  /** Change of a ratio, in [-1, 1]. */
+  coverage_ratio: number;
+  /** Change of a ratio, in [-1, 1]. */
+  sla_ratio: number;
+  sinr_p10_db: number;
+  sinr_mean_db: number;
+}
+
+/** Absolute error per KPI delta, plus one summary number the trust gate scores. */
 export interface KpiError {
   coverage_ratio: number;
   sla_ratio: number;
@@ -141,7 +151,7 @@ export interface DeclaredRecord {
   declared_at: string;
 }
 
-/** One graded test item. Stored in records/<run_id>/item.jsonl. */
+/** One graded test item. Stored as records/<run_id>/item/<key>.json or in records/<run_id>/item.jsonl. */
 export interface ItemRecord {
   schema_version: "1";
   /** The run this record belongs to; safe as a path segment. */
@@ -168,7 +178,7 @@ export interface ItemRecord {
   extra?: { [key: string]: JsonValue };
 }
 
-/** One checkpoint (Cedar) decision. v0: extra keys allowed until a real span is captured. Stored in records/<run_id>/decision.jsonl. */
+/** One checkpoint (Cedar) decision. v0: extra keys allowed until a real span is captured. Stored as records/<run_id>/decision/<key>.json or in records/<run_id>/decision.jsonl. */
 export interface DecisionRecord {
   schema_version: "1";
   /** The run this record belongs to; safe as a path segment. */
@@ -200,7 +210,7 @@ export interface DecisionRecord {
   [key: string]: unknown;
 }
 
-/** One applied change with predicted vs measured KPIs. Stored in records/<run_id>/change.jsonl. */
+/** One applied change: measured KPI delta vs the no-change counterfactual, and the predicted delta. Amendment 1 (A2, A5, A14, A15). Stored as records/<run_id>/change/<change_id>.json (one object per record, Lambdas) or appended to records/<run_id>/change.jsonl (batch). Python-only rules: - change_text == canon(change) and change == parse(change_text) (store the rounded list); - measured_delta == measured_kpis - baseline_kpis (abs tol 1e-6); - error.<kpi> == |predicted_delta - measured_delta| (abs tol 1e-6); error needs predicted_delta; - scored: false requires unscored_reason (e.g. "clipped"); scored: true forbids it; - probe: false, or scored: true, requires predictor, predicted_delta, error and direction_agree. */
 export interface ChangeRecord {
   schema_version: "1";
   /** The run this record belongs to; safe as a path segment. */
@@ -216,21 +226,38 @@ export interface ChangeRecord {
   synthetic: boolean;
   kind: "change";
   case_id: string;
-  /** Approval id: "chg-" + sha256(json.dumps([case_id, item_id, change]))[:12]. */
+  /** Approval id: "chg-" + sha256(json.dumps([case_id, item_id, change_text]))[:12]. */
   change_id: string;
-  twin: ChangeTwin;
+  /** Step id from ran___propose, e.g. "step-3". */
+  item_id: string;
+  /** parse(change_text): the change as applied. */
   change: Array<CellChange>;
+  /** Canonical change string (A2). */
+  change_text: string;
+  twin: ChangeTwin;
+  /** KPIs of the no-change replay at the same step. */
+  baseline_kpis: Kpis;
+  /** KPIs after the change at the same step. */
+  measured_kpis: Kpis;
+  /** measured_kpis - baseline_kpis. */
+  measured_delta: KpiDelta;
+  predicted_delta?: KpiDelta | null;
   predictor?: ModelRef | null;
   policy?: ModelRef | null;
-  predicted: Kpis;
-  measured: Kpis;
-  error: KpiError;
-  direction_agree: boolean;
+  /** Per-KPI |predicted_delta - measured_delta|, unrounded. */
+  error?: KpiError | null;
+  direction_agree?: boolean | null;
+  /** False when the change must not count toward trust (e.g. clipped). */
+  scored: boolean;
+  /** Required when scored is false, e.g. "clipped". */
+  unscored_reason?: string | null;
+  /** True for a fixed change applied with no model (A14). */
+  probe: boolean;
   trust_before?: number | null;
   trust_after?: number | null;
 }
 
-/** A pause or resume of a model's tool. Stored in records/<run_id>/control.jsonl. */
+/** A pause or resume of a model's tool. Stored as records/<run_id>/control/<key>.json or in records/<run_id>/control.jsonl. */
 export interface ControlRecord {
   schema_version: "1";
   /** The run this record belongs to; safe as a path segment. */
@@ -255,7 +282,7 @@ export interface ControlRecord {
   time: string;
 }
 
-/** One AWS job and its cost. A run may span several jobs. Stored in records/<run_id>/job.jsonl. */
+/** One AWS job and its cost. A run may span several jobs. Stored as records/<run_id>/job/<key>.json or in records/<run_id>/job.jsonl. */
 export interface JobRecord {
   schema_version: "1";
   /** The run this record belongs to; safe as a path segment. */

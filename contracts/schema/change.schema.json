@@ -71,9 +71,45 @@
       "title": "ChangeTwin",
       "type": "object"
     },
+    "KpiDelta": {
+      "additionalProperties": false,
+      "description": "KPI change against the no-change counterfactual at the same step (A5).",
+      "properties": {
+        "coverage_ratio": {
+          "description": "Change of a ratio, in [-1, 1].",
+          "maximum": 1,
+          "minimum": -1,
+          "title": "Coverage Ratio",
+          "type": "number"
+        },
+        "sinr_mean_db": {
+          "title": "Sinr Mean Db",
+          "type": "number"
+        },
+        "sinr_p10_db": {
+          "title": "Sinr P10 Db",
+          "type": "number"
+        },
+        "sla_ratio": {
+          "description": "Change of a ratio, in [-1, 1].",
+          "maximum": 1,
+          "minimum": -1,
+          "title": "Sla Ratio",
+          "type": "number"
+        }
+      },
+      "required": [
+        "coverage_ratio",
+        "sla_ratio",
+        "sinr_p10_db",
+        "sinr_mean_db"
+      ],
+      "title": "KpiDelta",
+      "type": "object"
+    },
     "KpiError": {
       "additionalProperties": false,
-      "description": "Absolute error per KPI, plus one summary number the trust gate scores.",
+      "description": "Absolute error per KPI delta, plus one summary number the trust gate scores.",
       "properties": {
         "coverage_ratio": {
           "minimum": 0,
@@ -171,7 +207,7 @@
   "$id": "https://team13.invalid/contracts/change.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "One applied change with predicted vs measured KPIs. Stored in records/<run_id>/change.jsonl.",
+  "description": "One applied change: measured KPI delta vs the no-change counterfactual, and the predicted delta.\n\nAmendment 1 (A2, A5, A14, A15). Stored as records/<run_id>/change/<change_id>.json\n(one object per record, Lambdas) or appended to records/<run_id>/change.jsonl (batch).\n\nPython-only rules:\n- change_text == canon(change) and change == parse(change_text) (store the rounded list);\n- measured_delta == measured_kpis - baseline_kpis (abs tol 1e-6);\n- error.<kpi> == |predicted_delta - measured_delta| (abs tol 1e-6); error needs predicted_delta;\n- scored: false requires unscored_reason (e.g. \"clipped\"); scored: true forbids it;\n- probe: false, or scored: true, requires predictor, predicted_delta, error and direction_agree.",
   "properties": {
     "aws_time": {
       "anyOf": [
@@ -202,12 +238,17 @@
       "description": "Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime.",
       "title": "Aws Time Source"
     },
+    "baseline_kpis": {
+      "$ref": "#/$defs/Kpis",
+      "description": "KPIs of the no-change replay at the same step."
+    },
     "case_id": {
       "minLength": 1,
       "title": "Case Id",
       "type": "string"
     },
     "change": {
+      "description": "parse(change_text): the change as applied.",
       "items": {
         "$ref": "#/$defs/CellChange"
       },
@@ -216,9 +257,15 @@
       "type": "array"
     },
     "change_id": {
-      "description": "Approval id: \"chg-\" + sha256(json.dumps([case_id, item_id, change]))[:12].",
+      "description": "Approval id: \"chg-\" + sha256(json.dumps([case_id, item_id, change_text]))[:12].",
       "pattern": "^chg-[0-9a-f]{12}$",
       "title": "Change Id",
+      "type": "string"
+    },
+    "change_text": {
+      "description": "Canonical change string (A2).",
+      "pattern": "^cell=(?:0|[1-9][0-9]*);d_power_db=[+-](?:0|[1-9][0-9]*)\\.[0-9];d_tilt_deg=[+-](?:0|[1-9][0-9]*)\\.[0-9](?:\\|cell=(?:0|[1-9][0-9]*);d_power_db=[+-](?:0|[1-9][0-9]*)\\.[0-9];d_tilt_deg=[+-](?:0|[1-9][0-9]*)\\.[0-9])*$",
+      "title": "Change Text",
       "type": "string"
     },
     "created_at": {
@@ -229,11 +276,34 @@
       "type": "string"
     },
     "direction_agree": {
-      "title": "Direction Agree",
-      "type": "boolean"
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Direction Agree"
     },
     "error": {
-      "$ref": "#/$defs/KpiError"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/KpiError"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Per-KPI |predicted_delta - measured_delta|, unrounded."
+    },
+    "item_id": {
+      "description": "Step id from ran___propose, e.g. \"step-3\".",
+      "minLength": 1,
+      "title": "Item Id",
+      "type": "string"
     },
     "kind": {
       "const": "change",
@@ -241,8 +311,13 @@
       "title": "Kind",
       "type": "string"
     },
-    "measured": {
-      "$ref": "#/$defs/Kpis"
+    "measured_delta": {
+      "$ref": "#/$defs/KpiDelta",
+      "description": "measured_kpis - baseline_kpis."
+    },
+    "measured_kpis": {
+      "$ref": "#/$defs/Kpis",
+      "description": "KPIs after the change at the same step."
     },
     "policy": {
       "anyOf": [
@@ -255,8 +330,16 @@
       ],
       "default": null
     },
-    "predicted": {
-      "$ref": "#/$defs/Kpis"
+    "predicted_delta": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/KpiDelta"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "predictor": {
       "anyOf": [
@@ -269,6 +352,11 @@
       ],
       "default": null
     },
+    "probe": {
+      "description": "True for a fixed change applied with no model (A14).",
+      "title": "Probe",
+      "type": "boolean"
+    },
     "run_id": {
       "description": "The run this record belongs to; safe as a path segment.",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
@@ -280,6 +368,11 @@
       "default": "1",
       "title": "Schema Version",
       "type": "string"
+    },
+    "scored": {
+      "description": "False when the change must not count toward trust (e.g. clipped).",
+      "title": "Scored",
+      "type": "boolean"
     },
     "synthetic": {
       "description": "True for fixtures, dry runs and anything not measured on a real system.",
@@ -318,6 +411,20 @@
     },
     "twin": {
       "$ref": "#/$defs/ChangeTwin"
+    },
+    "unscored_reason": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Required when scored is false, e.g. \"clipped\".",
+      "title": "Unscored Reason"
     }
   },
   "required": [
@@ -329,12 +436,15 @@
     "synthetic",
     "case_id",
     "change_id",
-    "twin",
+    "item_id",
     "change",
-    "predicted",
-    "measured",
-    "error",
-    "direction_agree"
+    "change_text",
+    "twin",
+    "baseline_kpis",
+    "measured_kpis",
+    "measured_delta",
+    "scored",
+    "probe"
   ],
   "title": "ChangeRecord",
   "type": "object"

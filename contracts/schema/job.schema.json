@@ -2,7 +2,7 @@
   "$id": "https://team13.invalid/contracts/job.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "One AWS job and its cost. A run may span several jobs. Stored in records/<run_id>/job.jsonl.",
+  "description": "One AWS job and its cost. A run may span several jobs. Stored as records/<run_id>/job/<key>.json or in records/<run_id>/job.jsonl.",
   "properties": {
     "arn": {
       "pattern": "^arn:aws[a-z-]*:[a-z0-9-]+:[a-z0-9-]*:(\\d{12})?:.+$",

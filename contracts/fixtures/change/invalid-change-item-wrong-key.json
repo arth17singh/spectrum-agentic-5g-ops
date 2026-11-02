@@ -7,8 +7,22 @@
   "aws_time": null,
   "aws_time_source": null,
   "synthetic": true,
-  "case_id": "case-0011",
-  "change_id": "chg-ec31682fde56",
+  "case_id": "case-t3-trust-01",
+  "change_id": "chg-cd4e41dddb35",
+  "item_id": "step-4",
+  "change": [
+    {
+      "cell": 1,
+      "d_power": -2.0,
+      "d_tilt_deg": 1.0
+    },
+    {
+      "cell": 3,
+      "d_power_db": -1.0,
+      "d_tilt_deg": 0.5
+    }
+  ],
+  "change_text": "cell=1;d_power_db=-2.0;d_tilt_deg=+1.0|cell=3;d_power_db=-1.0;d_tilt_deg=+0.5",
   "twin": {
     "kind": "maveric-inprocess",
     "version": "ran-rl-1.2.9",
@@ -16,18 +30,30 @@
     "seed": 11,
     "step": 4
   },
-  "change": [
-    {
-      "cell": 1,
-      "d_power": -2,
-      "d_tilt_deg": 1
-    },
-    {
-      "cell": 3,
-      "d_power_db": -1,
-      "d_tilt_deg": 0.5
-    }
-  ],
+  "baseline_kpis": {
+    "coverage_ratio": 0.884,
+    "sla_ratio": 0.851,
+    "sinr_p10_db": 1.62,
+    "sinr_mean_db": 11.05
+  },
+  "measured_kpis": {
+    "coverage_ratio": 0.905,
+    "sla_ratio": 0.869,
+    "sinr_p10_db": 2.1,
+    "sinr_mean_db": 11.62
+  },
+  "measured_delta": {
+    "coverage_ratio": 0.02100000000000002,
+    "sla_ratio": 0.018000000000000016,
+    "sinr_p10_db": 0.48,
+    "sinr_mean_db": 0.5699999999999985
+  },
+  "predicted_delta": {
+    "coverage_ratio": 0.025,
+    "sla_ratio": 0.015,
+    "sinr_p10_db": 0.41,
+    "sinr_mean_db": 0.6
+  },
   "predictor": {
     "model_id": "t2-response-mlp",
     "version": "v1"
@@ -36,26 +62,17 @@
     "model_id": "t1-ppo-maveric",
     "version": "v3"
   },
-  "predicted": {
-    "coverage_ratio": 0.912,
-    "sla_ratio": 0.874,
-    "sinr_p10_db": 2.35,
-    "sinr_mean_db": 11.8
-  },
-  "measured": {
-    "coverage_ratio": 0.905,
-    "sla_ratio": 0.869,
-    "sinr_p10_db": 2.1,
-    "sinr_mean_db": 11.62
-  },
   "error": {
-    "coverage_ratio": 0.007,
-    "sla_ratio": 0.005,
-    "sinr_p10_db": 0.25,
-    "sinr_mean_db": 0.18,
+    "coverage_ratio": 0.003999999999999983,
+    "sla_ratio": 0.0030000000000000165,
+    "sinr_p10_db": 0.07,
+    "sinr_mean_db": 0.03000000000000147,
     "summary": 0.0712
   },
   "direction_agree": true,
+  "scored": true,
+  "unscored_reason": null,
+  "probe": false,
   "trust_before": 0.82,
   "trust_after": 0.84
 }

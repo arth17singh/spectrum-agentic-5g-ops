@@ -6,7 +6,10 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from conftest import FIXTURES
+from pathlib import Path
+
+CONTRACTS = Path(__file__).resolve().parents[1]  # no `from conftest import`: works with --import-mode=importlib
+FIXTURES = CONTRACTS / "fixtures"
 from team13_contracts import parse_record
 
 

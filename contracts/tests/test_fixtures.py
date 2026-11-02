@@ -6,7 +6,11 @@ import pytest
 from jsonschema import Draft202012Validator
 from pydantic import ValidationError
 
-from conftest import FIXTURES, SCHEMA_DIR
+from pathlib import Path
+
+CONTRACTS = Path(__file__).resolve().parents[1]  # no `from conftest import`: works with --import-mode=importlib
+FIXTURES = CONTRACTS / "fixtures"
+SCHEMA_DIR = CONTRACTS / "schema"
 from team13_contracts import KINDS, UnknownKind, canonical_json, dump_record, parse_record
 
 REASONS = json.loads((FIXTURES / "invalid-reasons.json").read_text())

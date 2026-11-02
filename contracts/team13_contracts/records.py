@@ -8,8 +8,8 @@ declared.decoding, declared.twin.config).
 
 Python-only cross-field checks (JSON Schema cannot express them; noted per model):
 - envelope: aws_time set => aws_time_source set.
-- change: error.<key> == |predicted.<key> - measured.<key>| (abs tol 1e-6);
-  cells in `change` are unique.
+- change (amendment 1): see ChangeRecord's docstring (canonical change_text,
+  deltas, error on deltas, scored/unscored_reason, probe rule).
 - result: target.metric == metric; passed == (value <op> target.value).
 - job: aws_end >= aws_start when both are set.
 """
@@ -21,6 +21,9 @@ from typing import Any, ClassVar, Literal, Optional
 
 from pydantic import ConfigDict, Field, StrictBool, model_validator
 
+from .change import CHANGE_TEXT_PATTERN
+from .change import canon as canon_change
+from .change import parse as parse_change
 from .types import (
     AwsArn,
     AwsRegion,
@@ -30,6 +33,7 @@ from .types import (
     NonNegInt,
     NonNegNumber,
     Number,
+    num,
     PosInt,
     Ratio,
     SafeId,
@@ -144,8 +148,20 @@ class Kpis(Strict):
 KPI_KEYS = ("coverage_ratio", "sla_ratio", "sinr_p10_db", "sinr_mean_db")
 
 
+DeltaRatio = num(ge=-1, le=1, description="Change of a ratio, in [-1, 1].")
+
+
+class KpiDelta(Strict):
+    """KPI change against the no-change counterfactual at the same step (A5)."""
+
+    coverage_ratio: DeltaRatio
+    sla_ratio: DeltaRatio
+    sinr_p10_db: Number
+    sinr_mean_db: Number
+
+
 class KpiError(Strict):
-    """Absolute error per KPI, plus one summary number the trust gate scores."""
+    """Absolute error per KPI delta, plus one summary number the trust gate scores."""
 
     coverage_ratio: NonNegNumber
     sla_ratio: NonNegNumber
@@ -193,7 +209,7 @@ class DeclaredRecord(Envelope):
 
 
 class ItemRecord(Envelope):
-    """One graded test item. Stored in records/<run_id>/item.jsonl."""
+    """One graded test item. Stored as records/<run_id>/item/<key>.json or in records/<run_id>/item.jsonl."""
 
     KIND: ClassVar[str] = "item"
     kind: Literal["item"] = "item"
@@ -212,7 +228,7 @@ class ItemRecord(Envelope):
 class DecisionRecord(Envelope):
     """One checkpoint (Cedar) decision. v0: extra keys allowed until a real span is captured.
 
-    Stored in records/<run_id>/decision.jsonl.
+    Stored as records/<run_id>/decision/<key>.json or in records/<run_id>/decision.jsonl.
     """
 
     model_config = ConfigDict(extra="allow")
@@ -235,23 +251,41 @@ class DecisionRecord(Envelope):
 
 
 class ChangeRecord(Envelope):
-    """One applied change with predicted vs measured KPIs. Stored in records/<run_id>/change.jsonl."""
+    """One applied change: measured KPI delta vs the no-change counterfactual, and the predicted delta.
+
+    Amendment 1 (A2, A5, A14, A15). Stored as records/<run_id>/change/<change_id>.json
+    (one object per record, Lambdas) or appended to records/<run_id>/change.jsonl (batch).
+
+    Python-only rules:
+    - change_text == canon(change) and change == parse(change_text) (store the rounded list);
+    - measured_delta == measured_kpis - baseline_kpis (abs tol 1e-6);
+    - error.<kpi> == |predicted_delta - measured_delta| (abs tol 1e-6); error needs predicted_delta;
+    - scored: false requires unscored_reason (e.g. "clipped"); scored: true forbids it;
+    - probe: false, or scored: true, requires predictor, predicted_delta, error and direction_agree.
+    """
 
     KIND: ClassVar[str] = "change"
     kind: Literal["change"] = "change"
     case_id: NonEmptyStr
     change_id: str = Field(
         pattern=r"^chg-[0-9a-f]{12}$",
-        description='Approval id: "chg-" + sha256(json.dumps([case_id, item_id, change]))[:12].',
+        description='Approval id: "chg-" + sha256(json.dumps([case_id, item_id, change_text]))[:12].',
     )
+    item_id: NonEmptyStr = Field(description='Step id from ran___propose, e.g. "step-3".')
+    change: list[CellChange] = Field(min_length=1, description="parse(change_text): the change as applied.")
+    change_text: str = Field(pattern=CHANGE_TEXT_PATTERN, description="Canonical change string (A2).")
     twin: ChangeTwin
-    change: list[CellChange] = Field(min_length=1)
+    baseline_kpis: Kpis = Field(description="KPIs of the no-change replay at the same step.")
+    measured_kpis: Kpis = Field(description="KPIs after the change at the same step.")
+    measured_delta: KpiDelta = Field(description="measured_kpis - baseline_kpis.")
+    predicted_delta: Optional[KpiDelta] = None
     predictor: Optional[ModelRef] = None
     policy: Optional[ModelRef] = None
-    predicted: Kpis
-    measured: Kpis
-    error: KpiError
-    direction_agree: StrictBool
+    error: Optional[KpiError] = Field(default=None, description="Per-KPI |predicted_delta - measured_delta|, unrounded.")
+    direction_agree: Optional[StrictBool] = None
+    scored: StrictBool = Field(description="False when the change must not count toward trust (e.g. clipped).")
+    unscored_reason: Optional[NonEmptyStr] = Field(default=None, description='Required when scored is false, e.g. "clipped".')
+    probe: StrictBool = Field(description="True for a fixed change applied with no model (A14).")
     trust_before: Optional[Number] = None
     trust_after: Optional[Number] = None
 
@@ -260,16 +294,45 @@ class ChangeRecord(Envelope):
         cells = [c.cell for c in self.change]
         if len(set(cells)) != len(cells):
             raise ValueError("change lists the same cell twice")
+        as_list = [c.model_dump() for c in self.change]
+        try:
+            text = canon_change(as_list)
+            parsed = parse_change(self.change_text)
+        except ValueError as exc:
+            raise ValueError(f"change/change_text: {exc}") from None
+        if text != self.change_text:
+            raise ValueError(f"change_text {self.change_text!r} != canon(change) {text!r}")
+        if parsed != as_list:
+            raise ValueError("change must equal parse(change_text): store the rounded values")
         for k in KPI_KEYS:
-            want = abs(getattr(self.predicted, k) - getattr(self.measured, k))
-            got = getattr(self.error, k)
+            want = getattr(self.measured_kpis, k) - getattr(self.baseline_kpis, k)
+            got = getattr(self.measured_delta, k)
             if abs(got - want) > 1e-6:
-                raise ValueError(f"error.{k}={got} but |predicted - measured| = {want}")
+                raise ValueError(f"measured_delta.{k}={got} but measured - baseline = {want}")
+        if self.error is not None:
+            if self.predicted_delta is None:
+                raise ValueError("error is set but predicted_delta is missing")
+            for k in KPI_KEYS:
+                want = abs(getattr(self.predicted_delta, k) - getattr(self.measured_delta, k))
+                got = getattr(self.error, k)
+                if abs(got - want) > 1e-6:
+                    raise ValueError(f"error.{k}={got} but |predicted_delta - measured_delta| = {want}")
+        if not self.scored and self.unscored_reason is None:
+            raise ValueError("scored is false but unscored_reason is missing")
+        if self.scored and self.unscored_reason is not None:
+            raise ValueError("unscored_reason is set but scored is true")
+        if not self.probe or self.scored:
+            missing = [
+                n for n in ("predictor", "predicted_delta", "error", "direction_agree") if getattr(self, n) is None
+            ]
+            if missing:
+                why = "scored" if self.scored else "not a probe"
+                raise ValueError(f"{why} change is missing {', '.join(missing)}")
         return self
 
 
 class ControlRecord(Envelope):
-    """A pause or resume of a model's tool. Stored in records/<run_id>/control.jsonl."""
+    """A pause or resume of a model's tool. Stored as records/<run_id>/control/<key>.json or in records/<run_id>/control.jsonl."""
 
     KIND: ClassVar[str] = "control"
     kind: Literal["control"] = "control"
@@ -283,7 +346,7 @@ class ControlRecord(Envelope):
 
 
 class JobRecord(Envelope):
-    """One AWS job and its cost. A run may span several jobs. Stored in records/<run_id>/job.jsonl."""
+    """One AWS job and its cost. A run may span several jobs. Stored as records/<run_id>/job/<key>.json or in records/<run_id>/job.jsonl."""
 
     KIND: ClassVar[str] = "job"
     kind: Literal["job"] = "job"

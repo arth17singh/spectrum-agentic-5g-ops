@@ -6,9 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from conftest import REPO_ROOT
+import gen  # on sys.path via conftest.py
 
-import gen
+CONTRACTS = Path(__file__).resolve().parents[1]  # no `from conftest import`: works with --import-mode=importlib
+REPO_ROOT = CONTRACTS.parent
 
 
 def _snapshot(root: Path) -> dict[str, bytes]:

@@ -24,12 +24,16 @@ const change: ChangeRecord = {
   synthetic: true,
   case_id: "case-0001",
   change_id: "chg-0123456789ab",
-  twin: { kind: "maveric-inprocess", version: "1.2.9", scenario: "official", seed: 7, step: 3 },
+  item_id: "step-3",
+  twin: { kind: "maveric-inprocess", version: "1.2.9", scenario: "nominal", seed: 7, step: 3 },
   change: [{ cell: 0, d_power_db: -1, d_tilt_deg: 0.5 }],
-  predicted: { coverage_ratio: 0.9, sla_ratio: 0.8, sinr_p10_db: 1.5, sinr_mean_db: 9 },
-  measured: { coverage_ratio: 0.88, sla_ratio: 0.8, sinr_p10_db: 1.2, sinr_mean_db: 9.1 },
-  error: { coverage_ratio: 0.02, sla_ratio: 0, sinr_p10_db: 0.3, sinr_mean_db: 0.1, summary: 0.05 },
-  direction_agree: true,
+  change_text: "cell=0;d_power_db=-1.0;d_tilt_deg=+0.5",
+  baseline_kpis: { coverage_ratio: 0.86, sla_ratio: 0.8, sinr_p10_db: 1.0, sinr_mean_db: 9 },
+  measured_kpis: { coverage_ratio: 0.88, sla_ratio: 0.8, sinr_p10_db: 1.2, sinr_mean_db: 9.1 },
+  measured_delta: { coverage_ratio: 0.02, sla_ratio: 0, sinr_p10_db: 0.2, sinr_mean_db: 0.1 },
+  scored: false,
+  unscored_reason: "probe",
+  probe: true,
 };
 
 // decision is v0: extra keys allowed.
@@ -52,7 +56,7 @@ const decision: DecisionRecord = {
 function describe(r: AnyRecord): string {
   switch (r.kind) {
     case "change":
-      return `${r.change_id} ${r.measured.coverage_ratio}`;
+      return `${r.change_text} ${r.measured_delta.coverage_ratio} ${r.error?.summary ?? "probe"}`;
     case "result":
       return `${r.unit} ${r.passed ? "PASS" : "FAIL"} ${r.target.op}`;
     case "decision":

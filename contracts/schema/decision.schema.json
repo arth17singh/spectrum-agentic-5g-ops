@@ -32,7 +32,7 @@
   "$id": "https://team13.invalid/contracts/decision.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": true,
-  "description": "One checkpoint (Cedar) decision. v0: extra keys allowed until a real span is captured.\n\nStored in records/<run_id>/decision.jsonl.",
+  "description": "One checkpoint (Cedar) decision. v0: extra keys allowed until a real span is captured.\n\nStored as records/<run_id>/decision/<key>.json or in records/<run_id>/decision.jsonl.",
   "properties": {
     "agent": {
       "minLength": 1,

@@ -5,7 +5,7 @@
   "$id": "https://team13.invalid/contracts/item.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "One graded test item. Stored in records/<run_id>/item.jsonl.",
+  "description": "One graded test item. Stored as records/<run_id>/item/<key>.json or in records/<run_id>/item.jsonl.",
   "properties": {
     "aws_time": {
       "anyOf": [

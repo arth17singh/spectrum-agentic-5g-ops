@@ -2,7 +2,7 @@
   "$id": "https://team13.invalid/contracts/control.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "A pause or resume of a model's tool. Stored in records/<run_id>/control.jsonl.",
+  "description": "A pause or resume of a model's tool. Stored as records/<run_id>/control/<key>.json or in records/<run_id>/control.jsonl.",
   "properties": {
     "action": {
       "enum": [
