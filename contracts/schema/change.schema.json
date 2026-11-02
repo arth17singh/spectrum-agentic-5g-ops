@@ -207,7 +207,7 @@
   "$id": "https://team13.invalid/contracts/change.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "One applied change: measured KPI delta vs the no-change counterfactual, and the predicted delta.\n\nAmendment 1 (A2, A5, A14, A15). Stored as records/<run_id>/change/<change_id>.json\n(one object per record, Lambdas) or appended to records/<run_id>/change.jsonl (batch).\n\nPython-only rules:\n- change_text == canon(change) and change == parse(change_text) (store the rounded list);\n- measured_delta == measured_kpis - baseline_kpis (abs tol 1e-6);\n- error.<kpi> == |predicted_delta - measured_delta| (abs tol 1e-6); error needs predicted_delta;\n- scored: false requires unscored_reason (e.g. \"clipped\"); scored: true forbids it;\n- probe: false, or scored: true, requires predictor, predicted_delta, error and direction_agree.",
+  "description": "One applied change: measured KPI delta vs the no-change counterfactual, and the predicted delta.\n\nAmendment 1 (A2, A5, A14, A15). Stored as records/<run_id>/change/<change_id>.json\n(one object per record, Lambdas) or appended to records/<run_id>/change.jsonl (batch).\n\nPython-only rules:\n- change_text == canon(change) and change == parse(change_text) (store the rounded list);\n- measured_delta == measured_kpis - baseline_kpis (abs tol 1e-6);\n- error.<kpi> == |predicted_delta - measured_delta| (abs tol 1e-6); error needs predicted_delta;\n- scored: false requires unscored_reason (e.g. \"clipped\"); scored: true forbids it;\n- scored: true requires predictor, predicted_delta, error and direction_agree; scored: false\n  makes them optional (reasons: \"probe\", \"clipped\", \"no_prediction\" when ran___predict is paused).",
   "properties": {
     "aws_time": {
       "anyOf": [
@@ -423,7 +423,7 @@
         }
       ],
       "default": null,
-      "description": "Required when scored is false, e.g. \"clipped\".",
+      "description": "Required when scored is false: \"probe\", \"clipped\" or \"no_prediction\".",
       "title": "Unscored Reason"
     }
   },

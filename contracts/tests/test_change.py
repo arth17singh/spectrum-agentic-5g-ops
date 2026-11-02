@@ -200,14 +200,29 @@ def test_unscored_requires_reason_and_scored_forbids_it():
     bad(raw)
 
 
-@pytest.mark.parametrize("field", ["predictor", "predicted_delta", "error", "direction_agree"])
-def test_non_probe_needs_prediction_fields(field):
+PRED_FIELDS = ("predictor", "predicted_delta", "error", "direction_agree")
+
+
+@pytest.mark.parametrize("field", PRED_FIELDS)
+def test_scored_change_needs_prediction_fields(field):
     raw = load(SCORED)
     raw[field] = None
     bad(raw)
-    raw = load(CLIPPED)  # non-probe, even when unscored
-    raw[field] = None
-    bad(raw)
+
+
+@pytest.mark.parametrize("name", [CLIPPED, "valid-no-prediction-while-paused.json", PROBE])
+def test_unscored_change_may_omit_prediction_fields(name):
+    raw = load(name)
+    for f in PRED_FIELDS:
+        raw.pop(f, None)
+    m = parse_record(raw)
+    assert not m.scored and m.unscored_reason in ("clipped", "no_prediction", "probe")
+
+
+def test_no_prediction_fixture_shape():
+    m = parse_record(load("valid-no-prediction-while-paused.json"))
+    assert (m.probe, m.scored, m.unscored_reason) == (False, False, "no_prediction")
+    assert m.predictor is None and m.predicted_delta is None and m.policy is not None
 
 
 def test_probe_may_omit_prediction_fields():

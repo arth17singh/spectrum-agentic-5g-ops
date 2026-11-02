@@ -42,8 +42,11 @@ The envelope is `schema_version, kind, run_id, team, created_at, aws_time, aws_t
     - `change_text == canon(change)` and `change == parse(change_text)`. Store the rounded list, not the raw proposal;
     - `measured_delta == measured_kpis − baseline_kpis`, to 1e-6;
     - each `error.<kpi>` equals `|predicted_delta − measured_delta|`, to 1e-6. Compute it from unrounded values. `error` needs `predicted_delta`;
-    - when `scored` is false, `unscored_reason` is required, for example `"clipped"` (A5) or `"probe"`. When `scored` is true, it must be absent;
-    - `predictor`, `predicted_delta`, `error` and `direction_agree` may be omitted only when `probe` is true and `scored` is false (A14);
+    - when `scored` is false, `unscored_reason` is required, for example `"clipped"`, `"probe"` or `"no_prediction"`. When `scored` is true, it must be absent;
+    - `predictor`, `predicted_delta`, `error` and `direction_agree` are required when `scored` is true and optional whenever it is false. The reasons in use are:
+      - `"probe"` (A14);
+      - `"clipped"` (A5);
+      - `"no_prediction"`: applied while `ran___predict` was paused, so no prediction was stored;
     - cells are unique;
   - in `result`:
     - `metric == target.metric`;

@@ -210,7 +210,7 @@ export interface DecisionRecord {
   [key: string]: unknown;
 }
 
-/** One applied change: measured KPI delta vs the no-change counterfactual, and the predicted delta. Amendment 1 (A2, A5, A14, A15). Stored as records/<run_id>/change/<change_id>.json (one object per record, Lambdas) or appended to records/<run_id>/change.jsonl (batch). Python-only rules: - change_text == canon(change) and change == parse(change_text) (store the rounded list); - measured_delta == measured_kpis - baseline_kpis (abs tol 1e-6); - error.<kpi> == |predicted_delta - measured_delta| (abs tol 1e-6); error needs predicted_delta; - scored: false requires unscored_reason (e.g. "clipped"); scored: true forbids it; - probe: false, or scored: true, requires predictor, predicted_delta, error and direction_agree. */
+/** One applied change: measured KPI delta vs the no-change counterfactual, and the predicted delta. Amendment 1 (A2, A5, A14, A15). Stored as records/<run_id>/change/<change_id>.json (one object per record, Lambdas) or appended to records/<run_id>/change.jsonl (batch). Python-only rules: - change_text == canon(change) and change == parse(change_text) (store the rounded list); - measured_delta == measured_kpis - baseline_kpis (abs tol 1e-6); - error.<kpi> == |predicted_delta - measured_delta| (abs tol 1e-6); error needs predicted_delta; - scored: false requires unscored_reason (e.g. "clipped"); scored: true forbids it; - scored: true requires predictor, predicted_delta, error and direction_agree; scored: false makes them optional (reasons: "probe", "clipped", "no_prediction" when ran___predict is paused). */
 export interface ChangeRecord {
   schema_version: "1";
   /** The run this record belongs to; safe as a path segment. */
@@ -249,7 +249,7 @@ export interface ChangeRecord {
   direction_agree?: boolean | null;
   /** False when the change must not count toward trust (e.g. clipped). */
   scored: boolean;
-  /** Required when scored is false, e.g. "clipped". */
+  /** Required when scored is false: "probe", "clipped" or "no_prediction". */
   unscored_reason?: string | null;
   /** True for a fixed change applied with no model (A14). */
   probe: boolean;

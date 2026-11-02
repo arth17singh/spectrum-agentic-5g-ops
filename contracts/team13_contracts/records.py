@@ -261,7 +261,8 @@ class ChangeRecord(Envelope):
     - measured_delta == measured_kpis - baseline_kpis (abs tol 1e-6);
     - error.<kpi> == |predicted_delta - measured_delta| (abs tol 1e-6); error needs predicted_delta;
     - scored: false requires unscored_reason (e.g. "clipped"); scored: true forbids it;
-    - probe: false, or scored: true, requires predictor, predicted_delta, error and direction_agree.
+    - scored: true requires predictor, predicted_delta, error and direction_agree; scored: false
+      makes them optional (reasons: "probe", "clipped", "no_prediction" when ran___predict is paused).
     """
 
     KIND: ClassVar[str] = "change"
@@ -284,7 +285,7 @@ class ChangeRecord(Envelope):
     error: Optional[KpiError] = Field(default=None, description="Per-KPI |predicted_delta - measured_delta|, unrounded.")
     direction_agree: Optional[StrictBool] = None
     scored: StrictBool = Field(description="False when the change must not count toward trust (e.g. clipped).")
-    unscored_reason: Optional[NonEmptyStr] = Field(default=None, description='Required when scored is false, e.g. "clipped".')
+    unscored_reason: Optional[NonEmptyStr] = Field(default=None, description='Required when scored is false: "probe", "clipped" or "no_prediction".')
     probe: StrictBool = Field(description="True for a fixed change applied with no model (A14).")
     trust_before: Optional[Number] = None
     trust_after: Optional[Number] = None
@@ -321,13 +322,12 @@ class ChangeRecord(Envelope):
             raise ValueError("scored is false but unscored_reason is missing")
         if self.scored and self.unscored_reason is not None:
             raise ValueError("unscored_reason is set but scored is true")
-        if not self.probe or self.scored:
+        if self.scored:
             missing = [
                 n for n in ("predictor", "predicted_delta", "error", "direction_agree") if getattr(self, n) is None
             ]
             if missing:
-                why = "scored" if self.scored else "not a probe"
-                raise ValueError(f"{why} change is missing {', '.join(missing)}")
+                raise ValueError(f"scored change is missing {', '.join(missing)}")
         return self
 
 
