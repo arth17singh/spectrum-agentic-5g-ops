@@ -129,7 +129,7 @@ def function_specs(*, team: str, region: str, account: str, image_uri: str, arch
          "MemorySize": 3008, "Timeout": 120, "ImageConfig": {"Command": [TOOLS_HANDLER]},
          "Environment": {"Variables": tools_env}},
         {**common, "FunctionName": f"{team}-trust-gate", "Role": role(f"{team}-trust-gate"),
-         "Description": "Team13 trust gate (invoked asynchronously by ran___apply_change)",
+         "Description": "Team13 trust gate (called synchronously by ran___apply_change)",
          "MemorySize": 1024, "Timeout": 60, "ImageConfig": {"Command": [TRUST_HANDLER]},
          "Environment": {"Variables": trust_env}},
     ]

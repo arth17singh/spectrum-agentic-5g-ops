@@ -18,8 +18,10 @@ config) and reset on every use (A16).
 Measurements are deltas against the no-change counterfactual at the same step (A5): the twin is
 replayed twice, once advancing with no change (baseline) and once with the change (measured).
 Only ran___predict runs the predictor; it stores its predicted delta in the case row and
-ran___apply_change compares against that stored prediction (A4). After the change record is
-written, the separate trust-gate Lambda is invoked asynchronously (A7); the tools never write policies.
+ran___apply_change compares against that stored prediction (A4). Before the change record is
+written, the separate trust-gate Lambda is invoked synchronously (about 5 s); its trust_before and
+trust_after go into the record, which is written once. The tools never write policies (A7), and a
+gate error or timeout never fails an apply (the trust fields stay null).
 
 Collaborators are injected through `Deps` (tests use fakes; `Deps.from_env()` builds the real
 ones lazily): the twin (W2 `twin.replay`), the predictor (W9 `t2.predict`), the RL policy
@@ -235,13 +237,19 @@ class Deps:
             if env.get("T3_TRUST", "on") == "off":
                 return None
             fn = env.get("T3_TRUST_FUNCTION", "team13-trust-gate")
+            timeout = float(env.get("T3_TRUST_TIMEOUT_S", "5"))
             import boto3
-            client = boto3.client("lambda")
+            from botocore.config import Config
+            client = boto3.client("lambda", config=Config(connect_timeout=2, read_timeout=timeout,
+                                                          retries={"max_attempts": 0}))
 
-            def invoke(record: dict) -> dict:
-                resp = client.invoke(FunctionName=fn, InvocationType="Event",
-                                     Payload=json.dumps(record, allow_nan=False).encode())
-                return {"invoked": fn, "status": resp.get("StatusCode")}
+            def invoke(payload: dict) -> dict:
+                resp = client.invoke(FunctionName=fn, InvocationType="RequestResponse",
+                                     Payload=json.dumps(payload, allow_nan=False).encode())
+                body = resp["Payload"].read()
+                if resp.get("FunctionError"):
+                    raise RuntimeError(f"{fn} {resp['FunctionError']}: {body[:300]!r}")
+                return json.loads(body or b"{}")
             return invoke
 
         version = env.get("T3_TWIN_VERSION")
@@ -472,10 +480,15 @@ class Tools:
         result = {"applied": True, "approval_id": key, "case_id": case["case_id"], "run_id": case["run_id"],
                   "item_id": item_id, "change": text, "step": step, "baseline_kpis": cf["baseline_kpis"],
                   "measured_kpis": cf["measured_kpis"], "measured_delta": cf["measured_delta"],
-                  "predicted_delta": record["predicted_delta"], "error": record["error"],
+                  # not "error": that key means a refusal to agents and to the handler's ok flag
+                  "predicted_delta": record["predicted_delta"], "prediction_error": record["error"],
                   "direction_agree": record["direction_agree"], "scored": record["scored"],
                   "unscored_reason": record["unscored_reason"], "clipped": cf["clipped"],
                   "safety_rules": cf["safety_rules"]}
+        if record["scored"]:  # the gate decides before the record is written, so it carries trust
+            result["trust"] = self._ask_trust(record, prediction["predictor"]["version"])
+            record["trust_before"] = result["trust"].get("trust_before")
+            record["trust_after"] = result["trust"].get("trust_after")
         try:
             result["evidence"] = self.d.writer().put_record(case["run_id"], "change", key, record)
         except Exception as exc:  # noqa: BLE001 — the change is applied; say the record failed
@@ -483,9 +496,8 @@ class Tools:
             audit(record="evidence_error", case_id=case["case_id"], run_id=case["run_id"], error=str(exc))
         audit(record="change_applied", case_id=case["case_id"], run_id=case["run_id"], approval_id=key,
               change_text=text, item_id=item_id, step=step, scored=record["scored"],
-              unscored_reason=record["unscored_reason"], evidence=result.get("evidence"))
-        if record["scored"]:
-            result["trust"] = self._notify_trust(record)
+              unscored_reason=record["unscored_reason"], evidence=result.get("evidence"),
+              trust_after=record["trust_after"])
         return result
 
     def ask(self, args: dict) -> dict:
@@ -502,19 +514,29 @@ class Tools:
         return {"case_id": case["case_id"], "run_id": case["run_id"], **out}
 
     # ---- internals
-    def _notify_trust(self, record: dict) -> dict:
-        """Hand the record to the separate trust-gate Lambda, asynchronously (A7)."""
+    def _ask_trust(self, record: dict, model_version: str) -> dict:
+        """Ask the separate trust-gate Lambda synchronously (about 5 s timeout) before the record is
+        written. It answers {trust_before, trust_after, e, score, action, control_record_key?} and
+        keeps the policy-write rights (A7). Apply never fails because of the gate: on an error or a
+        timeout the trust fields stay null and the result carries a note."""
         try:
             invoke = self.d.trust_invoker()
             if invoke is None:
-                return {"note": "trust gate not configured (T3_TRUST=off)"}
-            out = jsonable(invoke(record)) or {}
-            audit(record="trust_notified", case_id=record["case_id"], run_id=record["run_id"],
-                  change_id=record["change_id"], **{k: v for k, v in out.items() if k != "record"})
+                return {"trust_before": None, "trust_after": None,
+                        "note": "trust gate not configured (T3_TRUST=off); trust fields left null"}
+            out = jsonable(invoke({"record": record, "model_version": model_version})) or {}
+            if not isinstance(out, dict):
+                raise ValueError(f"unexpected gate answer {str(out)[:100]}")
+            audit(record="trust_decided", case_id=record["case_id"], run_id=record["run_id"],
+                  change_id=record["change_id"], model_version=model_version,
+                  **{k: out.get(k) for k in ("trust_before", "trust_after", "e", "score", "action",
+                                             "control_record_key")})
             return out
         except Exception as exc:  # noqa: BLE001 — the change stands; report the failure
-            audit(record="trust_error", case_id=record["case_id"], run_id=record["run_id"], error=str(exc))
-            return {"error": f"trust gate not notified: {exc}"}
+            audit(record="trust_error", case_id=record["case_id"], run_id=record["run_id"],
+                  error=f"{type(exc).__name__}: {exc}")
+            return {"trust_before": None, "trust_after": None,
+                    "note": f"trust gate unavailable ({type(exc).__name__}: {exc}); trust fields left null"}
 
     @staticmethod
     def _approval_refusal(key: str, status: str | None) -> dict:

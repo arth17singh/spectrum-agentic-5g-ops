@@ -213,12 +213,29 @@ class FakePolicy:
 
 
 class FakeTrustInvoker:
-    def __init__(self):
-        self.records = []
+    """The trust gate answering synchronously, like W5's handler."""
 
-    def __call__(self, record):
-        self.records.append(copy.deepcopy(record))
-        return {"invoked": "team13-trust-gate", "status": 202}
+    def __init__(self, mode: str = "ok"):
+        self.mode, self.payloads, self.trust = mode, [], 1.0
+
+    @property
+    def records(self):
+        return [p["record"] for p in self.payloads]
+
+    def __call__(self, payload):
+        self.payloads.append(copy.deepcopy(payload))
+        if self.mode == "timeout":
+            from botocore.exceptions import ReadTimeoutError
+            raise ReadTimeoutError(endpoint_url="https://lambda.us-east-2.amazonaws.com/")
+        if self.mode == "error":
+            raise RuntimeError("team13-trust-gate Unhandled: KeyError('scales')")
+        before = self.trust
+        rec = payload["record"]
+        self.trust = before * (1.0 if rec["direction_agree"] else 0.5)
+        return {"trust_before": before, "trust_after": self.trust, "e": rec["error"]["summary"],
+                "score": 1.0 if rec["direction_agree"] else 0.0,
+                "action": None if rec["direction_agree"] else "pause",
+                **({} if rec["direction_agree"] else {"control_record_key": "ctl-0001"})}
 
 
 class MemoryWriter:
