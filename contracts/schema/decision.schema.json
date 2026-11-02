@@ -1,0 +1,246 @@
+{
+  "$defs": {
+    "JsonValue": {},
+    "LogPointer": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "log_group": {
+          "minLength": 1,
+          "title": "Log Group",
+          "type": "string"
+        },
+        "log_stream": {
+          "minLength": 1,
+          "title": "Log Stream",
+          "type": "string"
+        }
+      },
+      "required": [
+        "log_group",
+        "log_stream",
+        "event_id"
+      ],
+      "title": "LogPointer",
+      "type": "object"
+    }
+  },
+  "$id": "https://team13.invalid/contracts/decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "One checkpoint (Cedar) decision. v0: extra keys allowed until a real span is captured.\n\nStored as records/<run_id>/decision/<key>.json or in records/<run_id>/decision.jsonl.",
+  "properties": {
+    "agent": {
+      "minLength": 1,
+      "title": "Agent",
+      "type": "string"
+    },
+    "approval_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Approval Id"
+    },
+    "aws_time": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Time taken from an AWS source; null when there is none.",
+      "title": "Aws Time"
+    },
+    "aws_time_source": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime.",
+      "title": "Aws Time Source"
+    },
+    "case_id": {
+      "minLength": 1,
+      "title": "Case Id",
+      "type": "string"
+    },
+    "created_at": {
+      "description": "When our code wrote the record (UTC, trailing Z).",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "deciding_rule": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Deciding Rule"
+    },
+    "decision": {
+      "enum": [
+        "ALLOW",
+        "DENY"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "guardrail_scores": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Guardrail Scores"
+    },
+    "kind": {
+      "const": "decision",
+      "default": "decision",
+      "title": "Kind",
+      "type": "string"
+    },
+    "log_pointer": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LogPointer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    },
+    "run_id": {
+      "description": "The run this record belongs to; safe as a path segment.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "aws/spans",
+        "/team13/checkpoint"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "span_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Span Id"
+    },
+    "synthetic": {
+      "description": "True for fixtures, dry runs and anything not measured on a real system.",
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "team": {
+      "const": "team13",
+      "default": "team13",
+      "title": "Team",
+      "type": "string"
+    },
+    "time": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+      "title": "Time",
+      "type": "string"
+    },
+    "tool": {
+      "minLength": 1,
+      "title": "Tool",
+      "type": "string"
+    },
+    "trace_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trace Id"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "team",
+    "run_id",
+    "created_at",
+    "synthetic",
+    "case_id",
+    "time",
+    "agent",
+    "tool",
+    "decision",
+    "source"
+  ],
+  "title": "DecisionRecord",
+  "type": "object"
+}
