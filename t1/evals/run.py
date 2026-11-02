@@ -254,8 +254,12 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
         from t1.evals.twin_standin import get_replay_twin, sdk_version
 
         twin_cls, twin_src = get_replay_twin()
-        twin = {"kind": "maveric-inprocess", "version": f"ran-rl {sdk_version()}", "scenario": "per item",
-                "seed": None, "config": {"preset": "official", "replay": twin_src}}
+        from t1.evals.gen_execution import SEED_BASE
+
+        # scenario and seed differ per item; they are stored on every item (meta.scenario, meta.seed)
+        twin = {"kind": "maveric-inprocess", "version": f"ran-rl {sdk_version()}", "scenario": "per-item",
+                "seed": SEED_BASE, "config": {"preset": "official", "replay": twin_src,
+                                              "per_item": "t1/evals/items/execution.jsonl meta.scenario/seed/prefix"}}
     else:
         twin_cls = None
     declared = {
