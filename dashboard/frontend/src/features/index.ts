@@ -9,10 +9,11 @@ import swarm from './swarm/manifest'
 import oversight from './oversight/manifest'
 import trust from './trust/manifest'
 import audit from './audit/manifest'
+import evidence from './evidence/manifest'
 import observability from './observability/manifest'
 import settings from './settings/manifest'
 import mobile from './mobile/manifest'
 import presenter from './presenter/manifest'
 import dossier from './audit/dossierManifest'
 
-export const features: FeatureManifest[] = [mission, federation, proving, release, swarm, oversight, trust, audit, observability, settings, mobile, presenter, dossier]
+export const features: FeatureManifest[] = [mission, federation, proving, release, swarm, oversight, trust, audit, evidence, observability, settings, mobile, presenter, dossier]

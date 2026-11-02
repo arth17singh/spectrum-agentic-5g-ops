@@ -170,5 +170,7 @@ export interface Snapshot {
   ledger: Rec
   oversight: Rec
   observability: Rec
+  /** the REAL evidence ledger (persisted, never simulated); see features/evidence */
+  evidence?: Rec
   stream: Envelope[]
 }

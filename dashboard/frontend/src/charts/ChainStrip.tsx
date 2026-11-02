@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import {
   Circle, FileText, FlaskConical, Gauge, KeyRound, MessagesSquare, Network, RefreshCw, Rocket, ShieldCheck, ShieldX,
-  Siren, Snowflake, TriangleAlert, UserCheck, Wrench, Anchor, Loader2,
+  Siren, Snowflake, TriangleAlert, UserCheck, Wrench, Anchor, Loader2, FileCheck2, FileWarning, FileX2,
 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { shortHash } from '@/core/format'
@@ -16,7 +16,8 @@ export type BlockState = 'ok' | 'fail' | 'pending' | 'unverified' | 'idle'
 export const TYPE_GLYPH: [string, typeof Circle][] = [
   ['tool.call', Wrench], ['a2a.', MessagesSquare], ['approval.', UserCheck], ['escalation', TriangleAlert],
   ['fl.', Network], ['eval.', FlaskConical], ['aibom', FlaskConical], ['release.', Rocket], ['identity.', KeyRound],
-  ['incident.', Siren], ['dossier', FileText], ['autonomy', Gauge], ['swarm.', Snowflake], ['loop.', RefreshCw],
+  ['incident.', Siren], ['dossier', FileText], ['evidence.artifact', FileCheck2], ['evidence.changed', FileWarning],
+  ['evidence.missing', FileX2], ['evidence.', FileText], ['autonomy', Gauge], ['swarm.', Snowflake], ['loop.', RefreshCw],
 ]
 export const glyphFor = (type: string) => TYPE_GLYPH.find(([p]) => type.startsWith(p))?.[1] ?? Circle
 

@@ -24,11 +24,13 @@ const TOAST_TYPES: Record<string, string> = {
   'eval.gate': 'Open',
   'guardrail.block': 'Inspect',
   'fl.budget': 'Open',
+  'evidence.status': 'Open',
 }
 const TOAST_ROUTE: Record<string, string> = {
   'approval.requested': '/oversight', escalation: '/oversight', 'attack.denied': '/swarm', 'identity.revoked': '/swarm',
   'fl.poison': '/federation', 'ledger.verify': '/audit', 'incident.opened': '/swarm', 'eval.gate': '/proving',
   'guardrail.block': '/trust', 'fl.budget': '/federation',
+  'evidence.status': '/evidence',
 }
 
 function maybeToast(e: Envelope) {

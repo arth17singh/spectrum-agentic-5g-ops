@@ -63,4 +63,9 @@ export const api = {
   beat: (n: number) => post(`/api/director/beat/${n}`),
   reset: () => post('/api/director/reset'),
   preflight: () => get('/api/director/preflight'),
+  evidence: () => get('/api/evidence'),
+  evidenceChain: () => get('/api/evidence/chain'),
+  evidenceRun: (runId: string) => get(`/api/evidence/runs/${encodeURIComponent(runId)}`),
+  evidenceScan: () => post('/api/evidence/scan'),
+  evidenceVerify: () => post('/api/evidence/verify'),
 }

@@ -345,11 +345,13 @@ async def dossier(incident: str):
 
 @app.get("/api/evidence")
 async def evidence_snapshot():
+    evidence.check_disk()  # a hand edit to ledger.jsonl shows up on the next read, not only the next scan
     return evidence.snapshot()
 
 
 @app.get("/api/evidence/chain")
 async def evidence_chain():
+    evidence.check_disk()  # serve the records as they are on disk now, for the browser to verify
     return evidence.chain()
 
 

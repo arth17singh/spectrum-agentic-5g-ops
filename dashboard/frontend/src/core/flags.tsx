@@ -27,6 +27,7 @@ export const FLAGS: FlagDef[] = [
   { id: 'screen.oversight', group: 'Screens', label: 'Oversight Desk', description: 'Human approvals and escalation', stage: 'stable', default: true },
   { id: 'screen.trust', group: 'Screens', label: 'Trust Center', description: 'Policy, identity, guardrails', stage: 'stable', default: true },
   { id: 'screen.audit', group: 'Screens', label: 'Audit & Proof', description: 'Ledger, anchors, provenance', stage: 'stable', default: true },
+  { id: 'screen.evidence', group: 'Screens', label: 'Evidence', description: 'Real, persisted evidence ledger for judged runs', stage: 'beta', default: true },
   { id: 'screen.observability', group: 'Screens', label: 'Observability', description: 'Traces, cost, latency, SLOs', stage: 'stable', default: true },
   { id: 'screen.settings', group: 'Screens', label: 'Settings & Flags', description: 'This page', stage: 'stable', default: true },
   // shell

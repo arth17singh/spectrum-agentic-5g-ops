@@ -5,7 +5,7 @@ import type { Envelope, Rec, Snapshot } from './types'
 // touched slice (and nested array) is replaced, never mutated, so selectors re-render correctly.
 
 export type SliceKey = 'federation' | 'proving' | 'release' | 'twin' | 'swarm' | 'trust' | 'ledger' | 'oversight' |
-  'observability' | 'director'
+  'observability' | 'director' | 'evidence'
 
 export type Conn = 'connecting' | 'live' | 'lagging' | 'offline'
 
@@ -27,6 +27,8 @@ export interface LiveState {
   oversight: Rec
   observability: Rec
   director: Rec
+  /** the REAL evidence ledger: survives demo resets, never simulated */
+  evidence: Rec
   stream: Envelope[]
   /** live-only data that is not part of the snapshot */
   live: { gradhist: Rec | null; lastSecagg: Rec | null; pulses: { from: string; to: string; at: number }[] }
@@ -36,7 +38,7 @@ const empty = {} as Rec
 export const EMPTY: any[] = []
 export const STREAM_MAX = 3000
 export const NOISY = new Set(['fl.step', 'fl.gradhist', 'twin.tick', 'obs.metrics', 'obs.span', 'release.metrics',
-  'swarm.agents', 'sim.clock', 'eval.progress', 'obs.trace'])
+  'swarm.agents', 'sim.clock', 'eval.progress', 'obs.trace', 'evidence.update'])
 
 export const useLive = create<LiveState>(() => ({
   ready: false,
@@ -56,6 +58,7 @@ export const useLive = create<LiveState>(() => ({
   oversight: empty,
   observability: empty,
   director: empty,
+  evidence: empty,
   stream: [],
   live: { gradhist: null, lastSecagg: null, pulses: [] },
 }))
@@ -74,6 +77,7 @@ export function loadSnapshot(s: Snapshot) {
     oversight: s.oversight,
     observability: s.observability,
     director: s.director,
+    evidence: s.evidence ?? empty,
     stream: s.stream.filter((e) => !NOISY.has(e.type)),
   })
 }
@@ -286,6 +290,19 @@ const H: Record<string, Handler> = {
   'obs.trace': (e, d) => {
     const o = d('observability')
     o.traces = [...(o.traces ?? []).filter((t: Rec) => t.trace_id !== e.data.trace_id), e.data].slice(-30)
+  },
+  // ---------------------------------------------------------------- evidence (REAL, persisted)
+  // update/status carry the whole evidence snapshot; record/scan are kept for the stream drawer
+  // (assign into the touched slice, so a record event earlier in the same batch cannot overwrite it)
+  'evidence.update': (e, d) => { Object.assign(d('evidence'), e.data) },
+  'evidence.status': (e, d) => { Object.assign(d('evidence'), e.data) },
+  'evidence.record': (e, d) => {
+    const ev = d('evidence')
+    ev.recent = cap(ev.recent, e.data.record, 30)
+  },
+  'evidence.scan': (e, d) => {
+    const ev = d('evidence')
+    if (ev.status) ev.status = { ...ev.status, source: { ...ev.status.source, error: e.data.error ?? null } }
   },
   // ---------------------------------------------------------------- director / system
   'director.beat': (e, d) => { Object.assign(d('director'), e.data.director) },
