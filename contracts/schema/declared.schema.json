@@ -191,6 +191,20 @@
       "title": "Model Id",
       "type": "string"
     },
+    "n_cases": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "How many cases the run opens (suite).",
+      "title": "N Cases"
+    },
     "n_items": {
       "minimum": 1,
       "title": "N Items",
@@ -238,6 +252,20 @@
       "default": "1",
       "title": "Schema Version",
       "type": "string"
+    },
+    "subset": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Deterministic filter over the frozen test set, e.g. \"expect=DENY\"; n_items counts the subset.",
+      "title": "Subset"
     },
     "synthetic": {
       "description": "True for fixtures, dry runs and anything not measured on a real system.",

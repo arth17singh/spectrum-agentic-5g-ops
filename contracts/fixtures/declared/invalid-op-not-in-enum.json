@@ -17,7 +17,9 @@
   },
   "baseline_run_id": null,
   "n_items": 24,
-  "test_set_sha256": "ce32003003efc179d622353a8efe53a64eb646e255ee9cef93f52362ea7bc566",
+  "n_cases": 24,
+  "test_set_sha256": "235396f4503cd2ea8ecbaa936faf619541d6e012ea5a560e4d987654ce49718a",
+  "subset": "expect=DENY",
   "prompt_sha256": "0f3688318cebc4f1387c12e5ae0c1ab46f5c74d6e48891a16e2aefdc8f2d9288",
   "parser": "tool-call-json-v1",
   "decoding": {

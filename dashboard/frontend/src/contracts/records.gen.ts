@@ -138,7 +138,11 @@ export interface DeclaredRecord {
   target: Target;
   baseline_run_id?: string | null;
   n_items: number;
+  /** How many cases the run opens (suite). */
+  n_cases?: number | null;
   test_set_sha256: string;
+  /** Deterministic filter over the frozen test set, e.g. "expect=DENY"; n_items counts the subset. */
+  subset?: string | null;
   prompt_sha256?: string | null;
   parser?: string | null;
   decoding?: { [key: string]: JsonValue } | null;
