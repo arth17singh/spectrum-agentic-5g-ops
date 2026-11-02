@@ -162,7 +162,8 @@ class PauseFloor:
         self.sleep, self.clock, self.log = sleep, clock, log
         self.tool = pauser.tool
         self.caller, make_args = TARGETS[self.tool]
-        self.case = f"case-{run_id[:8]}-01"
+        from t3.suite.runner import run_prefix
+        self.case = f"case-{run_prefix(run_id)}-01"
         self.args = make_args(self.case, run_id)
 
     def declare(self):

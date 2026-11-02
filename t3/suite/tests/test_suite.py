@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from t3.suite import check, common, logsrc, pause_floor, runner, suite_hash, trace
+from t3.suite import check, common, logsrc, pause_floor, runner, suite_hash, trace, units
 from t3.suite.tests.fakes import (Clock, FakeDDB, FakeEvlib, FakeGateway, FakePolicyClient, PERMITS,
                                   tokens_env)
 
@@ -71,7 +71,8 @@ def test_suite_expectations_agree_with_the_intended_rules():
 
 
 # ---------- runner against a fake Gateway ----------
-def make_runner(clock, ddb, gw, ev, policy=None, approve_after_s=30.0, approver=True, timeout=900.0):
+def make_runner(clock, ddb, gw, ev, policy=None, approve_after_s=30.0, approver=True, timeout=900.0,
+                unit="deny", run_id="t3-test-run"):
     tokens = common.Tokens(env=tokens_env())
     gateway = common.Gateway(CFG["gateway_url"], tokens, post=gw, clock=clock)
     state = {"waited": 0.0}
@@ -86,16 +87,16 @@ def make_runner(clock, ddb, gw, ev, policy=None, approve_after_s=30.0, approver=
 
     pauser = (pause_floor.CedarPause(policy, "engine-1", "arn:aws:bedrock-agentcore:us-east-2:0:gateway/gw",
                                      sleep=clock.sleep, clock=clock) if policy else None)
-    return runner.Runner(run_id="t3-test-run", gateway=gateway, evlib=ev, ddb=ddb, cfg=CFG, pauser=pauser,
+    return runner.Runner(run_id=run_id, gateway=gateway, evlib=ev, ddb=ddb, cfg=CFG, pauser=pauser,
                          approval_timeout_s=timeout, poll_s=5.0, sleep=sleep, clock=clock, log=lambda *a: None,
-                         synthetic=True)
+                         synthetic=True, unit=unit)
 
 
-def run_suite(flip=None, approver=True, with_pause=True):
+def run_suite(unit="deny", flip=None, approver=True, with_pause=True):
     clock, ddb, ev = Clock(), FakeDDB(), FakeEvlib()
     policy = FakePolicyClient(clock) if with_pause else None
     gw = FakeGateway(clock, ddb, policy, flip=flip)
-    r = make_runner(clock, ddb, gw, ev, policy, approver=approver, timeout=120.0)
+    r = make_runner(clock, ddb, gw, ev, policy, approver=approver, timeout=120.0, unit=unit)
     write = ev.write_declared
 
     def write_declared(d):
@@ -106,81 +107,123 @@ def run_suite(flip=None, approver=True, with_pause=True):
     return summary, ev, gw, ddb, clock
 
 
-def test_runner_declares_first_carries_run_id_and_waits_for_a_person():
-    summary, ev, gw, ddb, clock = run_suite()
-    # the declaration is the very first thing written, before any Gateway call
-    assert ev.calls[0] == ("declared", "t3-test-run")
+SUITE = suite_hash.load_suite()
+N_ALLOW = sum(1 for i in SUITE if i["expect"] == "ALLOW" or i.get("approval_step"))
+N_DENY = len(SUITE) - N_ALLOW
+
+
+def common_runner_checks(summary, ev, gw, ddb, unit_name, n):
+    assert ev.calls[0] == ("declared", "t3-test-run")   # the declaration is written first
+    assert ev.posts_at_declaration == 0                  # before any Gateway call
     decl = ev.declared[0]
-    assert decl["test_set_sha256"] == suite_hash.suite_sha256(suite_hash.load_suite())
-    assert decl["n_items"] == 41 and decl["unit"] == "t3.deny_allow" and decl["run_id"] == "t3-test-run"
-    assert ev.posts_at_declaration == 0  # nothing had been sent when the declaration was written
+    assert decl["test_set_sha256"] == suite_hash.suite_sha256(SUITE)  # the FULL frozen suite
+    assert decl["unit"] == unit_name and decl["n_items"] == n and decl["subset"]
     assert gw.posts[0][1:] == ("team_app", "front___start_case")
-    # amendment A10: the t3-active run row and every case row map to the run, with no status attribute
     rows = ddb.approvals()
     assert rows["t3-active"]["run_id"] == "t3-test-run" and "status" not in rows["t3-active"]
-    case = summary["case_id"]
-    assert rows[f"t3-{case}"]["run_id"] == "t3-test-run"
-    item_cases = {r["extra"]["case_id"] for r in ev.records[("t3-test-run", "item")] if r["extra"].get("case_id")}
-    assert "case-t3-test--33" in item_cases and "case-t3-test--01" in item_cases
-    for c in item_cases - {"no-case"}:
-        assert rows[f"t3-{c}"]["run_id"] == "t3-test-run" and "status" not in rows[f"t3-{c}"]
+    assert rows[f"t3-{summary['case_id']}"]["run_id"] == "t3-test-run"
     items = ev.records[("t3-test-run", "item")]
     setup = items[0]
     assert setup["extra"]["setup"] and "run_id: t3-test-run" in setup["extra"]["args"]["request"]
-    assert all(r["run_id"] == "t3-test-run" for r in items)
     graded = [r for r in items if not r["extra"].get("setup")]
-    assert len(graded) == 41
-    # every call carries the caller's own identity and the client view matches all expectations
-    assert summary["client_agree"] == 41 and summary["skipped"] == []
-    # the approval: refused first, allowed only after the person, refused again as already applied
+    assert len(graded) == n and summary["client_agree"] == n and summary["skipped"] == []
+    prefix = common.sha256_text("t3-test-run")[:8]
+    for c in {r["extra"]["case_id"] for r in graded if r["extra"].get("case_id")} - {"no-case"}:
+        assert re.fullmatch(rf"case-{prefix}-\d\d", c), c
+        assert rows[f"t3-{c}"]["run_id"] == "t3-test-run" and "status" not in rows[f"t3-{c}"]
+    assert all(w[1] == "put" and w[2].startswith("t3-") for w in ddb.writes)  # never an approval row
+    gaps = [b[0] - a[0] for a, b in zip(gw.posts, gw.posts[1:])]
+    assert min(gaps) >= 2.0                                                     # A12 pacing
+    assert all(r["aws_time_source"] == "gateway:http-date" for r in graded)
+    return graded
+
+
+def test_runner_deny_unit_declares_first_and_runs_only_its_items():
+    summary, ev, gw, ddb, clock = run_suite("deny")
+    graded = common_runner_checks(summary, ev, gw, ddb, "t3.deny", N_DENY)
+    assert ev.declared[0]["subset"] == "expect=DENY;exclude=approval_step"
+    assert {r["item_id"] for r in graded} == {i["id"] for i in units.select(SUITE, "deny")}
+    assert all(r["extra"]["expect"] == "DENY" and not r["extra"].get("approval_step") for r in graded)
+    ctl = ev.records[("t3-test-run", "control")]   # the pause window ran inside the deny unit, then resumed
+    assert [c["action"] for c in ctl] == ["pause", "resume"]
+    assert ctl[0]["policy_name"].startswith("team13_ranpause_predict_")
+
+
+def test_runner_allow_unit_holds_the_approval_chain_and_waits_for_a_person():
+    summary, ev, gw, ddb, clock = run_suite("allow")
+    graded = common_runner_checks(summary, ev, gw, ddb, "t3.allow", N_ALLOW)
+    assert ev.declared[0]["subset"] == "expect=ALLOW;include=approval_step"
+    ids = [r["item_id"] for r in graded]
+    assert {"t3-033", "t3-034", "t3-035"} <= set(ids)
     appr = [r for r in graded if r["extra"].get("approval_step")]
     assert [r["extra"]["observed"] for r in appr] == ["DENY", "ALLOW", "DENY"]
     assert appr[0]["extra"]["approval_id"] == appr[0]["extra"]["approval_id_expected"]
     assert appr[1]["extra"]["approval"]["status"] == "APPROVED"
     assert "person" in appr[1]["extra"]["approval"]["decided_by"]
-    # the runner never approved anything: its only writes are t3- rows, never an approval (chg-) row
-    assert all(w[1] == "put" and w[2].startswith("t3-") for w in ddb.writes)
-    # A12: one call at a time, at least 2 s apart
-    gaps = [b[0] - a[0] for a, b in zip(gw.posts, gw.posts[1:])]
-    assert min(gaps) >= 2.0
-    # pause and resume are control records
-    ctl = ev.records[("t3-test-run", "control")]
-    assert [c["action"] for c in ctl] == ["pause", "resume"]
-    assert ctl[0]["policy_name"].startswith("team13_ranpause_predict_")
-    # AWS time from the Gateway's Date header
-    assert all(r["aws_time_source"] == "gateway:http-date" for r in graded)
+    assert ("t3-test-run", "control") not in ev.records   # no pause in the allow unit
+
+
+def test_units_partition_the_suite_and_all_uses_two_run_ids():
+    deny, allow = units.select(SUITE, "deny"), units.select(SUITE, "allow")
+    assert len(deny) + len(allow) == len(SUITE) == 41
+    assert not {i["id"] for i in deny} & {i["id"] for i in allow}
+    assert units.run_ids("1102a", "all") == [("1102a-deny", "deny"), ("1102a-allow", "allow")]
+    # both units back to back on one account: separate declarations, records and case ids
+    clock, ddb, ev = Clock(), FakeDDB(), FakeEvlib()
+    policy = FakePolicyClient(clock)
+    gw = FakeGateway(clock, ddb, policy)
+    for rid, key in units.run_ids("1102a", "all"):
+        make_runner(clock, ddb, gw, ev, policy, unit=key, run_id=rid).run()
+    assert [(d["run_id"], d["unit"], d["n_items"]) for d in ev.declared] == [
+        ("1102a-deny", "t3.deny", N_DENY), ("1102a-allow", "t3.allow", N_ALLOW)]
+    assert ddb.approvals()["t3-active"]["run_id"] == "1102a-allow"
+    d_cases = {r["extra"]["case_id"] for r in ev.records[("1102a-deny", "item")] if r["extra"].get("case_id")}
+    a_cases = {r["extra"]["case_id"] for r in ev.records[("1102a-allow", "item")] if r["extra"].get("case_id")}
+    assert not (d_cases & a_cases) - {"no-case"}
+    for rid, key in units.run_ids("1102a", "all"):
+        decl = next(d for d in ev.declared if d["run_id"] == rid)
+        assert check.check(rid, ev.records[(rid, "item")], gw.cp_rows, gw.span_rows, declared=decl,
+                           spans_mode="required", log=lambda *a: None) == 0
+
+
+def test_case_ids_do_not_collide_for_similar_run_ids():
+    it = {"id": "t3-007"}
+    a, b = runner.item_case_id("t3-suite-20261102-01", it), runner.item_case_id("t3-suite-20261102-02", it)
+    assert a != b and re.fullmatch(r"case-[0-9a-f]{8}-07", a)
 
 
 def test_runner_skips_the_change_when_nobody_approves():
-    summary, ev, gw, ddb, clock = run_suite(approver=False)
+    summary, ev, gw, ddb, clock = run_suite("allow", approver=False)
     items = {r["item_id"]: r for r in ev.records[("t3-test-run", "item")]}
     after = [r for r in items.values() if r["extra"].get("approval_step") == "after_approval"][0]
     assert "approval timeout" in after["extra"]["skipped"]
     assert after["item_id"] in summary["skipped"]
-    # no approval was faked: the change row is still PENDING
     assert all(r["status"] == "PENDING" for k, r in ddb.approvals().items() if k.startswith("chg-"))
 
 
 def test_runner_refuses_a_run_id_whose_cases_exist():
     clock, ddb, ev = Clock(), FakeDDB(), FakeEvlib()
-    ddb.approvals()["t3-case-t3-test--01"] = {"pk": "t3-case-t3-test--01", "run_id": "t3-test-old"}
+    used = f"case-{common.sha256_text('t3-test-run')[:8]}-12"   # t3-012 is in the deny unit
+    ddb.approvals()[f"t3-{used}"] = {"pk": f"t3-{used}", "run_id": "t3-test-old"}
     gw = FakeGateway(clock, ddb)
     r = make_runner(clock, ddb, gw, ev)
-    with pytest.raises(RuntimeError, match="first 8 characters"):
+    with pytest.raises(RuntimeError, match="pick a new run id"):
         r.run()
     assert gw.posts == []  # refused before any call
 
 
-def test_runner_without_policy_client_skips_pause_items():
-    summary, ev, *_ = run_suite(with_pause=False)
-    pause_ids = [i["id"] for i in suite_hash.load_suite() if i.get("pause_window")]
-    assert summary["skipped"] == pause_ids
+def test_runner_without_policy_client_skips_the_pause_item():
+    summary, ev, *_ = run_suite("deny", with_pause=False)
+    assert summary["skipped"] == [i["id"] for i in SUITE if i.get("pause_window") == "inside"]
+    summary, ev, *_ = run_suite("allow", with_pause=False)
+    assert summary["skipped"] == []   # the after-resume call is a plain allowed call
 
 
 def test_runner_dry_run_sends_nothing(capsys):
     assert runner.main(["--run-id", "t3-dry"]) == 0
     out = capsys.readouterr().out
     assert "DRY RUN: nothing sent" in out and "waits for a person" in out
+    assert "run t3-dry-deny" in out and "run t3-dry-allow" in out
 
 
 def test_tokens_never_come_from_the_repo(tmp_path, monkeypatch):
@@ -208,49 +251,60 @@ def test_gateway_reads_http_errors_and_streams_as_answers():
 
 
 # ---------- check against fixture rows ----------
-def records_and_rows(**kw):
-    summary, ev, gw, ddb, clock = run_suite(**kw)
+def records_and_rows(unit="deny", **kw):
+    summary, ev, gw, ddb, clock = run_suite(unit, **kw)
     return ev.records[("t3-test-run", "item")], gw.cp_rows, gw.span_rows, ev.declared[0]
 
 
-def test_check_all_match_exits_0():
-    records, cp, spans, decl = records_and_rows()
+@pytest.mark.parametrize("unit,n", [("deny", N_DENY), ("allow", N_ALLOW)])
+def test_check_each_unit_all_match_exits_0(unit, n):
+    records, cp, spans, decl = records_and_rows(unit)
     ev = FakeEvlib()
     code = check.check("t3-test-run", records, cp, spans, declared=decl, spans_mode="required", evlib=ev,
                        synthetic=True, log=lambda *a: None)
     assert code == 0
     res = ev.results[0]
-    assert res["passed"] and res["value"] == 1.0 and res["n_items"] == 41
-    assert res["details"]["by_unit"]["t3.deny"]["passed"] and res["details"]["by_unit"]["t3.allow"]["passed"]
-    assert res["details"]["spans_joined"] == 41
+    assert res["passed"] and res["value"] == 1.0 and res["n_items"] == n
+    assert res["unit"] == f"t3.{unit}" and res["details"]["subset"] == units.UNITS[unit]["subset"]
+    assert res["details"]["spans_joined"] == n
     decisions = ev.records[("t3-test-run", "decision")]
-    assert len(decisions) == 41 and all(d["aws_time_source"] == "cloudwatch:/team13/checkpoint" for d in decisions)
-    rules = {d["item_id"]: d["deciding_rule"] for d in decisions}
-    assert any(r == "team13_require_case_id" for r in rules.values())
-    assert any(r == "default_deny" for r in rules.values())
+    assert len(decisions) == n and all(d["aws_time_source"] == "cloudwatch:/team13/checkpoint" for d in decisions)
     items = ev.records[("t3-test-run", "item")]
     assert all(i["extra"]["view"] == "aws" and i["passed"] for i in items)
+    rules = {d["deciding_rule"] for d in decisions}
+    if unit == "deny":
+        assert {"team13_require_case_id", "default_deny"} <= rules
+    else:
+        assert "team13_require_human_approval" in rules
 
 
 def test_check_one_mismatch_exits_1():
     # the Gateway gets ran___preflight wrong: AWS records DENY where the suite expects ALLOW
-    records, cp, spans, decl = records_and_rows(flip={"ran___preflight"})
+    records, cp, spans, decl = records_and_rows("allow", flip={"ran___preflight"})
     ev = FakeEvlib()
     code = check.check("t3-test-run", records, cp, spans, declared=decl, evlib=ev, log=lambda *a: None)
     assert code == 1
-    mism = ev.results[0]["details"]["mismatches"]
-    assert [m["item_id"] for m in mism] == ["t3-006"]
+    assert [m["item_id"] for m in ev.results[0]["details"]["mismatches"]] == ["t3-006"]
+
+
+def test_check_will_not_grade_one_unit_as_the_other():
+    records, cp, spans, decl = records_and_rows("deny")
+    assert check.check("t3-test-run", records, cp, spans, declared=decl, unit="allow", log=lambda *a: None) == 1
+    ev = FakeEvlib()   # without a declaration, the deny items are outside the allow subset
+    assert check.check("t3-test-run", records, cp, spans, unit="allow", evlib=ev, log=lambda *a: None) == 1
+    assert all("not in the t3.allow subset" in " ".join(m["problems"])
+               for m in ev.results[0]["details"]["mismatches"])
+    assert check.check("t3-test-run", records, cp, spans, log=lambda *a: None) == 1   # no unit at all
 
 
 def test_check_uses_aws_records_not_the_runner_view():
     """If the runner's own view is tampered with, the grade still comes from the logs."""
-    records, cp, spans, decl = records_and_rows()
+    records, cp, spans, decl = records_and_rows("deny")
     tampered = copy.deepcopy(records)
     for r in tampered:
         r["extra"]["observed"] = "ALLOW"
     assert check.check("t3-test-run", tampered, cp, spans, declared=decl, log=lambda *a: None) == 0
-    # and a tampered log row (one DENY rewritten as ALLOW) is caught
-    cp2 = copy.deepcopy(cp)
+    cp2 = copy.deepcopy(cp)   # a tampered log row (one DENY rewritten as ALLOW) is caught
     for row in cp2:
         msg = json.loads(row["@message"])
         if msg.get("phase") == "response" and msg.get("tool") == "swarm___ask_agent" and msg.get("refused"):
@@ -261,7 +315,7 @@ def test_check_uses_aws_records_not_the_runner_view():
 
 
 def test_check_flags_sources_that_disagree_and_missing_spans():
-    records, cp, spans, decl = records_and_rows()
+    records, cp, spans, decl = records_and_rows("deny")
     spans2 = copy.deepcopy(spans)
     msg = json.loads(spans2[3]["@message"])
     attr = msg["attributes"]
@@ -276,15 +330,14 @@ def test_check_flags_sources_that_disagree_and_missing_spans():
 
 
 def test_check_counts_skipped_items_as_not_passed():
-    summary, ev, gw, ddb, clock = run_suite(with_pause=False)
+    summary, ev, gw, ddb, clock = run_suite("deny", with_pause=False)
     code = check.check("t3-test-run", ev.records[("t3-test-run", "item")], gw.cp_rows, gw.span_rows,
                        declared=ev.declared[0], log=lambda *a: None)
     assert code == 1
 
 
 def test_check_reads_logs_insights_shapes_offline(tmp_path):
-    records, cp, spans, decl = records_and_rows()
-    # the get_query_results shape: rows of {field, value}, @timestamp as text
+    records, cp, spans, decl = records_and_rows("deny")
     insights = {"status": "Complete", "results": [
         [{"field": "@timestamp", "value": common.to_iso(r["@timestamp"]).replace("T", " ").rstrip("Z")},
          {"field": "@message", "value": r["@message"]}, {"field": "@ptr", "value": r["@ptr"]}] for r in cp]}
@@ -293,7 +346,6 @@ def test_check_reads_logs_insights_shapes_offline(tmp_path):
     rows = logsrc.load_rows(p, logsrc.CHECKPOINT_LOG)
     assert len(rows) == len(cp) and rows[0]["@log"] == "/team13/checkpoint"
     assert check.check("t3-test-run", records, rows, spans, declared=decl, log=lambda *a: None) == 0
-    # the filter_log_events shape
     ev_shape = {"events": [{"timestamp": r["@timestamp"], "message": r["@message"], "eventId": r["@ptr"],
                             "logStreamName": "s1"} for r in cp]}
     p2 = tmp_path / "cp2.json"
@@ -303,27 +355,51 @@ def test_check_reads_logs_insights_shapes_offline(tmp_path):
 
 
 def test_check_refuses_a_suite_changed_after_the_declaration():
-    records, cp, spans, decl = records_and_rows()
+    records, cp, spans, decl = records_and_rows("deny")
     decl = dict(decl, test_set_sha256="0" * 64)
     assert check.check("t3-test-run", records, cp, spans, declared=decl, log=lambda *a: None) == 1
 
 
 def test_check_cli_offline(tmp_path):
-    records, cp, spans, decl = records_and_rows()
+    records, cp, spans, decl = records_and_rows("allow")
     (tmp_path / "item.jsonl").write_text("\n".join(json.dumps(r) for r in records))
     (tmp_path / "cp.json").write_text(json.dumps(cp))
     (tmp_path / "spans.json").write_text(json.dumps(spans))
-    args = ["--run-id", "t3-test-run", "--runner-records", str(tmp_path / "item.jsonl"), "--checkpoint-json",
-            str(tmp_path / "cp.json"), "--spans-json", str(tmp_path / "spans.json"), "--no-write",
-            "--evidence-dir", str(tmp_path)]
+    args = ["--run-id", "t3-test-run", "--unit", "allow", "--runner-records", str(tmp_path / "item.jsonl"),
+            "--checkpoint-json", str(tmp_path / "cp.json"), "--spans-json", str(tmp_path / "spans.json"),
+            "--no-write", "--evidence-dir", str(tmp_path)]
     assert check.main(args) == 0
-    # the per-record layout of amendment A11 reads the same
-    folder = tmp_path / "records" / "t3-test-run" / "item"
+    folder = tmp_path / "records" / "t3-test-run" / "item"   # the per-record layout of amendment A11
     folder.mkdir(parents=True)
     for i, r in enumerate(records):
         (folder / f"{i:03d}.json").write_text(json.dumps(r))
     assert check.read_records("t3-test-run", "item", tmp_path) == records
-    assert check.main(args[:2] + args[4:]) == 0
+    assert check.main(args[:4] + args[6:]) == 0
+
+
+def test_check_cli_all_grades_both_run_ids(tmp_path):
+    clock, ddb, ev = Clock(), FakeDDB(), FakeEvlib()
+    policy = FakePolicyClient(clock)
+    gw = FakeGateway(clock, ddb, policy)
+    for rid, key in units.run_ids("1102a", "all"):
+        make_runner(clock, ddb, gw, ev, policy, unit=key, run_id=rid).run()
+        (tmp_path / "records" / rid).mkdir(parents=True)
+        (tmp_path / "records" / rid / "item.jsonl").write_text(
+            "\n".join(json.dumps(r) for r in ev.records[(rid, "item")]))
+        (tmp_path / "declared").mkdir(exist_ok=True)
+        decl = next(d for d in ev.declared if d["run_id"] == rid)
+        (tmp_path / "declared" / f"{rid}.json").write_text(json.dumps(decl))
+    (tmp_path / "cp.json").write_text(json.dumps(gw.cp_rows))
+    (tmp_path / "spans.json").write_text(json.dumps(gw.span_rows))
+    args = ["--run-id", "1102a", "--unit", "all", "--checkpoint-json", str(tmp_path / "cp.json"),
+            "--spans-json", str(tmp_path / "spans.json"), "--spans", "required", "--no-write",
+            "--evidence-dir", str(tmp_path)]
+    assert check.main(args) == 0
+    # the declared unit is enough when --unit is left out
+    assert check.main(["--run-id", "1102a-deny"] + args[4:]) == 0
+    # one broken unit fails `all`
+    (tmp_path / "records" / "1102a-allow" / "item.jsonl").write_text("")
+    assert check.main(args) == 1
 
 
 # ---------- pause floor ----------

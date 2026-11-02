@@ -8,7 +8,9 @@ was joined, the span agrees. Times come from the CloudWatch event timestamps.
 
 Writes `decision` and `item` records (view "aws") and one `result`; exits 0 only when every item matches.
 
-  live:    python -m t3.suite.check --run-id RUN [--spans required|optional|off]
+Each unit (deny, allow; t3/suite/units.py) is graded on its own run id against its own subset of the suite.
+
+  live:    python -m t3.suite.check --run-id RUN [--unit deny|allow|all] [--spans required|optional|off]
   offline: python -m t3.suite.check --run-id RUN --runner-records item.jsonl \
                --checkpoint-json cp.json --spans-json spans.json [--no-write]
 """
@@ -21,7 +23,7 @@ import re
 import sys
 from pathlib import Path
 
-from t3.suite import common, logsrc
+from t3.suite import common, logsrc, units
 from t3.suite.common import envelope, epoch, sha256_text, to_iso, utc_now_iso
 from t3.suite.suite_hash import DEFAULT_SUITE, canonical, load_suite, suite_sha256
 
@@ -212,7 +214,7 @@ def match(items, calls, spans, spans_mode="optional") -> list[dict]:
 
 
 # ---------- records ----------
-def build_records(run_id, results, declared, n_suite, code_sha, synthetic=False):
+def build_records(run_id, results, declared, n_suite, code_sha, synthetic=False, unit_key=None):
     decisions, items = [], []
     for r in results:
         if r.get("observed"):
@@ -234,11 +236,10 @@ def build_records(run_id, results, declared, n_suite, code_sha, synthetic=False)
                    "deciding_rule": r.get("deciding_rule"), "match": r["match"], "span": r["span"],
                    "problems": r["problems"], "caller": r["caller"], "tool": r["tool"], "case_id": r["case_id"]}))
     n_pass = sum(r["passed"] for r in results)
-    by_unit = {}
-    for unit, want in (("t3.deny", "DENY"), ("t3.allow", "ALLOW")):
+    by_expect = {}
+    for want in ("DENY", "ALLOW"):
         sub = [r for r in results if r["expect"] == want]
-        by_unit[unit] = {"n": len(sub), "matched": sum(r["passed"] for r in sub),
-                         "passed": bool(sub) and all(r["passed"] for r in sub)}
+        by_expect[want] = {"n": len(sub), "matched": sum(r["passed"] for r in sub)}
     by_class = {}
     for r in results:
         c = by_class.setdefault(r["rule_class"], {"n": 0, "matched": 0})
@@ -249,11 +250,13 @@ def build_records(run_id, results, declared, n_suite, code_sha, synthetic=False)
                                                "unit": "ratio"}
     complete = len(results) == n_suite and (declared is None or declared.get("n_items") == n_suite)
     result = envelope(
-        "result", run_id, synthetic=synthetic, unit=(declared or {}).get("unit", "t3.deny_allow"),
+        "result", run_id, synthetic=synthetic,
+        unit=units.UNITS[unit_key]["unit"] if unit_key else (declared or {}).get("unit"),
         metric=target["metric"], value=value, target=target,
         passed=bool(results) and complete and n_pass == len(results), n_items=len(results), checked_at=utc_now_iso(),
         checker={"script": SCRIPT, "code_sha": code_sha},
-        details={"by_unit": by_unit, "by_rule_class": by_class, "suite_items": n_suite,
+        details={"subset": units.UNITS[unit_key]["subset"] if unit_key else None, "by_expect": by_expect,
+                 "by_rule_class": by_class, "unit_items": n_suite,
                  "complete": complete, "spans_joined": sum(1 for r in results if r["span"]),
                  "mismatches": [{"item_id": r["item_id"], "problems": r["problems"]} for r in results
                                 if not r["passed"]]})
@@ -288,23 +291,37 @@ def read_declared(run_id, ev_dir) -> dict | None:
 
 
 def check(run_id, records, cp_rows, span_rows, *, suite_path=DEFAULT_SUITE, declared=None, spans_mode="optional",
-          evlib=None, synthetic=False, log=print) -> int:
+          evlib=None, synthetic=False, log=print, unit=None) -> int:
+    """unit: "deny" or "allow"; when None it comes from the declaration's unit."""
     suite = load_suite(suite_path)
     if declared and declared.get("test_set_sha256") != suite_sha256(suite):
         log("FAIL the declared suite hash differs from the suite file")
         return 1
+    key = unit or units.BY_NAME.get((declared or {}).get("unit"))
+    if key not in units.UNITS:
+        log("FAIL no unit: pass --unit deny|allow or keep the run's declaration next to the records")
+        return 1
+    if declared and declared.get("unit") != units.UNITS[key]["unit"]:
+        log(f"FAIL the run was declared as {declared.get('unit')}, not {units.UNITS[key]['unit']}")
+        return 1
+    subset = units.select(suite, key)
+    wanted = {it["id"] for it in subset}
     items = runner_items(records)
     calls = checkpoint_calls(cp_rows)
     spans = [s for s in (parse_span(r) for r in span_rows) if s]
     results = match(items, calls, spans, spans_mode)
-    decisions, item_recs, result = build_records(run_id, results, declared, len(suite), common.code_sha(),
-                                                 synthetic=synthetic)
+    for r in results:  # an item outside the unit's subset cannot count for it
+        if r["item_id"] not in wanted:
+            r["problems"].append(f"not in the {units.UNITS[key]['unit']} subset")
+            r["passed"] = False
+    decisions, item_recs, result = build_records(run_id, results, declared, len(subset), common.code_sha(),
+                                                 synthetic=synthetic, unit_key=key)
     for r in results:
         log(f"{'PASS' if r['passed'] else 'FAIL'}  {r['item_id']} {r['caller']:<13} {r['tool']:<22} "
             f"expect {r['expect']:<5} aws {str(r['observed']):<5} {r.get('deciding_rule') or ''} "
             f"{'; '.join(r['problems'])}")
-    log(f"{sum(r['passed'] for r in results)} of {len(results)} items match "
-        f"({len(suite)} in the suite); spans joined: {result['details']['spans_joined']}")
+    log(f"{result['unit']} {run_id}: {sum(r['passed'] for r in results)} of {len(results)} items match "
+        f"({len(subset)} in the unit); spans joined: {result['details']['spans_joined']}")
     if evlib is not None:
         if decisions:
             evlib.append_records(run_id, "decision", decisions)
@@ -316,6 +333,8 @@ def check(run_id, records, cp_rows, span_rows, *, suite_path=DEFAULT_SUITE, decl
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Grade a Track 3 suite run from AWS decision records.")
     ap.add_argument("--run-id", required=True)
+    ap.add_argument("--unit", choices=("all", "deny", "allow"),
+                    help="all = <run-id>-deny and <run-id>-allow; default: the run's declared unit")
     ap.add_argument("--suite", default=str(DEFAULT_SUITE))
     ap.add_argument("--evidence-dir")
     ap.add_argument("--runner-records", help="the runner's item.jsonl (default: evidence/records/<run>/item.jsonl)")
@@ -326,11 +345,19 @@ def main(argv=None) -> int:
     ap.add_argument("--save-rows", help="live: save the queried rows here (a folder) for offline replay")
     ap.add_argument("--synthetic", action="store_true", help="mark the records synthetic (fixtures, dry runs)")
     a = ap.parse_args(argv)
+    targets = units.run_ids(a.run_id, a.unit) if a.unit else [(a.run_id, None)]
+    if a.runner_records and len(targets) > 1:
+        ap.error("--runner-records names one run; use --unit deny or --unit allow with it")
+    codes = [check_run(rid, key, a) for rid, key in targets]
+    return 0 if all(c == 0 for c in codes) else 1
+
+
+def check_run(run_id, key, a) -> int:
     ev_dir = evidence_dir(a.evidence_dir)
-    records = read_jsonl(a.runner_records) if a.runner_records else read_records(a.run_id, "item", ev_dir)
+    records = read_jsonl(a.runner_records) if a.runner_records else read_records(run_id, "item", ev_dir)
     items = runner_items(records)
     if not items:
-        print(f"no runner records for {a.run_id}")
+        print(f"no runner records for {run_id}")
         return 1
     offline = bool(a.checkpoint_json)
     if offline:
@@ -344,13 +371,14 @@ def main(argv=None) -> int:
         cp_rows = logsrc.insights(logs, [logsrc.CHECKPOINT_LOG], logsrc.Q_CHECKPOINT, start, end)
         span_rows = [] if a.spans == "off" else logsrc.insights(logs, [logsrc.SPANS_LOG], logsrc.Q_SPANS, start, end)
         if a.save_rows:
-            Path(a.save_rows).mkdir(parents=True, exist_ok=True)
-            Path(a.save_rows, "checkpoint.json").write_text(json.dumps(cp_rows, indent=1))
-            Path(a.save_rows, "spans.json").write_text(json.dumps(span_rows, indent=1))
+            out = Path(a.save_rows, run_id)
+            out.mkdir(parents=True, exist_ok=True)
+            (out / "checkpoint.json").write_text(json.dumps(cp_rows, indent=1))
+            (out / "spans.json").write_text(json.dumps(span_rows, indent=1))
     evlib = None if a.no_write else common.load_evlib()
-    return check(a.run_id, records, cp_rows, span_rows, suite_path=a.suite,
-                 declared=read_declared(a.run_id, ev_dir), spans_mode=a.spans, evlib=evlib,
-                 synthetic=a.synthetic)
+    return check(run_id, records, cp_rows, span_rows, suite_path=a.suite,
+                 declared=read_declared(run_id, ev_dir), spans_mode=a.spans, evlib=evlib,
+                 synthetic=a.synthetic, unit=key)
 
 
 if __name__ == "__main__":

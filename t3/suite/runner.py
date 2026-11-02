@@ -11,9 +11,13 @@ Order (each step is evidence for the next):
 
 The grade does not come from here: t3/suite/check.py grades each item from the AWS decision records.
 
+Two units from the one frozen suite (t3/suite/units.py): deny and allow, each with its own declaration
+(test_set_sha256 = the full suite's hash, `subset`, its own n_items), records and result. `--unit all` runs
+both back to back as <run_id>-deny and <run_id>-allow.
+
 CLI (dry run unless --live):
-  python -m t3.suite.runner --run-id t3-suite-20261102-01 [--tokens-dir ~/kit/tokens] [--live]
-Lambda: handler({"run_id": "...", "approval_timeout_s": 600, "pause": true}, context)
+  python -m t3.suite.runner --run-id 1102a-t3 [--unit all|deny|allow] [--tokens-dir ~/kit/tokens] [--live]
+Lambda: handler({"run_id": "...", "unit": "deny", "approval_timeout_s": 600, "pause": true}, context)
 
 Environment: T3_GATEWAY_URL; tokens from T3_TOKENS_SECRET | T3_TOKEN_<AGENT> | T3_TOKENS_DIR;
 T3_APPROVALS_TABLE (default team13-approvals: the kit's table also holds our t3-active run row and
@@ -29,20 +33,25 @@ import sys
 import time
 from pathlib import Path
 
-from t3.suite import common
+from t3.suite import common, units
 from t3.suite.common import (CASE_RE, APPROVAL_RE, change_key, envelope, fill, sha256_json, sha256_text,
                              utc_now_iso)
 from t3.suite.suite_hash import DEFAULT_SUITE, load_suite, suite_sha256, validate
 
-UNIT = "t3.deny_allow"
+UNIT = "t3.deny_allow"   # default label for helpers used outside a suite unit
 GRADER = "t3/suite/check.py: Cedar decision per item from /team13/checkpoint + aws/spans equals expect"
 QUIET_REQUEST = ("This case is an automated policy test of the checkpoint. Reply with the single word READY. "
                  "Do not call any tool.")
 
 
+def run_prefix(run_id: str) -> str:
+    """8 hex characters of sha256(run_id): case ids never collide however run ids are named."""
+    return sha256_text(run_id)[:8]
+
+
 def item_case_id(run_id: str, it: dict) -> str:
     slot = it.get("case_slot") or int(it["id"].rsplit("-", 1)[-1])
-    return f"case-{run_id[:8]}-{slot:02d}"
+    return f"case-{run_prefix(run_id)}-{slot:02d}"
 
 
 def env_config(env=None) -> dict:
@@ -57,12 +66,15 @@ def env_config(env=None) -> dict:
 
 
 def declaration(run_id: str, items: list[dict], cfg: dict, *, unit=UNIT, target=None, grader=GRADER,
-                synthetic=False, n_cases=1) -> dict:
+                synthetic=False, n_cases=1, subset=None, n_items=None) -> dict:
+    """items: the FULL frozen suite (its hash is test_set_sha256); n_items and subset name the unit's part."""
+    extra = {"subset": subset} if subset else {}
     return envelope(
         "declared", run_id, synthetic=synthetic,
         unit=unit, track="track-3",
         target=target or {"metric": "decision_agreement", "op": "==", "value": 1.0, "unit": "ratio"},
-        n_items=len(items), n_cases=n_cases, test_set_sha256=suite_sha256(items),
+        n_items=len(items) if n_items is None else n_items, n_cases=n_cases, test_set_sha256=suite_sha256(items),
+        **extra,
         model_id=cfg["model_id"], grader=grader, code_sha=common.code_sha(), region=cfg["region"],
         twin={"kind": "none", "version": "n/a", "scenario": "n/a", "seed": 0},
         declared_at=utc_now_iso())
@@ -71,8 +83,10 @@ def declaration(run_id: str, items: list[dict], cfg: dict, *, unit=UNIT, target=
 class Runner:
     def __init__(self, *, run_id, gateway, evlib, ddb, cfg, suite_path=DEFAULT_SUITE, pauser=None,
                  approval_timeout_s=900.0, poll_s=5.0, sleep=time.sleep, clock=time.time, log=print,
-                 synthetic=False, min_gap_s=2.0, pause_settle_s=5.0, quiet_wait_s=120.0):
+                 synthetic=False, min_gap_s=2.0, pause_settle_s=5.0, quiet_wait_s=120.0, unit="deny"):
         self.run_id, self.gw, self.ev, self.ddb, self.cfg = run_id, gateway, evlib, ddb, cfg
+        self.unit_key = unit
+        self.unit_name = units.UNITS[unit]["unit"] if unit in units.UNITS else unit
         self.suite_path, self.pauser = suite_path, pauser
         self.approval_timeout_s, self.poll_s = approval_timeout_s, poll_s
         self.sleep, self.clock, self.log, self.synthetic = sleep, clock, log, synthetic
@@ -84,17 +98,19 @@ class Runner:
         self.quiet_wait_s = quiet_wait_s       # let the lead finish the quiet case before the items
 
     # ----- steps -----
-    def declare(self, items):
+    def declare(self, items, subset):
         problems = validate(items)
         if problems:
             raise ValueError("suite is not valid: " + "; ".join(problems))
-        decl = declaration(self.run_id, items, self.cfg, synthetic=self.synthetic)
+        decl = declaration(self.run_id, items, self.cfg, synthetic=self.synthetic, unit=self.unit_name,
+                           subset=units.UNITS[self.unit_key]["subset"], n_items=len(subset))
         path = self.ev.write_declared(decl)
         self.log(f"declared {decl['unit']} for {self.run_id}: {decl['n_items']} items, "
                  f"suite {decl['test_set_sha256'][:12]}… -> {path}")
         return decl
 
-    def start_case(self, unit=UNIT, request_text=QUIET_REQUEST):
+    def start_case(self, unit=None, request_text=QUIET_REQUEST):
+        unit = unit or self.unit_name
         request = f"run_id: {self.run_id}\n\n{request_text}"
         self.pace()
         out = self.gw.call("team_app", "front___start_case", {"request": request}, timeout=60)
@@ -113,15 +129,17 @@ class Runner:
         self.log(f"case {case_id} -> run {self.run_id} (row t3-{case_id} in {self.cfg['approvals_table']})")
         return case_id
 
-    def set_active_run(self, unit=UNIT):
+    def set_active_run(self, unit=None):
         """Amendment A10: the run row t3-active in the kit's approvals table names the current run. No
         `status` attribute, so the kit's `approve` never lists it."""
+        unit = unit or self.unit_name
         common.ddb_put(self.ddb, self.cfg["approvals_table"], {
             "pk": "t3-active", "run_id": self.run_id, "unit": unit, "updated_at": int(self.clock()),
             "source": "t3/suite/runner.py"})
 
-    def map_case(self, case_id, unit=UNIT):
+    def map_case(self, case_id, unit=None):
         """Amendment A10: case row t3-<case_id> -> run_id, again without a `status` attribute."""
+        unit = unit or self.unit_name
         common.ddb_put(self.ddb, self.cfg["approvals_table"], {
             "pk": f"t3-{case_id}", "case_id": case_id, "run_id": self.run_id, "unit": unit,
             "created_at": int(self.clock()), "source": "t3/suite/runner.py"})
@@ -132,8 +150,8 @@ class Runner:
         for case_id in case_ids:
             row = common.ddb_get(self.ddb, self.cfg["approvals_table"], {"pk": f"t3-{case_id}"})
             if row and row.get("run_id") != self.run_id:
-                raise RuntimeError(f"{case_id} already belongs to run {row.get('run_id')}: pick a run id whose "
-                                   f"first 8 characters are new, e.g. 1102a-t3-suite")
+                raise RuntimeError(f"{case_id} already belongs to run {row.get('run_id')}: this run id was "
+                                   f"used before (case prefix sha256(run_id)[:8]); pick a new run id")
 
     def wait_quiet(self):
         """The quiet front-door case makes the lead answer once; wait until it is done (bounded) so its own
@@ -212,8 +230,9 @@ class Runner:
 
     # ----- the run -----
     def run(self) -> dict:
-        items = load_suite(self.suite_path)
-        self.declare(items)
+        suite = load_suite(self.suite_path)
+        items = units.select(suite, self.unit_key)
+        self.declare(suite, items)
         case_ids = sorted({self.item_case(it) for it in items if "{case}" in json.dumps(it["args"])})
         self.ensure_fresh(case_ids)
         self.set_active_run()
@@ -223,14 +242,15 @@ class Runner:
         self.wait_quiet()
         approvals: dict[str, dict] = {}   # suite approval group -> {"approval_id", "decision"}
         paused = resumed = False
-        summary = {"run_id": self.run_id, "case_id": self.case_id, "n_items": len(items), "client_agree": 0,
+        summary = {"run_id": self.run_id, "unit": self.unit_name, "case_id": self.case_id,
+                   "n_items": len(items), "client_agree": 0,
                    "skipped": [], "approval": None, "pause": None}
         for it in items:
             args = fill(it["args"], self.item_case(it), self.run_id)
             extra = {"expect": it["expect"], "rule_class": it["rule_class"]}
             window = it.get("pause_window")
             if window:
-                if self.pauser is None:
+                if self.pauser is None and window == "inside":
                     self._skip(it, args, "no policy client: pause window not run", {"pause_window": window})
                     summary["skipped"].append(it["id"])
                     continue
@@ -239,7 +259,7 @@ class Runner:
                     self._control("pause", summary["pause"]["on"])
                     paused = True
                     self.sleep(self.pause_settle_s)
-                if window == "after_resume" and paused and not resumed:
+                if window == "after_resume" and paused and not resumed and self.pauser is not None:
                     summary["pause"]["off"] = self.pauser.off()
                     self._control("resume", summary["pause"]["off"])
                     resumed = True
@@ -283,7 +303,8 @@ class Runner:
             summary["pause"]["off"] = self.pauser.off()
             self._control("resume", summary["pause"]["off"])
         self.log(f"client view: {summary['client_agree']} of {len(items)} as expected, "
-                 f"{len(summary['skipped'])} skipped. Grade with: python -m t3.suite.check --run-id {self.run_id}")
+                 f"{len(summary['skipped'])} skipped. Grade with: python -m t3.suite.check --run-id {self.run_id} "
+                 f"--unit {self.unit_key}")
         return summary
 
     def _control(self, action, info):
@@ -298,7 +319,7 @@ class Runner:
 
 # ---------- wiring for the CLI and Lambda ----------
 def build(run_id, *, suite_path=DEFAULT_SUITE, tokens_dir=None, pause=True, approval_timeout_s=900.0,
-          env=None, log=print, pause_tool="ran___predict"):
+          env=None, log=print, pause_tool="ran___predict", unit="deny"):
     import boto3  # only for a live run
     cfg = env_config(env)
     session = boto3.session.Session(region_name=cfg["region"])
@@ -310,46 +331,56 @@ def build(run_id, *, suite_path=DEFAULT_SUITE, tokens_dir=None, pause=True, appr
         pauser = CedarPause.from_env(session.client("bedrock-agentcore-control"), env=env, tool=pause_tool)
     return Runner(run_id=run_id, gateway=common.Gateway(cfg["gateway_url"], tokens), evlib=common.load_evlib(),
                   ddb=session.client("dynamodb"), cfg=cfg, suite_path=suite_path, pauser=pauser,
-                  approval_timeout_s=approval_timeout_s, log=log)
+                  approval_timeout_s=approval_timeout_s, log=log, unit=unit)
 
 
 def handler(event, context):
     """Lambda entry. Event: {"run_id": str, "approval_timeout_s"?: number, "pause"?: bool}. The suite file
     is packaged with the function. Lambda's 15-minute limit bounds the approval wait."""
-    runner = build(event["run_id"], approval_timeout_s=float(event.get("approval_timeout_s", 600)),
-                   pause=bool(event.get("pause", True)))
-    return runner.run()
+    return [build(rid, approval_timeout_s=float(event.get("approval_timeout_s", 600)),
+                  pause=bool(event.get("pause", True)), unit=key).run()
+            for rid, key in units.run_ids(event["run_id"], event.get("unit", "all"))]
 
 
-def dry_run(run_id, suite_path, log=print):
-    items = load_suite(suite_path)
-    problems = validate(items)
-    cfg = env_config()
-    decl = declaration(run_id, items, cfg, synthetic=True)
-    log(json.dumps({k: decl[k] for k in ("unit", "n_items", "test_set_sha256", "code_sha", "region")}, indent=1))
+def dry_run(run_id, suite_path, unit="all", log=print):
+    suite = load_suite(suite_path)
+    problems = validate(suite)
+    for rid, key in units.run_ids(run_id, unit):
+        dry_run_unit(rid, key, suite, log)
+    log(f"DRY RUN: nothing sent. Problems: {problems or 'none'}. Add --live to run.")
+    return 1 if problems else 0
+
+
+def dry_run_unit(run_id, key, suite, log=print):
+    items = units.select(suite, key)
+    decl = declaration(run_id, suite, env_config(), synthetic=True, unit=units.UNITS[key]["unit"],
+                       subset=units.UNITS[key]["subset"], n_items=len(items))
+    log(f"run {run_id}: " + json.dumps({k: decl[k] for k in ("unit", "subset", "n_items", "test_set_sha256",
+                                                           "code_sha")}))
     for it in items:
         args = fill(it["args"], item_case_id(run_id, it), run_id)
         flag = (" [waits for a person]" if it.get("approval_step") == "after_approval" else
                 f" [pause {it['pause_window']}]" if it.get("pause_window") else "")
         log(f"{it['id']} as {it['caller']:<13} {it['tool']:<22} expect {it['expect']}{flag}  {json.dumps(args)[:90]}")
-    log(f"DRY RUN: nothing sent. {len(items)} items; problems: {problems or 'none'}. Add --live to run.")
-    return 1 if problems else 0
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--run-id", required=True)
     ap.add_argument("--suite", default=str(DEFAULT_SUITE))
+    ap.add_argument("--unit", choices=("all", "deny", "allow"), default="all",
+                    help="all = both units back to back as <run-id>-deny and <run-id>-allow")
     ap.add_argument("--tokens-dir", help="a folder of <agent>.txt tokens, e.g. the kit's tokens/ (never committed)")
     ap.add_argument("--approval-timeout", type=float, default=900.0)
     ap.add_argument("--no-pause", action="store_true", help="skip the pause-window items (they count as not passed)")
     ap.add_argument("--live", action="store_true", help="really call the Gateway and write records")
     a = ap.parse_args(argv)
     if not a.live:
-        return dry_run(a.run_id, a.suite)
-    summary = build(a.run_id, suite_path=Path(a.suite), tokens_dir=a.tokens_dir, pause=not a.no_pause,
-                    approval_timeout_s=a.approval_timeout).run()
-    print(json.dumps(summary, indent=1, default=str))
+        return dry_run(a.run_id, a.suite, a.unit)
+    for rid, key in units.run_ids(a.run_id, a.unit):
+        summary = build(rid, suite_path=Path(a.suite), tokens_dir=a.tokens_dir, pause=not a.no_pause,
+                        approval_timeout_s=a.approval_timeout, unit=key).run()
+        print(json.dumps(summary, indent=1, default=str))
     return 0
 
 
