@@ -53,9 +53,9 @@ def test_pooled_values_vs_exact(config, scenario):
         t = stepped(scenario, seed, config)
         k, e = kpis(t.state), t.exact_kpis()
         assert k["sinr_mean_db"] == pytest.approx(e["sinr_mean_db"], abs=1e-9)  # exact by construction
-        errs_sinr.append(k["sinr_p10_db"] - e["sinr_p10_db"])
-        errs_rsrp.append(k["rsrp_p10_dbm"] - e["rsrp_p10_dbm"])
-    # documented accuracy of the p10 estimate (kpis.py): SINR within ~1.2 dB, RSRP within ~6 dB
+        errs_sinr.append(k["sinr_p10_mixture_db"] - e["sinr_p10_db"])
+        errs_rsrp.append(k["rsrp_p10_mixture_dbm"] - e["rsrp_p10_dbm"])
+    # documented accuracy of the diagnostic mixture estimate (kpis.py): SINR within ~1.2 dB, RSRP within ~6 dB
     assert max(abs(x) for x in errs_sinr) < 1.5
     assert max(abs(x) for x in errs_rsrp) < 6.5
 
@@ -70,3 +70,53 @@ def test_p10_moves_with_the_network():
         a.apply([])
         b.apply([{"cell": c, "d_tilt_deg": 4.0} for c in range(4)])
     assert kpis(a.state)["sinr_p10_db"] != kpis(b.state)["sinr_p10_db"]
+
+
+def t2_cluster_kpis(state):
+    """Copy of the Track 2 definition (t2/kpis.py cluster_kpis + t2/features.py user_share)."""
+    import numpy as np
+
+    if "user_share" in state:
+        w = np.asarray(state["user_share"], dtype=np.float64)
+    else:
+        c = np.asarray(state["ue_count"], dtype=np.float64)
+        w = c / c.sum() if c.sum() > 0 else np.full(4, 0.25)
+    sm = np.asarray(state["sinr_mean_db"], dtype=np.float64)
+    sp = np.asarray(state["sinr_p10_db"], dtype=np.float64)
+    return {
+        "coverage_ratio": float(state["coverage_ratio"]),
+        "sla_ratio": float(state["sla_ratio"]),
+        "sinr_p10_db": float(np.dot(w, sp)),
+        "sinr_mean_db": float(np.dot(w, sm)),
+    }
+
+
+def test_agrees_with_track2_definition_on_50_random_states():
+    import numpy as np
+
+    rng = np.random.default_rng(0)
+    for i in range(50):
+        counts = rng.integers(0, 90, size=4)
+        if i % 10 == 0:
+            counts[rng.integers(4)] = 0  # an empty cell reports floor values
+        if i == 7:
+            counts[:] = 0  # nobody attached: uniform weights
+        state = {
+            "ue_count": counts.tolist(),
+            "sinr_mean_db": np.where(counts > 0, rng.uniform(-5, 20, 4), -30.0).tolist(),
+            "sinr_p10_db": np.where(counts > 0, rng.uniform(-10, 5, 4), -30.0).tolist(),
+            "rsrp_mean_dbm": np.where(counts > 0, rng.uniform(-110, -80, 4), -140.0).tolist(),
+            "rsrp_p10_dbm": np.where(counts > 0, rng.uniform(-125, -95, 4), -140.0).tolist(),
+            "coverage_ratio": float(rng.uniform()),
+            "sla_ratio": float(rng.uniform()),
+        }
+        if i % 5 == 0:
+            state["user_share"] = (rng.dirichlet(np.ones(4))).tolist()
+        mine, theirs = kpis(state), t2_cluster_kpis(state)
+        for key, value in theirs.items():
+            assert mine[key] == value, (i, key)  # identical, not merely close
+        assert set(headline(state)) == set(theirs)
+    # real twin states too
+    for seed in range(5):
+        s = stepped("congestion", seed).state
+        assert {k: kpis(s)[k] for k in t2_cluster_kpis(s)} == t2_cluster_kpis(s)
