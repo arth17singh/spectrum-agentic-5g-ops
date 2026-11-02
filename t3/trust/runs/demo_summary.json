@@ -1,6 +1,6 @@
 {
- "run_id": "t3trust-20261102T210440Z",
- "thresholds_sha256": "aa1d1d752695eba9635e690c54e0179e4587f5e35e46475458695c79ceae600c",
+ "run_id": "t3.trust-20261102T211603Z-e558",
+ "thresholds_sha256": "d051c1e05efbca5491fd90741ea835a3c83d0ba55ef320dfaf76cc24df4af74b",
  "thresholds": {
   "schema": "t3.trust.thresholds/2",
   "keys": [
@@ -9,9 +9,9 @@
    "sinr_p10_db"
   ],
   "scales": {
-   "coverage_ratio": 0.06,
-   "sla_ratio": 0.036,
-   "sinr_p10_db": 0.63
+   "coverage_ratio": 0.057,
+   "sla_ratio": 0.0389,
+   "sinr_p10_db": 0.8862
   },
   "direction_deadband": {
    "coverage_ratio": 0.02,
@@ -22,22 +22,21 @@
    "error": 0.5,
    "direction": 0.5
   },
-  "tau": 1.65,
+  "tau": 0.65,
   "recent_window": 3,
   "recent_needed": 2,
-  "alpha": 0.1,
+  "alpha": 0.15,
   "warmup": 3,
-  "watch_below": 0.45,
-  "pause_below": 0.3,
+  "watch_below": 0.55,
+  "pause_below": 0.4,
   "max_changes_to_pause": 6,
   "calibration_false_pause_budget": 1,
   "notes": {
    "rule": "after n >= warmup scored changes, pause when recent_needed of the last recent_window changes have e > tau, or the bias-corrected EWMA trust (alpha) of the per-change score falls below pause_below (amendment 1, A6)",
-   "scales": "std of the counterfactual KPI delta in the stand-in predictor's fit set (Maveric official preset, seeds 10000+, 300 random changes: 0.062, 0.036, 0.63 dB), so e = 1 means an error the size of a typical effect",
+   "scales": "std of the training-split delta labels of the Track 2 predictor (t2/data/t2_dataset_v0.npz); e = 1 is an error the size of a typical effect",
    "direction_deadband": "materiality: a measured delta smaller than 2 % of UEs or 0.4 dB of p10 SINR is 'did not move' and not scored for direction",
-   "alpha_tau_pause_below": "chosen by t3.trust.calibrate's PROPOSAL_RULE on 288 replayed changes x 2 predictors (12 episodes x 24 changes, seeds 20000-20011): at most 1 of 12 healthy episodes paused, then most degraded episodes paused within 6 changes; in-sample, so the held-out check is the demo seeds",
-   "max_changes_to_pause": "declared target for the degraded-predictor demo",
-   "recalibrate": "rerun t3.trust.calibrate with W9's real Track 2 predictor before the scored run; these values fit the stand-in linear predictor"
+   "alpha_tau_pause_below": "written by t3.trust.calibrate --apply (PROPOSAL_RULE) from replayed changes on twin.replay (official, nominal, seeds 20000+) with t2.predict healthy and tilt_reversed; in-sample, so the held-out check is the demo seeds; see t3/trust/calibration.json",
+   "max_changes_to_pause": "declared target for the degraded-predictor demo"
   }
  },
  "scenario": "nominal",
@@ -48,12 +47,27 @@
    "op": "create_policy",
    "kwargs": {
     "policyEngineId": "dry-run-engine",
-    "name": "team13_ranpause_a6cad82392_1793653518",
+    "name": "team13_ranpause_t2_response_v0_v0_1793654164",
     "validationMode": "IGNORE_ALL_FINDINGS",
-    "description": "trust-gate pause of standin-linear@v1-flipped: trust 0.022 < pause line 0.3 after 3 scored changes; last change chg-74665913e370 e=1.044 direction_agree=False",
+    "description": "trust-gate pause of t2-response-v0@v0: 2 of the last 3 changes had e > tau 0.65 after 15 scored changes; last change chg-b168a149db2b e=0.944 direction_agree=None",
     "definition": {
      "policy": {
-      "statement": "forbid (principal, action == AgentCore::Action::\"ran___predict\", resource == AgentCore::Gateway::\"arn:aws:bedrock-agentcore:us-east-2:000000000000:gateway/dry-run-placeholder\")\nwhen { !(context.input has model_version) || context.input.model_version == \"v1-flipped\" };"
+      "statement": "forbid (principal, action == AgentCore::Action::\"ran___predict\", resource == AgentCore::Gateway::\"arn:aws:bedrock-agentcore:us-east-2:000000000000:gateway/dry-run-placeholder\")\nwhen { !(context.input has model_version) || context.input.model_version == \"v0\" };"
+     }
+    }
+   },
+   "dry_run": true
+  },
+  {
+   "op": "create_policy",
+   "kwargs": {
+    "policyEngineId": "dry-run-engine",
+    "name": "team13_ranpause_62d19b7335_1793654164",
+    "validationMode": "IGNORE_ALL_FINDINGS",
+    "description": "trust-gate pause of t2-response-v0-degraded-tilt-reversed@v0: trust 0.345 < pause line 0.4 after 3 scored changes; last change chg-4ac495201865 e=1.666 direction_agree=False",
+    "definition": {
+     "policy": {
+      "statement": "forbid (principal, action == AgentCore::Action::\"ran___predict\", resource == AgentCore::Gateway::\"arn:aws:bedrock-agentcore:us-east-2:000000000000:gateway/dry-run-placeholder\")\nwhen { !(context.input has model_version) || context.input.model_version == \"v0\" };"
      }
     }
    },
@@ -62,362 +76,290 @@
  ],
  "cases": [
   {
-   "case_id": "case-t3trust--v1",
-   "model_id": "standin-linear",
-   "version": "v1",
+   "case_id": "case-t3.trust-01",
+   "model_id": "t2-response-v0",
+   "version": "v0",
    "changes": 24,
-   "scored": 24,
+   "scored": 15,
    "clipped": 0,
-   "paused_at_change": null,
-   "refused_after_pause": 0,
-   "final_trust": 0.6123324112695577,
-   "min_trust_after_warmup": 0.5826606174246688,
-   "e_over_tau": 0,
+   "paused_at_change": 15,
+   "refused_after_pause": 9,
+   "final_trust": 0.45903537652474297,
+   "min_trust_after_warmup": 0.45903537652474297,
+   "e_over_tau": 2,
    "trust_trajectory": [
-    0.9159,
-    0.9097,
-    0.8775,
-    0.8699,
-    0.8518,
-    0.8414,
-    0.8293,
-    0.8112,
-    0.7096,
-    0.7157,
-    0.7431,
-    0.6677,
-    0.6609,
-    0.6513,
-    0.6534,
-    0.673,
-    0.7003,
-    0.7149,
-    0.6447,
-    0.6116,
-    0.5827,
-    0.597,
-    0.6065,
-    0.6123
+    0.8835,
+    0.8269,
+    0.8392,
+    0.8346,
+    0.7012,
+    0.7171,
+    0.7219,
+    0.7381,
+    0.6375,
+    0.68,
+    0.6147,
+    0.6124,
+    0.5079,
+    0.5382,
+    0.459
    ],
    "e_trajectory": [
-    0.1682,
-    0.1917,
-    0.3554,
-    0.2973,
-    0.2041,
-    0.3934,
-    0.4442,
-    0.2734,
-    0.6224,
-    0.2507,
-    0.1925,
-    0.5958,
-    0.7664,
-    0.4127,
-    0.6655,
-    0.3739,
-    0.0991,
-    0.3522,
-    0.8921,
-    0.646,
-    0.2921,
-    0.5764,
-    0.6332,
-    0.6791
+    0.2331,
+    0.4425,
+    0.2828,
+    0.3511,
+    0.3197,
+    0.4659,
+    0.5222,
+    0.1995,
+    0.5541,
+    0.1351,
+    0.3655,
+    0.398,
+    1.0713,
+    0.3109,
+    0.9437
    ],
    "rows": [
     {
      "i": 1,
      "refused": false,
-     "e": 0.16822814532273803,
+     "e": 0.233069220395227,
      "direction_agree": true,
-     "score": 0.9158859273386311,
-     "trust": 0.9158859273386313,
+     "score": 0.8834653898023865,
+     "trust": 0.8834653898023863,
      "band": "warm-up",
      "action": null
     },
     {
      "i": 2,
      "refused": false,
-     "e": 0.1917202014236774,
+     "e": 0.4425261901497515,
      "direction_agree": true,
-     "score": 0.9041398992881613,
-     "trust": 0.9097038073120683,
+     "score": 0.7787369049251243,
+     "trust": 0.826855397976839,
      "band": "warm-up",
      "action": null
     },
     {
      "i": 3,
      "refused": false,
-     "e": 0.3553507239046391,
+     "e": 0.28283121149398005,
      "direction_agree": true,
-     "score": 0.8223246380476804,
-     "trust": 0.8774605714211504,
+     "score": 0.85858439425301,
+     "trust": 0.8391893129529988,
      "band": "trusted",
      "action": null
     },
     {
      "i": 4,
      "refused": false,
-     "e": 0.2973316556501679,
+     "e": 0.35114153081816696,
      "direction_agree": true,
-     "score": 0.851334172174916,
-     "trust": 0.8698634794623732,
+     "score": 0.8244292345909165,
+     "trust": 0.8345574286358662,
      "band": "trusted",
      "action": null
     },
     {
      "i": 5,
      "refused": false,
-     "e": 0.20411199895703694,
-     "direction_agree": null,
-     "score": 0.7958880010429631,
-     "trust": 0.8517990907003382,
+     "e": 0.31971234181416847,
+     "direction_agree": false,
+     "score": 0.34014382909291574,
+     "trust": 0.7012431231106269,
      "band": "trusted",
      "action": null
     },
     {
      "i": 6,
      "refused": false,
-     "e": 0.3934480430366842,
+     "e": 0.4659113173202594,
      "direction_agree": true,
-     "score": 0.8032759784816579,
-     "trust": 0.8414432737768173,
+     "score": 0.7670443413398703,
+     "trust": 0.7170899161725136,
      "band": "trusted",
      "action": null
     },
     {
      "i": 7,
      "refused": false,
-     "e": 0.4442195954501918,
+     "e": 0.5222287991511152,
      "direction_agree": true,
-     "score": 0.7778902022749041,
-     "trust": 0.8292614271475922,
+     "score": 0.7388856004244424,
+     "trust": 0.7219018714089345,
      "band": "trusted",
      "action": null
     },
     {
      "i": 8,
      "refused": false,
-     "e": 0.27336206841349914,
+     "e": 0.19949799226598638,
      "direction_agree": null,
-     "score": 0.7266379315865008,
-     "trust": 0.8112425356345869,
+     "score": 0.8005020077340136,
+     "trust": 0.7381078740172097,
      "band": "trusted",
      "action": null
     },
     {
      "i": 9,
      "refused": false,
-     "e": 0.6224320178931401,
+     "e": 0.5540683884776726,
      "direction_agree": false,
-     "score": 0.18878399105342997,
-     "trust": 0.7096298415428389,
+     "score": 0.2229658057611637,
+     "trust": 0.637544346666323,
      "band": "trusted",
      "action": null
     },
     {
      "i": 10,
      "refused": false,
-     "e": 0.25068709664627165,
+     "e": 0.1350633607165452,
      "direction_agree": null,
-     "score": 0.7493129033537284,
-     "trust": 0.7157225404881926,
+     "score": 0.8649366392834548,
+     "trust": 0.680014470986754,
      "band": "trusted",
      "action": null
     },
     {
      "i": 11,
      "refused": false,
-     "e": 0.19251512209113328,
-     "direction_agree": true,
-     "score": 0.9037424389544333,
-     "trust": 0.7431231236792005,
+     "e": 0.3654821720177381,
+     "direction_agree": false,
+     "score": 0.31725891399113093,
+     "trust": 0.6146654143232901,
      "band": "trusted",
      "action": null
     },
     {
      "i": 12,
      "refused": false,
-     "e": 0.5958396623519296,
-     "direction_agree": false,
-     "score": 0.20208016882403518,
-     "trust": 0.6677238448123052,
+     "e": 0.39803293445621746,
+     "direction_agree": null,
+     "score": 0.6019670655437825,
+     "trust": 0.6124447975786853,
      "band": "trusted",
      "action": null
     },
     {
      "i": 13,
      "refused": false,
-     "e": 0.766438623590914,
-     "direction_agree": true,
-     "score": 0.616780688204543,
-     "trust": 0.660893295048094,
-     "band": "trusted",
+     "e": 1.0713141736342273,
+     "direction_agree": false,
+     "score": 0.0,
+     "trust": 0.5079432690576748,
+     "band": "watch",
      "action": null
     },
     {
      "i": 14,
      "refused": false,
-     "e": 0.41271218219311256,
+     "e": 0.3108531165462148,
      "direction_agree": null,
-     "score": 0.5872878178068874,
-     "trust": 0.6513494133055949,
-     "band": "trusted",
+     "score": 0.6891468834537853,
+     "trust": 0.538237098007043,
+     "band": "watch",
      "action": null
     },
     {
      "i": 15,
      "refused": false,
-     "e": 0.6655189092737435,
-     "direction_agree": true,
-     "score": 0.6672405453631283,
-     "trust": 0.6533505409468778,
-     "band": "trusted",
-     "action": null
+     "e": 0.9436503483312161,
+     "direction_agree": null,
+     "score": 0.05634965166878392,
+     "trust": 0.45903537652474297,
+     "band": "watch",
+     "action": "pause"
     },
     {
      "i": 16,
-     "refused": false,
-     "e": 0.3738726577606118,
-     "direction_agree": true,
-     "score": 0.8130636711196941,
-     "trust": 0.672954508782206,
-     "band": "trusted",
-     "action": null
+     "refused": true
     },
     {
      "i": 17,
-     "refused": false,
-     "e": 0.09907151363827509,
-     "direction_agree": null,
-     "score": 0.900928486361725,
-     "trust": 0.7003148384289778,
-     "band": "trusted",
-     "action": null
+     "refused": true
     },
     {
      "i": 18,
-     "refused": false,
-     "e": 0.3521704046747525,
-     "direction_agree": true,
-     "score": 0.8239147976626238,
-     "trust": 0.7148576292344974,
-     "band": "trusted",
-     "action": null
+     "refused": true
     },
     {
      "i": 19,
-     "refused": false,
-     "e": 0.8921232099792453,
-     "direction_agree": null,
-     "score": 0.10787679002075468,
-     "trust": 0.6446795238996634,
-     "band": "trusted",
-     "action": null
+     "refused": true
     },
     {
      "i": 20,
-     "refused": false,
-     "e": 0.6459947575300736,
-     "direction_agree": null,
-     "score": 0.3540052424699264,
-     "trust": 0.6115890689443418,
-     "band": "trusted",
-     "action": null
+     "refused": true
     },
     {
      "i": 21,
-     "refused": false,
-     "e": 0.29208445405632694,
-     "direction_agree": false,
-     "score": 0.3539577729718365,
-     "trust": 0.5826606174246688,
-     "band": "trusted",
-     "action": null
+     "refused": true
     },
     {
      "i": 22,
-     "refused": false,
-     "e": 0.5764214030105882,
-     "direction_agree": true,
-     "score": 0.7117892984947058,
-     "trust": 0.5969840117243559,
-     "band": "trusted",
-     "action": null
+     "refused": true
     },
     {
      "i": 23,
-     "refused": false,
-     "e": 0.6331977427618777,
-     "direction_agree": true,
-     "score": 0.6834011286190611,
-     "trust": 0.6064661164918062,
-     "band": "trusted",
-     "action": null
+     "refused": true
     },
     {
      "i": 24,
-     "refused": false,
-     "e": 0.6791005408305897,
-     "direction_agree": true,
-     "score": 0.6604497295847052,
-     "trust": 0.6123324112695577,
-     "band": "trusted",
-     "action": null
+     "refused": true
     }
    ]
   },
   {
-   "case_id": "case-t3trust--v1-flipped",
-   "model_id": "standin-linear",
-   "version": "v1-flipped",
+   "case_id": "case-t3.trust-02",
+   "model_id": "t2-response-v0-degraded-tilt-reversed",
+   "version": "v0",
    "changes": 24,
    "scored": 3,
    "clipped": 0,
    "paused_at_change": 3,
    "refused_after_pause": 21,
-   "final_trust": 0.02226027275618198,
-   "min_trust_after_warmup": 0.02226027275618198,
-   "e_over_tau": 0,
+   "final_trust": 0.34487039188344226,
+   "min_trust_after_warmup": 0.34487039188344226,
+   "e_over_tau": 1,
    "trust_trajectory": [
-    0.0271,
-    0.0353,
-    0.0223
+    0.957,
+    0.5642,
+    0.3449
    ],
    "e_trajectory": [
-    0.9458,
-    0.9148,
-    1.0443
+    0.0859,
+    0.5395,
+    1.6664
    ],
    "rows": [
     {
      "i": 1,
      "refused": false,
-     "e": 0.9457513811824901,
-     "direction_agree": false,
-     "score": 0.027124309408754932,
-     "trust": 0.02712430940875494,
+     "e": 0.08592521711110479,
+     "direction_agree": true,
+     "score": 0.9570373914444477,
+     "trust": 0.9570373914444474,
      "band": "warm-up",
      "action": null
     },
     {
      "i": 2,
      "refused": false,
-     "e": 0.9147674476707519,
+     "e": 0.5394833698787247,
      "direction_agree": false,
-     "score": 0.042616276164624045,
-     "trust": 0.03527797612237027,
+     "score": 0.23025831506063765,
+     "trust": 0.564183836642388,
      "band": "warm-up",
      "action": null
     },
     {
      "i": 3,
      "refused": false,
-     "e": 1.0443478585413404,
+     "e": 1.666365547460278,
      "direction_agree": false,
      "score": 0.0,
-     "trust": 0.02226027275618198,
+     "trust": 0.34487039188344226,
      "band": "below-pause-line",
      "action": "pause"
     },
@@ -508,60 +450,200 @@
    ]
   }
  ],
- "twin_impl": "t3.trust.standin_twin (stand-in for twin.replay; in-process Maveric via ran_rl)",
- "predictor_impl": "t3.trust.standin_predictors (stand-in for t2.predict)",
- "policy_client": "dry-run (no AWS call; forbid simulated in process)",
- "fit": {
-  "n_steps": 400,
-  "episodes": 34,
-  "episode_len": 12,
-  "seed": 7,
-  "config": "official",
-  "scenario": "nominal",
-  "target": "counterfactual effect (with change - no change, same forked state)",
-  "r2_in_sample": {
-   "coverage_ratio": 0.8787,
-   "sla_ratio": 0.2683,
-   "sinr_p10_db": 0.2734,
-   "sinr_mean_db": 0.7642
+ "results": [
+  {
+   "schema_version": "1",
+   "kind": "result",
+   "run_id": "t3.trust-20261102T211603Z-e558.t2-response-v0-v0",
+   "team": "team13",
+   "created_at": "2026-11-02T21:16:04.728710Z",
+   "aws_time": null,
+   "aws_time_source": null,
+   "synthetic": true,
+   "unit": "t3.trust_gate",
+   "metric": "pauses",
+   "value": 1.0,
+   "target": {
+    "metric": "pauses",
+    "op": "==",
+    "value": 0,
+    "unit": "count"
+   },
+   "passed": false,
+   "n_items": 15,
+   "checked_at": "2026-11-02T21:16:04.728714Z",
+   "checker": {
+    "script": "t3/trust/demo.py",
+    "code_sha": "2c8a57c0fe67603f96fd873f61db65cacc25f9d3"
+   },
+   "details": {
+    "model_id": "t2-response-v0",
+    "version": "v0",
+    "role": "healthy",
+    "source_run_id": "t3.trust-20261102T211603Z-e558",
+    "case_id": "case-t3.trust-01",
+    "thresholds": {
+     "tau": 0.65,
+     "scales": {
+      "coverage_ratio": 0.057,
+      "sla_ratio": 0.0389,
+      "sinr_p10_db": 0.8862
+     },
+     "pause_below": 0.4,
+     "watch_below": 0.55,
+     "alpha": 0.15,
+     "n_min": 3,
+     "window": {
+      "needed": 2,
+      "of_last": 3
+     },
+     "direction_deadband": {
+      "coverage_ratio": 0.02,
+      "sla_ratio": 0.02,
+      "sinr_p10_db": 0.4
+     },
+     "weights": {
+      "error": 0.5,
+      "direction": 0.5
+     },
+     "keys": [
+      "coverage_ratio",
+      "sla_ratio",
+      "sinr_p10_db"
+     ],
+     "sha256": "d051c1e05efbca5491fd90741ea835a3c83d0ba55ef320dfaf76cc24df4af74b"
+    },
+    "paused_at_change": 15,
+    "final_trust": 0.45903537652474297,
+    "min_trust_after_warmup": 0.45903537652474297,
+    "refused_after_pause": 9,
+    "trust_trajectory": [
+     0.8835,
+     0.8269,
+     0.8392,
+     0.8346,
+     0.7012,
+     0.7171,
+     0.7219,
+     0.7381,
+     0.6375,
+     0.68,
+     0.6147,
+     0.6124,
+     0.5079,
+     0.5382,
+     0.459
+    ]
+   }
   },
-  "resid_std": {
-   "coverage_ratio": 0.0223,
-   "sla_ratio": 0.0303,
-   "sinr_p10_db": 0.5646,
-   "sinr_mean_db": 0.2936
-  },
-  "target_std": {
-   "coverage_ratio": 0.0641,
-   "sla_ratio": 0.0354,
-   "sinr_p10_db": 0.6624,
-   "sinr_mean_db": 0.6045
-  },
-  "mean_drift": {
-   "coverage_ratio": -0.0,
-   "sla_ratio": 0.0001,
-   "sinr_p10_db": -0.0288,
-   "sinr_mean_db": -0.0009
+  {
+   "schema_version": "1",
+   "kind": "result",
+   "run_id": "t3.trust-20261102T211603Z-e558.t2-response-v0-degraded-tilt-reversed-v0",
+   "team": "team13",
+   "created_at": "2026-11-02T21:16:04.794652Z",
+   "aws_time": null,
+   "aws_time_source": null,
+   "synthetic": true,
+   "unit": "t3.trust_gate",
+   "metric": "changes_to_pause",
+   "value": 3.0,
+   "target": {
+    "metric": "changes_to_pause",
+    "op": "<=",
+    "value": 6,
+    "unit": "changes"
+   },
+   "passed": true,
+   "n_items": 3,
+   "checked_at": "2026-11-02T21:16:04.794657Z",
+   "checker": {
+    "script": "t3/trust/demo.py",
+    "code_sha": "2c8a57c0fe67603f96fd873f61db65cacc25f9d3"
+   },
+   "details": {
+    "model_id": "t2-response-v0-degraded-tilt-reversed",
+    "version": "v0",
+    "role": "degraded",
+    "source_run_id": "t3.trust-20261102T211603Z-e558",
+    "case_id": "case-t3.trust-02",
+    "thresholds": {
+     "tau": 0.65,
+     "scales": {
+      "coverage_ratio": 0.057,
+      "sla_ratio": 0.0389,
+      "sinr_p10_db": 0.8862
+     },
+     "pause_below": 0.4,
+     "watch_below": 0.55,
+     "alpha": 0.15,
+     "n_min": 3,
+     "window": {
+      "needed": 2,
+      "of_last": 3
+     },
+     "direction_deadband": {
+      "coverage_ratio": 0.02,
+      "sla_ratio": 0.02,
+      "sinr_p10_db": 0.4
+     },
+     "weights": {
+      "error": 0.5,
+      "direction": 0.5
+     },
+     "keys": [
+      "coverage_ratio",
+      "sla_ratio",
+      "sinr_p10_db"
+     ],
+     "sha256": "d051c1e05efbca5491fd90741ea835a3c83d0ba55ef320dfaf76cc24df4af74b"
+    },
+    "paused_at_change": 3,
+    "final_trust": 0.34487039188344226,
+    "min_trust_after_warmup": 0.34487039188344226,
+    "refused_after_pause": 21,
+    "trust_trajectory": [
+     0.957,
+     0.5642,
+     0.3449
+    ]
+   }
   }
- },
+ ],
+ "twin_impl": "twin.replay.ReplayTwin",
+ "predictor_impl": "t2.predict t2/artifacts/t2_response_v0.npz (+ tilt_reversed)",
+ "writer": "local-fallback",
+ "policy_client": "dry-run (no AWS call; forbid simulated in process)",
  "script_sha256": "bb53f1173c0bd7481226644068a8b72483ec15065469748be00389400f4df842",
- "code_sha": "8cb4cb29c817f1a0a4dbd23dbaee764270c0900c",
- "elapsed_s": 48.95,
+ "code_sha": "2c8a57c0fe67603f96fd873f61db65cacc25f9d3",
+ "elapsed_s": 6.03,
  "robustness": {
   "seeds": 10,
   "twin_seeds": "1000..1009",
-  "healthy_false_pauses": 0,
+  "healthy_false_pauses": 3,
+  "healthy_paused_at": [
+   null,
+   null,
+   15,
+   null,
+   15,
+   15,
+   null,
+   null,
+   null,
+   null
+  ],
   "degraded_paused": 10,
   "degraded_paused_within_declared": 10,
   "degraded_paused_at": [
    3,
+   3,
+   3,
    4,
    3,
    3,
    3,
-   4,
    3,
-   4,
    3,
    3
   ],
@@ -569,61 +651,61 @@
    {
     "seed": 1000,
     "healthy_paused_at": null,
-    "healthy_min_trust": 0.5051194671714831,
+    "healthy_min_trust": 0.689456330495588,
     "degraded_paused_at": 3
    },
    {
     "seed": 1001,
     "healthy_paused_at": null,
-    "healthy_min_trust": 0.6297285215397217,
-    "degraded_paused_at": 4
+    "healthy_min_trust": 0.656307900231473,
+    "degraded_paused_at": 3
    },
    {
     "seed": 1002,
-    "healthy_paused_at": null,
-    "healthy_min_trust": 0.6672466014379944,
+    "healthy_paused_at": 15,
+    "healthy_min_trust": 0.5882567135993043,
     "degraded_paused_at": 3
    },
    {
     "seed": 1003,
     "healthy_paused_at": null,
-    "healthy_min_trust": 0.6313524652833674,
-    "degraded_paused_at": 3
+    "healthy_min_trust": 0.7075254860441876,
+    "degraded_paused_at": 4
    },
    {
     "seed": 1004,
-    "healthy_paused_at": null,
-    "healthy_min_trust": 0.4676545727797975,
+    "healthy_paused_at": 15,
+    "healthy_min_trust": 0.6111171974653592,
     "degraded_paused_at": 3
    },
    {
     "seed": 1005,
-    "healthy_paused_at": null,
-    "healthy_min_trust": 0.5353858623009528,
-    "degraded_paused_at": 4
+    "healthy_paused_at": 15,
+    "healthy_min_trust": 0.6348260255251065,
+    "degraded_paused_at": 3
    },
    {
     "seed": 1006,
     "healthy_paused_at": null,
-    "healthy_min_trust": 0.671541875296779,
+    "healthy_min_trust": 0.695960661100977,
     "degraded_paused_at": 3
    },
    {
     "seed": 1007,
     "healthy_paused_at": null,
-    "healthy_min_trust": 0.5859623984344269,
-    "degraded_paused_at": 4
+    "healthy_min_trust": 0.7114736541107669,
+    "degraded_paused_at": 3
    },
    {
     "seed": 1008,
     "healthy_paused_at": null,
-    "healthy_min_trust": 0.5245795262081678,
+    "healthy_min_trust": 0.5687313824757105,
     "degraded_paused_at": 3
    },
    {
     "seed": 1009,
     "healthy_paused_at": null,
-    "healthy_min_trust": 0.5683041224652898,
+    "healthy_min_trust": 0.5830772464637852,
     "degraded_paused_at": 3
    }
   ]

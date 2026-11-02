@@ -68,6 +68,21 @@ trust = bias-corrected EWMA of s (alpha)
 
 Retention is gain(VIAVI) ÷ gain(REHEARSAL), so it is null until a VIAVI rung exists. In that case `details.retention_null_reason` says why.
 
+## Latest runs (real `twin.replay` and `t2.predict`, dry-run policy)
+
+The outputs are in `runs/` and `calibration.json`.
+
+- **Calibration** (288 changes per model, seeds 20000–20011):
+  - The healthy model was paused in 1 of 12 episodes. That is within the declared budget of 1.
+  - `tilt_reversed` was paused in 12 of 12 episodes, each time at change 3.
+- **Demo** (24 scripted changes; held out: seed 0 plus seeds 1000–1009):
+  - `tilt_reversed` was paused in 11 of 11 runs, at change 3 or 4.
+  - The healthy model was paused in 4 of 11 runs, always at change 15. On scripted steps 12 and 14 its p10-SINR delta has the wrong sign (−0.42 vs +0.84 dB, and +0.49 vs −1.08 dB), so 2 of the last 3 changes have e > τ.
+  - Those pauses are real model errors. The thresholds were not tuned after the fact.
+- **Ladder** (20 cases × 5 steps):
+  - Healthy gain is +0.0154 [0.0098, 0.0213] on MAVERIC and +0.0037 [0.0003, 0.0076] on REHEARSAL.
+  - Retention is null because there is no VIAVI rung.
+
 ## Commands
 
 ```
