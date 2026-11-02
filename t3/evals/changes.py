@@ -52,8 +52,8 @@ except ImportError:
 
 def nonzero(change: list[dict[str, Any]] | str | None) -> list[dict[str, Any]]:
     """The change as a list without all-zero items (None and "" are the empty change)."""
-    if change is None:
-        return []
+    if change is None or (isinstance(change, str) and not change.strip()):
+        return []  # "" is "no change"; W1's parse accepts only non-empty canonical strings
     if isinstance(change, str):
         change = parse(change)
     return [
