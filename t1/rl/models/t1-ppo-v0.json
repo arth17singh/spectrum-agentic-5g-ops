@@ -1,0 +1,57 @@
+{
+  "schema_version": "1",
+  "kind": "model",
+  "run_id": "w9-models-v0-local",
+  "team": "team13",
+  "created_at": "2026-11-02T20:56:28+00:00",
+  "aws_time": null,
+  "aws_time_source": null,
+  "synthetic": false,
+  "model_id": "t1-ppo-v0",
+  "version": "v0",
+  "model_kind": "ppo",
+  "artifact_uri": "t1/rl/artifacts/ppo_v0.zip",
+  "artifact_sha256": "8646c019d9c2312f2f6d7ae884dc2d1b110b25ea69e8b580cf00aa20c3e9160d",
+  "status": "candidate",
+  "trained_on": "v0, local, not federated / not the official job. PPO (stable-baselines3) on the in-process Maveric twin through ran_rl.make_env (CCO use case, SDK Default Reward), scenarios low_load, nominal, congestion, interference, mobility_stress, outage; 396112 steps in 1800.1 s (time_box)",
+  "metrics": {
+    "label": "v0, local, not federated / not the official job",
+    "training": {
+      "timesteps": 396112,
+      "wall_seconds": 1800.1,
+      "stopped_by": "time_box",
+      "n_envs": 8,
+      "seed": 42
+    },
+    "final_ep_rew_mean": 28.491469579999997,
+    "comparison_n_episodes": 30,
+    "ppo_v0": {
+      "total_objective": 31.83649367002628,
+      "sla_ratio_mean": 0.9551458333333334,
+      "coverage_mean": 0.4232986111111111,
+      "n_episodes": 30
+    },
+    "rule_baseline": {
+      "total_objective": 29.820818862932075,
+      "sla_ratio_mean": 0.945324074074074,
+      "coverage_mean": 0.8310763888888888,
+      "n_episodes": 30
+    },
+    "no_op": {
+      "total_objective": 31.23907424188936,
+      "sla_ratio_mean": 0.9379953703703704,
+      "coverage_mean": 0.5875393518518519,
+      "n_episodes": 30
+    },
+    "ppo_minus_rule": {
+      "mean_objective_difference": 2.0156748070941997,
+      "ppo_wins": 30,
+      "rule_wins": 0,
+      "n": 30,
+      "std_error": 0.17102169021370042
+    },
+    "uplift_ratio_vs_rule": 1.0675928724948507,
+    "sdk_uplift_gate_1.05": true,
+    "note": "SDK Scoring Objective summed over 24-step episodes; coverage_mean reported because the objective does not reward it"
+  }
+}
