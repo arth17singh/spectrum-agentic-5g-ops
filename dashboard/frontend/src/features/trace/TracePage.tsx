@@ -96,7 +96,7 @@ export default function TracePage() {
       {cases.state === 'ok' && rows.length > 0 && (
         <div className="grid grid-cols-12 items-start gap-4">
           <div className="col-span-12 xl:col-span-5">
-            <CaseList rows={rows} selected={picked ? caseKey(picked) : null} onSelect={setSel} total={cases.data.n_records} />
+            <CaseList rows={rows} selected={picked ? caseKey(picked) : null} onSelect={setSel} total={cases.data.provenance?.n_records ?? cases.data.n_records} />
           </div>
           <div className="col-span-12 min-w-0 xl:col-span-7">
             {picked && <CaseDetail summary={picked} />}
@@ -135,7 +135,7 @@ function CaseList({ rows, selected, onSelect, total }: { rows: Rec[]; selected: 
                   <td className="tnum px-3 text-right" style={{ color: c.allows ? 'var(--good-ink)' : 'var(--ink-3)' }}>{c.allows}</td>
                   <td className="tnum px-3 text-right" style={{ color: c.pauses ? 'var(--warn-ink)' : 'var(--ink-3)' }}>{c.pauses}</td>
                   <td className="tnum px-3 text-right text-ink-1">{c.applied}</td>
-                  <td className="px-3">{c.check_passed ? <StatusPill status="passed" size="sm">complete</StatusPill> : <StatusPill status="warning" size="sm">incomplete</StatusPill>}</td>
+                  <td className="px-3">{c.check_passed ? (c.provenance?.state === 'real' ? <StatusPill status="passed" size="sm">complete</StatusPill> : <StatusPill status="warning" size="sm" title="The sequence is complete, but these records are not verified as a real run">complete, not real</StatusPill>) : <StatusPill status="warning" size="sm">incomplete</StatusPill>}</td>
                 </tr>
               )
             })}
@@ -184,7 +184,7 @@ function SequenceCheck({ c }: { c: Rec }) {
   const cmd: string = c.show_record
   return (
     <Panel id="trace-check" plane="operate" title="Expected sequence" subtitle="case opened, agents asked, tools called, approval, change applied, observe"
-      actions={k.passed ? <StatusPill status="passed">Sequence complete</StatusPill> : <StatusPill status="blocked">{k.order_ok ? 'Sequence incomplete' : 'Out of order'}</StatusPill>}>
+      actions={k.passed ? (c.provenance?.state === 'real' ? <StatusPill status="passed">Sequence complete</StatusPill> : <StatusPill status="warning" title="The sequence is complete, but these records are not verified as a real run">Complete, not a real run</StatusPill>) : <StatusPill status="blocked">{k.order_ok ? 'Sequence incomplete' : 'Out of order'}</StatusPill>}>
       <div data-state={k.passed ? 'pass' : 'fail'} className="flex flex-wrap items-center gap-1.5">
         {(k.steps as Rec[]).map((s, i) => {
           const missing = s.required && !s.present
