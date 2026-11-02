@@ -7,7 +7,7 @@ import json
 import pytest
 
 from fakes import (FakeBedrock, FakeDynamo, FakePolicy, FakePredictor, FakeS3, FakeSageMaker, FakeTrustInvoker,
-                   FakeTwin, MemoryWriter, context, fake_kpis)
+                   FakeTwin, FakeTwinCF, MemoryWriter, context, fake_kpis)
 from t3.tools import app, catalog, changes, evidence, nlm, store
 
 CASE = "case-1a2b3c4d"
@@ -22,7 +22,7 @@ def kit_key(args):
 
 
 class World:
-    def __init__(self, predictor=None, policy=None, nlm_obj=None, run_id=None, trust=True):
+    def __init__(self, predictor=None, policy=None, nlm_obj=None, run_id=None, trust=True, twin=FakeTwinCF):
         self.ddb = FakeDynamo()
         if run_id:
             self.ddb.set_plain("t3-active", run_id=run_id)  # written by the runner
@@ -30,7 +30,7 @@ class World:
         self.trust = FakeTrustInvoker()
         self.predictor = predictor if predictor is not None else FakePredictor()
         self.deps = app.Deps(
-            store=store.DynamoStore("team13-approvals", client=self.ddb), twin_factory=FakeTwin, kpis=fake_kpis,
+            store=store.DynamoStore("team13-approvals", client=self.ddb), twin_factory=twin, kpis=fake_kpis,
             predictor=lambda: self.predictor, policy=lambda: policy if policy is not None else FakePolicy(),
             trust_invoker=(lambda: self.trust) if trust else (lambda: None), writer=lambda: self.writer,
             nlm=nlm_obj or nlm.NLM(env={}), synthetic=True, now=lambda: "2026-11-02T20:00:00.000Z",
@@ -456,3 +456,59 @@ def test_nlm_tgi_payload_and_parsing():
     assert "inputs" in json.loads(sm.calls[0]["Body"])
     with pytest.raises(ValueError):
         nlm.parse_generation({"nothing": 1})
+
+
+# ---------------------------------------------------------------- follow-ups: schemas, counterfactual, contracts
+def test_case_id_is_optional_in_every_schema_so_cedar_decides():
+    """A call without case_id must reach Cedar (the case-id forbid decides and records it)."""
+    seen = set()
+    for target, tools in catalog.targets().items():
+        for t in tools:
+            full = catalog.full(target, t["name"])
+            seen.add(full)
+            schema = t["inputSchema"]
+            assert "case_id" in schema["properties"] and "case_id" not in schema.get("required", []), full
+    assert set(catalog.all_tools()) <= seen
+    apply_schema = next(t for t in catalog.ran_tool_schemas() if t["name"] == "apply_change")["inputSchema"]
+    assert apply_schema["required"] == ["item_id", "change"]
+
+
+def _apply_once(twin):
+    w = World(twin=twin, run_id="r-cf")
+    w.call("ran___predict", case_id=CASE, item_id="step-0", change=CHANGE)
+    w.approved(APPLY)
+    out = w.call("ran___apply_change", **APPLY)
+    return w, out
+
+
+def test_counterfactual_from_twin_matches_the_two_replay_fallback():
+    w_cf, cf = _apply_once(FakeTwinCF)
+    w_rp, rp = _apply_once(FakeTwin)
+    assert w_cf.call("ran___observe", case_id=CASE)["twin"]["step"] == 1
+    for k in ("baseline_kpis", "measured_kpis", "measured_delta", "error", "direction_agree"):
+        assert cf[k] == rp[k], k
+    assert w_cf.case_doc()["action_log"] == w_rp.case_doc()["action_log"]
+
+
+def test_change_records_validate_against_team13_contracts():
+    """Every record shape apply writes (scored, clipped, no prediction) passes W1's A15 model."""
+    contracts = pytest.importorskip("team13_contracts")
+    validate = getattr(contracts, "validate_record", None) or contracts.parse_record
+    w = World(run_id="r-contracts")
+    w.call("ran___predict", case_id=CASE, item_id="step-0", change=CHANGE)
+    w.approved(APPLY)
+    w.call("ran___apply_change", **APPLY)                                   # scored
+    big = dict(APPLY, item_id="step-1", change="cell=1;d_power_db=+5.0;d_tilt_deg=+0.0")
+    w.call("ran___predict", case_id=CASE, item_id="step-1", change=big["change"])
+    w.approved(big)
+    w.call("ran___apply_change", **big)                                     # clipped
+    plain = dict(APPLY, item_id="step-2", change="cell=0;d_power_db=-1.0;d_tilt_deg=+0.0")
+    w.approved(plain)
+    w.call("ran___apply_change", **plain)                                   # no prediction
+    recs = w.records()
+    assert [r["unscored_reason"] for r in recs] == [None, "clipped", "no_prediction"]
+    for rec in recs:
+        validate(rec)
+    bad = dict(recs[0], measured_delta=dict(recs[0]["measured_delta"], coverage_ratio=0.5))
+    with pytest.raises(Exception):
+        validate(bad)   # the validator really checks (measured_delta must equal measured - baseline)

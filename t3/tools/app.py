@@ -313,16 +313,31 @@ class Tools:
         return twin, state
 
     def counterfactual(self, case: dict, cells: list[dict]) -> dict:
-        """Baseline (advance with no change) and measured (advance with the change) at the same step."""
+        """Baseline (advance with no change) and measured (advance with the change) at the same step.
+
+        Uses W2's `ReplayTwin.counterfactual(change)` when the twin has it (both futures from one
+        snapshot, live twin untouched), then applies the change for real to extend the action log.
+        Otherwise replays twice: once with an empty change (W2: a no-op step), once with the change.
+        """
         twin, _ = self.replay(case)
-        baseline = jsonable(self.d.kpis(twin.apply([])))
-        twin, _ = self.replay(case)
-        measured = jsonable(self.d.kpis(twin.apply(cells)))
-        entry = twin.action_log[-1] if twin.action_log else {}
-        hb, hm = headline(baseline), headline(measured)
-        return {"baseline_kpis": hb, "measured_kpis": hm, "measured_delta": delta(hm, hb),
-                "measured_per_cell": measured.get("per_cell"), "clipped": bool(entry.get("clamped")),
-                "safety_rules": entry.get("rules") or [], "action_log": jsonable(list(twin.action_log))}
+        cf_fn = getattr(twin, "counterfactual", None)
+        if callable(cf_fn):
+            cf = jsonable(cf_fn(cells))
+            measured = jsonable(self.d.kpis(twin.apply(cells)))
+            hb, hm = headline(cf["baseline"]), headline(cf["after"])
+            d = {k: (None if cf["delta"].get(k) is None else float(cf["delta"][k])) for k in KPI_KEYS}
+            clipped, rules, source = bool(cf.get("clamped")), cf.get("rules") or [], "twin.counterfactual"
+        else:
+            baseline = jsonable(self.d.kpis(twin.apply([])))
+            twin, _ = self.replay(case)
+            measured = jsonable(self.d.kpis(twin.apply(cells)))
+            entry = twin.action_log[-1] if twin.action_log else {}
+            hb, hm = headline(baseline), headline(measured)
+            d = delta(hm, hb)
+            clipped, rules, source = bool(entry.get("clamped")), entry.get("rules") or [], "two replays"
+        return {"baseline_kpis": hb, "measured_kpis": hm, "measured_delta": d,
+                "measured_per_cell": measured.get("per_cell"), "clipped": clipped, "safety_rules": rules,
+                "counterfactual_source": source, "action_log": jsonable(list(twin.action_log))}
 
     def twin_info(self, case: dict, step: int) -> dict:
         return {"kind": case["twin_kind"], "version": self.d.twin_version, "scenario": case["scenario"],
@@ -371,12 +386,12 @@ class Tools:
         check_model_version(args, predictor.version, "response model")
         _, state = self.replay(case)
         raw = jsonable(predictor.predict(state, cells)) or {}
-        try:
-            predicted = {k: float(raw[k]) for k in SCORED_KEYS}
+        try:  # the record's KpiDelta needs all four (W1); the trust gate scores three of them
+            predicted = {k: float(raw[k]) for k in KPI_KEYS}
         except (KeyError, TypeError, ValueError) as exc:
             raise ToolError(f"the response model returned no {exc}") from exc
-        if raw.get("sinr_mean_db") is not None:
-            predicted["sinr_mean_db"] = float(raw["sinr_mean_db"])
+        if not all(math.isfinite(v) for v in predicted.values()):
+            raise ToolError("the response model returned a non-finite delta")
         step = len(case["action_log"])
         item_id = args.get("item_id") if isinstance(args.get("item_id"), str) and args["item_id"] else f"step-{step}"
         meta = {"model_id": str(predictor.model_id), "version": str(predictor.version)}

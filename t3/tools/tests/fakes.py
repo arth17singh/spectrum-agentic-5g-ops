@@ -155,6 +155,22 @@ class FakeTwin:
         return copy.deepcopy(self.state)
 
 
+class FakeTwinCF(FakeTwin):
+    """FakeTwin plus W2's `counterfactual(change)` (int/v4): both futures from a snapshot, live twin untouched."""
+
+    def counterfactual(self, change):
+        saved_state, saved_log = copy.deepcopy(self.state), copy.deepcopy(self.action_log)
+        after = fake_kpis(self.apply(change))
+        entry = self.action_log[-1]
+        self.state, self.action_log = copy.deepcopy(saved_state), copy.deepcopy(saved_log)
+        base = fake_kpis(self.apply([]))
+        self.state, self.action_log = saved_state, saved_log
+        keys = ("coverage_ratio", "sla_ratio", "sinr_p10_db", "sinr_mean_db")
+        return {"baseline": {k: base[k] for k in keys}, "after": {k: after[k] for k in keys},
+                "delta": {k: after[k] - base[k] for k in keys}, "clamped": entry["clamped"],
+                "rules": entry["rules"], "filtered": entry["filtered"]}
+
+
 def fake_kpis(state) -> dict:
     p, t, step = state["power"], state["tilt"], state["step"]
     cov = min(1.0, 0.5 + sum(p) / 400.0 - sum(abs(x - 8.0) for x in t) / 200.0 + 0.001 * step)
