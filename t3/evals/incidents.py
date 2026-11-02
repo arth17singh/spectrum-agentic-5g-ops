@@ -1,7 +1,9 @@
 """The frozen incident suite: scripted misconfigurations injected into the in-process Maveric twin.
 
-Each incident starts from a healthy reset (scenario, seed, preset), applies one fault change as
-step 1 (through the SDK safety filter, which must not clip it), and records the twin's KPIs on two
+Each incident starts from a healthy reset (scenario, seed, preset), applies the healthy per-cell
+commissioning as step 1 (none on the "visible" tier; seeded per-cell offsets on the "masked" tier, so
+the configuration alone does not reveal the faulted cell), then one fault change as step 2 (through
+the SDK safety filter, which must clip neither), and records the twin's KPIs on two
 trajectories through the grade step: ``healthy`` (no fault, no-op steps) and ``unfixed`` (fault, then
 no-op steps). Operators are later graded against those, at the same step.
 
@@ -40,7 +42,7 @@ DEV_PATH = SUITE_DIR / "incidents-dev.jsonl"
 HASH_PATH = SUITE_DIR / "incidents-test.sha256"
 META_PATH = SUITE_DIR / "incidents-meta.json"
 
-SUITE_VERSION = "t3-incidents-v1"
+SUITE_VERSION = "t3-incidents-v2"
 SEED_BASE = 4100
 N_CANDIDATES = 84
 SPLIT_SALT = "t3-evals-split-v1"
@@ -74,42 +76,85 @@ def split_of(seed: int) -> str:
     return "test" if hashlib.sha256(f"{SPLIT_SALT}:{seed}".encode()).digest()[0] % 2 == 0 else "dev"
 
 
+TIERS = ("visible", "masked")
+COMMISSION_POWER_DB = (-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0)
+COMMISSION_TILT_DEG = (-2.0, -1.0, 0.0, 1.0, 2.0, 3.0)
+
+
+def commissioning(seed: int, tier: str, n_cells: int = 4) -> list[dict[str, Any]]:
+    """The healthy per-cell configuration applied at step 1 (before the fault).
+
+    "visible": none, every cell keeps the preset's identical power and tilt, so a faulted cell
+    stands out in the configuration. "masked": seeded per-cell offsets, so the configuration alone
+    no longer says which cell is wrong.
+    """
+    if tier == "visible":
+        return []
+    import numpy as np
+
+    rng = np.random.default_rng([seed, 7])
+    out = []
+    for c in range(n_cells):
+        dp = float(rng.choice(COMMISSION_POWER_DB))
+        dt = float(rng.choice(COMMISSION_TILT_DEG))
+        if dp or dt:
+            out.append({"cell": c, "d_power_db": dp, "d_tilt_deg": dt})
+    return out
+
+
 def candidate(i: int) -> dict[str, Any]:
     """The i-th candidate spec (deterministic, no twin needed)."""
     seed = SEED_BASE + i
     preset = PRESETS[i % 2]
-    name, parts = TEMPLATES[(i // 2) % len(TEMPLATES)]
-    base_cell = (i // (2 * len(TEMPLATES))) % 4
+    tier = TIERS[(i // 2) % 2]
+    name, parts = TEMPLATES[(i // 4) % len(TEMPLATES)]
+    base_cell = (i // (4 * len(TEMPLATES))) % 4
     fault = [
         {"cell": (base_cell + off) % 4, "d_power_db": float(dp), "d_tilt_deg": float(dt)}
         for off, dp, dt in parts
     ]
-    return {"seed": seed, "preset": preset, "scenario": PRESET_SCENARIO[preset], "template": name, "fault": fault}
+    return {"seed": seed, "preset": preset, "scenario": PRESET_SCENARIO[preset], "tier": tier, "template": name,
+            "commissioning": commissioning(seed, tier), "fault": fault}
 
 
 def _r(d: dict[str, float]) -> dict[str, float]:
     return {k: round(v, KPI_DECIMALS) for k, v in d.items()}
 
 
+def script(spec: dict[str, Any], targets: dict[str, Any], with_fault: bool) -> list[list[dict[str, Any]]]:
+    """The changes applied at steps 1..fault_step: commissioning at step 1, the fault at fault_step."""
+    ep = targets["episode"]
+    steps: list[list[dict[str, Any]]] = [[] for _ in range(ep["fault_step"])]
+    steps[0] = list(spec["commissioning"])
+    if with_fault:
+        steps[ep["fault_step"] - 1] = list(spec["fault"])
+    return steps
+
+
 def build(spec: dict[str, Any], targets: dict[str, Any]) -> tuple[dict[str, Any] | None, str]:
     """Run the healthy and faulted trajectories. Returns (incident or None, reason)."""
     ep = targets["episode"]
-    n_steps = ep["grade_step"]
+    n_steps, fs = ep["grade_step"], ep["fault_step"]
+    if fs < 2:
+        raise ValueError("fault_step must leave step 1 for commissioning")
     healthy = ReplayTwin(spec["scenario"], spec["seed"], spec["preset"])
     faulted = ReplayTwin(spec["scenario"], spec["seed"], spec["preset"])
     s0 = healthy.reset()
     faulted.reset()
+    h_script, u_script = script(spec, targets, False), script(spec, targets, True)
     h_traj, u_traj = [graded(s0)], [graded(s0)]
     for step in range(1, n_steps + 1):
-        h_traj.append(graded(healthy.apply([])))
-        u_traj.append(graded(faulted.apply(spec["fault"] if step == ep["fault_step"] else [])))
-    if faulted.action_log[0]["clamped"]:
-        return None, f"fault clipped by the safety filter: {faulted.action_log[0]['rules']}"
+        h_traj.append(graded(healthy.apply(h_script[step - 1] if step <= fs else [])))
+        u_traj.append(graded(faulted.apply(u_script[step - 1] if step <= fs else [])))
+    for entry in faulted.action_log[:fs]:
+        if entry["clamped"]:
+            return None, f"commissioning or fault clipped by the safety filter: {entry['rules']}"
     g = grade_kpis(u_traj[-1], h_traj[-1], u_traj[-1], targets)
     if g["success"]:
         return None, "no_action already within tolerance at the grade step (fault not material)"
-    iid = f"inc-{'off' if spec['preset'] == 'official' else 'vvl'}-{spec['seed']}-{spec['template']}"
-    s_fault = faulted.action_log[0]
+    iid = (f"inc-{'off' if spec['preset'] == 'official' else 'vvl'}-{spec['tier'][:3]}-{spec['seed']}-"
+           f"{spec['template']}")
+    s_fault = faulted.action_log[fs - 1]
     return {
         "suite": SUITE_VERSION,
         "incident_id": iid,
@@ -117,14 +162,16 @@ def build(spec: dict[str, Any], targets: dict[str, Any]) -> tuple[dict[str, Any]
         "scenario": spec["scenario"],
         "seed": spec["seed"],
         "preset": spec["preset"],
+        "tier": spec["tier"],
         "template": spec["template"],
+        "commissioning": spec["commissioning"],
         "fault": spec["fault"],
         "fault_cells": sorted({f["cell"] for f in spec["fault"]}),
-        "fault_step": ep["fault_step"],
+        "fault_step": fs,
         "grade_step": n_steps,
         "fault_filtered": s_fault["filtered"],
-        "pre_fault_kpis": _r(h_traj[0]),
-        "post_fault_kpis": _r(u_traj[ep["fault_step"]]),
+        "pre_fault_kpis": _r(h_traj[fs - 1]),
+        "post_fault_kpis": _r(u_traj[fs]),
         "healthy_kpis_by_step": [_r(k) for k in h_traj],
         "unfixed_kpis_by_step": [_r(k) for k in u_traj],
         "material_kpis": [k for k, p in g["per_kpi"].items() if p["material"]],
@@ -139,7 +186,8 @@ def generate(targets: dict[str, Any] | None = None) -> dict[str, Any]:
         spec = candidate(i)
         inc, why = build(spec, targets)
         if inc is None:
-            dropped.append({"seed": spec["seed"], "preset": spec["preset"], "template": spec["template"],
+            dropped.append({"seed": spec["seed"], "preset": spec["preset"], "tier": spec["tier"],
+                            "template": spec["template"],
                             "fault": spec["fault"], "split": split_of(spec["seed"]), "reason": why})
         else:
             kept[inc["split"]].append(inc)
@@ -180,7 +228,7 @@ def main(argv: list[str] | None = None) -> int:
         HASH_PATH.write_text(f"{digest}  incidents-test.jsonl\n")
         META_PATH.write_text(json.dumps({
             "suite": SUITE_VERSION, "candidates": N_CANDIDATES, "seed_base": SEED_BASE, "split_salt": SPLIT_SALT,
-            "templates": [t[0] for t in TEMPLATES], "presets": list(PRESETS),
+            "templates": [t[0] for t in TEMPLATES], "presets": list(PRESETS), "tiers": list(TIERS),
             "counts": {"test": len(out["test"]), "dev": len(out["dev"]), "dropped": len(out["dropped"])},
             "test_sha256": digest, "twin_backend": BACKEND, "twin_version": twin_version(),
             "python": sys.version.split()[0], "platform": f"{platform.system()}-{platform.machine()}",

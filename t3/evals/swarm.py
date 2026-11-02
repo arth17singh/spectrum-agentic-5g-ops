@@ -12,7 +12,7 @@ state (``measured_kpis`` from the client, when given, are compared and any misma
 Client protocol (the lead implements it over the runner; ``DryRunSwarmClient`` is a fake):
 
     client.open_case(case: dict) -> case_id
-        case = {incident_id, run_id, scenario, seed, preset, start_action_log: [fault change],
+        case = {incident_id, run_id, scenario, seed, preset, start_action_log: [commissioning, fault],
                 task_text}
     client.step(case_id, state, history) -> {
         "change_text": "cell=1;d_power_db=+0.0;d_tilt_deg=-5.0" | "" | None,   # what was applied
@@ -72,7 +72,7 @@ class SwarmOperator:
             "scenario": incident["scenario"],
             "seed": incident["seed"],
             "preset": incident["preset"],
-            "start_action_log": [incident["fault"]],
+            "start_action_log": [incident.get("commissioning", []), incident["fault"]],
             "task_text": task_text(incident, self.run_id),
         })
 

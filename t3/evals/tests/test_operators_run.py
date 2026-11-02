@@ -104,7 +104,7 @@ def test_swarm_refused_step_is_no_change():
         synthetic = True
 
         def open_case(self, case):
-            assert case["start_action_log"] == [INC["fault"]]
+            assert case["start_action_log"] == [INC["commissioning"], INC["fault"]]
             return "case-x"
 
         def step(self, case_id, state, history):

@@ -8,7 +8,7 @@ from t3.evals.graders import load_targets
 from t3.evals.twin_backend import ReplayTwin, graded
 
 T = load_targets()
-FROZEN_SHA = "c0846996a08357836efcc7af1b7ab285d63b8c3622a846a580661d7bef388f0a"
+FROZEN_SHA = "20f9013399da360b26214e11de15c9f9edbb8dcb9bcc4cf1d89fb7e194d3dd12"
 
 
 def test_frozen_hash_is_stable_and_recorded():
@@ -63,8 +63,19 @@ def test_both_presets_and_several_fault_kinds_are_present():
 def test_viavi_like_preset_is_stationary():
     test, _ = I.load_test()
     vv = next(i for i in test if i["preset"] == "viavi-like")
-    hs = vv["healthy_kpis_by_step"]
+    hs = vv["healthy_kpis_by_step"][1:]  # after commissioning nothing moves
     assert all(h == hs[0] for h in hs)
+
+
+def test_masked_tier_hides_the_fault_in_a_heterogeneous_configuration():
+    test, _ = I.load_test()
+    assert {i["tier"] for i in test} == {"visible", "masked"}
+    for inc in test:
+        if inc["tier"] == "visible":
+            assert inc["commissioning"] == []
+        else:
+            assert inc["commissioning"] == I.commissioning(inc["seed"], "masked")
+    assert any(len(i["commissioning"]) >= 3 for i in test if i["tier"] == "masked")
 
 
 def test_replay_is_deterministic_on_one_incident():
@@ -73,7 +84,8 @@ def test_replay_is_deterministic_on_one_incident():
     for _ in range(2):
         t = ReplayTwin(inc["scenario"], inc["seed"], inc["preset"])
         t.reset()
-        runs.append([graded(t.apply(inc["fault"] if s == 1 else [])) for s in range(1, 5)])
+        sc = I.script(inc, T, with_fault=True)
+        runs.append([graded(t.apply(sc[s - 1] if s <= len(sc) else [])) for s in range(1, inc["grade_step"] + 1)])
     assert runs[0] == runs[1]
     for k in T["graded_kpis"]:
         assert runs[0][-1][k] == pytest.approx(inc["unfixed_kpis_by_step"][-1][k], rel=1e-6, abs=1e-8)

@@ -11,8 +11,9 @@ written first, then one ``item`` record per incident, then the ``result``. Gains
 item_id against the baseline runs' stored items (read back from the evidence store), with a 95%
 bootstrap interval: ``result.details.gain = {value, ci_low, ci_high, baseline_run_id, paired_n}``.
 
-Episode: reset (step 0), the incident's fault (step 1), then exactly 3 operator steps (2-4); a step
-with no change still advances. Graded at step 4 against the same-step healthy counterfactual.
+Episode: reset (step 0), commissioning (step 1), the incident's fault (step 2), then exactly 3
+operator steps (3-5); a step with no change still advances. Graded at step 5 against the same-step
+healthy counterfactual.
 """
 
 from __future__ import annotations
@@ -54,9 +55,8 @@ def run_incident(incident: dict[str, Any], op: Any, targets: dict[str, Any], run
     keys = targets["graded_kpis"]
     twin = ReplayTwin(incident["scenario"], incident["seed"], incident["preset"])
     twin.reset()
-    for step in range(1, ep["fault_step"]):
-        twin.apply([])
-    state = twin.apply(incident["fault"])
+    for change in inc_mod.script(incident, targets, with_fault=True):
+        state = twin.apply(change)
     if not _close(graded(state), incident["post_fault_kpis"], keys):
         raise RuntimeError(f"{incident['incident_id']}: replayed post-fault KPIs differ from the frozen suite")
     ctx = {"twin": twin, "targets": targets, "run_id": run_id}
@@ -81,7 +81,8 @@ def run_incident(incident: dict[str, Any], op: Any, targets: dict[str, Any], run
     st = action_stats(twin.action_log[ep["fault_step"]:], set(incident["fault_cells"]))
     extra = {
         "operator": op.name,
-        "incident": {k: incident[k] for k in ("scenario", "seed", "preset", "template", "fault", "fault_cells")},
+        "incident": {k: incident[k] for k in ("scenario", "seed", "preset", "tier", "template", "fault",
+                                              "fault_cells")},
         "recovery": g["recovery"],
         "success": g["success"],
         "per_kpi": g["per_kpi"],
@@ -125,9 +126,11 @@ def summarize(items: list[dict[str, Any]]) -> dict[str, Any]:
     rec = [it["score"] for it in items]
     ex = [it["extra"] for it in items]
     by: dict[str, Any] = {}
-    for preset in sorted({e["incident"]["preset"] for e in ex}):
-        sub = [it for it in items if it["extra"]["incident"]["preset"] == preset]
-        by[preset] = {
+    groups = [("preset", v) for v in sorted({e["incident"]["preset"] for e in ex})]
+    groups += [("tier", v) for v in sorted({e["incident"].get("tier", "visible") for e in ex})]
+    for field, value in groups:
+        sub = [it for it in items if it["extra"]["incident"].get(field, "visible") == value]
+        by[value] = {
             "n": len(sub),
             "mean_recovery": sum(i["score"] for i in sub) / len(sub),
             "success_rate": sum(1 for i in sub if i["passed"]) / len(sub),
@@ -141,7 +144,7 @@ def summarize(items: list[dict[str, Any]]) -> dict[str, Any]:
         "wrong_cell_actions_total": sum(e["wrong_cell_actions"] for e in ex),
         "items_with_wrong_cell_action": sum(1 for e in ex if e["wrong_cell_actions"]),
         "items_clamped": sum(1 for e in ex if e["clamped"]),
-        "by_preset": by,
+        "by_group": by,
     }
 
 
@@ -293,7 +296,7 @@ def main(argv: list[str] | None = None) -> int:
         "target": res["target"], "passed": res["passed"], "n_items": res["n_items"],
         "mean_recovery": d["mean_recovery"], "success_rate": d["success_rate"],
         "mean_changes_used": d["mean_changes_used"], "wrong_cell_actions_total": d["wrong_cell_actions_total"],
-        "items_clamped": d["items_clamped"], "by_preset": d["by_preset"],
+        "items_clamped": d["items_clamped"], "by_group": d["by_group"],
         "gains": [{k: g[k] for k in ("baseline_run_id", "baseline_model_id", "value", "ci_low", "ci_high",
                                      "paired_n")} | {"success_rate_gain": g["success_rate_gain"]} for g in d["gains"]],
         "wall_s": d["wall_s"],

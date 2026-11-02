@@ -1,9 +1,9 @@
 {
   "candidates": 84,
   "counts": {
-    "dev": 28,
-    "dropped": 25,
-    "test": 31
+    "dev": 36,
+    "dropped": 15,
+    "test": 33
   },
   "dropped": [
     {
@@ -18,7 +18,8 @@
       "reason": "no_action already within tolerance at the grade step (fault not material)",
       "seed": 4101,
       "split": "dev",
-      "template": "tilt+5"
+      "template": "tilt+5",
+      "tier": "visible"
     },
     {
       "fault": [
@@ -26,61 +27,20 @@
           "cell": 0,
           "d_power_db": -6.0,
           "d_tilt_deg": 0.0
-        }
-      ],
-      "preset": "official",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4102,
-      "split": "test",
-      "template": "power-6"
-    },
-    {
-      "fault": [
-        {
-          "cell": 0,
-          "d_power_db": -6.0,
-          "d_tilt_deg": 0.0
-        }
-      ],
-      "preset": "viavi-like",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4103,
-      "split": "test",
-      "template": "power-6"
-    },
-    {
-      "fault": [
-        {
-          "cell": 0,
-          "d_power_db": 0.0,
-          "d_tilt_deg": 4.0
-        }
-      ],
-      "preset": "official",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4104,
-      "split": "test",
-      "template": "tilt+4"
-    },
-    {
-      "fault": [
-        {
-          "cell": 0,
-          "d_power_db": 0.0,
-          "d_tilt_deg": 4.0
         }
       ],
       "preset": "viavi-like",
       "reason": "no_action already within tolerance at the grade step (fault not material)",
       "seed": 4105,
       "split": "dev",
-      "template": "tilt+4"
+      "template": "power-6",
+      "tier": "visible"
     },
     {
       "fault": [
         {
           "cell": 0,
-          "d_power_db": -4.0,
+          "d_power_db": -6.0,
           "d_tilt_deg": 0.0
         }
       ],
@@ -88,13 +48,14 @@
       "reason": "no_action already within tolerance at the grade step (fault not material)",
       "seed": 4106,
       "split": "dev",
-      "template": "power-4"
+      "template": "power-6",
+      "tier": "masked"
     },
     {
       "fault": [
         {
           "cell": 0,
-          "d_power_db": -4.0,
+          "d_power_db": -6.0,
           "d_tilt_deg": 0.0
         }
       ],
@@ -102,259 +63,173 @@
       "reason": "no_action already within tolerance at the grade step (fault not material)",
       "seed": 4107,
       "split": "dev",
-      "template": "power-4"
+      "template": "power-6",
+      "tier": "masked"
     },
     {
       "fault": [
         {
           "cell": 0,
-          "d_power_db": -3.0,
-          "d_tilt_deg": 3.0
+          "d_power_db": 0.0,
+          "d_tilt_deg": 4.0
+        }
+      ],
+      "preset": "official",
+      "reason": "no_action already within tolerance at the grade step (fault not material)",
+      "seed": 4108,
+      "split": "test",
+      "template": "tilt+4",
+      "tier": "visible"
+    },
+    {
+      "fault": [
+        {
+          "cell": 0,
+          "d_power_db": 0.0,
+          "d_tilt_deg": 4.0
         }
       ],
       "preset": "viavi-like",
       "reason": "no_action already within tolerance at the grade step (fault not material)",
       "seed": 4109,
       "split": "test",
-      "template": "power-3+tilt+3"
+      "template": "tilt+4",
+      "tier": "visible"
     },
     {
       "fault": [
         {
-          "cell": 1,
+          "cell": 0,
+          "d_power_db": 0.0,
+          "d_tilt_deg": 4.0
+        }
+      ],
+      "preset": "official",
+      "reason": "no_action already within tolerance at the grade step (fault not material)",
+      "seed": 4110,
+      "split": "test",
+      "template": "tilt+4",
+      "tier": "masked"
+    },
+    {
+      "fault": [
+        {
+          "cell": 0,
           "d_power_db": -4.0,
           "d_tilt_deg": 0.0
+        }
+      ],
+      "preset": "official",
+      "reason": "no_action already within tolerance at the grade step (fault not material)",
+      "seed": 4112,
+      "split": "dev",
+      "template": "power-4",
+      "tier": "visible"
+    },
+    {
+      "fault": [
+        {
+          "cell": 0,
+          "d_power_db": -4.0,
+          "d_tilt_deg": 0.0
+        }
+      ],
+      "preset": "viavi-like",
+      "reason": "no_action already within tolerance at the grade step (fault not material)",
+      "seed": 4113,
+      "split": "test",
+      "template": "power-4",
+      "tier": "visible"
+    },
+    {
+      "fault": [
+        {
+          "cell": 0,
+          "d_power_db": -4.0,
+          "d_tilt_deg": 0.0
+        }
+      ],
+      "preset": "official",
+      "reason": "no_action already within tolerance at the grade step (fault not material)",
+      "seed": 4114,
+      "split": "test",
+      "template": "power-4",
+      "tier": "masked"
+    },
+    {
+      "fault": [
+        {
+          "cell": 0,
+          "d_power_db": -4.0,
+          "d_tilt_deg": 0.0
+        }
+      ],
+      "preset": "viavi-like",
+      "reason": "no_action already within tolerance at the grade step (fault not material)",
+      "seed": 4115,
+      "split": "dev",
+      "template": "power-4",
+      "tier": "masked"
+    },
+    {
+      "fault": [
+        {
+          "cell": 0,
+          "d_power_db": -3.0,
+          "d_tilt_deg": 3.0
+        }
+      ],
+      "preset": "viavi-like",
+      "reason": "no_action already within tolerance at the grade step (fault not material)",
+      "seed": 4119,
+      "split": "test",
+      "template": "power-3+tilt+3",
+      "tier": "masked"
+    },
+    {
+      "fault": [
+        {
+          "cell": 0,
+          "d_power_db": -6.0,
+          "d_tilt_deg": 5.0
         }
       ],
       "preset": "viavi-like",
       "reason": "no_action already within tolerance at the grade step (fault not material)",
       "seed": 4121,
       "split": "dev",
-      "template": "power-4"
+      "template": "power-6+tilt+5",
+      "tier": "visible"
     },
     {
       "fault": [
         {
-          "cell": 2,
-          "d_power_db": 0.0,
-          "d_tilt_deg": 5.0
-        }
-      ],
-      "preset": "viavi-like",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4129,
-      "split": "dev",
-      "template": "tilt+5"
-    },
-    {
-      "fault": [
-        {
-          "cell": 3,
-          "d_power_db": 0.0,
-          "d_tilt_deg": 5.0
+          "cell": 1,
+          "d_power_db": -4.0,
+          "d_tilt_deg": 0.0
         }
       ],
       "preset": "viavi-like",
       "reason": "no_action already within tolerance at the grade step (fault not material)",
       "seed": 4143,
       "split": "dev",
-      "template": "tilt+5"
+      "template": "power-4",
+      "tier": "masked"
     },
     {
       "fault": [
         {
-          "cell": 3,
-          "d_power_db": -6.0,
-          "d_tilt_deg": 0.0
-        }
-      ],
-      "preset": "viavi-like",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4145,
-      "split": "dev",
-      "template": "power-6"
-    },
-    {
-      "fault": [
-        {
-          "cell": 3,
+          "cell": 2,
           "d_power_db": 0.0,
           "d_tilt_deg": 4.0
-        }
-      ],
-      "preset": "official",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4146,
-      "split": "dev",
-      "template": "tilt+4"
-    },
-    {
-      "fault": [
-        {
-          "cell": 3,
-          "d_power_db": 0.0,
-          "d_tilt_deg": 4.0
-        }
-      ],
-      "preset": "viavi-like",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4147,
-      "split": "test",
-      "template": "tilt+4"
-    },
-    {
-      "fault": [
-        {
-          "cell": 3,
-          "d_power_db": -4.0,
-          "d_tilt_deg": 0.0
-        }
-      ],
-      "preset": "viavi-like",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4149,
-      "split": "test",
-      "template": "power-4"
-    },
-    {
-      "fault": [
-        {
-          "cell": 3,
-          "d_power_db": -3.0,
-          "d_tilt_deg": 3.0
-        }
-      ],
-      "preset": "viavi-like",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4151,
-      "split": "dev",
-      "template": "power-3+tilt+3"
-    },
-    {
-      "fault": [
-        {
-          "cell": 3,
-          "d_power_db": -6.0,
-          "d_tilt_deg": 5.0
-        }
-      ],
-      "preset": "viavi-like",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4153,
-      "split": "dev",
-      "template": "power-6+tilt+5"
-    },
-    {
-      "fault": [
-        {
-          "cell": 0,
-          "d_power_db": -6.0,
-          "d_tilt_deg": 0.0
-        }
-      ],
-      "preset": "viavi-like",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4159,
-      "split": "dev",
-      "template": "power-6"
-    },
-    {
-      "fault": [
-        {
-          "cell": 0,
-          "d_power_db": 0.0,
-          "d_tilt_deg": 4.0
-        }
-      ],
-      "preset": "official",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4160,
-      "split": "test",
-      "template": "tilt+4"
-    },
-    {
-      "fault": [
-        {
-          "cell": 0,
-          "d_power_db": 0.0,
-          "d_tilt_deg": 4.0
-        }
-      ],
-      "preset": "viavi-like",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4161,
-      "split": "dev",
-      "template": "tilt+4"
-    },
-    {
-      "fault": [
-        {
-          "cell": 0,
-          "d_power_db": -4.0,
-          "d_tilt_deg": 0.0
-        }
-      ],
-      "preset": "official",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4162,
-      "split": "dev",
-      "template": "power-4"
-    },
-    {
-      "fault": [
-        {
-          "cell": 0,
-          "d_power_db": -4.0,
-          "d_tilt_deg": 0.0
-        }
-      ],
-      "preset": "viavi-like",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4163,
-      "split": "dev",
-      "template": "power-4"
-    },
-    {
-      "fault": [
-        {
-          "cell": 0,
-          "d_power_db": -3.0,
-          "d_tilt_deg": 3.0
-        }
-      ],
-      "preset": "viavi-like",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4165,
-      "split": "dev",
-      "template": "power-3+tilt+3"
-    },
-    {
-      "fault": [
-        {
-          "cell": 0,
-          "d_power_db": -6.0,
-          "d_tilt_deg": 5.0
         }
       ],
       "preset": "viavi-like",
       "reason": "no_action already within tolerance at the grade step (fault not material)",
       "seed": 4167,
       "split": "test",
-      "template": "power-6+tilt+5"
-    },
-    {
-      "fault": [
-        {
-          "cell": 1,
-          "d_power_db": -3.0,
-          "d_tilt_deg": 3.0
-        }
-      ],
-      "preset": "viavi-like",
-      "reason": "no_action already within tolerance at the grade step (fault not material)",
-      "seed": 4179,
-      "split": "test",
-      "template": "power-3+tilt+3"
+      "template": "tilt+4",
+      "tier": "masked"
     }
   ],
   "note": "float bits can differ across CPU architectures; regenerate with --check on the same platform",
@@ -366,7 +241,7 @@
   "python": "3.12.7",
   "seed_base": 4100,
   "split_salt": "t3-evals-split-v1",
-  "suite": "t3-incidents-v1",
+  "suite": "t3-incidents-v2",
   "templates": [
     "tilt+5",
     "power-6",
@@ -376,7 +251,11 @@
     "power-6+tilt+5",
     "two-cell:power-6|tilt+5"
   ],
-  "test_sha256": "c0846996a08357836efcc7af1b7ab285d63b8c3622a846a580661d7bef388f0a",
+  "test_sha256": "20f9013399da360b26214e11de15c9f9edbb8dcb9bcc4cf1d89fb7e194d3dd12",
+  "tiers": [
+    "visible",
+    "masked"
+  ],
   "twin_backend": "maveric-inprocess-standin",
   "twin_version": "ran-rl-1.2.9"
 }
