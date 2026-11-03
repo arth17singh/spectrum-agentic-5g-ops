@@ -57,7 +57,7 @@
         "t2.compare.distance_to_central.disjoint-20261103T054624Z",
         "t2.compare.federated_vs_localfedavg.disjoint-20261103T054804Z"
       ],
-      "reason": "not run: CreateTrainingJob refused before AWS (ParamValidationError); relaunched under new ids. The declarations exist on S3 but no job was created.",
+      "reason": "not run: CreateTrainingJob refused before AWS (empty InputDataConfig, a botocore ParamValidationError); relaunched under new ids. The declarations exist on S3 but no job was created. See GAPS.md G-019.",
       "superseded_by": {
         "run_ids": []
       }
@@ -69,6 +69,50 @@
       "reason": "trial before the seed rules existed (G-017); not a scored run",
       "superseded_by": {
         "run_ids": []
+      }
+    },
+    {
+      "run_ids": [
+        "t1.price_latency-bedrock-gpt-oss-20b-1"
+      ],
+      "reason": "not run: CreateTrainingJob refused before AWS (empty InputDataConfig); relaunched as -2. The declaration exists on S3 but no job was created. See GAPS.md G-019.",
+      "superseded_by": {
+        "run_ids": [
+          "t1.price_latency-bedrock-gpt-oss-20b-2"
+        ]
+      }
+    },
+    {
+      "run_ids": [
+        "t1.interface-bedrock-gpt-oss-20b-1"
+      ],
+      "reason": "not run: CreateTrainingJob refused before AWS (empty InputDataConfig); relaunched as -2. The declaration exists on S3 but no job was created. See GAPS.md G-019.",
+      "superseded_by": {
+        "run_ids": [
+          "t1.interface-bedrock-gpt-oss-20b-2"
+        ]
+      }
+    },
+    {
+      "run_ids": [
+        "t1.price_latency-bedrock-qwen3-32b-1"
+      ],
+      "reason": "not run: CreateTrainingJob refused before AWS (empty InputDataConfig); relaunched as -2. The declaration exists on S3 but no job was created. See GAPS.md G-019.",
+      "superseded_by": {
+        "run_ids": [
+          "t1.price_latency-bedrock-qwen3-32b-2"
+        ]
+      }
+    },
+    {
+      "run_ids": [
+        "t1.interface-bedrock-qwen3-32b-1"
+      ],
+      "reason": "not run: CreateTrainingJob refused before AWS (empty InputDataConfig); relaunched as -2. The declaration exists on S3 but no job was created. See GAPS.md G-019.",
+      "superseded_by": {
+        "run_ids": [
+          "t1.interface-bedrock-qwen3-32b-2"
+        ]
       }
     }
   ]
