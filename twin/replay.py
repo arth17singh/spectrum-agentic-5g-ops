@@ -29,6 +29,7 @@ from typing import Any
 
 from twin._change import canon_change, dec, filter_change, parse_change, with_kpis  # noqa: F401
 from twin.kpis import HEADLINE, headline
+from twin.kpis import kpis as _kpis
 from twin.presets import config_hash, resolve_config
 
 SCHEMA = 1
@@ -105,6 +106,35 @@ def _snapshot(twin: Any) -> Any:
         setattr(new, name, getattr(twin, name).copy())
     new._rng = copy.deepcopy(twin._rng)
     return new
+
+
+def _cell_shares(twin: Any) -> dict[str, list]:
+    """Per-cell coverage / SLA share from the twin's per-UE arrays, by the SDK's own rules.
+
+    Repeats ``MavericDigitalTwin.observe()``: same prediction, same attachment, same thresholds,
+    strict ``>``. Coverage = serving RSRP > coverage_rsrp_threshold_dbm (the SDK's coverage_ratio
+    has no SINR condition), SLA = SINR > sla_sinr_threshold_db. None for a cell with no UEs.
+    Relies on ran-rl 1.2.9 internals (pinned); the tests check the weighted means against the
+    state's coverage_ratio and sla_ratio.
+    """
+    import numpy as np
+
+    if sdk_version() != "1.2.9":
+        raise RuntimeError("per-cell shares rely on ran-rl 1.2.9 internals")
+    from ran_rl.twin.maveric.model import predict
+    from ran_rl.twin.maveric.vendor.attachment import attach
+
+    rsrp = predict(twin._models, twin._cells, twin._ue, twin._tilt, twin._power).rsrp_dbm
+    rsrp[:, twin._alarm | twin._asleep] = -np.inf
+    serving, served, sinr = attach(rsrp, twin._freq, twin._noise_floor_dbm)
+    cov_ok = served > twin._cfg.coverage_rsrp_threshold_dbm
+    sla_ok = sinr > twin._cfg.sla_sinr_threshold_db
+    out: dict[str, list] = {"coverage_share": [], "sla_share": []}
+    for c in range(twin._n_cells):
+        m = serving == c
+        out["coverage_share"].append(float(cov_ok[m].mean()) if m.any() else None)
+        out["sla_share"].append(float(sla_ok[m].mean()) if m.any() else None)
+    return out
 
 
 # One twin object per config for the life of the process (Lambda container): reset() per call
@@ -206,7 +236,9 @@ class ReplayTwin:
 
     # -- counterfactuals (contract amendment A5) -----------------------------------------------
 
-    def _trial(self, change: list[dict[str, Any]] | str) -> tuple[dict[str, Any], dict[str, Any]]:
+    def _trial(
+        self, change: list[dict[str, Any]] | str, with_shares: bool = False
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Apply ``change`` and advance one step on a SNAPSHOT; the live twin is untouched."""
         if self._state is None:
             raise RuntimeError("call reset() first")
@@ -215,6 +247,8 @@ class ReplayTwin:
         trial = _snapshot(self._twin)
         trial.apply_action(action)
         state = trial.advance(self.config["step_seconds"])
+        if with_shares:
+            entry["shares"] = _cell_shares(trial)
         return state, entry
 
     def noop_kpis(self) -> dict[str, float]:
@@ -228,7 +262,9 @@ class ReplayTwin:
     def counterfactual(self, change: list[dict[str, Any]] | str) -> dict[str, Any]:
         """Effect of ``change`` against the no-change counterfactual at the same step.
 
-        Returns ``{baseline, after, delta, clamped, rules, requested, filtered}`` where baseline
+        Returns ``{baseline, after, delta, clamped, rules, requested, filtered, after_kpis,
+        baseline_kpis}`` (the last two are full ``kpis()`` dicts with per-cell shares, for the Twin
+        View) where baseline
         is the KPIs after a no-change step, after is the KPIs after the change and a step, and
         delta = after - baseline for coverage_ratio, sla_ratio, sinr_p10_db and sinr_mean_db.
         Both futures start from the same state and the same random stream, so UE motion is
@@ -236,10 +272,12 @@ class ReplayTwin:
         ``clamped`` is true if the safety filter altered the request (record it as unscored).
         The live twin (state, log, step) is NOT changed.
         """
-        after_state, entry = self._trial(change)
-        base_state, _ = self._trial([])
+        after_state, entry = self._trial(change, with_shares=True)
+        base_state, base_entry = self._trial([], with_shares=True)
         after, baseline = headline(after_state), headline(base_state)
         return {
+            "after_kpis": _kpis(after_state, shares=entry["shares"]),
+            "baseline_kpis": _kpis(base_state, shares=base_entry["shares"]),
             "baseline": baseline,
             "after": after,
             "delta": {k: after[k] - baseline[k] for k in HEADLINE},
@@ -328,6 +366,11 @@ class ReplayTwin:
                 if not same:
                     raise ReplayMismatch(f"step {i}: {key} replayed {got!r}, logged {want!r}")
         return twin
+
+    def kpis(self) -> dict[str, Any]:
+        """``twin.kpis.kpis`` of the current state, with per-cell coverage_share / sla_share."""
+        self._check_lease()
+        return _kpis(self.state, shares=_cell_shares(self._twin))
 
     def exact_kpis(self) -> dict[str, float]:
         """Exact pooled sinr_mean / sinr_p10 / rsrp_p10 over every UE of the current state.

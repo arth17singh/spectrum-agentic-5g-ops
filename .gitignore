@@ -35,3 +35,12 @@ __pycache__/
 
 # Organiser hackathon docs (confidential, no redistribution): never commit
 hackathon_docs/
+
+# Team kit secrets and host files: never commit (the pre-push guard in scripts/hooks also blocks them).
+# .env, .env.*, *.pem and .evidence-key are already covered above.
+tokens/
+kit.json
+kit-state.json
+a2a_token*
+builder_admin_password*
+**/host.env
