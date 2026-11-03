@@ -1,7 +1,19 @@
 {
-  "graders": "t1-graders-v2",
+  "graders": {
+    "execution": "t1-graders-v2",
+    "interface": "t1-graders-v2",
+    "knowledge": "t1-graders-v3",
+    "price_latency": "t1-graders-v2",
+    "safety": "t1-graders-v2"
+  },
   "manifest_version": 2,
-  "parser": "t1-parse-v1",
+  "parser": {
+    "execution": "t1-parse-v1",
+    "interface": "t1-parse-v1",
+    "knowledge": "t1-parse-v1+knowledge-plain-v1",
+    "price_latency": "t1-parse-v1",
+    "safety": "t1-parse-v1"
+  },
   "prompt": {
     "file": "t1/evals/prompt.txt",
     "sha256": "bca9ecf54c3b9ac64c4f3a3d036e427f95605cf40c344b3357379c5a20a0629f"
