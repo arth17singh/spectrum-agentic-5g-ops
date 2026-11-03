@@ -427,6 +427,16 @@ async def evidence_verify():
     return ok(verify=evidence.verify_now(), evidence=evidence.snapshot())
 
 
+@app.api_route("/api/evidence/verify/{run_id}", methods=["GET", "POST"])
+async def evidence_verify_live(run_id: str, request: Request):
+    """Verify one run live against AWS (read-only check_unit); GET returns the last result. See evidence/live_verify.py."""
+    from .evidence import live_verify
+
+    if request.method == "POST":
+        return await live_verify.handle_post(request, run_id)
+    return await live_verify.handle_get(request, run_id)
+
+
 # --------------------------------------------------------------------------- director
 
 @app.post("/api/director/beat/{n}")
