@@ -7,7 +7,7 @@ import { EMPTY, useLive } from '@/core/store'
 import type { Approval, Rec } from '@/core/types'
 import { useSimNow, useUi } from '@/core/ui-store'
 import { startLive } from '@/core/ws'
-import { LiveDot } from '@/ui'
+import { LiveDot, SimBanner } from '@/ui'
 import { ImpactBars, SlaCountdown, TierPill } from '../oversight/parts'
 
 const NO_HUMANS: Rec = {}
@@ -52,6 +52,7 @@ export default function MobileApprove() {
         <Wordmark />
         <span className="ml-auto"><LiveDot state={!ready ? 'connecting' : conn} label={!ready ? 'Connecting' : conn === 'live' ? 'Live' : conn} /></span>
       </header>
+      <div className="mb-4"><SimBanner approvals compact /></div>
       <label className="mb-5 flex items-center gap-2 rounded-[10px] border border-line bg-s1 px-3 py-2.5 text-body">
         <span className="text-ink-3">Signing as</span>
         <select value={by} onChange={(e) => { setPicked(e.target.value); localStorage.setItem('spectrum.mobile.by', e.target.value) }}
