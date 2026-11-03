@@ -95,7 +95,7 @@ export default function TracePage() {
       )}
       {cases.state === 'ok' && rows.length > 0 && (
         <div className="grid grid-cols-12 items-start gap-4">
-          <div className="col-span-12 xl:col-span-5">
+          <div className="col-span-12 min-w-0 xl:col-span-5">
             <CaseList rows={rows} selected={picked ? caseKey(picked) : null} onSelect={setSel} total={cases.data.provenance?.n_records ?? cases.data.n_records} />
           </div>
           <div className="col-span-12 min-w-0 xl:col-span-7">
@@ -112,36 +112,39 @@ export default function TracePage() {
 function CaseList({ rows, selected, onSelect, total }: { rows: Rec[]; selected: string | null; onSelect: (k: string) => void; total?: number }) {
   return (
     <Panel id="trace-cases" plane="operate" title="Cases" subtitle={`${rows.length} case${rows.length === 1 ? '' : 's'} from ${total ?? '?'} records`} flush>
-      <div className="overflow-x-auto">
-        <table className="w-full text-cap">
-          <thead>
-            <tr className="border-b border-line text-left text-micro text-ink-3">
-              {['Case', 'First (UTC)', 'Events', 'Deny', 'Allow', 'Pause', 'Applied', 'Sequence'].map((h) => <th key={h} className="px-3 py-2 font-medium whitespace-nowrap">{h}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((c) => {
-              const k = caseKey(c)
-              return (
-                <tr key={k} onClick={() => onSelect(k)} aria-selected={selected === k}
-                  className={clsx('cursor-pointer border-b border-line/60', selected === k ? 'bg-s2' : 'hover:bg-s2/60')}>
-                  <td className="px-3 py-2">
-                    <div className="mono whitespace-nowrap text-ink-1">{c.case_id}</div>
-                    <div className="mono text-micro text-ink-3">{c.run_id ?? 'no run id'}{c.provenance?.state && c.provenance.state !== 'real' ? ` · ${String(c.provenance.label).toLowerCase()}` : ''}</div>
-                  </td>
-                  <td className="tnum mono px-3 whitespace-nowrap text-ink-3" title={c.first_time ?? ''}>{utc(c.first_time, true)}</td>
-                  <td className="tnum px-3 text-right text-ink-1">{c.n_events}</td>
-                  <td className="tnum px-3 text-right" style={{ color: c.denies ? 'var(--critical-ink)' : 'var(--ink-3)' }}>{c.denies}</td>
-                  <td className="tnum px-3 text-right" style={{ color: c.allows ? 'var(--good-ink)' : 'var(--ink-3)' }}>{c.allows}</td>
-                  <td className="tnum px-3 text-right" style={{ color: c.pauses ? 'var(--warn-ink)' : 'var(--ink-3)' }}>{c.pauses}</td>
-                  <td className="tnum px-3 text-right text-ink-1">{c.applied}</td>
-                  <td className="px-3">{c.check_passed ? (c.provenance?.state === 'real' ? <StatusPill status="passed" size="sm">complete</StatusPill> : <StatusPill status="warning" size="sm" title="The sequence is complete, but these records are not verified as a real run">complete, not real</StatusPill>) : <StatusPill status="warning" size="sm">incomplete</StatusPill>}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+      <table className="w-full table-fixed text-cap">
+        <thead>
+          <tr className="border-b border-line text-left text-micro text-ink-3">
+            <th className="px-3 py-2 font-medium">Case</th>
+            {[['Deny', 'Cedar decisions refused'], ['Allow', 'Cedar decisions allowed'], ['Pause', 'refusals because a model is paused'], ['Applied', 'changes applied']].map(([h, t]) => (
+              <th key={h} title={t} className="hidden w-[58px] px-1.5 py-2 text-right font-medium sm:table-cell">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((c) => {
+            const k = caseKey(c)
+            return (
+              <tr key={k} onClick={() => onSelect(k)} aria-selected={selected === k}
+                className={clsx('cursor-pointer border-b border-line/60', selected === k ? 'bg-s2' : 'hover:bg-s2/60')}>
+                <td className="min-w-0 px-3 py-2">
+                  <div className="mono break-all text-ink-1">{c.case_id}</div>
+                  <div className="mono break-all text-micro text-ink-3">{c.run_id ?? 'no run id'}{c.provenance?.state && c.provenance.state !== 'real' ? ` · ${String(c.provenance.label).toLowerCase()}` : ''}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {c.check_passed ? (c.provenance?.state === 'real' ? <StatusPill status="passed" size="sm">complete</StatusPill> : <StatusPill status="warning" size="sm" title="The sequence is complete, but these records are not verified as a real run">complete, not real</StatusPill>) : <StatusPill status="warning" size="sm">incomplete</StatusPill>}
+                    <span className="tnum mono text-micro text-ink-3" title={c.first_time ?? ''}>{utc(c.first_time, true)} · {c.n_events} events</span>
+                  </div>
+                  <div className="tnum mt-1 text-micro text-ink-3 sm:hidden">{c.denies} deny · {c.allows} allow · {c.pauses} pause · {c.applied} applied</div>
+                </td>
+                <td className="tnum hidden px-1.5 text-right sm:table-cell" style={{ color: c.denies ? 'var(--critical-ink)' : 'var(--ink-3)' }}>{c.denies}</td>
+                <td className="tnum hidden px-1.5 text-right sm:table-cell" style={{ color: c.allows ? 'var(--good-ink)' : 'var(--ink-3)' }}>{c.allows}</td>
+                <td className="tnum hidden px-1.5 text-right sm:table-cell" style={{ color: c.pauses ? 'var(--warn-ink)' : 'var(--ink-3)' }}>{c.pauses}</td>
+                <td className="tnum hidden px-1.5 text-right text-ink-1 sm:table-cell">{c.applied}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </Panel>
   )
 }
@@ -272,28 +275,28 @@ function ChangeDetail({ d }: { d: Rec }): ReactNode {
   return (
     <div className="mt-2 rounded-md border border-line bg-s2/50 p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="mono text-cap text-ink-1" title="canonical change string, exactly as recorded">{d.change_text ?? '—'}</span>
+        <span className="mono min-w-0 text-cap break-all text-ink-1" title="canonical change string, exactly as recorded">{d.change_text ?? '—'}</span>
         {d.item_id && <span className="mono text-micro text-ink-3">{d.item_id}</span>}
         {d.probe && <StatusPill status="neutral" size="sm" title="A fixed change with no model: it measures the twin, it does not test a prediction">probe</StatusPill>}
         {d.scored === false && <StatusPill status="warning" size="sm" title="This change is not scored against a prediction">unscored{d.unscored_reason ? `: ${d.unscored_reason}` : ''}</StatusPill>}
         {d.log_line_seen && <span className="text-micro text-ink-3">also in the tool log</span>}
       </div>
-      <table className="mt-2 w-full text-cap">
+      <table className="mt-2 w-full table-fixed text-cap">
         <thead>
           <tr className="text-left text-micro text-ink-3">
-            <th className="py-1 pr-3 font-medium">Change in KPI</th>
-            <th className="px-3 py-1 text-right font-medium">Predicted</th>
-            <th className="px-3 py-1 text-right font-medium">Measured</th>
-            <th className="py-1 pl-3 text-right font-medium">Abs. error</th>
+            <th className="py-1 pr-2 font-medium sm:pr-3">Change in KPI</th>
+            <th className="px-1 py-1 text-right font-medium sm:px-3"><span className="sm:hidden">Pred.</span><span className="hidden sm:inline">Predicted</span></th>
+            <th className="px-1 py-1 text-right font-medium sm:px-3"><span className="sm:hidden">Meas.</span><span className="hidden sm:inline">Measured</span></th>
+            <th className="py-1 pl-1 text-right font-medium sm:pl-3"><span className="sm:hidden">Err.</span><span className="hidden sm:inline">Abs. error</span></th>
           </tr>
         </thead>
         <tbody>
           {keys.map((k) => (
             <tr key={k} className="border-t border-line/60">
-              <td className="mono py-1 pr-3 text-ink-2">{k}</td>
-              <td className="tnum mono px-3 text-right text-ink-1">{pred ? delta(pred[k]) : '—'}</td>
-              <td className="tnum mono px-3 text-right text-ink-1">{delta(meas[k])}</td>
-              <td className="tnum mono py-1 pl-3 text-right text-ink-2">{typeof err[k] === 'number' ? Number(err[k].toPrecision(3)) : '—'}</td>
+              <td className="mono break-all py-1 pr-2 text-ink-2 sm:pr-3">{k}</td>
+              <td className="tnum mono px-1 text-right text-ink-1 sm:px-3">{pred ? delta(pred[k]) : '—'}</td>
+              <td className="tnum mono px-1 text-right text-ink-1 sm:px-3">{delta(meas[k])}</td>
+              <td className="tnum mono py-1 pl-1 text-right text-ink-2 sm:pl-3">{typeof err[k] === 'number' ? Number(err[k].toPrecision(3)) : '—'}</td>
             </tr>
           ))}
         </tbody>

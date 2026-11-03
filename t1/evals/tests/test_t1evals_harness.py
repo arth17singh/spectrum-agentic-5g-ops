@@ -140,3 +140,15 @@ def test_real_clients_with_stubbed_transport():
     t = SageMakerClient("ep", "us-east-2", "m", "tgi", client=_FakeSM("tgi")).generate("S", "U", 50)
     assert t.text == "ok" and t.tokens_estimated
     assert Pricing(instance_per_hour=3.6).cost(Completion("x", latency_ms=1000)) == pytest.approx(0.001)
+
+
+def test_knowledge_is_one_run_with_group_breakdown(tmp_path):
+    base = R.run(_args(tmp_path, "--unit", "knowledge", "--client", "fake", "--run-id", "t1.kn-b"))
+    tuned = R.run(_args(tmp_path, "--unit", "knowledge", "--client", "fake", "--fake-profile", "tuned",
+                        "--run-id", "t1.kn-t", "--baseline-run-id", base["run_id"], "--bootstrap-resamples", "200"))
+    groups = tuned["details"]["groups"]
+    assert set(groups) == {"core", "telelogs", "telemath"}
+    assert sum(g["n"] for g in groups.values()) == tuned["n_items"] == 475
+    assert all("gain" in g and g["gain"]["paired_n"] == g["n"] for g in groups.values())
+    declared, _, _, _ = _load(tmp_path, tuned["run_id"])
+    assert declared["subset"] == "split=test"

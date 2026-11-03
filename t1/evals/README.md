@@ -8,6 +8,7 @@ Frozen item sets, one prompt file, one parser and deterministic graders. Every m
 2. **SFT data must use `prompt.txt`'s sections and the canonical change string.**
    - Build each example with `prompting.render(item)`: the `### SYSTEM` section plus the matching `### TASK <template>` section.
    - Write the target answer in the same JSON shape the parser reads. For execution and safety that is `{"decision", "change", "reason"}`, where `change` is the A2 string from `team13_contracts.change.canon`.
+   - Turn each example into model text with the model's own chat template: `tokenizer.apply_chat_template([{"role": "system", ...}, {"role": "user", ...}], add_generation_prompt=True, enable_thinking=False)`. That is exactly what `local_hf.LocalHFClient.render` does. Thinking is OFF, so the target is the bare JSON answer, with no `<think>` text.
    - A tuned model trained on any other format is measured on a format it never saw.
 3. **Use only the dev split for prompt or format development.** The test split is frozen; its hash goes into every declaration.
 
@@ -52,6 +53,57 @@ python -m t1.evals.run --unit interface --client fake --evidence-dir /tmp/ev   #
 ```
 
 For a real comparison, run the base model first. Then run the tuned model with the same flags plus `--baseline-run-id <base run id>`. The harness refuses a baseline that used other items, another prompt or another parser. Prices must be passed in: `--price-in-per-1m` and `--price-out-per-1m`, or `--instance-price-per-hour`. The default targets are placeholders, so declare the real ones with `--target-*`.
+
+## Running as a SageMaker job
+
+Every real evaluation runs inside a SageMaker GPU job (ml.g5.2xlarge for both base and tuned), never on a laptop. The runner in `tools/sm` launches the jobs; this harness is the entry point it calls. One job runs one unit for one model. The model is loaded in-process with `--client local-hf`, so base and tuned go through the same code path, the same prompt and the same parser.
+
+```
+python -m t1.evals.run --unit <interface|execution|safety|knowledge|price_latency> \
+  --client local-hf --model-dir $SM_CHANNEL_MODEL [--adapter-dir $SM_CHANNEL_ADAPTER] \
+  --model-id <label, e.g. otel-llm-1.7b-it or otel-llm-1.7b-it+lora-v1> \
+  --instance-price-per-hour <on-demand USD/h of the job instance> --price-source "<price list, date>" \
+  --target-metric <m> --target-op <op> --target-value <v> --target-unit <u> \
+  [--baseline-run-id <the base model's run id for this unit>] [--run-id <id>]
+```
+
+**Inputs**
+- Channel `model`: the base model directory (config, weights, tokenizer).
+- Optional channel `adapter`: a LoRA adapter. It is merged into the base before generation unless `--no-merge-adapter` is passed. A merged model directory also works: put it in `model` and give no adapter.
+
+**Environment**
+- `CODE_SHA`: the commit the source was packaged from. A job has no `.git`.
+- `EVIDENCE_S3=s3://<bucket>/evidence/`: so items are written one object per record, and S3 records the time of each.
+- `AWS_REGION`.
+
+**Image**
+- transformers ≥ 4.51 (Qwen3), torch and peft. The versions used are recorded in `declared.decoding.versions`.
+- pydantic and numpy.
+- For `--unit execution` only: ran-rl with the maveric extra, because the grader replays the twin in the job.
+
+**Prompt format (binding)**
+- The `prompt.txt` SYSTEM section is the system message; the filled TASK section is the user message.
+- The model's own chat template is applied with `add_generation_prompt=True` and `enable_thinking=False`.
+- Decoding is greedy, batch size 1, with per-unit `max_new_tokens`.
+- `declared.decoding` records the chat template's sha256 and whether the template actually honours the thinking flag. A tuned run whose template or decoding differs from its baseline's is refused.
+
+**Latency and price**
+- Each item's `latency_ms` is the wall-clock time of the whole call on the job's GPU: chat template, tokenise, generate and decode, with CUDA synchronised before and after.
+- Warm-up calls (`--warmup`, default 3) run after the declaration is written and are excluded from the items; they are listed in the result.
+- `cost_usd` = instance $/h × latency / 3600. This is the cost when calls are served one at a time.
+- `result.details.latency_and_price` gives the p50, p95 (nearest rank) and mean latency, $ per 1,000 calls, the price, its source and the instance type.
+- The instance type is read from `/opt/ml/input/config/resourceconfig.json` unless `--instance-type` is given.
+
+**Knowledge**
+- One run per model covers all groups (`--group all`, the default). The headline value is over all 475 test items, which is what `check_unit` recomputes.
+- `result.details.groups` gives core, telelogs and telemath separately, each with its own paired gain when a baseline is given.
+
+**Run ids per model**
+- One run per unit: interface, execution, safety, knowledge and price_latency. That is 5 run ids per model, 10 for base plus tuned.
+- Run the base model first. Its declaration must be in the same evidence store, because the tuned run checks it before starting.
+
+**Weights provenance**
+- `outputs/<run_id>/model_files.json` holds the sha256 of every file in the model and adapter directories. Their digests are in `declared.decoding`.
 
 ## Superseded hashes
 

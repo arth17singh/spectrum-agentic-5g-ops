@@ -147,19 +147,20 @@ def test_latest_ladders_keep_rehearsal_and_viavi_apart():
     assert reh["has_viavi"] is False and reh["label_ok"] is True
     assert [r["label"] for r in reh["rungs"]] == ["MAVERIC", "REHEARSAL (Viavi-like Maveric)"]
     v = next(l for l in ls if l["version"] == "v4")
-    assert v["has_viavi"] is True and v["retention_ci"] is None
+    assert v["has_viavi"] is True and v["retention_ci"] == [0.15, 1.45]
+    assert [r["label"] for r in v["rungs"]] == ["MAVERIC", "REHEARSAL (Viavi-like Maveric)", "VIAVI"]
 
 
 def test_ladder_numbers_are_shown_as_recorded_never_recomputed():
-    res = copy.deepcopy([r for r in all_results() if r["unit"] == "t3.ladder"][0])
-    res["details"]["retention"] = 0.123  # deliberately not gain2/gain1
+    res = _viavi_result()
+    res["details"]["retention"] = 0.123  # deliberately not viavi gain / rehearsal gain
     view = logic.ladder_view(res)
     assert view["retention"] == 0.123
     assert [r["gain"] for r in view["rungs"]] == [r["gain"] for r in res["details"]["rungs"]]
 
 
 def test_a_newer_ladder_supersedes_an_older_one_of_the_same_kind():
-    base = [r for r in all_results() if r["unit"] == "t3.ladder" and r["details"]["version"] == "v3"][0]
+    base = _viavi_result()
     older, newer = copy.deepcopy(base), copy.deepcopy(base)
     older["checked_at"], older["details"]["retention"] = "2026-11-02T10:00:00Z", 0.1
     newer["checked_at"], newer["details"]["retention"] = "2026-11-02T11:00:00Z", 0.9
@@ -204,24 +205,72 @@ def test_viavi_state_none_no_ladder_is_real():
 
 def test_viavi_state_none_a_viavi_rung_without_a_gain_has_null_retention():
     res = _viavi_result()
-    res["details"]["rungs"][1]["gain"] = None
-    res["details"]["rungs"][1]["gain_ci"] = None
+    res["details"]["rungs"][2]["gain"] = None
+    res["details"]["rungs"][2]["gain_ci"] = None
     v = logic.ladder_view(res)
     assert v["retention"] is None and v["retention_ci"] is None and v["passed"] is None
     assert v["real_viavi"] is False
+    assert v["retention_heading"].startswith("Retention: not measured")
 
 
 def test_viavi_state_synthetic_is_never_real():
     v = logic.ladder_view(_viavi_result())
     assert v["synthetic"] is True and v["has_viavi"] is True and v["real_viavi"] is False
-    assert v["retention"] == 0.45  # copied as recorded; the page labels it illustrative
+    assert v["retention"] == 0.75  # copied as recorded; the page labels it illustrative
+    assert v["retention_heading"] == "Retention REHEARSAL → VIAVI"
+    assert (v["retention_from"], v["retention_to"]) == ("REHEARSAL (Viavi-like Maveric)", "VIAVI")
 
 
-def test_viavi_state_real_needs_a_non_synthetic_record_with_a_gain():
+def test_viavi_state_real_three_rung_needs_a_non_synthetic_record_with_a_gain():
     res = _viavi_result()
     res["synthetic"] = False
+    res["details"]["has_real_viavi"] = True
     v = logic.ladder_view(res)
-    assert v["real_viavi"] is True and v["synthetic"] is False and v["retention"] == 0.45
-    res["details"]["rungs"][1]["twin_kind"] = "maveric-inprocess"  # label contradicts twin: not Viavi at all
+    assert v["real_viavi"] is True and v["synthetic"] is False and v["retention"] == 0.75
+    assert v["retention_heading"] == "Retention REHEARSAL → VIAVI"  # never "MAVERIC → VIAVI"
+    assert v["passed"] is True and v["target"]["metric"] == "retention"
+    res["details"]["has_real_viavi"] = False  # the record's own flag vetoes
+    assert logic.ladder_view(res)["real_viavi"] is False
+    res["details"]["has_real_viavi"] = True
+    res["details"]["rungs"][2]["twin_kind"] = "maveric-inprocess"  # label contradicts twin: not Viavi at all
     v2 = logic.ladder_view(res)
     assert v2["has_viavi"] is False and v2["real_viavi"] is False and v2["label_ok"] is False
+    assert v2["retention"] is None
+
+
+# ------------------------------------------------------------------ retention heading and settings shift
+
+def _rehearsal_result():
+    return copy.deepcopy([r for r in all_results() if r["unit"] == "t3.ladder" and r["details"]["version"] == "v3"][0])
+
+
+def test_no_viavi_heading_has_no_number_even_if_the_record_carried_one():
+    res = _rehearsal_result()
+    v = logic.ladder_view(res)
+    assert v["retention_heading"] == "Retention: not measured (no Viavi run)"
+    assert v["retention"] is None and v["retention_ci"] is None and v["retention_from"] is None
+    assert "no VIAVI rung" in v["retention_null_reason"]
+    assert v["passed"] is None and v["target"] is None  # a gain-only result has no retention target to pass
+    res["details"]["retention"] = 0.7  # an old-style record that called REHEARSAL/MAVERIC retention
+    res["details"]["retention_ci"] = [0.4, 1.0]
+    v2 = logic.ladder_view(res)
+    assert v2["retention"] is None and v2["retention_ci"] is None
+
+
+def test_settings_shift_is_separate_and_labelled_not_retention():
+    v = logic.ladder_view(_rehearsal_result())
+    s = v["settings_shift"]
+    assert s["heading"] == "Settings shift MAVERIC → REHEARSAL (not retention)"
+    assert (s["from_label"], s["to_label"]) == ("MAVERIC", "REHEARSAL (Viavi-like Maveric)")
+    assert s["point"] == 0.7 and s["ci"] == [0.42, 1.05]
+    v4 = logic.ladder_view(_viavi_result())
+    assert v4["settings_shift"]["point"] == 0.6 and v4["retention"] == 0.75  # two different numbers
+
+
+def test_no_settings_shift_when_the_record_has_none_or_a_rung_is_missing():
+    res = _rehearsal_result()
+    del res["details"]["settings_shift"]
+    assert logic.ladder_view(res)["settings_shift"] is None
+    res = _rehearsal_result()
+    res["details"]["rungs"] = res["details"]["rungs"][1:]  # no MAVERIC rung to shift from
+    assert logic.ladder_view(res)["settings_shift"] is None

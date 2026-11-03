@@ -13,10 +13,10 @@
   "schema_version": "1",
   "synthetic": true,
   "target": {
-    "metric": "retention",
-    "op": ">=",
-    "unit": "ratio",
-    "value": 0.5
+    "metric": "gain_rehearsal",
+    "op": ">",
+    "unit": "objective",
+    "value": 0
   },
   "team": "team13",
   "test_set_sha256": "4788224c17388846cdac203276c985bc2baa97f5289c535c191ef9b49aea416f",

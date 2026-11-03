@@ -70,7 +70,7 @@
    "agent": "specialist",
    "tool": "nlm___ask_nlm",
    "decision": "DENY",
-   "deciding_rule": "team13_pause_t2_response",
+   "deciding_rule": "team13_ranpause_t2-response_synthetic-1_1",
    "reason": "pause forbid on the tool that serves the model",
    "guardrail_scores": null,
    "approval_id": null,
@@ -125,7 +125,7 @@
    "action": "pause",
    "by": "trust-gate",
    "reason": "synthetic: prediction error above threshold",
-   "policy_name": "team13_pause_t2_response",
+   "policy_name": "team13_ranpause_t2-response_synthetic-1_1",
    "time": "2026-11-02T20:03:10Z"
   }
  ]

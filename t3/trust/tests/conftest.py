@@ -8,8 +8,15 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+# pytest prepends <repo>/t3 (t3 has no __init__), where W3's t3/tools package would shadow the repo's
+# tools/ (evlib). Put the repo root first so `from tools import evlib` means tools/evlib.py, as it does
+# for `python -m t3.trust.<module>` run from the repo root.
+if str(ROOT) in sys.path:
+    sys.path.remove(str(ROOT))
+sys.path.insert(0, str(ROOT))
+_t = sys.modules.get("tools")
+if _t is not None and str(ROOT / "t3" / "tools") in str(getattr(_t, "__file__", "") or getattr(_t, "__path__", "")):
+    del sys.modules["tools"]
 
 KEYS = ("coverage_ratio", "sla_ratio", "sinr_p10_db", "sinr_mean_db")
 # true per-dB / per-degree response of the fake network
