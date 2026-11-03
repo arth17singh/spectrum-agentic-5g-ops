@@ -8,7 +8,7 @@ from t3.evals.graders import load_targets
 from t3.evals.twin_backend import ReplayTwin, graded
 
 T = load_targets()
-FROZEN_SHA = "485b3bde1dc974a07e5950115e1fc1a8fa0dd2cb6cfc88e377a4ac7a01588a63"
+FROZEN_SHA = "128b229489d3b1e050223a03c7a23bb2e0bec995cb480a6e44552d2d51984638"
 
 
 def test_real_twin_is_used_and_the_standin_refuses_to_load_beside_it():
@@ -24,6 +24,8 @@ def test_real_twin_is_used_and_the_standin_refuses_to_load_beside_it():
         import t3.evals.twin_standin  # noqa: F401
     meta = json.loads(I.META_PATH.read_text())
     assert meta["twin_backend"] == "maveric-inprocess" and meta["test_sha256"] == FROZEN_SHA
+    assert meta["platform"] == "Linux-x86_64" and meta["suite"] == I.SUITE_VERSION
+    assert meta["freeze_job"]["run_id"] == "t3.evals.suite-freeze-20261103T031439Z-32b3"
     assert "20f9013399da360b26214e11de15c9f9edbb8dcb9bcc4cf1d89fb7e194d3dd12" in {s["test_sha256"] for s in meta["supersedes"]}
 
 
