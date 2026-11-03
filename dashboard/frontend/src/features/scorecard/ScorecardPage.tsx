@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'reac
 import { get } from '@/core/api'
 import type { Rec } from '@/core/types'
 import { Button, CodeBlock, CopyText, EmptyState, PageHeader, Panel, RealChip } from '@/ui'
-import { gainText, stateAttr, targetText, utc, value } from './format'
+import { gainText, human, stateAttr, targetText, utc, value } from './format'
 import manifest from './manifest'
 import RealRuns from './RealRuns'
 
@@ -60,7 +60,7 @@ function StateCell({ r }: { r: Row }) {
     ? `The record contradicts itself, so no verdict is given.${r.recomputed ? ` Recomputed from the measured value and the declared target: ${r.recomputed}.` : ''}`
     : r.state === 'not checked' ? 'Declared, but no result exists yet. Not a pass.'
     : r.state === 'superseded' ? r.superseded?.reason
-    : r.evidence_reason
+    : human(r.evidence_reason)
   return (
     <span className="inline-flex items-center gap-1.5 font-medium whitespace-nowrap" style={{ color: s.color }} title={title}>
       <s.Icon size={15} aria-hidden />{s.word}
@@ -226,8 +226,8 @@ function UnitRow({ r, open, onToggle }: { r: Row; open: boolean; onToggle: () =>
         {r.state === 'not checked'
           ? <span className="text-ink-3">not checked</span>
           : <span className={clsx('tnum font-medium', r.state === 'fail' && 'text-critical-ink', r.state === 'inconsistent' && 'text-warn-ink', r.state === 'pass' && 'text-ink-1')}>{value(r.measured, unit)}</span>}
-        {(r.evidence_reason || r.superseded) && <div className="max-w-[30ch] truncate text-micro text-ink-3" title={r.evidence_reason ?? r.superseded?.reason}>{r.evidence_reason ?? r.superseded?.reason}</div>}
-        {r.state === 'inconsistent' && r.problems.length > 0 && <div className="max-w-[26ch] truncate text-micro text-warn-ink" title={r.problems.map((p) => p.detail).join('\n')}>{r.problems[0].detail}</div>}
+        {(r.evidence_reason || r.superseded) && <div className="max-w-[30ch] truncate text-micro text-ink-3" title={human(r.evidence_reason ?? r.superseded?.reason)}>{human(r.evidence_reason ?? r.superseded?.reason)}</div>}
+        {r.state === 'inconsistent' && r.problems.length > 0 && <div className="max-w-[26ch] truncate text-micro text-warn-ink" title={human(r.problems.map((p) => p.detail).join('\n'))}>{human(r.problems[0].detail)}</div>}
       </td>
       <td className="px-3 whitespace-nowrap">
         {r.gain
