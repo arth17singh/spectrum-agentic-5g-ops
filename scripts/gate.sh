@@ -15,7 +15,7 @@ FE="$DASH/frontend"
 BE="$DASH/backend"
 BIN="$FE/node_modules/.bin"
 PORT="${GATE_PORT:-8790}"
-ROUTES="${SMOKE_ROUTES:-/,/federation,/proving,/release,/swarm,/oversight,/trust,/audit,/evidence,/observability,/settings,/m/approve,/presenter}"
+ROUTES="${SMOKE_ROUTES:-/,/federation,/proving,/release,/swarm,/oversight,/trust,/audit,/evidence,/observability,/settings,/m/approve,/presenter,/approvals,/ask-noc}"
 [ -n "${EXTRA_ROUTES:-}" ] && ROUTES="$ROUTES,$EXTRA_ROUTES"
 
 if [ "$PORT" = "8787" ]; then echo "gate: refusing port 8787 (the live console)"; exit 2; fi

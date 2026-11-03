@@ -214,7 +214,7 @@ def test_static_declarations_pass_the_runners_own_builder():
     st = declare.through_runner(declare.load("stage_base"))
     assert st["target"] == {"metric": "fail_count", "op": "==", "value": 0, "unit": "count"} and st["n_items"] == 311
     bd = declare.through_runner(declare.load("build"))
-    assert bd["test_set_sha256"] == "4af94c300ff312eb69122b2a9644bc6cd4ecb7ccf3cc298bedee93932d2250c5"  # 482fe5f
+    assert bd["test_set_sha256"] == "5619852147f72b1f520b22a0de929d5115d44385ed0eb3a42b5b35dd4d60a0d6"  # c4b4b5e
     assert bd["prompt_sha256"] == "bca9ecf54c3b9ac64c4f3a3d036e427f95605cf40c344b3357379c5a20a0629f"
     assert bd["n_items"] == 1220 and bd["twin"]["kind"] == "maveric-inprocess"
 
@@ -280,7 +280,7 @@ def test_runner_plans_each_job_offline(job, tmp_path, clean_tree, monkeypatch):
         assert p["device"] == "cpu" and a.instance_type == "ml.m5.xlarge" and not p["sdk"] and a.max_run == 1200
         assert chans == {"data": f"s3://{FAKE_BUCKET}/datasets/t1-sft/t1.sft.data-x/"}
         assert "--data-run-id t1.sft.data-x" in entry and "pydantic" in p["requirements"]
-        assert p["declaration"]["test_set_sha256"] == "4af94c300ff312eb69122b2a9644bc6cd4ecb7ccf3cc298bedee93932d2250c5"
+        assert p["declaration"]["test_set_sha256"] == "5619852147f72b1f520b22a0de929d5115d44385ed0eb3a42b5b35dd4d60a0d6"
     else:
         assert p["device"] == "gpu" and a.instance_type == "ml.g6.2xlarge" and not p["sdk"]
         assert chans == {"model": f"s3://{FAKE_BUCKET}/models/base/otel-llm-1.7b-it-bf16/t1.sft.stage-x/",
