@@ -16,7 +16,10 @@
     "t1.execution.replay-check-g5-2xl-1",
     "t1.rl.eval-20261103T043115Z-bf52",
     "t3.trust.gate_v1_degraded-20261103T045624Z",
-    "t3.trust.gate_v1_healthy-20261103T045624Z"
+    "t3.trust.gate_v1_healthy-20261103T045624Z",
+    "t1.execution-otel-tuned-1",
+    "t1.interface-otel-tuned-1",
+    "t3.allow-20261103T052448Z"
   ],
   "run_ids_comment": [
     "A curated set: ten slots and two edge cases (the layout is in `slots` and `edge_cases`), not twenty runs.",
@@ -101,6 +104,63 @@
       "passed": false,
       "n_items": 20,
       "checked_at": "2026-11-03T05:00:04.310652Z"
+    },
+    {
+      "run_id": "t1.execution-otel-tuned-1",
+      "unit": "t1.execution",
+      "metric": "gain_ci_low_vs_base",
+      "value": 0.7358157475438019,
+      "target": {
+        "metric": "gain_ci_low_vs_base",
+        "op": ">",
+        "unit": "score",
+        "value": 0.0
+      },
+      "passed": true,
+      "n_items": 63,
+      "checked_at": "2026-11-03T05:38:58.494Z",
+      "gain": {
+        "value": 0.8893653976508905,
+        "ci_low": 0.7358157475438019,
+        "ci_high": 1.0425933396311662,
+        "baseline_run_id": "t1.execution-otel-base-1"
+      }
+    },
+    {
+      "run_id": "t1.interface-otel-tuned-1",
+      "unit": "t1.interface",
+      "metric": "gain_ci_low_vs_base",
+      "value": 0.3218390804597701,
+      "target": {
+        "metric": "gain_ci_low_vs_base",
+        "op": ">",
+        "unit": "ratio",
+        "value": -0.02
+      },
+      "passed": true,
+      "n_items": 261,
+      "checked_at": "2026-11-03T05:40:42.714Z",
+      "gain": {
+        "value": 0.38697318007662834,
+        "ci_low": 0.3218390804597701,
+        "ci_high": 0.4521072796934866,
+        "baseline_run_id": "t1.interface-otel-base-1"
+      }
+    },
+    {
+      "run_id": "t3.allow-20261103T052448Z",
+      "unit": "t3.allow",
+      "metric": "pass_rate",
+      "value": 1.0,
+      "target": {
+        "metric": "pass_rate",
+        "op": ">=",
+        "unit": "ratio",
+        "value": 1.0
+      },
+      "passed": true,
+      "n_items": 14,
+      "checked_at": "2026-11-03T05:42:42.439Z"
     }
   ],
   "slots": [
@@ -109,14 +169,14 @@
       "name": "t3 deny: 27 of 27 refused",
       "status": "pending",
       "run_id": null,
-      "waiting_for": "the deny unit run through the deployed Gateway (checkpoint deploy and kit check)"
+      "waiting_for": "a fresh deny run through the deployed Gateway. The first run t3.deny-20261103T051458Z crashed at item 23 (G-015) and is superseded; its S3 result covers 22 items and is not to be cited"
     },
     {
       "slot": 2,
       "name": "t3 allow: 14 of 14 applied, each approved by a person",
-      "status": "pending",
-      "run_id": null,
-      "waiting_for": "the allow unit; needs a person's approvals through the real approvals page (G-011)"
+      "status": "filled",
+      "run_id": "t3.allow-20261103T052448Z",
+      "note": "14 of 14 applied, each approved by a person: PASS (check_unit parts a, b, c, e pass)"
     },
     {
       "slot": 3,
@@ -137,18 +197,18 @@
     {
       "slot": 5,
       "name": "t1 execution, tuned vs base (gain_ci_low_vs_base > 0)",
-      "status": "pending",
-      "run_id": null,
+      "status": "filled",
+      "run_id": "t1.execution-otel-tuned-1",
       "base_run_id": "t1.execution-otel-base-1",
-      "waiting_for": "the LoRA job t1.sft.train-20261103T034500Z-9d4f (declared, no result yet), then the tuned run on ml.g5.2xlarge"
+      "note": "tuned vs base on the same 63 items: gain_ci_low_vs_base +0.736 (target > 0): PASS (check_unit parts a, b, c, e pass)"
     },
     {
       "slot": 6,
       "name": "t1 interface, tuned vs base (change > -0.02)",
-      "status": "pending",
-      "run_id": null,
+      "status": "filled",
+      "run_id": "t1.interface-otel-tuned-1",
       "base_run_id": "t1.interface-otel-base-1",
-      "waiting_for": "the LoRA job, then the tuned run on the same instance type as the base"
+      "note": "tuned vs base on the same 261 items: gain_ci_low_vs_base +0.322 (target > -0.02): PASS (check_unit parts a, b, c, e pass)"
     },
     {
       "slot": 7,
@@ -170,7 +230,8 @@
       "name": "t2 federated vs local-only: gain for silos B and C, with CI bound",
       "status": "pending",
       "run_id": null,
-      "waiting_for": "the federated comparison (the FL service is not provisioned for a real session, G-005; local FedAvg and local-only runs are on S3 under supporting_run_ids)"
+      "waiting_for": "the comparison runs. The FL service ran: t2.fl_federated.disjoint-20261103T051311Z exists on S3 (G-005). The compare runs against local-only B and C are pending",
+      "federated_run_id": "t2.fl_federated.disjoint-20261103T051311Z"
     },
     {
       "slot": 10,
@@ -186,11 +247,6 @@
       "t1.execution-otel-base-1",
       "t1.interface-otel-base-1"
     ],
-    "base runs for the other Track 1 units (tuned runs and the safety and price-latency comparisons come after the LoRA job)": [
-      "t1.safety-otel-base-1",
-      "t1.price_latency-otel-base-1",
-      "t1.knowledge-otel-base-2 (declared; supersedes t1.knowledge-otel-base-1, a parser defect, see evidence/superseded.json and G-013)"
-    ],
     "trust gate and ladder, supporting measurement": [
       "t3.trust.ladder_healthy-20261103T045624Z (PASS, gain CI low +0.0195)"
     ],
@@ -198,14 +254,6 @@
       "t3.evals.no_action-20261103T032552Z-x86",
       "t3.evals.rule_baseline-20261103T035108Z-x86",
       "t3.evals.config_revert-20261103T035108Z-x86"
-    ],
-    "Track 2, simulated silos, local training (not the FL service; G-005)": [
-      "t2.silo_data-20261103T033435Z",
-      "t2.local_only.A.disjoint-20261103T041539Z",
-      "t2.local_only.B.disjoint-20261103T041553Z",
-      "t2.local_only.C.disjoint-20261103T041606Z",
-      "t2.central.disjoint-20261103T041620Z",
-      "t2.fedavg_local.disjoint-20261103T041634Z"
     ],
     "lineage, data and freeze jobs": [
       "t1.rl.link-test-20261102T234623Z-7368",
@@ -221,7 +269,25 @@
       "t1.execution.replay-check-x86-1 (ml.m5.xlarge, against the Mac freeze: 75 of 80)"
     ],
     "superseded runs, not to be used": [
-      "see evidence/superseded.json"
+      "see evidence/superseded.json (includes t3.deny-20261103T051458Z)"
+    ],
+    "Track 1 base and tuned runs for the other units": [
+      "t1.safety-otel-base-1 (FAIL, 0.097)",
+      "t1.safety-otel-tuned-1 (gain_ci_low_vs_base +0.672: PASS)",
+      "t1.price_latency-otel-base-1 (PASS, p95 2,384 ms)",
+      "t1.knowledge-otel-base-2 (0.358 against 0.70: FAIL; supersedes t1.knowledge-otel-base-1, a parser defect; see evidence/superseded.json and G-013)"
+    ],
+    "Track 2, simulated silos and the federated run (G-005)": [
+      "t2.silo_data-20261103T033435Z",
+      "t2.local_only.A.disjoint-20261103T041539Z",
+      "t2.local_only.B.disjoint-20261103T041553Z",
+      "t2.local_only.C.disjoint-20261103T041606Z",
+      "t2.central.disjoint-20261103T041620Z",
+      "t2.fedavg_local.disjoint-20261103T041634Z",
+      "t2.fl_federated.disjoint-20261103T051311Z (the FL service run; compare runs pending)"
+    ],
+    "swarm trial (3 cases, not the scored run)": [
+      "t3.swarm-trial-20261103T052430Z (0 of 3, FAIL)"
     ]
   },
   "edge_cases": [
