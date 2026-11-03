@@ -31,7 +31,7 @@ Times are Seattle time (PST, UTC−8) with UTC in brackets. Each entry keeps a d
 | [G-021](#g-021) | Resolved · checker false positive | `check_unit` part d (ledger comparison) reported a false positive that depended on the order in which the ledger ingested files; fixed in `06ddb9f` | Part d on runs checked against a ledger | 2 Nov 22:50 PST (3 Nov 06:50 UTC; first logged in `cfd3874`) |
 | [G-022](#g-022) | Run once · session bridge, part c not checkable | The Viavi Operate rung ran once for the RL model (`t1.rl.viavi_operate-20261103T075351Z-25c0`, measure-only), through the team's signed-in browser session; no machine access to the RSG exists | Viavi rung: one 5-step measurement; no AWS window (check_unit part c cannot check); no retention figure | 3 Nov 07:54 UTC (2 Nov 23:54 PST) |
 | [G-023](#g-023) | Open · declared design | The signed evidence ledger is kept on the team laptop, not in the repo or S3, so the offline rebuild cannot be run from a clone | The offline rebuild (`make -C dashboard evidence-rebuild`) only; per-run checks do not need it (`check_unit` parts a, b, c and e; part d skips without a ledger) | 3 Nov 06:30 PST (14:30 UTC) |
-| [G-024](#g-024) | Open · confidentiality | One declaration, `t2.fl_federated.disjoint-20261103T051311Z`, is in S3 only, not in the repo, because it names a confidential service | Repo copy of that one declaration; the run itself and its S3 declaration are unchanged | 3 Nov 06:30 PST (14:30 UTC) |
+| [G-024](#g-024) | Open · confidentiality | One declaration, `t2.fl_federated.disjoint-20261103T051311Z`, is in S3 only, not in the repo, because it names a confidential service; so is the `t3.pause` result, which names the team's gateway | Repo copy of that one declaration; the run itself and its S3 declaration are unchanged | 3 Nov 06:30 PST (14:30 UTC) |
 
 ### Watching
 
@@ -406,6 +406,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **What:** the declaration of `t2.fl_federated.disjoint-20261103T051311Z` is at `evidence/declared/` in S3 but not in the repo. The file names a confidential service, and the pre-push guard blocks it. A byte-exact copy cannot be redacted: its sha256 is what the evidence chain checks.
 - **Unit it limits:** the repo copy of that one declaration. The other 57 declarations that `judging.json` names are committed byte-exact. The run, its S3 declaration and its check are unchanged.
 - **Why:** confidentiality of the service, which we may not name in published files.
+- **Also S3 only:** the result of `t3.pause-20261103T055232Z` (`evidence/results/` in S3). It records the team's AgentCore Gateway identifiers, which the pre-push guard treats as kit secrets; a byte-exact copy cannot be redacted. The other 13 judged results are committed under `evidence/results/`.
 - **Who we told:** not applicable.
 
 ---
