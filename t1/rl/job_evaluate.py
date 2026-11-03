@@ -364,11 +364,20 @@ def _main(a, store, environ, run_eval) -> int:
     shas = {n: hashlib.sha256(b).hexdigest() for n, b in raw.items()}
     out_eval = Path(a.output_dir) / "eval"
     out_eval.mkdir(parents=True, exist_ok=True)
-    uris = {}
+    uris: dict[str, str | None] = {}
+    upload_errors: dict[str, str] = {}
     for n, b in raw.items():
         (out_eval / n).write_bytes(b)
         rel = f"outputs/{rid}/eval/{n}"
-        uris[n] = store.put_new(rel, b)
+        try:
+            uris[n] = store.put_new(rel, b)
+        except FileExistsError:
+            raise
+        except Exception as e:  # noqa: BLE001 - the job output still carries the file; say so, do not fail
+            code = ((getattr(e, "response", None) or {}).get("Error") or {}).get("Code") or e.__class__.__name__
+            uris[n], upload_errors[n] = None, str(code)
+            say(f"warning: {rel} not stored in the evidence store ({code}); it is in the job output (eval/{n})")
+            continue
         say(f"{ATTEST_MARK} " + json.dumps({"run_id": rid, "path": rel, "sha256": shas[n], "bytes": len(b),
                                             "store": store.uri("")}, sort_keys=True))
     # 7. items and result, into the local evidence store
@@ -384,7 +393,10 @@ def _main(a, store, environ, run_eval) -> int:
         "training_run_id": ev["training_run_id"], "training_job_name": ev.get("training_job_name"),
         "model_artifact_uri": ev.get("model_artifact_uri"), "model_artifact_sha256": ev["model_artifact_sha256"],
         "project_sha256": ev["project_sha256"], "model_zip_sha256": model_sha,
-        "artifacts": {n: {"uri": uris[n], "sha256": shas[n]} for n in ARTIFACTS},
+        "artifacts": {n: {"uri": uris[n], "sha256": shas[n], "job_output_member": f"eval/{n}",
+                          **({"upload_error": upload_errors[n]} if n in upload_errors else {})} for n in ARTIFACTS},
+        "job_output": "output.tar.gz of training job {} (SageMaker OutputDataConfig)".format(
+            os.environ.get("TRAINING_JOB_NAME") or "<this job>"),
         "model_overall": overall(evaluation), "baseline_overall": overall(baseline),
         "gate_thresholds": evaluation.get("gate_thresholds"), "config_hash": evaluation.get("config_hash"),
     }

@@ -271,3 +271,25 @@ def test_fixture_has_the_sdk_shape():
     assert set(ev["gates"]) == set(je.SDK_GATES)
     evaluate = pytest.importorskip("ran_rl.evaluation.evaluate")
     assert evaluate.compute_gates(copy.deepcopy(ev), bl, evaluate.GateThresholds(), "cco") == ev["gates"]
+
+
+def test_artifact_upload_denied_still_writes_items_and_result(tmp_path, capfd):
+    w = World(tmp_path)
+    real = w.store.put_new
+
+    def denied(rel, data):
+        if rel.startswith("outputs/"):
+            e = RuntimeError("denied")
+            e.response = {"Error": {"Code": "AccessDenied"}}
+            raise e
+        return real(rel, data)
+
+    w.store.put_new = denied
+    assert w.run() == 0
+    res = w.result()
+    assert res["passed"] is True
+    art = res["details"]["artifacts"]["evaluation.json"]
+    assert art["uri"] is None and art["upload_error"] == "AccessDenied"
+    assert art["job_output_member"] == "eval/evaluation.json"
+    assert (tmp_path / "out" / "eval" / "evaluation.json").is_file()
+    assert "AccessDenied" in capfd.readouterr().out
