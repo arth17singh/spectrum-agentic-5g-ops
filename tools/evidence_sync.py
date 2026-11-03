@@ -20,6 +20,13 @@ What it does, in order:
      carries one `team13-evidence {"path", "sha256", ...}` line per records/result file. Each line's sha256
      is compared with the mirrored file -> DEST/.sync/attest/<run_id>.json (per file: match / MISMATCH /
      not attested).
+  4b. --attest also reads, for each change record that the tools Lambda stamped with its own clock
+     (aws_time_source "lambda:..."), the `change_applied` log line of /aws/lambda/team13-ran-tools (FilterLogEvents,
+     narrowed by the change id and +-10 minutes) -> an additional entry in DEST/.sync/attest/<run_id>.json
+     ({"state": "match", "via": "lambda_log", "log_time": the CloudWatch event time, "sha256": the file's}), plus
+     the Gateway request window (start and end of the AgentCore.Gateway.InvokeTool span in aws/spans) of the
+     ALLOWed decision that names the same change id. A match already stored is never replaced by a failure.
+     `--run R` limits this step to the run R.
   5. --check: runs tools/check_unit.py RUN_ID --s3 ... --json for each run that has a result
      -> DEST/.sync/checks/<run_id>.json (parts a-e, as check_unit prints them). Slow (Logs Insights).
 
@@ -75,6 +82,9 @@ LAYOUT_TOP = {"declared", "records", "results", "outputs", "models"}
 RESERVED = {"ledger.jsonl", "anchors.jsonl", "public_keys.json", "README.md"}
 RECORD_OBJ = re.compile(r"^records/[^/]+/[^/]+/([0-9a-f]{24})\.json$")
 ATTEST_MARK = "team13-evidence"
+LAMBDA_LOG_GROUP = "/aws/lambda/team13-ran-tools"
+SPANS_LOG_GROUP = "aws/spans"
+LAMBDA_WINDOW_S = 600  # +-10 minutes around the record
 
 
 def say(*a):
@@ -328,6 +338,126 @@ class Sync:
             say(f"  attest {run}: {counts}")
         return mismatches
 
+    # ------------------------------------------------------------------ 4b attest the Lambda-stamped change records
+
+    def attest_lambda(self, manifest: dict) -> int:
+        """Additive: see the module docstring, 4b. Returns the number of change records newly attested."""
+        logs = self.sess.client("logs")
+        out_dir = self.state_dir / "attest"
+        todo: dict[str, list[tuple[str, dict, str]]] = {}
+        for rel, m in manifest.items():
+            parts = rel.split("/")
+            if not (len(parts) == 4 and parts[0] == "records" and parts[2] == "change" and rel.endswith(".json")):
+                continue
+            if self.a.run and parts[1] not in self.a.run:
+                continue
+            try:
+                text = (self.dest / rel).read_text(encoding="utf-8")
+                if '"lambda:' not in text:
+                    continue
+                rec = json.loads(text)
+            except (OSError, ValueError):
+                continue
+            if str(rec.get("aws_time_source") or "").startswith("lambda:") and rec.get("change_id") and rec.get("run_id") == parts[1]:
+                todo.setdefault(parts[1], []).append((rel, rec, m["sha256"]))
+        n_new = 0
+        for run, items in sorted(todo.items()):
+            allows = self._allow_decisions(run)
+            found: dict[str, dict] = {}
+            for rel, rec, sha in items:
+                t0 = _parse_iso(rec.get("created_at") or rec.get("aws_time"))
+                if t0 is None:
+                    continue
+                cid = rec["change_id"]
+                try:
+                    ev = self._lambda_line(logs, run, rec, t0)
+                    if ev is None:
+                        continue
+                    ent = {"state": "match", "sha256": sha, "via": "lambda_log", "log_time": _iso_ms3(ev["timestamp"]),
+                           "log_group": LAMBDA_LOG_GROUP}
+                    d = allows.get(cid)
+                    if d:
+                        w = self._gateway_window(logs, d)
+                        if w:
+                            ent["gateway_window"] = w
+                    found[rel] = ent
+                except Exception as e:  # noqa: BLE001 - a lookup that fails is reported, never a mismatch
+                    say(f"  attest lambda {run}/{cid}: {type(e).__name__}: {str(e)[:120]}")
+            if not found:
+                continue
+            path = out_dir / f"{run}.json"
+            try:
+                cur = json.loads(path.read_text())
+            except (FileNotFoundError, ValueError):
+                cur = {}
+            files = dict(cur.get("files") or {})
+            for rel, ent in found.items():
+                prev = files.get(rel) or {}
+                if prev.get("state") == "match" and prev.get("via") != "lambda_log":
+                    continue  # a match from a job's log is kept; nothing here replaces a match with a failure
+                n_new += prev.get("state") != "match"
+                files[rel] = ent
+            counts: dict[str, int] = {}
+            for v in files.values():
+                counts[v.get("state", "?")] = counts.get(v.get("state", "?"), 0) + 1
+            out = {**cur, "run_id": run, "files": files, "counts": counts,
+                   "checked_at": lm_iso(datetime.now(timezone.utc)),
+                   "source": cur.get("source") or "Lambda log lines 'change_applied' (/aws/lambda/team13-ran-tools)"}
+            out_dir.mkdir(parents=True, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(dir=out_dir, prefix=".attest-")
+            with os.fdopen(fd, "w") as f:
+                f.write(json.dumps(out, indent=1, sort_keys=True))
+            os.replace(tmp, path)
+            say(f"  attest lambda {run}: {len(found)} of {len(items)} change records found in the Lambda log")
+        return n_new
+
+    def _lambda_line(self, logs, run: str, rec: dict, t0: datetime) -> dict | None:
+        ms = int(t0.timestamp() * 1000)
+        best = None
+        for page in logs.get_paginator("filter_log_events").paginate(
+                logGroupName=LAMBDA_LOG_GROUP, filterPattern=f'"{rec["change_id"]}"',
+                startTime=ms - LAMBDA_WINDOW_S * 1000, endTime=ms + LAMBDA_WINDOW_S * 1000):
+            for ev in page.get("events", []):
+                body = _json_in(ev.get("message", ""))
+                if (body.get("record") == "change_applied" and body.get("run_id") == run
+                        and body.get("approval_id") == rec["change_id"]
+                        and (not rec.get("case_id") or body.get("case_id") == rec["case_id"])
+                        and (best is None or ev["timestamp"] < best["timestamp"])):
+                    best = ev
+        return best
+
+    def _allow_decisions(self, run: str) -> dict[str, dict]:
+        """change id -> the ALLOWed apply_change decision record (local mirror) that names it."""
+        out: dict[str, dict] = {}
+        d = self.dest / "records" / run / "decision"
+        for f in sorted(d.glob("*.json")) if d.is_dir() else []:
+            try:
+                r = json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if (r.get("decision") == "ALLOW" and r.get("approval_id") and r.get("span_id")
+                    and str(r.get("tool") or "").endswith("apply_change")):
+                out.setdefault(r["approval_id"], r)
+        return out
+
+    def _gateway_window(self, logs, dec: dict) -> dict | None:
+        """Start and end of the Gateway's InvokeTool span for this decision (aws/spans, written by AgentCore)."""
+        t = _parse_iso(dec.get("aws_time") or dec.get("time"))
+        if t is None:
+            return None
+        ms = int(t.timestamp() * 1000)
+        for page in logs.get_paginator("filter_log_events").paginate(
+                logGroupName=SPANS_LOG_GROUP, filterPattern=f'"{dec["span_id"]}"',
+                startTime=ms - LAMBDA_WINDOW_S * 1000, endTime=ms + LAMBDA_WINDOW_S * 1000):
+            for ev in page.get("events", []):
+                sp = _json_in(ev.get("message", ""))
+                if (sp.get("spanId") == dec["span_id"] and sp.get("traceId") == dec.get("trace_id")
+                        and str(sp.get("name") or "").startswith("AgentCore.Gateway.InvokeTool")
+                        and isinstance(sp.get("startTimeUnixNano"), int) and isinstance(sp.get("endTimeUnixNano"), int)):
+                    return {"start": _iso_ms3(sp["startTimeUnixNano"] // 1_000_000), "end": _iso_ms3(sp["endTimeUnixNano"] // 1_000_000),
+                            "span": sp["name"], "duration_ms": sp.get("durationNano", 0) // 1_000_000}
+        return None
+
     # ------------------------------------------------------------------ 5 check_unit
 
     def check(self, manifest: dict) -> None:
@@ -404,6 +534,28 @@ def _find_jobs(d) -> list[tuple[str, str]]:
     return [(n, k) for n, k in out if re.match(r"^[A-Za-z0-9][A-Za-z0-9-]{0,62}$", n)]
 
 
+def _iso_ms3(ms) -> str:
+    """Millisecond epoch -> 2026-11-03T05:31:52.884Z (the whole-second lm_iso would lose the order inside a request)."""
+    return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.") + f"{int(ms) % 1000:03d}Z"
+
+
+def _parse_iso(ts) -> datetime | None:
+    try:
+        d = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+
+def _json_in(msg: str) -> dict:
+    i = msg.find("{")
+    try:
+        v = json.loads(msg[i:]) if i >= 0 else {}
+    except ValueError:
+        return {}
+    return v if isinstance(v, dict) else {}
+
+
 def _iso(dt) -> str | None:
     return lm_iso(dt) if dt else None
 
@@ -440,6 +592,8 @@ def main(argv=None) -> int:
         if a.jobs or a.attest:
             s.describe_jobs()
         mism = s.attest(manifest) if a.attest else 0
+        if a.attest:
+            s.attest_lambda(manifest)
         if a.check:
             s.check(manifest)
     except Exception as e:  # noqa: BLE001

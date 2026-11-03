@@ -2,18 +2,23 @@
 // a Lambda) is shown apart, as "runner clock", and never in place of it. The fields come from the backend
 // (`aws_time`, `aws_time_source`, `runner_time`, see backend/spectrum/slices/_shared/awstime.py).
 
-type AwsSource = 'cloudwatch' | 's3_stored' | 'policy_createdAt' | 'gateway_date' | 'none'
+type AwsSource = 'cloudwatch' | 'cloudwatch_attest' | 'cloudwatch_lambda' | 's3_stored' | 'policy_createdAt' | 'gateway_date' | 'none'
 
+// What the screen says for each source, never the raw key (the backend's awstime.LABELS says the same words).
 const AWS_SOURCE_LABEL: Record<AwsSource, string> = {
-  cloudwatch: 'CloudWatch',
-  s3_stored: 'S3 stored',
-  policy_createdAt: 'policy createdAt',
-  gateway_date: 'gateway Date',
+  cloudwatch: 'AWS CloudWatch (policy decision log)',
+  cloudwatch_attest: 'AWS CloudWatch (job attestation)',
+  cloudwatch_lambda: 'AWS CloudWatch (Lambda log)',
+  s3_stored: 'AWS S3 (stored)',
+  policy_createdAt: 'AgentCore policy createdAt',
+  gateway_date: 'AWS response Date',
   none: 'none',
 }
 
 const SOURCE_HINT: Record<AwsSource, string> = {
-  cloudwatch: 'The time CloudWatch logged the event.',
+  cloudwatch: 'The time CloudWatch logged the event (the Gateway checkpoint or policy decision log).',
+  cloudwatch_attest: 'The CloudWatch time of the log line in which the SageMaker job that wrote this record attests its sha256.',
+  cloudwatch_lambda: 'The CloudWatch time of the tools Lambda\u2019s own log line for this change.',
   s3_stored: 'The time S3 stored this record (S3 LastModified). It is when the record was stored, not when the event happened.',
   policy_createdAt: 'The createdAt AgentCore gave the policy.',
   gateway_date: 'The Date header of the AgentCore Gateway response.',
@@ -36,7 +41,7 @@ export function AwsTime({ aws, source, runner, withDate = false, compact = false
       {has ? (
         <>
           <span className="tnum mono text-ink-2" title={`AWS time ${aws}. ${SOURCE_HINT[s]}`}>{clock(aws, withDate)}</span>
-          <span className="text-micro text-ink-3" title={SOURCE_HINT[s]}>AWS · {AWS_SOURCE_LABEL[s]}</span>
+          <span className="text-micro text-ink-3" title={SOURCE_HINT[s]}>{AWS_SOURCE_LABEL[s]}</span>
         </>
       ) : (
         <span className="text-micro text-ink-3" title={SOURCE_HINT.none}>no AWS time</span>

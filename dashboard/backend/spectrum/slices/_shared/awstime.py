@@ -33,13 +33,17 @@ Rec = dict[str, Any]
 
 STORED_KEY = "_stored_at"      # private carriers set on a shallow copy of a record; no response outputs them
 ATTEST_KEY = "_attested_at"
+ATTEST_VIA_KEY = "_attested_via"   # "lambda_log" when the attestation is the Lambda's own CloudWatch log line
+WINDOW_KEY = "_gateway_window"     # {"start", "end"}: the Gateway request that carried the call (aws/spans)
 # In priority order: the CloudWatch decision log, the job attestation, the policy / Gateway stamps, S3 storage.
-SOURCES = ("cloudwatch", "cloudwatch_attest", "policy_createdAt", "gateway_date", "s3_stored", "none")
+SOURCES = ("cloudwatch", "cloudwatch_attest", "cloudwatch_lambda", "policy_createdAt", "gateway_date", "s3_stored", "none")
 # Sources where AWS recorded the EVENT (a log event, a job's log line, a policy creation, a Gateway response).
 # s3_stored is only "when the object was stored", so it never makes a record "real" on its own.
-EVENT_SOURCES = ("cloudwatch", "cloudwatch_attest", "policy_createdAt", "gateway_date")
-LABELS = {"cloudwatch": "CloudWatch", "cloudwatch_attest": "job attestation", "policy_createdAt": "policy createdAt",
-          "gateway_date": "gateway Date", "s3_stored": "S3 stored", "none": "none"}
+EVENT_SOURCES = ("cloudwatch", "cloudwatch_attest", "cloudwatch_lambda", "policy_createdAt", "gateway_date")
+# What the screen says for each source (the frontend carries the same words): never the raw key.
+LABELS = {"cloudwatch": "AWS CloudWatch (policy decision log)", "cloudwatch_attest": "AWS CloudWatch (job attestation)",
+          "cloudwatch_lambda": "AWS CloudWatch (Lambda log)", "policy_createdAt": "AgentCore policy createdAt",
+          "gateway_date": "AWS response Date", "s3_stored": "AWS S3 (stored)", "none": "none"}
 
 
 def parse(ts: Any) -> datetime | None:
@@ -80,7 +84,7 @@ def resolve(rec: Rec) -> Rec:
     if own and src == "cloudwatch":
         aws, source = own, "cloudwatch"
     elif attested:
-        aws, source = attested, "cloudwatch_attest"
+        aws, source = attested, ("cloudwatch_lambda" if rec.get(ATTEST_VIA_KEY) == "lambda_log" else "cloudwatch_attest")
     elif own and src:
         aws, source = own, src
     elif stored:
@@ -94,7 +98,8 @@ def resolve(rec: Rec) -> Rec:
         if isinstance(cand, str) and parse(cand) and cand != accepted:
             runner = cand
             break
-    return {"aws_time": aws, "aws_time_source": source, "runner_time": runner}
+    win = rec.get(WINDOW_KEY) if source == "cloudwatch_lambda" and isinstance(rec.get(WINDOW_KEY), dict) else None
+    return {"aws_time": aws, "aws_time_source": source, "runner_time": runner, "gateway_window": win}
 
 
 def with_times(rec: Rec, times: Rec | None) -> Rec:
@@ -106,6 +111,10 @@ def with_times(rec: Rec, times: Rec | None) -> Rec:
         out[STORED_KEY] = times["stored"]
     if times.get("attested"):
         out[ATTEST_KEY] = times["attested"]
+        if times.get("attested_via"):
+            out[ATTEST_VIA_KEY] = times["attested_via"]
+        if times.get("window"):
+            out[WINDOW_KEY] = times["window"]
     return out
 
 
@@ -162,5 +171,5 @@ def summary(items: Iterable[Rec]) -> Rec:
         counts[s if s in counts else "none"] += 1
     k = n - counts["none"]
     parts = [f"{LABELS[s]} {counts[s]}" for s in SOURCES if s != "none" and counts[s]]
-    text = f"AWS time on {k} of {n}" + (f" ({', '.join(parts)})" if parts else "")
+    text = f"AWS time on {k} of {n}" + (f" ({'; '.join(parts)})" if parts else "")
     return {"n": n, "k": k, "by_source": counts, "text": text}

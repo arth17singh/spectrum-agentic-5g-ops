@@ -252,6 +252,37 @@ def case_label(case_id: str | None) -> str | None:
     return NO_CASE_LABEL if case_id in NO_CASE_IDS else None
 
 
+def _hms(iso: str | None) -> str:
+    return (iso or "")[11:23] + "Z"
+
+
+def _ordered_by_gateway_window(timeline: list[Rec]) -> tuple[bool, str] | None:
+    """The Gateway logs a call's policy decision when the request ENDS, so an ALLOW can be stamped after the tool's
+    own log line although the decision came first. AWS records the request's start and end (the AgentCore
+    InvokeTool span in aws/spans, read by the evidence sync). When the applied change's CloudWatch Lambda log time and
+    the ALLOW both fall inside that window, they belong to one request and their order is not judged by the
+    two stamps. Returns (order_ok after treating them as one request, the note to show), or None when no change
+    carries such evidence (then the strict order stands)."""
+    for ch in timeline:
+        w = ch.get("gateway_window")
+        if ch["step"] != "change_applied" or ch.get("aws_time_source") != "cloudwatch_lambda" or not isinstance(w, dict):
+            continue
+        lo, hi, at = _parse(w.get("start")), _parse(w.get("end")), _parse(ch.get("aws_time"))
+        allow = next((e for e in timeline if e["step"] == "approval" and e["decision"] == "ALLOW"
+                      and e.get("approval_id") and e["approval_id"] == ch.get("approval_id")), None)
+        if not (lo and hi and at and allow and lo <= at <= hi):
+            continue
+        ta = _parse(allow["time"])
+        if not (ta and lo <= ta <= hi):
+            continue
+        moved = [{**e, "time": allow["time"]} if e is ch else e for e in timeline]
+        ok = check_sequence(_sorted(moved))["order_ok"]
+        return ok, (f"The apply ({_hms(ch['aws_time'])}, Lambda log) falls inside the Gateway request "
+                    f"{_hms(w.get('start'))} to {_hms(w.get('end'))}; the Gateway logs its decision at request end "
+                    f"({_hms(allow['time'])}), so the two stamps are not ordered against each other.")
+    return None
+
+
 def check_for_unit(run_id: str | None, timeline: list[Rec]) -> Rec:
     """The check against the sequence expected for the case's OWN unit, not one flow for every unit:
       t3.deny   complete when a refusal (DENY) is recorded and no change was applied;
@@ -285,9 +316,14 @@ def check_for_unit(run_id: str | None, timeline: list[Rec]) -> Rec:
     if unit == "t3.allow":
         if applied or any(e["step"] == "approval" for e in timeline):
             need = ["approval", "change_applied"]
+            order_ok, notes = generic["order_ok"], [n for n in generic["notes"] if "approval" in n.lower()]
+            if not order_ok:
+                fixed = _ordered_by_gateway_window(timeline)
+                if fixed is not None:
+                    order_ok, note = fixed
+                    notes.append(note)
             return build("the approval is ALLOWed and the change is applied, in order", need,
-                         {s: steps_by[s]["present"] for s in need}, order_ok=generic["order_ok"],
-                         notes=[n for n in generic["notes"] if "approval" in n.lower()])
+                         {s: steps_by[s]["present"] for s in need}, order_ok=order_ok, notes=notes)
         return build("an ALLOWed call is recorded", ["allowed_call"], {"allowed_call": any(e["decision"] == "ALLOW" for e in dec)})
     if unit.startswith("t3.trust"):
         return build("a change is applied and measured (in-process loop: no agent calls, no human approval)", ["change_applied"],
