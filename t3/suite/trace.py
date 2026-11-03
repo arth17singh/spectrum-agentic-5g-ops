@@ -35,6 +35,8 @@ from t3.suite.common import RUNNING, envelope, epoch, sha256_json, to_iso, utc_n
 
 SCRIPT = "t3/suite/trace.py"
 UNIT = "t3.trace"
+TARGET = {"metric": "pass_rate", "op": ">=", "value": 1.0, "unit": "ratio"}   # one item: the case
+NO_TWIN = {"kind": "none", "version": "none", "scenario": "none", "seed": 0}
 EXPECTED = ["case_opened", "ask_agent", "specialist_tool", "approval", "change_applied", "observe"]
 SPECIALISTS = ("ran_monitor", "ran_optimizer", "ran_explainer")
 FRONT = ("front___start_case", "front___continue_case", "front___case_status")
@@ -231,19 +233,19 @@ def rebuild(case_id, cp_rows, span_rows=(), bedrock_rows=(), expected=EXPECTED, 
 
 def declaration(run_id, cfg, synthetic=False):
     return envelope("declared", run_id, synthetic=synthetic, unit=UNIT, track="track-3",
-                    target={"metric": "sequence_complete", "op": "==", "value": 1.0, "unit": "ratio"},
+                    target=dict(TARGET),
                     n_items=1, n_cases=1, test_set_sha256=sha256_json({"expected": EXPECTED}),
                     model_id=cfg["model_id"],
                     grader=f"{SCRIPT}: the case's events from CloudWatch contain, in time order, " + " -> ".join(EXPECTED),
                     code_sha=common.code_sha(), region=cfg["region"],
-                    twin={"kind": "maveric-inprocess", "version": "n/a", "scenario": "n/a", "seed": 0},
+                    twin=dict(NO_TWIN),
                     declared_at=utc_now_iso())
 
 
 def drive(runner, request, *, status_timeout_s=600.0, poll_s=5.0, sleep=time.sleep, clock=time.time, log=print):
     """Declare the trace unit, start a real case through the front door, wait for the person's approval,
     say "Approved.", and wait for the lead to finish. Records every front-door call."""
-    runner.ev.write_declared(declaration(runner.run_id, runner.cfg, runner.synthetic))
+    runner.write_or_match_declaration(declaration(runner.run_id, runner.cfg, runner.synthetic))
     case_id = runner.start_case(unit=UNIT, request_text=request)
 
     def wait_done(turn):
@@ -351,8 +353,8 @@ def main(argv=None) -> int:
                    "no_gateway_decision": out["no_gateway_decision"], "problems": out["problems"],
                    "span_trace_ids": out["span_trace_ids"]})])
         ev.write_result(envelope(
-            "result", a.run_id, unit=UNIT, metric="sequence_complete", value=1.0 if out["passed"] else 0.0,
-            target={"metric": "sequence_complete", "op": "==", "value": 1.0, "unit": "ratio"},
+            "result", a.run_id, unit=UNIT, metric=TARGET["metric"], value=1.0 if out["passed"] else 0.0,
+            target=dict(TARGET),
             passed=out["passed"], n_items=1, checked_at=utc_now_iso(),
             checker={"script": SCRIPT, "code_sha": common.code_sha()},
             details={"case_id": a.case, "trace_id": out["trace_id"], "missing": out["missing"],

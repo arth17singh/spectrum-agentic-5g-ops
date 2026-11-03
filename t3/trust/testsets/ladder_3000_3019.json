@@ -13,6 +13,11 @@
    "model_id": "t2-response-v0@v0"
   }
  },
+ "provenance": "Re-measurement on AWS of the laptop ladder run in f4a75a2 (t3/trust/runs/ladder_report.json), same seeds 3000-3019 and script; R2 and the settings shift are measurements, not targets.",
+ "references": {
+  "laptop_report": "t3/trust/runs/ladder_report.json",
+  "laptop_run_commit": "f4a75a2"
+ },
  "rungs": {
   "R1": {
    "config": "official",

@@ -13,9 +13,14 @@ import re
 from typing import Any
 
 from t1.evals import canon as C
-from t1.evals.parse import first_json_object, last_boxed
+from t1.evals.parse import first_json_object, last_boxed, leading
 
 GRADER_VERSION = "t1-graders-v2"
+KNOWLEDGE_GRADER_VERSION = "t1-graders-v3"  # knowledge only: plain-text answers read from the start of the reply
+
+
+def grader_version(unit: str) -> str:
+    return KNOWLEDGE_GRADER_VERSION if unit == "knowledge" else GRADER_VERSION
 INTERFACE_FIELDS = ("intent", "cells", "parameter", "direction", "amount", "kpi")
 
 
@@ -253,14 +258,25 @@ def grade_knowledge(item: dict, output: str) -> dict:
     kind = exp["type"]
     obj = first_json_object(output)
     got: Any = None
+    form = "json"
     if kind == "mcq":
         got = _letter(obj.get("answer")) if obj else None
+        if got is None:
+            got, form = leading(output, "mcq"), "plain"
     elif kind == "label":
         if obj:
             v = obj.get("answer", obj.get("WORKING GROUP"))
             got = v.strip().upper() if isinstance(v, str) else None
+        if got is None:
+            got, form = leading(output, "label"), "plain"
     elif kind == "rca":
-        got = _rca(obj.get("answer")) if obj and "answer" in obj else _rca(last_boxed(output) or "")
+        if obj and "answer" in obj:
+            v = obj.get("answer")
+            got = _rca(v) or (leading(v, "rca") if isinstance(v, str) else None)
+        if got is None and last_boxed(output):
+            got, form = _rca(last_boxed(output) or ""), "boxed"
+        if got is None:
+            got, form = leading(output, "rca"), "plain"
     elif kind == "numeric":
         if obj:
             v = _norm_amount(obj.get("answer"))
@@ -274,7 +290,7 @@ def grade_knowledge(item: dict, output: str) -> dict:
     else:
         passed = got == exp["answer"]
     return {"score": 1.0 if passed else 0.0, "passed": passed, "parse_ok": True,
-            "detail": {"type": kind, "answer": got}}
+            "detail": {"type": kind, "answer": got, "answer_form": form}}
 
 
 def grade_price_latency(item: dict, output: str) -> dict:

@@ -10,6 +10,7 @@ import { EMPTY, useLive } from '@/core/store'
 import { toast, useUi } from '@/core/ui-store'
 import { features } from '@/features'
 import { Kbd } from '@/ui'
+import { useIsRealRoute } from './realRoute'
 import { SeverityIcon } from './StreamDrawer'
 
 // ------------------------------------------------------------------ global commands
@@ -116,13 +117,19 @@ export function Toasts() {
   const toasts = useUi((s) => s.toasts)
   const navigate = useNavigate()
   const inspect = useUi((s) => s.inspect)
+  const real = useIsRealRoute()
+  // A toast made from a stream event carries a plane and comes from the simulator, except the evidence ones.
+  const fromSim = (t: (typeof toasts)[number]) => !!t.plane && t.route !== '/evidence'
   return (
-    <div className="pointer-events-none fixed right-4 bottom-12 z-50 flex w-[380px] flex-col-reverse gap-2">
-      {toasts.map((t) => (
+    <div className="pointer-events-none fixed right-4 bottom-12 z-50 flex w-[380px] max-w-[calc(100vw-2rem)] flex-col-reverse gap-2">
+      {toasts.filter((t) => !(real && fromSim(t))).map((t) => (
         <div key={t.id} role="status" className={clsx('pointer-events-auto row-in flex items-start gap-2.5 rounded-md border bg-s2 px-3 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.3)]',
           t.severity === 'critical' ? 'border-critical/60 pulse-twice' : 'border-line')}>
           <div className="mt-0.5"><SeverityIcon s={t.severity} /></div>
-          <div className="min-w-0 flex-1 text-cap text-ink-1">{t.title}</div>
+          <div className="min-w-0 flex-1 text-cap text-ink-1">
+            {fromSim(t) && <span className="mr-1.5 rounded bg-warn/15 px-1 text-micro font-semibold text-warn">SIMULATED</span>}
+            {t.title}
+          </div>
           {t.action && (
             <button type="button" className="shrink-0 text-cap font-medium text-ink-1 underline-offset-2 hover:underline"
               onClick={() => { if (t.route) navigate(t.route); else if (t.ledgerSeq) inspect({ kind: 'ledger', id: String(t.ledgerSeq) }) }}>

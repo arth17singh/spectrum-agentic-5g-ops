@@ -111,7 +111,7 @@ class Trust:
             "pcr0": sha256_hex("pcr0-spectrum-aggregator") + sha256_hex("pcr0b")[:32],
             "pcr1": sha256_hex("pcr1-kernel") + sha256_hex("pcr1b")[:32],
             "pcr2": sha256_hex("pcr2-app") + sha256_hex("pcr2b")[:32],
-            "kms_key": "arn:aws:kms:us-west-2:111122223333:key/agg-mask-seeds",
+            "kms_key": "arn:aws:kms:us-west-2:<account>:key/agg-mask-seeds",
             "condition": "kms:RecipientAttestation:PCR0",
             "root": "AWS Nitro Enclaves Root-G1",
             "verified": True,

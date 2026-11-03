@@ -1,0 +1,58 @@
+{
+ "artifact": "t2/artifacts/t2_response_v0.npz",
+ "artifact_sha256": "39f25386b7797b458e0e6d1e67e1361f3b9e2a10bfde6e3f7902f738334bda38",
+ "changes": 24,
+ "config": "official",
+ "models": {
+  "degraded": {
+   "fault": "tilt_reversed",
+   "load": "t2.predict.load_degraded",
+   "model_id": "t2-response-v0-degraded-tilt-reversed@v0"
+  },
+  "healthy": {
+   "fault": null,
+   "load": "t2.predict.load",
+   "model_id": "t2-response-v0@v0"
+  }
+ },
+ "provenance": "Fresh for the trust gate: twin seeds 3000-3019 have never been through the gate (calibration used 20000-20039, the demos 0 and 1000-1009, the v2 evaluation 2000-2019). They were used by the laptop LADDER runs (f4a75a2), which choose changes with the predictors but never run the gate rule; no threshold was chosen on them. Thresholds v1 as declared (sha256 d051c1e0...), untouched since 2c8a57c.",
+ "references": {
+  "laptop_v2_eval": "t3/trust/runs/v2_eval.json",
+  "thresholds_v1_commit": "2c8a57c",
+  "v2_declaration_commit": "ed7d3c4"
+ },
+ "scenario": "nominal",
+ "script": "t3/trust/scripted_changes.json",
+ "script_sha256": "bb53f1173c0bd7481226644068a8b72483ec15065469748be00389400f4df842",
+ "seeds": [
+  3000,
+  3001,
+  3002,
+  3003,
+  3004,
+  3005,
+  3006,
+  3007,
+  3008,
+  3009,
+  3010,
+  3011,
+  3012,
+  3013,
+  3014,
+  3015,
+  3016,
+  3017,
+  3018,
+  3019
+ ],
+ "success_bar": {
+  "degraded_paused_by_change_6_min": 19,
+  "healthy_false_pauses_max": 2
+ },
+ "thresholds": {
+  "v1": "d051c1e05efbca5491fd90741ea835a3c83d0ba55ef320dfaf76cc24df4af74b",
+  "v2": "395ed282e042b4c365f6ad2d92f5b8e560511df1cfc6b572d3aed369a7fef852"
+ },
+ "what": "trust-gate evaluation seeds 3000-3019, fresh for the gate"
+}

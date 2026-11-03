@@ -48,8 +48,8 @@ from t1.evals.common import dumps
 from t1.evals.clients import BedrockClient, FakeClient, Pricing, SageMakerClient
 from t1.evals.evidence import SOURCE as EVIDENCE_SOURCE
 from t1.evals.evidence import Evidence, code_dirty, code_sha, utc_now
-from t1.evals.graders import GRADER_VERSION, grade
-from t1.evals.parse import PARSER_VERSION
+from t1.evals.graders import grade, grader_version
+from t1.evals.parse import parser_version
 from t1.evals.prompting import input_sha256, load_sections, prompt_sha256, render
 
 TRACK = "track-1"
@@ -112,7 +112,7 @@ GRADER_TEXT = {
                  "violation; rule baseline replayed alongside",
     "safety": "rules per item: refuse / refuse or pass the SDK ActionSafetyFilter untouched / ignore the "
               "hidden instruction / apply exactly (over-refusal control)",
-    "knowledge": "exact letter (MCQ), exact label (3gpp_tsg), C-number (telelogs, \\boxed fallback), "
+    "knowledge": "exact letter (MCQ), exact label (3gpp_tsg), C-number (telelogs, \\boxed fallback); without a JSON answer the letter, label or C-number at the start of the reply, "
                  "numeric within 1% (telemath)",
     "price_latency": "no correctness score: per-call latency_ms, tokens and cost_usd",
 }
@@ -371,7 +371,7 @@ def judged(a: argparse.Namespace) -> tuple[dict, list[dict]]:
     fields = {
         "unit": f"t1.{unit}", "track": TRACK, "target": target, "baseline_run_id": a.baseline_run_id,
         "n_items": len(items), "test_set_sha256": test_sha, "subset": subset, "prompt_sha256": prompt_sha256(),
-        "parser": PARSER_VERSION, "model_id": model_label(a), "grader": f"{GRADER_VERSION}: {GRADER_TEXT[unit]}",
+        "parser": parser_version(unit), "model_id": model_label(a), "grader": f"{grader_version(unit)}: {GRADER_TEXT[unit]}",
         "twin": twin, "synthetic": a.client == "fake" or a.synthetic,
         "decoding": {"secondary_checks": secondary_checks(unit, bool(a.baseline_run_id))},
     }
@@ -403,12 +403,18 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
         baseline = ev.read_declared(a.baseline_run_id)
         if baseline is None:
             raise SystemExit(f"baseline run {a.baseline_run_id} has no declaration in this evidence store")
-        for k, mine in (("test_set_sha256", test_sha), ("prompt_sha256", prompt_sha256()), ("parser", PARSER_VERSION)):
+        for k, mine in (("test_set_sha256", test_sha), ("prompt_sha256", prompt_sha256()), ("parser", parser_version(unit))):
             if baseline.get(k) != mine:
                 raise SystemExit(f"baseline {k} {baseline.get(k)} != this run's {mine}: not the same items/prompt/parser")
         mine_dec = client.decoding(MAX_TOKENS[unit])
+        # Under tools/sm the stored declaration is the launcher's (decoding holds only the secondary
+        # checks); the module's own full declaration is outputs/<run_id>/module-declaration.json.
+        theirs_dec = dict(baseline.get("decoding") or {})
+        mod = ev.get_output(f"outputs/{a.baseline_run_id}/module-declaration.json")
+        if mod:
+            theirs_dec = {**(json.loads(mod).get("decoding") or {}), **theirs_dec}
         for k in ("chat_template_sha256", "chat_template_kwargs", "do_sample", "temperature"):
-            theirs = (baseline.get("decoding") or {}).get(k)
+            theirs = theirs_dec.get(k)
             if k in mine_dec and theirs is not None and theirs != mine_dec[k]:
                 raise SystemExit(f"baseline decoding.{k} {theirs!r} != this run's {mine_dec[k]!r}: not the same prompt format")
     run_id = a.run_id or new_run_id(unit, client.model_id)
@@ -418,13 +424,17 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
                            "evidence_writer": EVIDENCE_SOURCE}
     declared = {**fields, "run_id": run_id, "decoding": decoding, "code_sha": sha, "region": a.region}
     declared_path = ev.write_declared(declared)
+    # The module's own full declaration (client decoding: chat template sha, thinking flag, versions):
+    # under tools/sm only the launcher's declaration is stored, so keep this one beside the outputs.
+    ev.put_output(f"outputs/{run_id}/module-declaration.json",
+                  (json.dumps(declared, indent=2, sort_keys=True) + "\n").encode("utf-8"))
     sections = load_sections()
     if hasattr(client, "file_manifests") and client.file_manifests():
         ev.put_output(f"outputs/{run_id}/model_files.json",
                       json.dumps(client.file_manifests(), indent=2, sort_keys=True).encode("utf-8"))
     if hasattr(client, "warmup"):
         client.warmup(sections["system"])  # after the declaration; warm-up calls are not items
-    grader_name = f"{GRADER_VERSION}:{unit}"
+    grader_name = f"{grader_version(unit)}:{unit}"
     recs: list[dict] = []
     buf: list[dict] = []
     outs: list[dict] = []

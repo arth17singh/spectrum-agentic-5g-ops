@@ -64,9 +64,13 @@ class FakeDDB:
         item = self.tables.get(TableName, {}).get(k)
         return {"Item": {a: {"S": str(v)} for a, v in item.items()}} if item else {}
 
-    def put_item(self, TableName, Item):
+    def put_item(self, TableName, Item, ConditionExpression=None):
         self.writes.append((TableName, "put", next(iter(Item["pk"].values())) if "pk" in Item else None))
         key_attr = next(iter(Item))
+        if ConditionExpression == "attribute_not_exists(pk)" and \
+                next(iter(Item[key_attr].values())) in self.tables.get(TableName, {}):
+            raise ConditionalCheckFailed("ConditionalCheckFailedException")
+        assert ConditionExpression in (None, "attribute_not_exists(pk)"), ConditionExpression
         self.tables.setdefault(TableName, {})[Item[key_attr]["S"] if "S" in Item[key_attr] else Item[key_attr]["N"]] = {
             a: next(iter(v.values())) for a, v in Item.items()}
 
@@ -77,6 +81,10 @@ class FakeDDB:
     # helpers for the fake Gateway and the test's "person"
     def approvals(self):
         return self.tables.setdefault("team13-approvals", {})
+
+
+class ConditionalCheckFailed(Exception):
+    pass
 
 
 class NotFound(Exception):

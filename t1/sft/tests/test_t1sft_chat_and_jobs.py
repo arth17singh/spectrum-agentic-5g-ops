@@ -14,6 +14,7 @@ from t1.sft import chat, common, declare, launch, stage_base, train_lora
 from t1.sft.testing import MINI_TEMPLATE, FakeTokenizer
 from tools import check_unit, evlib
 
+FAKE_BUCKET = "bb26-p-team13-data-000000000000-use2"  # the runner tests' fake account; never a real id here
 MSGS = [{"role": "system", "content": "SYS"}, {"role": "user", "content": "USER"},
         {"role": "assistant", "content": '{"decision": "refuse", "change": "", "reason": "r"}'}]
 
@@ -203,16 +204,17 @@ def test_stored_declaration_must_name_the_run(tmp_path):
 
 @pytest.fixture
 def clean_tree(monkeypatch):
-    from tools.sm import package
+    from tools.sm import package, spec
 
     monkeypatch.setattr(package, "tree_dirty", lambda repo: [])
+    monkeypatch.delenv(spec.BUCKET_ENV, raising=False)  # the runner derives the bucket from --account
 
 
 def test_static_declarations_pass_the_runners_own_builder():
     st = declare.through_runner(declare.load("stage_base"))
     assert st["target"] == {"metric": "fail_count", "op": "==", "value": 0, "unit": "count"} and st["n_items"] == 311
     bd = declare.through_runner(declare.load("build"))
-    assert bd["test_set_sha256"] == "b12ef1e21c452329bc6812de1568a48d0ecb2b2aa08f4b95326833263399d3c6"
+    assert bd["test_set_sha256"] == "5619852147f72b1f520b22a0de929d5115d44385ed0eb3a42b5b35dd4d60a0d6"  # c4b4b5e
     assert bd["prompt_sha256"] == "bca9ecf54c3b9ac64c4f3a3d036e427f95605cf40c344b3357379c5a20a0629f"
     assert bd["n_items"] == 1220 and bd["twin"]["kind"] == "maveric-inprocess"
 
@@ -241,10 +243,9 @@ def test_train_declaration_is_filled_from_the_dataset_manifest():
         declare.train_declaration("t1.sft.stage-x", "t1.sft.data-x", bad, "e" * 64)
 
 
-@pytest.mark.parametrize("job", ["stage_base", "build", "train_lora"])
+@pytest.mark.parametrize("job", ["stage_base", "build", "train_lora", "recheck"])
 def test_runner_plans_each_job_offline(job, tmp_path, clean_tree, monkeypatch):
     from tools.sm import run as R
-    from tools.sm import spec
 
     monkeypatch.chdir(launch.REPO)  # the printed declaration paths are repo-relative
 
@@ -252,7 +253,14 @@ def test_runner_plans_each_job_offline(job, tmp_path, clean_tree, monkeypatch):
     if job == "train_lora":
         decl = tmp_path / "train.json"
         decl.write_text(json.dumps(declare.train_declaration("t1.sft.stage-x", "t1.sft.data-x", _manifest(), "e" * 64)))
-    args = launch.runner_args(job, f"t1.sft.{job}-test", spec.BUCKET, stage_run_id="t1.sft.stage-x",
+    if job == "recheck":
+        decl = tmp_path / "recheck.json"
+        m = json.dumps({"run_id": "t1.sft.data-x"}).encode()
+        import hashlib
+
+        sums = f"{hashlib.sha256(m).hexdigest()}  manifest.json\n".encode()
+        decl.write_text(json.dumps(declare.recheck_declaration("t1.sft.data-x", sums, m)))
+    args = launch.runner_args(job, f"t1.sft.{job}-test", FAKE_BUCKET, stage_run_id="t1.sft.stage-x",
                               data_run_id="t1.sft.data-x", declaration=str(decl) if decl else None, profile=None)
     a = R.parser().parse_args([*args, "--account", "000000000000"])
     p = R.plan(a, None)
@@ -262,25 +270,43 @@ def test_runner_plans_each_job_offline(job, tmp_path, clean_tree, monkeypatch):
     chans = dict(p["channels"])
     if job == "stage_base":
         assert p["device"] == "cpu" and a.instance_type == "ml.m5.2xlarge" and not p["sdk"]
-        assert chans == {"model": f"s3://{spec.BUCKET}/models/base/otel-llm-1.7b-it/"}
+        assert chans == {"model": f"s3://{FAKE_BUCKET}/models/base/otel-llm-1.7b-it/"}
         assert "{channel:model}" in entry and "transformers==4.57.6" in p["requirements"]
     elif job == "build":
         assert p["device"] == "cpu" and a.instance_type == "ml.c5.4xlarge" and p["sdk"]
         assert "sdk" in chans and "ran-rl[maveric]" in p["requirements"]
         assert p["declaration"]["twin"]["config"]["runner"]["instance_type"] == "ml.c5.4xlarge"
+    elif job == "recheck":
+        assert p["device"] == "cpu" and a.instance_type == "ml.m5.xlarge" and not p["sdk"] and a.max_run == 1200
+        assert chans == {"data": f"s3://{FAKE_BUCKET}/datasets/t1-sft/t1.sft.data-x/"}
+        assert "--data-run-id t1.sft.data-x" in entry and "pydantic" in p["requirements"]
+        assert p["declaration"]["test_set_sha256"] == "5619852147f72b1f520b22a0de929d5115d44385ed0eb3a42b5b35dd4d60a0d6"
     else:
         assert p["device"] == "gpu" and a.instance_type == "ml.g6.2xlarge" and not p["sdk"]
-        assert chans == {"model": f"s3://{spec.BUCKET}/models/base/otel-llm-1.7b-it-bf16/t1.sft.stage-x/",
-                         "data": f"s3://{spec.BUCKET}/datasets/t1-sft/t1.sft.data-x/"}
+        assert chans == {"model": f"s3://{FAKE_BUCKET}/models/base/otel-llm-1.7b-it-bf16/t1.sft.stage-x/",
+                         "data": f"s3://{FAKE_BUCKET}/datasets/t1-sft/t1.sft.data-x/"}
         assert "peft" in p["requirements"] and a.max_run == 7200
     assert f"t1/sft/{job}.py" in p["files"]
 
 
-def test_launch_prints_dry_run_and_no_wait_commands(capsys):
+def test_launch_prints_dry_run_and_no_wait_commands(capsys, monkeypatch):
+    from tools.sm import spec
+
+    monkeypatch.setenv(spec.BUCKET_ENV, FAKE_BUCKET)  # no STS call in tests
     assert launch.main(["stage_base", "--run-id", "t1.sft.stage-test"]) == 0
     out = capsys.readouterr().out
     assert "--dry-run" in out and "--no-wait" in out and "--finish t1.sft.stage-test" in out
+    assert f"s3://{FAKE_BUCKET}/models/base/otel-llm-1.7b-it/" in out
     assert launch.main(["train_lora", "--run-id", "t1.sft.train-test"]) == 2  # needs stage/data/declaration
+    assert launch.main(["recheck", "--run-id", "t1.sft.data-recheck-test"]) == 2  # needs data run + declaration
+
+
+def test_bucket_comes_from_the_flag_the_environment_or_sts(monkeypatch):
+    from tools.sm import spec
+
+    assert launch.bucket("explicit-bucket", None) == "explicit-bucket"
+    monkeypatch.setenv(spec.BUCKET_ENV, "env-bucket")
+    assert launch.bucket(None, None) == "env-bucket"
 
 
 def test_committed_files_hold_no_organiser_bucket():

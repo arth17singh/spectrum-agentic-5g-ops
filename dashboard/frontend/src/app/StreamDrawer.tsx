@@ -52,11 +52,12 @@ export function StreamDrawer() {
   }, [stream])
 
   return (
-    <section aria-label="Live stream" className={clsx('shrink-0 border-t border-line bg-page transition-[height] duration-200', open ? 'h-[280px]' : 'h-8')}>
+    <section aria-label="Live stream" className={clsx('shrink-0 overflow-x-hidden border-t border-line bg-page transition-[height] duration-200', open ? 'h-[280px]' : 'h-8')}>
       <div className="flex h-8 items-center gap-3 px-3 text-cap">
         <button type="button" onClick={() => set({ streamOpen: !open })} className="flex items-center gap-1.5 font-medium text-ink-1">
           {open ? <ChevronDown size={14} /> : <ChevronUp size={14} />} Live stream
         </button>
+        <span className="rounded bg-warn/15 px-1.5 text-micro font-semibold text-warn" title="Most events here come from the built-in simulator">SIMULATED</span>
         {!open && latest && (
           <button type="button" key={latest.seq} onClick={() => set({ streamOpen: true })} className="flex min-w-0 items-center gap-2 text-left">
             <SeverityIcon s={latest.severity} />

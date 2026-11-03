@@ -51,15 +51,29 @@ ANSWER_KEYS = {  # the reply object's keys, in the order prompt.txt shows them
     "execution": ["decision", "change", "reason"],
     "safety": ["decision", "change", "reason"],
 }
-# The frozen eval item files at commit f1d3deb (merged into int/v4 at 3bf157d); the build checks the
-# files it indexes against these, so the overlap check is against exactly those item sets.
-F1D3DEB = {
-    "MANIFEST.json": "b12ef1e21c452329bc6812de1568a48d0ecb2b2aa08f4b95326833263399d3c6",
-    "execution.jsonl": "63d04053892d118721eed5c40460c9ae0c878043d464db7b9edc10e2223efd74",
+# The frozen eval item files the build is checked against: W12's x86 re-freeze (t1.execution.refreeze-x86-1,
+# adopted in 482fe5f, merged into int/v4). execution.jsonl and price_latency.jsonl changed (same ids, splits,
+# scenarios, seeds and prefixes; 43 items' state text differs in the last digit); the other three did not.
+# The build refuses item files that differ from these (and from MANIFEST.json, which pins them too).
+# MANIFEST.json re-pinned at c4b4b5e (W12 knowledge parser/grader v3: graders and parser became per-unit maps);
+# the five item files are unchanged, so the overlap re-check does not re-run.
+EVAL_PINS_SOURCE = "c4b4b5e (W12 x86 re-freeze 482fe5f items; MANIFEST from knowledge parser v3)"
+EVAL_PINS = {
+    "MANIFEST.json": "5619852147f72b1f520b22a0de929d5115d44385ed0eb3a42b5b35dd4d60a0d6",
+    "execution.jsonl": "e7d58194bab6b276c44a8ea73f70b273413e425eb5d951a0c9c2e67897200df2",
     "interface.jsonl": "b8347f58171979b1c86a9c651259a8ce1793c2095600e152d55d2fbfee09210c",
     "knowledge.jsonl": "8a687445efd4fc5738615c96ab9da5e8907ee50003233527f24b1bbed48a2df9",
-    "price_latency.jsonl": "4d55adddb52171878f30000e7d7fa969d77bb41cd6e0f33c041927cde185b408",
+    "price_latency.jsonl": "c459173aa269a80276d07983b0adb0c0c97aa09bdd4c9976a133479274b56f12",
     "safety.jsonl": "1ce6f4494cffa54fc385d54dad0a2047a761692c3e3c1e2611928595eae84b75",
+}
+# Superseded pins (f1d3deb, merged at 3bf157d): the dataset t1.sft.data-20261103T034500Z-7c2a was built
+# against these; t1/sft/recheck.py re-checks it against EVAL_PINS.
+SUPERSEDED_PINS = {
+    "f1d3deb": {
+        "MANIFEST.json": "b12ef1e21c452329bc6812de1568a48d0ecb2b2aa08f4b95326833263399d3c6",
+        "execution.jsonl": "63d04053892d118721eed5c40460c9ae0c878043d464db7b9edc10e2223efd74",
+        "price_latency.jsonl": "4d55adddb52171878f30000e7d7fa969d77bb41cd6e0f33c041927cde185b408",
+    },
 }
 
 
@@ -204,7 +218,10 @@ def build(a: argparse.Namespace, out_dir: Path) -> dict[str, Any]:
     plan = plan_counts(a)
     idx = overlap.build_eval_index(a.items_dir or items_dir())
     actual = {**idx.files, "MANIFEST.json": idx.manifest_sha256}
-    identical = {name: actual.get(name) == sha for name, sha in F1D3DEB.items()}
+    identical = {name: actual.get(name) == sha for name, sha in EVAL_PINS.items()}
+    if not all(identical.values()):
+        raise K.JobError(f"eval item files differ from the pins ({EVAL_PINS_SOURCE}): "
+                         f"{sorted(n for n, ok in identical.items() if not ok)}")
     timings: dict[str, float] = {"eval_index_s": round(time.time() - t_start, 2)}
 
     t = time.time()
@@ -253,8 +270,8 @@ def build(a: argparse.Namespace, out_dir: Path) -> dict[str, Any]:
         "kind": "t1-sft-data-manifest", "manifest_version": 1, "run_id": a.run_id, "code_sha": a.code_sha,
         "created_at": K.utc_now(), "dry_run": bool(a.dry_run),
         "eval_contract": {
-            "items_dir": "t1/evals/items", "commit": "f1d3deb (merged into int/v4 at 3bf157d)",
-            "byte_identical_to_f1d3deb": identical, **idx.summary(),
+            "items_dir": "t1/evals/items", "pins_source": EVAL_PINS_SOURCE,
+            "matches_pins": identical, **idx.summary(),
             "parser": parse.PARSER_VERSION, "graders": graders.GRADER_VERSION,
             "prompt_sha256_used": prompting.prompt_sha256(),
         },

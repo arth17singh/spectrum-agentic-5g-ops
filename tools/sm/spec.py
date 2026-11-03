@@ -294,7 +294,7 @@ def build_request(*, run_id: str, job: str, role_arn: str, region: str, bucket: 
     if secrets:
         environment["TEAM13_SECRET_ARNS"] = json.dumps(secrets, sort_keys=True)  # ARNs, never values
     environment.update(env)
-    return {
+    request: dict[str, Any] = {
         "TrainingJobName": job,
         "RoleArn": role_arn,
         "AlgorithmSpecification": {"TrainingImage": image_uri(device, region), "TrainingInputMode": "File"},
@@ -309,12 +309,6 @@ def build_request(*, run_id: str, job: str, role_arn: str, region: str, bucket: 
             "team13_source_sha256": hp(source_sha256),
             "team13_entry": hp(json.dumps(argv)),
         },
-        "InputDataConfig": [
-            {"ChannelName": name, "InputMode": "File",
-             "DataSource": {"S3DataSource": {"S3DataType": "S3Prefix", "S3Uri": uri,
-                                             "S3DataDistributionType": "FullyReplicated"}}}
-            for name, uri in channels
-        ],
         "OutputDataConfig": {"S3OutputPath": f"s3://{bucket}/{JOBS_PREFIX}{run_id}/output"},
         "ResourceConfig": {"InstanceType": instance_type, "InstanceCount": 1, "VolumeSizeInGB": volume_gb},
         "StoppingCondition": {"MaxRuntimeInSeconds": max_run_s},
@@ -323,6 +317,16 @@ def build_request(*, run_id: str, job: str, role_arn: str, region: str, bucket: 
         "Tags": [{"Key": "team", "Value": "team13"}, {"Key": "team13:run_id", "Value": run_id},
                  {"Key": "team13:code_sha", "Value": code_sha}, {"Key": "team13:launcher", "Value": "tools/sm/run.py"}],
     }
+    # CreateTrainingJob rejects an empty InputDataConfig (min length 1) before the call leaves the client,
+    # so a job with no channels (--no-sdk, no --model-s3, no --inputs) must leave the key out entirely.
+    if channels:
+        request["InputDataConfig"] = [
+            {"ChannelName": name, "InputMode": "File",
+             "DataSource": {"S3DataSource": {"S3DataType": "S3Prefix", "S3Uri": uri,
+                                             "S3DataDistributionType": "FullyReplicated"}}}
+            for name, uri in channels
+        ]
+    return request
 
 
 def redacted(request: dict[str, Any]) -> dict[str, Any]:

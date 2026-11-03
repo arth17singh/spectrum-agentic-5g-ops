@@ -115,7 +115,7 @@ def test_check_scripts_import_nothing_from_spectrum_or_the_writer(script):
     assert not mods & {"spectrum", "evlib", "check_unit", "run_unit"}, mods
     # numpy: imported lazily by check_unit's paired-bootstrap replay only (the producers' intervals are numpy
     # PCG64 streams); a third-party library, not code shared with the writer or the dashboard
-    assert mods - {"evfake"} <= set(sys.stdlib_module_names) | {"boto3", "cryptography", "numpy", ""}, mods
+    assert mods - {"evfake"} <= set(sys.stdlib_module_names) | {"boto3", "botocore", "cryptography", "numpy", ""}, mods
 
 
 def test_window_never_comes_from_our_own_records(tmp_path):
@@ -327,6 +327,50 @@ def test_a_record_object_added_after_the_result_fails(tmp_path):
     led.write(fx / "ledger")
     code, ck, _ = check(fx)
     assert code == 1 and "after the result was recorded" in text(ck)
+
+
+def _reledger_result_first(fx):
+    """Rewrite the fixture's ledger so the result is ingested BEFORE the record objects (a sync order only)."""
+    old = [json.loads(x) for x in (fx / "ledger" / "ledger.jsonl").read_text().splitlines()]
+    led = unitfix.MiniLedger()
+    order = sorted(old, key=lambda r: (not r["payload"]["path"].startswith("results/"), r["seq"]))
+    for r in order:
+        pl = r["payload"]
+        led.add(r["type"], pl["path"], (fx / "evidence" / pl["path"]).read_bytes(), pl["run_id"], pl["kind"], r["ts"])
+    led.write(fx / "ledger")
+
+
+def test_ledger_order_inverted_but_s3_order_fine_passes_with_a_note(tmp_path):
+    """The ledger syncs objects in its own order; S3 LastModified says the records were stored before the result."""
+    fx = unitfix.build(tmp_path, "R-objects", HEAD, objects=True)
+    _reledger_result_first(fx)
+    code, ck, _ = check(fx)
+    out = text(ck)
+    assert states(ck)["d"] == "PASS", out
+    assert "ledger order differs from S3 order" in out and "record before result" in out
+    assert "after the result was recorded" not in out
+
+
+def test_record_stored_after_the_result_still_fails_when_the_ledger_agrees_with_s3(tmp_path):
+    fx = unitfix.build(tmp_path, "R-objects", HEAD, objects=True)
+    spec = json.loads((fx / "aws.json").read_text())
+    rel = next(k for k in spec["s3"]["last_modified"] if "/item/" in k)
+    spec["s3"]["last_modified"][rel] = "2026-11-02T18:40:00Z"  # result is 18:32:00
+    (fx / "aws.json").write_text(json.dumps(spec))
+    _reledger_result_first(fx)
+    code, ck, _ = check(fx)
+    assert states(ck)["d"] == "FAIL" and "S3 LastModified agrees" in text(ck)
+
+
+def test_local_evidence_keeps_the_ledger_order_rule_and_says_why(tmp_path):
+    fx = unitfix.build(tmp_path, "R-objects", HEAD, objects=True)
+    _reledger_result_first(fx)
+    ev = check_unit.LocalEvidence(fx / "evidence")
+    ck = check_unit.Checker(RID, ev, None, fx / "ledger", poll_s=0.0)
+    ck.load()
+    ck.decl_time = (None, "")
+    ck.part_d()
+    assert ck.parts["d"].state == "FAIL" and "local evidence has no S3 times" in "\n".join(ck.parts["d"].lines)
 
 
 # ---------------------------------------------------------------------------- part (e)

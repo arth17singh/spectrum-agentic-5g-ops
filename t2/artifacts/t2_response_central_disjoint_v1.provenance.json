@@ -1,0 +1,75 @@
+{
+ "artifact": "t2/artifacts/t2_response_central_disjoint_v1.npz",
+ "artifact_sha256": "c420271990bac2158033e1403de371c777d1240c9d3d67ade5aa104eb51c44ab",
+ "conversion_check": {
+  "equal_to_1e-6": true,
+  "max_abs_anchor_shift_per_label": [
+   0.3351391304825474,
+   0.22266359196675437,
+   9.151957725788343,
+   4.086959226554821
+  ],
+  "max_abs_diff_unanchored_vs_silos": 5.7769872774393605e-09,
+  "no_change_output_on_twin_states": {
+   "labels": [
+    "d_coverage_ratio",
+    "d_sla_ratio",
+    "d_sinr_p10_db",
+    "d_sinr_mean_db"
+   ],
+   "max_abs": [
+    0.044466631228146855,
+    0.012493962164997598,
+    0.26390558240465345,
+    0.05184786481123016
+   ],
+   "mean_abs": [
+    0.01515665147789619,
+    0.007408828178015446,
+    0.08372633668404128,
+    0.020638311213789753
+   ],
+   "measured": true,
+   "rows": 60,
+   "score_scale": [
+    0.02,
+    0.03,
+    0.5,
+    0.35
+   ]
+  },
+  "rows": 512
+ },
+ "evaluation": {
+  "direction_accuracy": {
+   "d_coverage_ratio": 0.9641969169567379,
+   "d_sinr_mean_db": 0.9130287073212162,
+   "d_sinr_p10_db": 0.7556414219474498,
+   "d_sla_ratio": 0.762778730703259
+  },
+  "honest_summary": "a measurement, no pass bar: scaled MAE 0.564 vs 0.887 for predicting no effect; weakest on the viavi-like slices",
+  "mae": {
+   "d_coverage_ratio": 0.009161744192243098,
+   "d_sinr_mean_db": 0.17131101484697678,
+   "d_sinr_p10_db": 0.356073003242141,
+   "d_sla_ratio": 0.017839307732155047
+  },
+  "mean_score": 0.563584212397052,
+  "mean_score_noop": 0.8871458853503728,
+  "shared_test_rows": 10000
+ },
+ "model_id": "t2-response-central-disjoint",
+ "model_kind": "t2-response",
+ "source_s3_uri": "s3://bb26-p-team13-data-483598626742-use2/t2-models/t2.central.disjoint-20261103T041620Z/model.safetensors",
+ "source_sha256": "fe76800152d3dbcf4795cc62c791dc287ff3b919f0e19b0854e7e13d1bea42e4",
+ "training": {
+  "code_sha": "46b4fa380bc01339d987eadb0a13a01eea7f56b3",
+  "epochs": 20,
+  "job_name": "t2-central-disjoint-20261103T041620Z-b4f197",
+  "method": "central",
+  "population": "three simulated operators on the in-process Maveric twin, one account; pooled (central reference, not private, not federated)",
+  "run_id": "t2.central.disjoint-20261103T041620Z",
+  "split": "disjoint"
+ },
+ "version": "v1-041620Z"
+}

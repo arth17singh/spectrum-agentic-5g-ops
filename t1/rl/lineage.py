@@ -215,12 +215,14 @@ def main(argv: list[str] | None = None, aws=None, out=print) -> int:
     ap.add_argument("--model-id", help="model id of the record (default: the training declaration's model_id)")
     ap.add_argument("--profile", default=os.environ.get("AWS_PROFILE"))
     ap.add_argument("--region", default=smspec.REGION)
-    ap.add_argument("--bucket", default=smspec.BUCKET)
+    ap.add_argument("--bucket", help="data bucket (default: $TEAM13_DATA_BUCKET, else from the STS account)")
     a = ap.parse_args(argv)
     if aws is None:
         from tools.sm.run import Aws  # noqa: PLC0415
 
         aws = Aws(a.profile, a.region)
+    a.bucket = a.bucket or smspec.data_bucket(
+        None if os.environ.get(smspec.BUCKET_ENV) else aws.client("sts").get_caller_identity()["Account"])
     store = evlib.S3Store(f"s3://{a.bucket}/{smspec.EVIDENCE_PREFIX}", client=aws.client("s3"), region=a.region)
     try:
         job_rec, model_rec = build(aws, a.run_id, a.job, a.region, a.bucket, a.checkpoint_uri, a.model_id)

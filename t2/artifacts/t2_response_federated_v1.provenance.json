@@ -1,0 +1,221 @@
+{
+ "artifact": "t2/artifacts/t2_response_federated_v1.npz",
+ "artifact_sha256": "77ef3a503a43ff70310c0b03f6e48659ab2f3d5d94131667431ba316da8a9801",
+ "baselines_same_shared_test": {
+  "central": {
+   "direction_accuracy": {
+    "d_coverage_ratio": 0.9641969169567379,
+    "d_sinr_mean_db": 0.9130287073212162,
+    "d_sinr_p10_db": 0.7556414219474498,
+    "d_sla_ratio": 0.762778730703259
+   },
+   "mae": {
+    "d_coverage_ratio": 0.009161744192243098,
+    "d_sinr_mean_db": 0.17131101484697678,
+    "d_sinr_p10_db": 0.356073003242141,
+    "d_sla_ratio": 0.017839307732155047
+   },
+   "mean_score": 0.563584212397052,
+   "mean_score_noop": 0.8871458853503728,
+   "n_items": 10000,
+   "per_segment": {
+    "region_A": 0.40255610787967033,
+    "region_B": 0.37697393607976676,
+    "region_C": 0.5876215088139521,
+    "viavi_default_noise": 0.7354728508615413,
+    "viavi_like": 0.7152966583503296
+   },
+   "run_id": "t2.central.disjoint-20261103T041620Z"
+  },
+  "local_A": {
+   "direction_accuracy": {
+    "d_coverage_ratio": 0.8776727996021879,
+    "d_sinr_mean_db": 0.8559537965007644,
+    "d_sinr_p10_db": 0.7227202472952087,
+    "d_sla_ratio": 0.6974271012006861
+   },
+   "mae": {
+    "d_coverage_ratio": 0.012658719380737819,
+    "d_sinr_mean_db": 0.22241009706439094,
+    "d_sinr_p10_db": 0.38886977779152015,
+    "d_sla_ratio": 0.021983348875268444
+   },
+   "mean_score": 0.6947278101615442,
+   "mean_score_noop": 0.8871458853503728,
+   "n_items": 10000,
+   "per_segment": {
+    "region_A": 0.43835370841022336,
+    "region_B": 0.5035098625380572,
+    "region_C": 0.807031712830792,
+    "viavi_default_noise": 0.864105720497902,
+    "viavi_like": 0.8606380465307465
+   },
+   "run_id": "t2.local_only.A.disjoint-20261103T041539Z"
+  },
+  "local_B": {
+   "direction_accuracy": {
+    "d_coverage_ratio": 0.9224266534062655,
+    "d_sinr_mean_db": 0.8719211822660099,
+    "d_sinr_p10_db": 0.7191653786707882,
+    "d_sla_ratio": 0.7289879931389366
+   },
+   "mae": {
+    "d_coverage_ratio": 0.01165377971924173,
+    "d_sinr_mean_db": 0.20292264490779727,
+    "d_sinr_p10_db": 0.4298635959502697,
+    "d_sla_ratio": 0.01978746421545161
+   },
+   "mean_score": 0.6704443259571327,
+   "mean_score_noop": 0.8871458853503728,
+   "n_items": 10000,
+   "per_segment": {
+    "region_A": 0.8053075813157058,
+    "region_B": 0.3847224017143952,
+    "region_C": 0.6287902483707309,
+    "viavi_default_noise": 0.7848043617976096,
+    "viavi_like": 0.7485970365872217
+   },
+   "run_id": "t2.local_only.B.disjoint-20261103T041553Z"
+  },
+  "local_C": {
+   "direction_accuracy": {
+    "d_coverage_ratio": 0.8960716061660865,
+    "d_sinr_mean_db": 0.8231696959402073,
+    "d_sinr_p10_db": 0.6836166924265842,
+    "d_sla_ratio": 0.7149228130360206
+   },
+   "mae": {
+    "d_coverage_ratio": 0.014993658917674764,
+    "d_sinr_mean_db": 0.2633250033973792,
+    "d_sinr_p10_db": 0.4554009507564948,
+    "d_sla_ratio": 0.021353677769239836
+   },
+   "mean_score": 0.7811578147338334,
+   "mean_score_noop": 0.8871458853503728,
+   "n_items": 10000,
+   "per_segment": {
+    "region_A": 1.03545813979671,
+    "region_B": 0.5821173787127252,
+    "region_C": 0.6582770689464389,
+    "viavi_default_noise": 0.8462001602950474,
+    "viavi_like": 0.783736325918245
+   },
+   "run_id": "t2.local_only.C.disjoint-20261103T041606Z"
+  },
+  "local_fedavg_preview": {
+   "direction_accuracy": {
+    "d_coverage_ratio": 0.917702635504724,
+    "d_sinr_mean_db": 0.8919653473755733,
+    "d_sinr_p10_db": 0.7225656877897991,
+    "d_sla_ratio": 0.727958833619211
+   },
+   "mae": {
+    "d_coverage_ratio": 0.0118656134878342,
+    "d_sinr_mean_db": 0.18242264342118233,
+    "d_sinr_p10_db": 0.3899570311622415,
+    "d_sla_ratio": 0.01973591065128295
+   },
+   "mean_score": 0.6380664944310597,
+   "mean_score_noop": 0.8871458853503728,
+   "n_items": 10000,
+   "per_segment": {
+    "region_A": 0.4668049072336329,
+    "region_B": 0.41529070832154846,
+    "region_C": 0.7385220735220873,
+    "viavi_default_noise": 0.7904549156384983,
+    "viavi_like": 0.7792598674395311
+   },
+   "run_id": "t2.fedavg_local.disjoint-20261103T041634Z"
+  }
+ },
+ "comparisons": {
+  "distance_to_central": "<fill after the compare jobs finish>",
+  "federated_vs_B": "<fill after the compare jobs finish>",
+  "federated_vs_C": "<fill after the compare jobs finish>",
+  "federated_vs_localfedavg": "<fill after the compare jobs finish>"
+ },
+ "conversion_check": {
+  "equal_to_1e-6": true,
+  "max_abs_anchor_shift_per_label": [
+   0.22420526442220698,
+   0.21331432628147323,
+   5.447698513058243,
+   4.072832321899797
+  ],
+  "max_abs_diff_unanchored_vs_silos": 6.037298383443357e-09,
+  "no_change_output_on_twin_states": {
+   "labels": [
+    "d_coverage_ratio",
+    "d_sla_ratio",
+    "d_sinr_p10_db",
+    "d_sinr_mean_db"
+   ],
+   "max_abs": [
+    0.03354259266616054,
+    0.038484369616034096,
+    0.953909971875473,
+    0.5164486637932006
+   ],
+   "mean_abs": [
+    0.009941370730496314,
+    0.02504606615004469,
+    0.5993035369978527,
+    0.28538094419362214
+   ],
+   "measured": true,
+   "rows": 60,
+   "score_scale": [
+    0.02,
+    0.03,
+    0.5,
+    0.35
+   ]
+  },
+  "rows": 512
+ },
+ "evaluation": {
+  "direction_accuracy": {
+   "d_coverage_ratio": 0.9276479363500746,
+   "d_sinr_mean_db": 0.8766774248343808,
+   "d_sinr_p10_db": 0.7259659969088099,
+   "d_sla_ratio": 0.7344768439108061
+  },
+  "mae": {
+   "d_coverage_ratio": 0.011558645017935855,
+   "d_sinr_mean_db": 0.19405753622053729,
+   "d_sinr_p10_db": 0.4033467332813047,
+   "d_sla_ratio": 0.019415237216239965
+  },
+  "mean_score": 0.6465625987053292,
+  "mean_score_noop": 0.8871458853503728,
+  "n_items": 10000,
+  "per_segment": {
+   "region_A": 0.4906190359489609,
+   "region_B": 0.4315769016170103,
+   "region_C": 0.7603178950784011,
+   "viavi_default_noise": 0.7796549818950493,
+   "viavi_like": 0.770644178987224
+  },
+  "run_id": "t2.fl_federated.disjoint-20261103T051311Z"
+ },
+ "federation": {
+  "clients": "3 simulated silos (A: large, moving users, 23-30 dBm; B: mid, 30-37 dBm; C: small, stationary, 43-46 dBm), one account",
+  "final_file": "iteration-21 aggregate, one of three identical client copies (the service's file name is withheld: it names the service)",
+  "final_iteration": 21,
+  "iteration_numbering": "iteration 1 is the initial weights, iterations 2..21 are the 20 trained rounds",
+  "population": "simulated silos on the in-process Maveric twin; not partner data",
+  "protocol": "NN_HFL (secure aggregation, no differential privacy)",
+  "rounds": 20,
+  "session_id": "5fb29b2d83806227d5c80",
+  "split": "disjoint"
+ },
+ "honest_summary": "a measurement, no pass bar (lower scaled MAE is better): federated 0.647 vs 0.887 for predicting no effect; central 0.564; local_A 0.695; local_B 0.670; local_C 0.781; local_fedavg_preview 0.638",
+ "model_id": "t2-response-federated-disjoint",
+ "model_kind": "t2-response",
+ "published_file_sha256": "20b8fa7c986c7952739ef6b3345d7838d4507c3aac2fb6de08f15281af5d9188",
+ "published_s3_uri": "s3://bb26-p-team13-data-<account>-use2/t2-fl/5fb29b2d83806227d5c80/federated.safetensors",
+ "source_artifact": "t2/artifacts/t2_response_federated_v1.source.npz",
+ "version": "v1-5fb29b2d",
+ "weights_canonical_note": "sha256 of nn_core.safetensors_dumps(tensors) with no header metadata; t2_response_federated_v1.source.npz holds the same six float32 tensors",
+ "weights_canonical_sha256": "531cf7246fec54fb3f4b02442779f0c3ca90dd5b362a592fe5759920923765d4"
+}

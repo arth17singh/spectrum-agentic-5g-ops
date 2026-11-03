@@ -6,10 +6,12 @@ validator calls every forbid "overly restrictive" by design) and
 ``definition={"policy": {"statement": ...}}``, exactly like the kit's ``pause nlm``:
 
     forbid (principal, action == AgentCore::Action::"ran___predict", resource == AgentCore::Gateway::"<arn>")
-    when { !(context.input has model_version) || context.input.model_version == "<v>" };
+    unless { context.input has model_version && context.input.model_version != "<v>" };
 
 The ``has`` guard matters: a forbid whose condition reads a missing attribute errors instead of
-denying. With the guard, a call that omits ``model_version`` is refused too, so an agent cannot
+denying. It must be the conjunction form above: AgentCore's validator REJECTS the equivalent
+``when { !(context.input has f) || context.input.f == "<v>" }`` at create time (CREATE_FAILED, "unable to
+guarantee safety of access to optional attribute"), seen live on 3 Nov. With the guard, a call that omits ``model_version`` is refused too, so an agent cannot
 reach the paused version by leaving the field out. A per-version tool (``version_field=None``)
 gets the plain forbid with no condition.
 
@@ -68,7 +70,7 @@ def forbid_statement(gateway_arn: str, target: PauseTarget, version: str) -> str
         return head + ";"
     f = target.version_field
     return (head + "\n"
-            f"when {{ !(context.input has {f}) || context.input.{f} == {_cedar_string(version)} }};")
+            f"unless {{ context.input has {f} && context.input.{f} != {_cedar_string(version)} }};")
 
 
 def _slug(s: str) -> str:

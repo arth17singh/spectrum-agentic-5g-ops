@@ -64,7 +64,7 @@ export default function PresenterPage() {
 
   return (
     <div className="flex h-full flex-col bg-page text-ink-1">
-      <header className="flex h-12 shrink-0 items-center gap-4 border-b border-line px-5">
+      <header className="flex h-12 shrink-0 items-center gap-4 overflow-x-auto border-b border-line px-5 whitespace-nowrap">
         <Wordmark />
         <span className="text-cap text-ink-3">Presenter</span>
         <LiveDot state={!ready ? 'connecting' : conn} label={!ready ? 'Connecting' : conn === 'live' ? 'Live' : conn} />
@@ -83,8 +83,8 @@ export default function PresenterPage() {
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[1fr_360px]">
-        <main className="flex min-h-0 flex-col overflow-auto p-8">
+      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[1fr_360px]">
+        <main className="flex min-h-0 min-w-0 flex-col overflow-auto p-4 sm:p-8">
           <div className="text-cap text-ink-3">{beat ? `Beat ${beat.n} of ${list.length}, on ${beat.route}` : 'Ready. Press → or the clicker to start.'}</div>
           <h1 className="mt-1 text-[40px] leading-[46px] font-semibold tracking-[-0.02em]">{beat ? beat.title : 'Cold open is next'}</h1>
           <div className="mt-6 max-w-[62ch] rounded-[12px] border border-line bg-s1 p-6">
@@ -110,11 +110,11 @@ export default function PresenterPage() {
             )}
             <div className="flex gap-3">
               <button type="button" onClick={() => go(cur - 1)} disabled={cur <= 1}
-                className="flex h-16 w-40 items-center justify-center gap-2 rounded-[12px] border border-line text-[18px] text-ink-2 hover:bg-s2 disabled:opacity-30">
+                className="flex h-16 w-24 shrink-0 items-center sm:w-40 justify-center gap-2 rounded-[12px] border border-line text-[18px] text-ink-2 hover:bg-s2 disabled:opacity-30">
                 <ChevronLeft size={22} /> Back
               </button>
               <button type="button" onClick={() => go(cur + 1)} disabled={cur >= list.length}
-                className="flex h-16 flex-1 items-center justify-center gap-2 rounded-[12px] bg-ink-1 text-[20px] font-semibold text-page hover:bg-ink-2 disabled:opacity-40">
+                className="flex h-16 min-w-0 flex-1 items-center justify-center gap-2 rounded-[12px] bg-ink-1 text-[20px] font-semibold text-page hover:bg-ink-2 disabled:opacity-40">
                 {next ? `Next: ${next.title}` : 'End of script'} <ChevronRight size={24} />
               </button>
             </div>
@@ -126,7 +126,7 @@ export default function PresenterPage() {
           </div>
         </main>
 
-        <aside className="flex min-h-0 flex-col border-l border-line">
+        <aside className="hidden min-h-0 flex-col border-l border-line md:flex">
           <ol className="min-h-0 flex-1 overflow-auto py-2">
             {list.map((b) => (
               <li key={b.n}>

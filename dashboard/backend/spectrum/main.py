@@ -81,7 +81,9 @@ def ok(**kw):
 @app.get("/api/config")
 async def config(request: Request):
     cfg = {"mode": MODE, "seed": SEED, "version": "0.1.0", "warm_ms": engine.warm_ms,
-           "adapters": adapters.describe(), "region": "us-west-2"}
+           "adapters": adapters.describe(), "region": "us-west-2",
+           # real mode: the evidence ledger holds runs (cheap scan, no summary); the console lands on /scorecard
+           "real_data": any((r.get("payload") or {}).get("run_id") for r in evidence.ledger.records)}
     # the Director puts the token in its phone link; only this laptop is ever handed it
     return {**cfg, "access_token": TOKEN} if is_loopback(request.client) else cfg
 

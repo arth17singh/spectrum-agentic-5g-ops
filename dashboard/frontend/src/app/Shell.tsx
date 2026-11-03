@@ -7,11 +7,13 @@ import { useLive } from '@/core/store'
 import { useUi } from '@/core/ui-store'
 import { startLive } from '@/core/ws'
 import { features } from '@/features'
+import { SimBanner } from '@/ui'
 import { Director } from './Director'
 import { useHotkeys } from './hotkeys'
 import { Inspector } from './Inspector'
 import { CommandPalette, HelpOverlay, Toasts } from './Overlays'
 import { Rail } from './Rail'
+import { isSimPath, useIsRealRoute } from './realRoute'
 import { Ribbon } from './Ribbon'
 import { StreamDrawer } from './StreamDrawer'
 import { TopBar } from './TopBar'
@@ -57,7 +59,23 @@ function useFollowDirector() {
   }, [started])
 }
 
+/** When the backend serves real evidence runs (`real_data` on the small /api/config, not the big snapshot),
+ *  the first landing on "/" goes to the Scorecard, once per page load. Mission Control stays reachable. */
+let landed = false
+function useRealLanding() {
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  useEffect(() => {
+    if (landed) return
+    landed = true
+    if (pathname !== '/') return
+    api.config().then((c) => { if (c?.real_data && window.location.pathname === '/') navigate('/scorecard', { replace: true }) }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+}
+
 function Layout() {
+  useRealLanding()
   useHotkeys()
   useFollowDirector()
   const ready = useLive((s) => s.ready)
@@ -67,10 +85,15 @@ function Layout() {
     const id = setTimeout(warm, 800)
     return () => clearTimeout(id)
   }, [ready])
+  const { pathname } = useLocation()
+  const real = useIsRealRoute()
+  const sim = isSimPath(pathname)
   return (
     <div className="flex h-full flex-col">
       <TopBar />
-      <Gate flag="shell.ribbon"><Ribbon /></Gate>
+      {/* the ribbon and the stream drawer show simulator numbers: not on routes that show measured records */}
+      {!real && <Gate flag="shell.ribbon"><Ribbon /></Gate>}
+      {sim && <SimBanner approvals={pathname.startsWith('/oversight')} />}
       <div className="relative flex min-h-0 flex-1">
         <Rail />
         <main className="min-w-0 flex-1 overflow-auto px-6 pt-5 pb-8">
@@ -84,7 +107,7 @@ function Layout() {
         </main>
         <Inspector />
       </div>
-      <Gate flag="shell.stream"><StreamDrawer /></Gate>
+      {!real && <Gate flag="shell.stream"><StreamDrawer /></Gate>}
       <Director />
       <CommandPalette />
       <HelpOverlay />

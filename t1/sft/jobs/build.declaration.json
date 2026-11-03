@@ -23,7 +23,7 @@
                               "constant_max_share": 0.5}}
   },
   "decoding": {
-    "test_set_is": "t1/evals/items/MANIFEST.json at the launch commit (f1d3deb's frozen items, merged into int/v4): it pins the sha256 of all five item files; the job checks every file against it",
+    "test_set_is": "t1/evals/items/MANIFEST.json at the launch commit (W12's x86 re-freeze, adopted in 482fe5f): it pins the sha256 of all five item files; the job checks every file against it and against t1/sft/build.py EVAL_PINS",
     "job": {"entry": "t1.sft.build", "instance_type": "ml.c5.4xlarge", "workers": 16,
             "n_execution": 2000, "n_interface": 1000, "n_safety": 1200, "dev_fraction": 0.1, "time_budget_s": 3000,
             "split": "sha256(t1-sft-split-v1, unit, key); execution key = twin seed",

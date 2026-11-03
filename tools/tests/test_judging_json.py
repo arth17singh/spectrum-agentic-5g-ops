@@ -108,3 +108,25 @@ def test_missing_store_is_exit_2(tmp_path):
 def test_s3_path_needs_a_valid_uri(tmp_path):
     skeleton(tmp_path)
     assert jj.main(["--s3", "not-a-uri", "--judging", str(tmp_path / "judging.json")]) == 2
+
+
+def test_slots_report(tmp_path, capsys):
+    j = tmp_path / "judging.json"
+    doc = {"run_ids": ["a", "e1", "e2"],
+           "slots": [{"slot": 1, "name": "x", "status": "filled", "run_id": "a"},
+                     {"slot": 2, "name": "y", "status": "pending", "run_id": None, "waiting_for": "z", "base_run_id": "b"}],
+           "edge_cases": [{"slot": "E1", "name": "w", "status": "filled", "run_ids": ["e1", "e2"]}]}
+    j.write_text(json.dumps(doc))
+    assert jj.main(["--slots-report", "--judging", str(j)]) == 0
+    out = capsys.readouterr().out
+    assert "1 of 2 slots filled; 1 of 1 edge cases filled; 3 run id(s) listed" in out
+    doc["run_ids"] = ["a", "e1"]  # an edge-case run is missing from run_ids
+    j.write_text(json.dumps(doc))
+    assert jj.main(["--slots-report", "--judging", str(j)]) == 1
+    doc["run_ids"] = ["a", "e1", "e2", "stray"]
+    j.write_text(json.dumps(doc))
+    assert jj.main(["--slots-report", "--judging", str(j)]) == 1
+    doc["run_ids"] = ["a", "e1", "e2"]
+    doc["slots"][1].update(status="filled")  # filled without naming a run
+    j.write_text(json.dumps(doc))
+    assert jj.main(["--slots-report", "--judging", str(j)]) == 1

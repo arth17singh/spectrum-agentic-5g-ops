@@ -77,9 +77,9 @@ def env_run_id() -> str | None:
 
 
 def code_sha_or_unknown() -> str:
-    """The commit the job runs: $CODE_SHA (set by the job runner; containers often lack the repo
-    history), else the repo HEAD, else "unknown" (which evlib/contracts reject, so a real run stops)."""
-    env = os.environ.get("CODE_SHA", "").strip()
+    """The commit the job runs: $CODE_SHA or $TEAM13_CODE_SHA (set by tools/sm/run.py; containers often lack
+    the repo history), else the repo HEAD, else "unknown" (which evlib/contracts reject, so a real run stops)."""
+    env = (os.environ.get("CODE_SHA") or os.environ.get("TEAM13_CODE_SHA") or "").strip()
     if env:
         return env
     from .demo import code_sha
@@ -103,8 +103,11 @@ def gate_target(model: str) -> dict:
 
 
 def ladder_target(model: str) -> dict:
-    op = ">" if model == "healthy" else "<"
-    return {"metric": "mean_score", "op": op, "value": 0, "unit": "objective gain on MAVERIC (R1)"}
+    """healthy: the paired-bootstrap-v1 95 % lower bound of the mean R1 gain > 0 (check_unit replays it from the
+    items with details.gain); degraded: the mean R1 gain < 0."""
+    if model == "healthy":
+        return {"metric": "gain_ci_low", "op": ">", "value": 0, "unit": "objective gain on MAVERIC (R1), 95% CI low"}
+    return {"metric": "mean_score", "op": "<", "value": 0, "unit": "objective gain on MAVERIC (R1)"}
 
 
 def gate_declaration(*, run_id: str, version: str, model: str, code_sha: str, region: str, testset: dict,
@@ -120,17 +123,16 @@ def gate_declaration(*, run_id: str, version: str, model: str, code_sha: str, re
                  "config": {"preset": testset["config"], "seeds": [testset["seeds"][0], testset["seeds"][-1]],
                             "thresholds_version": version, "thresholds_sha256": testset["thresholds"][version],
                             "command": gate_command(version, model),
-                            "references": {"declaration_commit": "ed7d3c4", "laptop_run_commit": "dd15c54",
-                                           "laptop_summary": "t3/trust/runs/v2_eval.json"},
-                            "note": REMEASURE_NOTE_GATE}},
+                            "references": testset.get("references", {}),
+                            "note": testset.get("provenance", REMEASURE_NOTE_GATE)}},
     }
 
 
 def ladder_declaration(*, run_id: str, model: str, code_sha: str, region: str, testset: dict, testset_sha: str,
                        twin_version: str | None) -> dict:
     """Contract-shaped (no top-level extras): the run context lives in twin.config."""
-    also = ("bootstrap 95 % CI lower bound of the healthy R1 mean gain > 0 (reported in "
-            "details.declared_ci_condition; check_unit recomputes the mean only)") if model == "healthy" else None
+    also = ("the target is the paired-bootstrap-v1 95 % CI lower bound of the mean R1 gain (spec in details.gain, "
+            "replayed by check_unit from the items); the mean itself is details.gain.value") if model == "healthy" else None
     r1, r2 = testset["rungs"]["R1"], testset["rungs"]["R2"]
     return {
         "run_id": run_id, "unit": "t3.ladder", "track": "track-3", "target": ladder_target(model),
@@ -144,10 +146,20 @@ def ladder_declaration(*, run_id: str, model: str, code_sha: str, region: str, t
                             "measured_not_targeted": ["R2 (REHEARSAL) gain and CI",
                                                       "settings shift REHEARSAL / MAVERIC"],
                             "command": ladder_command(model),
-                            "references": {"laptop_run_commit": "f4a75a2",
-                                           "laptop_report": "t3/trust/runs/ladder_report.json"},
-                            "note": REMEASURE_NOTE_LADDER}},
+                            "references": testset.get("references", {}),
+                            "note": testset.get("provenance", REMEASURE_NOTE_LADDER)}},
     }
+
+
+GATE_TESTSET_FRESH = TESTSETS / "gate_eval_3000_3019.json"
+LADDER_TESTSET_FRESH = TESTSETS / "ladder_4000_4019.json"
+FRESH_NOTE_GATE = ("Fresh for the trust gate: twin seeds 3000-3019 have never been through the gate (calibration used "
+                   "20000-20039, the demos 0 and 1000-1009, the v2 evaluation 2000-2019). They were used by the laptop "
+                   "LADDER runs (f4a75a2), which choose changes with the predictors but never run the gate rule; no "
+                   "threshold was chosen on them. Thresholds v1 as declared (sha256 d051c1e0...), untouched since 2c8a57c.")
+FRESH_NOTE_LADDER = ("Fresh ladder seeds 4000-4019: never used by any run (the t2 dataset used 10000-10699, calibration "
+                     "20000-20039, demos 0 and 1000-1009, gate evaluation 2000-2019, the laptop ladder 3000-3019). "
+                     "Earlier laptop ladder: f4a75a2 / t3/trust/runs/ladder_report.json.")
 
 
 def build_testsets() -> dict[Path, dict]:
@@ -164,21 +176,80 @@ def build_testsets() -> dict[Path, dict]:
                            "fault": "tilt_reversed"}}
     common = {"artifact": ARTIFACT, "artifact_sha256": art_sha, "models": models,
               "script": "t3/trust/scripted_changes.json", "script_sha256": script_sha}
+    thresholds = {v: load_thresholds(thresholds_path(v))[1] for v in ("v1", "v2")}
+    bar = {"healthy_false_pauses_max": 2, "degraded_paused_by_change_6_min": 19}
+    rungs = {"R1": {"name": "maveric", "label": "MAVERIC", "config": "official", "scenario": "nominal"},
+             "R2": {"name": "rehearsal", "label": "REHEARSAL (Viavi-like Maveric)", "config": "viavi-like",
+                    "scenario": "viavi_stationary"}}
     gate = dict(common, what="trust-gate evaluation seeds (fresh for v2; used once before on the laptop, dd15c54)",
                 seeds=list(range(2000, 2020)), changes=24, scenario="nominal", config="official",
-                thresholds={v: load_thresholds(thresholds_path(v))[1] for v in ("v1", "v2")},
-                success_bar={"healthy_false_pauses_max": 2, "degraded_paused_by_change_6_min": 19})
+                thresholds=thresholds, success_bar=bar, provenance=REMEASURE_NOTE_GATE,
+                references={"declaration_commit": "ed7d3c4", "laptop_run_commit": "dd15c54",
+                            "laptop_summary": "t3/trust/runs/v2_eval.json"})
+    gate_fresh = dict(common, what="trust-gate evaluation seeds 3000-3019, fresh for the gate",
+                      seeds=list(range(3000, 3020)), changes=24, scenario="nominal", config="official",
+                      thresholds=thresholds, success_bar=bar, provenance=FRESH_NOTE_GATE,
+                      references={"thresholds_v1_commit": "2c8a57c", "v2_declaration_commit": "ed7d3c4",
+                                  "laptop_v2_eval": "t3/trust/runs/v2_eval.json"})
     lad = dict(common, what="ladder seeds (used once before on the laptop, f4a75a2)", seeds=list(range(3000, 3020)),
-               steps=5, rungs={"R1": {"name": "maveric", "label": "MAVERIC", "config": "official", "scenario": "nominal"},
-                               "R2": {"name": "rehearsal", "label": "REHEARSAL (Viavi-like Maveric)",
-                                      "config": "viavi-like", "scenario": "viavi_stationary"}})
-    return {GATE_TESTSET: gate, LADDER_TESTSET: lad}
+               steps=5, rungs=rungs, provenance=REMEASURE_NOTE_LADDER,
+               references={"laptop_run_commit": "f4a75a2", "laptop_report": "t3/trust/runs/ladder_report.json"})
+    lad_fresh = dict(common, what="ladder seeds 4000-4019, fresh", seeds=list(range(4000, 4020)), steps=5, rungs=rungs,
+                     provenance=FRESH_NOTE_LADDER,
+                     references={"laptop_run_commit": "f4a75a2", "laptop_report": "t3/trust/runs/ladder_report.json"})
+    return {GATE_TESTSET: gate, LADDER_TESTSET: lad, GATE_TESTSET_FRESH: gate_fresh, LADDER_TESTSET_FRESH: lad_fresh}
 
 
 def write_testsets() -> None:
     TESTSETS.mkdir(exist_ok=True)
     for path, doc in build_testsets().items():
         path.write_text(json.dumps(doc, indent=1, sort_keys=True) + "\n")
+
+
+def testset_path(arg: str | None, default: Path) -> Path:
+    p = Path(arg) if arg else default
+    return p if p.is_absolute() else HERE.parent.parent / p
+
+
+# ---------------------------------------------------------------- runner declarations (tools/sm/run.py --declaration)
+RUNNER_RUNS = {
+    # judged runs 17-19, on fresh seeds
+    "run17_gate_v1_healthy": ("gate", "v1", "healthy", GATE_TESTSET_FRESH),
+    "run18_gate_v1_degraded": ("gate", "v1", "degraded", GATE_TESTSET_FRESH),
+    "run19_ladder_healthy": ("ladder", None, "healthy", LADDER_TESTSET_FRESH),
+}
+
+
+def rel(p: Path) -> str:
+    return p.relative_to(HERE.parent.parent).as_posix()
+
+
+def runner_declaration(kind: str, version: str | None, model: str, ts_path: Path, twin_version: str) -> tuple[dict, str]:
+    """(declaration JSON for tools/sm/run.py --declaration, the --entry string). The runner adds run_id,
+    code_sha, region and declared_at and hashes test_set at the pinned commit."""
+    ts, ts_sha = load_testset(ts_path)
+    args = dict(run_id="x", code_sha="x", region="us-east-2", testset=ts, testset_sha=ts_sha, twin_version=twin_version)
+    if kind == "gate":
+        d = gate_declaration(version=version, model=model, **args)
+        entry = f"-m t3.trust.job_gate_eval --version {version} --model {model} --testset {rel(ts_path)}"
+    else:
+        d = ladder_declaration(model=model, **args)
+        entry = f"-m t3.trust.job_ladder --model {model} --testset {rel(ts_path)}"
+    d["twin"]["config"]["command"] = "python " + entry
+    for k in ("run_id", "code_sha", "region", "test_set_sha256"):
+        d.pop(k)
+    d["test_set"] = rel(ts_path)
+    return d, entry
+
+
+def write_runner_declarations(twin_version: str) -> dict[str, str]:
+    DECLARATIONS.mkdir(exist_ok=True)
+    out = {}
+    for name, (kind, v, m, ts) in RUNNER_RUNS.items():
+        d, entry = runner_declaration(kind, v, m, ts, twin_version)
+        (DECLARATIONS / f"{name}.json").write_text(json.dumps(d, indent=1) + "\n")
+        out[name] = entry
+    return out
 
 
 def load_testset(path: Path) -> tuple[dict, str]:
@@ -241,7 +312,8 @@ class Sink:
 
 # ---------------------------------------------------------------- gate evaluation
 def run_gate_eval(*, version: str, model: str, run_id: str, seeds: list[int], twin_factory, kpis, predictor,
-                  changes, thresholds_path, testset_sha: str, code_sha: str, synthetic: bool = False) -> dict:
+                  changes, thresholds_path, testset_sha: str, code_sha: str, synthetic: bool = False,
+                  provenance: str | None = None) -> dict:
     from .demo import run_case
     from .gate import TrustGate
     from .policy import PolicyClient
@@ -274,7 +346,7 @@ def run_gate_eval(*, version: str, model: str, run_id: str, seeds: list[int], tw
                "paused_by_6": sum(x is not None and x <= 6 for x in paused),
                "paused_by_6_ci95": wilson(sum(x is not None and x <= 6 for x in paused), n),
                "paused_at": paused, "seeds": seeds, "interval": "Wilson 95 %",
-               "note": REMEASURE_NOTE_GATE, "policy_client": "dry run (pause forbids simulated; control records synthetic)"}
+               "note": provenance or REMEASURE_NOTE_GATE, "policy_client": "dry run (pause forbids simulated; control records synthetic)"}
     result = make_result_record(run_id=run_id, unit=f"t3.trust_gate.{version}.{model}", metric=target["metric"],
                                 value=value, target=target, passed=passed, n_items=n,
                                 checker={"script": "t3/trust/jobs.py", "code_sha": code_sha}, details=details,
@@ -292,7 +364,7 @@ def _env(rec: dict, run_id: str, kind: str, synthetic: bool) -> dict:
 
 # ---------------------------------------------------------------- ladder
 def run_ladder_job(*, model: str, run_id: str, seeds: list[int], rungs: list[dict], kpis, predictor, changes,
-                   testset_sha: str, code_sha: str, synthetic: bool = False) -> dict:
+                   testset_sha: str, code_sha: str, synthetic: bool = False, provenance: str | None = None) -> dict:
     from .ladder import OBJECTIVE, OBJECTIVE_SHA, ladder
     from .records import make_result_record
 
@@ -319,20 +391,48 @@ def run_ladder_job(*, model: str, run_id: str, seeds: list[int], rungs: list[dic
                           run_id, "item", synthetic))
     sink.append_records(run_id, "item", items)
     target = ladder_target(model)
-    value = float(np.mean([it["score"] for it in items]))
+    mean = float(np.mean([it["score"] for it in items]))
+    gain = paired_bootstrap_spec(items)
+    if target["metric"] == "gain_ci_low":
+        value = gain["ci_low"]
+    else:
+        value = mean
     passed = value > 0 if target["op"] == ">" else value < 0
-    ci = bootstrap_mean_ci([it["score"] for it in items])
     details = dict(lad["details"])
-    details.update({"role": model, "objective": OBJECTIVE, "objective_sha256": OBJECTIVE_SHA,
-                    "r1_mean_gain": value, "r1_gain_ci95": list(ci) if ci else None, "note": REMEASURE_NOTE_LADDER})
-    if model == "healthy":
-        details["declared_ci_condition"] = {"text": "bootstrap 95 % CI lower bound of the R1 mean gain > 0",
-                                            "ci_low": ci[0] if ci else None, "met": bool(ci and ci[0] > 0)}
+    details.update({"role": model, "objective": OBJECTIVE, "objective_sha256": OBJECTIVE_SHA, "gain": gain,
+                    "r1_mean_gain": mean, "r1_gain_ci95": [gain["ci_low"], gain["ci_high"]],
+                    "note": REMEASURE_NOTE_LADDER if not provenance else provenance})
     result = make_result_record(run_id=run_id, unit="t3.ladder", metric=target["metric"], value=value,
                                 target=target, passed=passed, n_items=len(items),
                                 checker={"script": "t3/trust/jobs.py", "code_sha": code_sha}, details=details,
                                 synthetic=synthetic)
     return {"sink": sink, "result": result, "items": items, "ladder": lad}
+
+
+# ---------------------------------------------------------------- paired-bootstrap-v1 (tools/check_unit.py CI_FIELDS)
+CI_SEED, CI_RESAMPLES, CI_LEVEL = 0, 10000, 0.95
+
+
+def paired_bootstrap_spec(items: list[dict], *, seed: int = CI_SEED, resamples: int = CI_RESAMPLES,
+                          level: float = CI_LEVEL) -> dict:
+    """The interval check_unit part e replays: no baseline run (each item's score already is the gain over
+    the exact no-change counterfactual), one pair per item, groups = item ids in sorted order (np.unique),
+    numpy PCG64 stream, linear quantiles. Same arithmetic as check_unit.paired_bootstrap_v1."""
+    ids = sorted(it["item_id"] for it in items)
+    by = {it["item_id"]: float(it["score"]) for it in items}
+    d = np.asarray([by[i] for i in ids], dtype=np.float64)
+    rng = np.random.default_rng(seed)
+    uniq, inv = np.unique(np.asarray(ids), return_inverse=True)
+    g_sum = np.bincount(inv, weights=d, minlength=len(uniq))
+    g_n = np.bincount(inv, minlength=len(uniq)).astype(np.float64)
+    idx = rng.integers(0, len(uniq), size=(resamples, len(uniq)))
+    stats = g_sum[idx].sum(axis=1) / g_n[idx].sum(axis=1)
+    a = (1.0 - level) / 2.0
+    lo, hi = np.quantile(stats, [a, 1.0 - a])
+    return {"method": "paired-bootstrap-v1", "seed": seed, "resamples": resamples, "level": level,
+            "pair_key": "item_id", "score_field": "score", "baseline_run_id": None, "cluster_field": None,
+            "subset": None, "value": float(d.mean()), "ci_low": float(lo), "ci_high": float(hi),
+            "paired_n": int(len(ids)), "numpy": np.__version__}
 
 
 # ---------------------------------------------------------------- shared CLI flow
@@ -398,6 +498,13 @@ def write_templates() -> None:
 
 
 if __name__ == "__main__":
+    from .job_gate_eval import twin_version
+
     write_testsets()
     write_templates()
+    tv = twin_version()
+    if not tv:
+        raise SystemExit("twin.replay is needed to name the twin version in the runner declarations")
+    for name, entry in write_runner_declarations(tv).items():
+        print(f"{name}: --entry \"{entry}\"")
     print("wrote", sorted(p.name for p in TESTSETS.iterdir()), sorted(p.name for p in DECLARATIONS.iterdir()))
