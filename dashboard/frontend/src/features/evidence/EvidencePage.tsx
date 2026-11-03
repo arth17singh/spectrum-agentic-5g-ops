@@ -14,6 +14,8 @@ import { Button, CodeBlock, Hash, PageHeader, Panel, RealChip, StatusPill } from
 import manifest from './manifest'
 import JudgedRuns from './JudgedRuns'
 import RunExplorer from './RunExplorer'
+import { Link } from 'react-router-dom'
+import { RunLink } from '../scorecard/RealRuns'
 import { useBrowserVerify, type BrowserVerify } from './verify'
 
 // Every value on this screen comes from the persisted evidence ledger (GET /api/evidence, evidence.*
@@ -240,7 +242,7 @@ function RunRow({ r, open, onToggle }: { r: Rec; open: boolean; onToggle: () => 
     <tr onClick={onToggle} aria-expanded={open} className={clsx('cursor-pointer border-b border-line/60', open ? 'bg-s2' : 'hover:bg-s2/60')}>
       <td className="pl-3 text-ink-3">{open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</td>
       <td className="px-3 py-2">
-        <div className="mono whitespace-nowrap text-ink-1">{r.run_id}</div>
+        <div className="whitespace-nowrap" onClick={(e) => e.stopPropagation()}><RunLink id={r.run_id} className="text-cap" /></div>
         <div className="mt-0.5 flex items-center gap-1.5 text-micro text-ink-3">
           {r.judged && <span className="rounded border border-prove/50 px-1 text-ink-2">judged</span>}
           {r.declaration_status === 'invalid' && <StatusPill status="critical" size="sm">invalid declaration</StatusPill>}
@@ -280,6 +282,12 @@ function RunDetail({ runId, summary, bv, records, fp }: { runId: string; summary
   const picked = recs.find((r) => r.seq === sel) ?? null
   return (
     <div className="grid grid-cols-12 gap-4 px-4 py-4">
+      <div className="col-span-12">
+        <Link to={`/evidence?run=${encodeURIComponent(runId)}`} data-testid="open-chain"
+          className="inline-flex items-center gap-1.5 rounded-md border border-line bg-s2 px-3 py-1.5 text-cap font-medium text-ink-1 hover:bg-s3 focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]">
+          Open evidence chain for <span className="mono">{runId}</span> →
+        </Link>
+      </div>
       <div className="col-span-12 2xl:col-span-4">
         <div className="mb-2 text-micro font-medium text-ink-3">Checks for this run{CHECKS.every((c) => summary.checks?.[c.id]?.state === 'unverified') ? ': unverified, because the ledger they come from does not verify' : ''}</div>
         <ul className="grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line md:grid-cols-2 2xl:grid-cols-1">
@@ -437,7 +445,7 @@ function RecentRecords({ recent }: { recent: LedgerRecord[] }) {
           <table className="w-full text-cap">
             <thead className="sticky top-0 bg-s1">
               <tr className="border-b border-line text-left text-micro text-ink-3">
-                {['#', 'Recorded (UTC)', 'Record', 'Path', 'Hash'].map((h) => <th key={h} className="px-3 py-1.5 font-medium whitespace-nowrap">{h}</th>)}
+                {['#', 'Recorded (UTC)', 'Record', 'Run', 'Path', 'Hash'].map((h) => <th key={h} className="px-3 py-1.5 font-medium whitespace-nowrap">{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -449,6 +457,7 @@ function RecentRecords({ recent }: { recent: LedgerRecord[] }) {
                     <td className="tnum mono px-3 py-1.5 text-ink-1">{r.seq}</td>
                     <td className="tnum mono px-3 whitespace-nowrap text-ink-3">{utc(r.ts, false)}</td>
                     <td className="px-3 whitespace-nowrap"><span className={clsx('flex items-center gap-1.5', warn ? 'text-critical-ink' : 'text-ink-2')}><G size={12} />{r.type.replace('evidence.', '')}{r.payload?.status === 'invalid' ? ' (invalid)' : ''}</span></td>
+                    <td className="px-3 whitespace-nowrap">{r.payload?.run_id ? <RunLink id={r.payload.run_id} /> : <span className="text-ink-3">—</span>}</td>
                     <td className="mono max-w-[300px] truncate px-3 text-ink-2" title={r.payload?.path}>{shortPath(r.payload?.path)}</td>
                     <td className="mono px-3 whitespace-nowrap text-ink-2">{shortHash(r.hash, 8, 4)}</td>
                   </tr>

@@ -1,8 +1,8 @@
 import clsx from 'clsx'
 import { CircleCheck, CircleDashed, CircleHelp, CircleX } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { get } from '@/core/api'
+import { api, get } from '@/core/api'
 import type { Rec } from '@/core/types'
 import { CodeBlock, Panel } from '@/ui'
 import { checkWords } from './checkWords'
@@ -33,9 +33,15 @@ export default function RunExplorer() {
   useEffect(() => { get<Overview>('/api/realrun/overview').then(setOv).catch((e) => setErr(String(e))) }, [])
   const runs = (ov?.runs ?? []).slice().sort((a, b) => Number(b.headline) - Number(a.headline) || String(a.run_id).localeCompare(String(b.run_id)))
   const pick = (id: string) => setParams(id ? { run: id } : {}, { replace: true })
+  const anchor = useRef<HTMLDivElement | null>(null)
+  // opening a run (from any link on the page, or a deep link) brings its evidence chain into view
+  useEffect(() => { if (run) anchor.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [run])
+  // scroll after the chain has unmounted, or the target position is measured on the taller page
+  const back = () => { pick(''); setTimeout(() => document.querySelector('[data-panel="runs"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60) }
 
   return (
-    <Panel id="run-explorer" plane="prove" className="mt-4" title="Run explorer"
+    <div ref={anchor} className="scroll-mt-4" data-testid="run-explorer-anchor">
+    <Panel id="run-explorer" plane="prove" className="mt-4" title={run ? 'Evidence chain' : 'Run explorer'}
       subtitle={ov?.source?.has_mirror ? `${runs.length} runs in the S3 evidence mirror, synced ${utc(ov.source.synced_at)}` : 'needs make evidence-sync'}>
       {err && <div className="text-cap text-critical-ink">Explorer unavailable: <span className="mono">{err}</span></div>}
       {ov && !ov.source?.has_mirror && <div className="text-cap text-ink-2">No local evidence mirror. Run <span className="mono">make evidence-sync</span> and start with <span className="mono">make demo-real</span>.</div>}
@@ -49,10 +55,51 @@ export default function RunExplorer() {
               {runs.map((r) => <option key={r.run_id} value={r.run_id}>{r.run_id}{r.headline ? '' : '  (check / data)'}{r.result ? '' : '  (no result yet)'}</option>)}
             </select>
           </label>
+          {run && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-line bg-s2/60 px-3 py-2" data-testid="chain-heading">
+              <span className="text-cap text-ink-2">Evidence chain for</span>
+              <span className="mono text-cap font-semibold text-ink-1 [overflow-wrap:anywhere]">{run}</span>
+              <span className="text-micro text-ink-3">declaration → code → job → records with AWS times → result → check_unit a–e → ledger entries</span>
+              <button type="button" onClick={back} className="ml-auto rounded-sm text-micro text-ink-1 underline underline-offset-2 hover:text-[color:var(--prove)] focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]">← Back to all runs</button>
+            </div>
+          )}
           {run && <Chain key={run} id={run} />}
         </>
       )}
     </Panel>
+    </div>
+  )
+}
+
+/** That run's own ledger entries (seq, type, path, hash), from GET /api/evidence/runs/<id> (first page). */
+function LedgerEntries({ id }: { id: string }) {
+  const [d, setD] = useState<Rec | null>(null)
+  useEffect(() => {
+    let alive = true
+    api.evidenceRun(id).then((x: Rec) => alive && setD(x)).catch(() => alive && setD({ records: [], error: true }))
+    return () => { alive = false }
+  }, [id])
+  if (!d) return <div>Reading the ledger…</div>
+  const recs: Rec[] = d.records ?? []
+  if (!recs.length) return <div>{d.error ? 'The ledger entries could not be read.' : 'No ledger entries for this run yet.'}</div>
+  return (
+    <>
+      <div>{d.total_records ?? recs.length} entr{(d.total_records ?? recs.length) === 1 ? 'y' : 'ies'} in the signed ledger{(d.total_records ?? 0) > 10 ? '; the first 10:' : ':'}</div>
+      <div className="max-h-48 overflow-auto rounded-md border border-line">
+        <table className="w-full text-micro">
+          <tbody>
+            {recs.slice(0, 10).map((r) => (
+              <tr key={r.seq} className="border-b border-line/50">
+                <td className="tnum mono px-2 py-0.5 text-ink-1">#{r.seq}</td>
+                <td className="px-2 text-ink-2">{String(r.type ?? '').replace('evidence.', '')}</td>
+                <td className="mono max-w-[200px] truncate px-2 text-ink-3" title={r.payload?.path}>{r.payload?.path}</td>
+                <td className="mono px-2 text-ink-3" title={r.hash}>{String(r.hash ?? '').slice(0, 10)}…</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   )
 }
 
@@ -93,12 +140,16 @@ function Chain({ id }: { id: string }) {
             <div>{firstJob ? <>first job CreationTime <span className="mono">{utc(firstJob)}</span> (SageMaker): declaration {d.declared_before_job ? <b className="text-good-ink">stored before</b> : <b className="text-critical-ink">NOT before</b>} the job</> : 'no SageMaker job for this run'}</div>
           </> : <div className="text-critical-ink">No declaration: nothing was promised before this run, so it is not scored.</div>}
         </Step>
-        <Step n={2} title={`SageMaker job${jobs.length === 1 ? '' : 's'}`} ok={jobs.length ? jobs.every((j) => j.status === 'Completed') : null}>
+        <Step n={2} title="Code commit" ok={(() => { const st = (cu?.parts ?? []).find((p: Rec) => p.id === 'b')?.state; return st === 'PASS' ? true : st === 'FAIL' ? false : null })()}>
+          {d.declaration?.code_sha ? <div>code_sha <span className="mono text-ink-1">{String(d.declaration.code_sha).slice(0, 12)}</span> (declared before the run)</div> : <div>no code_sha in the declaration</div>}
+          {(() => { const b: Rec | undefined = (cu?.parts ?? []).find((p: Rec) => p.id === 'b'); return b ? <div>check_unit [b]: <span className="text-ink-1">{b.state}</span>{b.lines?.[0] ? ` · ${b.lines[0]}` : ''}</div> : null })()}
+        </Step>
+        <Step n={3} title={`SageMaker job${jobs.length === 1 ? '' : 's'}`} ok={jobs.length ? jobs.every((j) => j.status === 'Completed') : null}>
           {jobs.length === 0 ? <div>none recorded</div> : jobs.map((j) => (
             <div key={j.name}><div className="mono text-ink-1">{j.name}</div><JobLine j={j} />{j.failure_reason && <div className="text-critical-ink">{j.failure_reason}</div>}{j.cost_basis && <div className="text-ink-3">cost: {j.cost_basis}</div>}</div>
           ))}
         </Step>
-        <Step n={3} title={`Records (${d.files_total} files)`} ok={ac.MISMATCH ? false : ac.match ? true : null}>
+        <Step n={4} title={`Records with AWS times (${d.files_total} files)`} ok={ac.MISMATCH ? false : ac.match ? true : null}>
           <div>{Object.entries(d.record_kinds ?? {}).map(([k, v]) => <span key={k} className="mr-3"><span className="mono text-ink-1">{k}</span> × {String(v)}</span>)}</div>
           <div>sha256 vs the job log's attestation: <b className="text-good-ink">{ac.match ?? 0} match</b>{ac.MISMATCH ? <b className="text-critical-ink"> · {ac.MISMATCH} MISMATCH</b> : null}{ac['not attested'] ? <> · {ac['not attested']} not attested (the job record is written after the job, by the launcher)</> : null}{!Object.keys(ac).length && ' not available for this run'}</div>
           {d.attest_source && <div className="text-ink-3">{d.attest_source}, compared {utc(d.attest_checked_at)}</div>}
@@ -118,7 +169,7 @@ function Chain({ id }: { id: string }) {
           </div>
           {d.files_total > (d.files ?? []).length && <div className="text-ink-3">showing {(d.files ?? []).length} of {d.files_total}; every file was checked</div>}
         </Step>
-        <Step n={4} title="Result" ok={d.result ? d.result.recomputed === 'pass' : null}>
+        <Step n={5} title="Result" ok={d.result ? d.result.recomputed === 'pass' : null}>
           {d.result ? <>
             <div className="flex flex-wrap items-baseline gap-2"><Verdict s={d.result.recomputed ?? 'inconsistent'} why={d.result.why} /><span className="tnum text-cap text-ink-1">{num(d.result.value)} {d.result.metric}</span><span>n = {d.result.n_items}</span></div>
             <div>checked_at (our clock) <span className="mono">{utc(d.result.checked_at)}</span> · stored in S3 <span className="mono">{utc(d.result.s3_time)}</span></div>
@@ -131,7 +182,7 @@ function Chain({ id }: { id: string }) {
             )}
           </> : <div>No result yet.</div>}
         </Step>
-        <Step n={5} title="Verify: check_unit parts a–e" ok={cu ? cu.exit_code === 0 : null}>
+        <Step n={6} title="Verify: check_unit parts a–e" ok={cu ? cu.exit_code === 0 : null}>
           <div className="mb-2"><VerifyLive runId={id} /></div>
           {cu ? <>
             <div>checked by check_unit at {utc(cu.checked_at)}: {checkWords(cu.exit_code, cu.parts)} · cached by the sync ({cu.elapsed_s} s, read-only AWS)</div>
@@ -148,6 +199,9 @@ function Chain({ id }: { id: string }) {
             </ul>
             {cu.window && <div className="text-ink-3">AWS window {utc(cu.window[0])} → {utc(cu.window[1])}</div>}
           </> : <div>Not yet verified: no cached check_unit output for this run. Run <span className="mono">make evidence-sync CHECK=1 RUN={id}</span> (or <span className="mono">python3 tools/check_unit.py {id} --s3 …</span>).</div>}
+        </Step>
+        <Step n={7} title="Ledger entries">
+          <LedgerEntries id={id} />
         </Step>
       </ol>
       <div className="col-span-12 grid min-w-0 gap-3 lg:col-span-6">
