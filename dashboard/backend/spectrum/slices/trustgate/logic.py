@@ -20,6 +20,7 @@ from typing import Any, Iterable
 
 KPI_ORDER = ("coverage_ratio", "sla_ratio", "sinr_p10_db", "sinr_mean_db")
 LADDER_UNIT = "t3.ladder"
+NO_VIAVI_REASON = "no VIAVI rung (no Viavi access yet): retention = gain(VIAVI) / gain(REHEARSAL) is undefined"
 LADDER_LABELS = ("MAVERIC", "REHEARSAL (Viavi-like Maveric)", "VIAVI")
 MAVERIC_KINDS = ("maveric-inprocess", "maveric-hosted")
 # threshold keys we pass through when a declared thresholds object carries them
@@ -364,9 +365,26 @@ def ladder_view(result: dict) -> dict | None:
     if not rungs:
         return None
     synthetic = result.get("synthetic") is True
-    viavi = next((r for r in rungs if r["label"] == "VIAVI" and r["label_ok"]), None)
-    # A Viavi retention needs a Viavi gain: without one the figure is null whatever the record says.
-    no_viavi_gain = rungs[-1]["label"] == "VIAVI" and (viavi is None or viavi["gain"] is None)
+    by_label = {r["label"]: r for r in rungs if r["label_ok"]}
+    viavi, reh, mav = by_label.get("VIAVI"), by_label.get(LADDER_LABELS[1]), by_label.get("MAVERIC")
+    # Retention is gain(VIAVI) / gain(REHEARSAL) and nothing else (W5's checker). Without a Viavi gain and a
+    # rehearsal gain it is null whatever the record says; REHEARSAL / MAVERIC is a settings shift, not retention.
+    defined = viavi is not None and viavi["gain"] is not None and reh is not None and reh["gain"] is not None
+    retention = num(d.get("retention")) if defined else None
+    null_reason = None
+    if retention is None:
+        recorded = d.get("retention_null_reason")
+        null_reason = recorded if isinstance(recorded, str) and recorded else (
+            NO_VIAVI_REASON if viavi is None else "no measured gain on the VIAVI or REHEARSAL rung")
+    shift = d.get("settings_shift")
+    settings_shift = None
+    if isinstance(shift, dict) and mav is not None and reh is not None:
+        settings_shift = {
+            "heading": "Settings shift MAVERIC → REHEARSAL (not retention)",
+            "from_label": "MAVERIC", "to_label": LADDER_LABELS[1], "point": num(shift.get("point")), "ci": _ci(shift.get("ci")),
+            "what": shift.get("what") if isinstance(shift.get("what"), str) else None,
+        }
+    is_retention_result = result.get("metric") == "retention" and retention is not None
     return {
         "run_id": result.get("run_id"),
         "checked_at": result.get("checked_at"),
@@ -377,12 +395,24 @@ def ladder_view(result: dict) -> dict | None:
         "has_viavi": viavi is not None,
         # real = a measured Viavi gain from a record that is not marked synthetic; only then may the page
         # treat the Viavi rung as a result (colour, check mark, pass state)
-        "real_viavi": viavi is not None and viavi["gain"] is not None and not synthetic,
+        # (a record's own has_real_viavi: false is a veto)
+        "real_viavi": viavi is not None and viavi["gain"] is not None and not synthetic and d.get("has_real_viavi") is not False,
         "label_ok": all(r["label_ok"] for r in rungs),
-        "retention": None if no_viavi_gain else num(d.get("retention")),
-        "retention_ci": None if no_viavi_gain else _ci(d.get("retention_ci")),
-        "passed": None if no_viavi_gain else (result.get("passed") if isinstance(result.get("passed"), bool) else None),
-        "target": result.get("target") if isinstance(result.get("target"), dict) else None,
+        "retention": retention,
+        "retention_ci": _ci(d.get("retention_ci")) if retention is not None else None,
+        "retention_from": LADDER_LABELS[1] if retention is not None else None,
+        "retention_to": "VIAVI" if retention is not None else None,
+        "retention_null_reason": null_reason,
+        # the title of the retention figure names the rungs actually divided, never the ladder's top rung
+        "retention_heading": (
+            "Retention REHEARSAL → VIAVI" if retention is not None
+            else "Retention: not measured (no Viavi run)" if viavi is None
+            else "Retention: not measured (no measured gain on the Viavi or rehearsal rung)"
+        ),
+        "settings_shift": settings_shift,
+        # pass/fail belongs to the retention target only; a gain-only result has no retention to pass
+        "passed": result.get("passed") if is_retention_result and isinstance(result.get("passed"), bool) else None,
+        "target": result.get("target") if is_retention_result and isinstance(result.get("target"), dict) else None,
         "synthetic": synthetic,
     }
 

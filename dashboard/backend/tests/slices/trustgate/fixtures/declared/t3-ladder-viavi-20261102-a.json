@@ -7,7 +7,7 @@
   "grader": "t3/suite/grade_trust.py",
   "kind": "declared",
   "model_id": "t1-ppo-maveric",
-  "n_items": 52,
+  "n_items": 92,
   "region": "us-east-2",
   "run_id": "t3-ladder-viavi-20261102-a",
   "schema_version": "1",
