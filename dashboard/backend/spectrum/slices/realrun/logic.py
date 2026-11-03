@@ -179,8 +179,13 @@ def failed_parts(store: Store, run: str | None) -> list[str]:
     if not isinstance(c, dict) or c.get("exit_code") != 1:
         return []
     parts = ((c.get("summary") or {}).get("parts")) or {}
-    out = [f"[{k}] {(p.get('lines') or [''])[0]}" for k, p in parts.items() if isinstance(p, dict) and p.get("state") == "FAIL"]
+    out = [f"[{k}] {_fail_line(p.get('lines') or [])}" for k, p in parts.items() if isinstance(p, dict) and p.get("state") == "FAIL"]
     return out or ["check_unit exited 1"]
+
+
+def _fail_line(lines: list) -> str:
+    """The line that says why a part failed (it starts with FAIL), else the part's last line."""
+    return _clean_line(next((str(x) for x in lines if str(x).startswith("FAIL")), str(lines[-1]) if lines else ""))
 
 
 def verdict(store: Store, result: dict | None, declared: dict | None) -> str | None:
