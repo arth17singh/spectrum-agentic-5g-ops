@@ -272,7 +272,7 @@ def train(a: argparse.Namespace) -> dict[str, Any]:
     curve: list[dict[str, Any]] = []
     dev_curve = [{"step": 0, **dev0}]
     rng = random.Random(a.seed)
-    step, micro, done = 0, 0, False
+    step, micro, done, stopped_by = 0, 0, False, "steps"
     model.train()
     t_train = time.time()
     opt.zero_grad(set_to_none=True)
@@ -306,6 +306,11 @@ def train(a: argparse.Namespace) -> dict[str, Any]:
                 K.log(f"step {step} dev_loss={d['loss']:.4f}")
             if step >= total_steps:
                 done = True
+                break
+            if a.train_budget_s and time.time() - t_train > a.train_budget_s:
+                # leave time to save, merge and upload before SageMaker's max_run stops the job
+                done, stopped_by = True, "train_budget"
+                K.log(f"training budget {a.train_budget_s}s reached at step {step}/{total_steps}")
                 break
         if done:
             break
@@ -359,7 +364,8 @@ def train(a: argparse.Namespace) -> dict[str, Any]:
     hyper = {"lora_r": a.lora_r, "lora_alpha": a.lora_alpha, "lora_dropout": a.lora_dropout,
              "target_modules": LORA_TARGETS, "lr": a.lr, "scheduler": "cosine", "warmup_ratio": a.warmup_ratio,
              "epochs": a.epochs, "batch_size": a.batch_size, "grad_accum": a.grad_accum, "weight_decay": a.weight_decay,
-             "max_len": a.max_len, "max_steps": a.max_steps, "seed": a.seed, "precision": "bf16 autocast",
+             "max_len": a.max_len, "max_steps": a.max_steps, "train_budget_s": a.train_budget_s, "seed": a.seed,
+             "precision": "bf16 autocast",
              "gradient_checkpointing": True, "grad_clip": 1.0, "optimizer": "AdamW",
              "loss": "token-mean cross-entropy over the supervised span (empty think block + JSON + <|im_end|>)",
              "limit_train": a.limit_train, "limit_dev": a.limit_dev}
@@ -369,7 +375,8 @@ def train(a: argparse.Namespace) -> dict[str, Any]:
         "data": {"uri": a.data, "run_id": a.data_run_id, "manifest_run_id": manifest.get("run_id"),
                  "sha256sums_sha256": data_sums_sha,
                  "manifest_sha256": K.sha256_file(data_dir / "manifest.json"), "train": train_stats, "dev": dev_stats},
-        "steps": step, "steps_per_epoch": steps_per_epoch, "trainable_params": trainable, "total_params": total,
+        "steps": step, "steps_planned": total_steps, "stopped_by": stopped_by, "steps_per_epoch": steps_per_epoch,
+        "trainable_params": trainable, "total_params": total,
         "train_loss_curve": curve, "dev_loss_curve": dev_curve, "dev_loss_base": dev0["loss"],
         "dev_loss_final": dev_final["loss"], METRIC: ratio, "target": {"metric": METRIC, "op": "<=",
                                                                       "value": TARGET_RATIO, "unit": "ratio"},
@@ -403,7 +410,8 @@ def train(a: argparse.Namespace) -> dict[str, Any]:
                            "data": {k: v for k, v in metrics["data"].items()}, "hyperparameters": hyper,
                            "dev_loss_base": dev0["loss"], "dev_loss_final": dev_final["loss"], METRIC: ratio,
                            "dev_loss_by_unit_base": dev0["by_unit"], "dev_loss_by_unit_final": dev_final["by_unit"],
-                           "steps": step, "train_loss_first": curve[0]["loss"] if curve else None,
+                           "steps": step, "steps_planned": total_steps, "stopped_by": stopped_by,
+                           "train_loss_first": curve[0]["loss"] if curve else None,
                            "train_loss_last": curve[-1]["loss"] if curve else None,
                            "gen_check": {k: v for k, v in (gen or {}).items() if k != "outputs"},
                            "wall_s": timings["total_s"], "files": files, "code_sha": code_sha}}
@@ -466,6 +474,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--weight-decay", type=float, default=0.0)
     ap.add_argument("--max-len", type=int, default=2048)
     ap.add_argument("--max-steps", type=int, default=0, help="stop after this many optimizer steps (smoke)")
+    ap.add_argument("--train-budget-s", type=float, default=5400.0,
+                    help="stop the training loop after this many seconds, keeping time to save/merge/upload (0: off)")
     ap.add_argument("--limit-train", type=int, default=0)
     ap.add_argument("--limit-dev", type=int, default=0)
     ap.add_argument("--eval-every", type=int, default=100)
