@@ -1,0 +1,30 @@
+{
+  "about": "Runs on S3 (and in history) that must not be used for any claim, each with the reason and the run that replaces it. Same format as t3/evals/evidence/superseded.json, which lists the laptop baseline runs on the earlier incident-suite versions. tools/judging_json.py takes this file with --superseded.",
+  "superseded": [
+    {
+      "run_ids": ["t1.knowledge-otel-base-1"],
+      "reason": "Harness defect: the JSON-only knowledge parser rejected answers given as a bare letter (parse_fail 0.90), so the score (0.025) measured the parser, not the model. Fixed narrowly in c4b4b5e and versioned for the knowledge unit only. The other four base runs (safety, interface, execution, price_latency) are unchanged and stand: their low scores are model behaviour. See GAPS.md G-013.",
+      "superseded_by": {"run_ids": ["t1.knowledge-otel-base-2"]}
+    },
+    {
+      "run_ids": ["t3.evals.no_action-20261103T023304Z-0cd3", "t3.evals.no_action-20261103T024101Z-22ae"],
+      "reason": "Failed smoke runs on the stand-in twin backend against the old v2 incident suite; no result record.",
+      "superseded_by": {"run_ids": ["t3.evals.no_action-20261103T032552Z-x86"]}
+    },
+    {
+      "run_ids": [
+        "t3.evals.rule_baseline-20261103T033026Z-x86",
+        "t3.evals.config_revert-20261103T033026Z-x86",
+        "t3.evals.config_revert_masked-20261103T033026Z-x86"
+      ],
+      "reason": "First gain baselines on incident suite v4; replaced by the replayable re-runs.",
+      "superseded_by": {
+        "run_ids": [
+          "t3.evals.rule_baseline-20261103T035108Z-x86",
+          "t3.evals.config_revert-20261103T035108Z-x86",
+          "t3.evals.config_revert-masked-20261103T035108Z-x86"
+        ]
+      }
+    }
+  ]
+}

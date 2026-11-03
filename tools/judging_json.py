@@ -134,10 +134,61 @@ def select(raws: dict[str, bytes], *, allow_synthetic: bool, exclude: set[str], 
     return [row_of(r) for r in keep], skipped, dropped
 
 
+def _ids(entry: dict) -> list[str]:
+    ids = list(entry.get("run_ids") or [])
+    if entry.get("run_id"):
+        ids.append(entry["run_id"])
+    return ids
+
+
+def slots_report(path: Path) -> int:
+    """Check the optional `slots` and `edge_cases` lists against `run_ids` and print them. Exit 1 if they disagree.
+
+    An entry is filled when status is "filled" and it names run ids (`run_id` or `run_ids`), all of which are
+    listed in `run_ids`; a pending entry names none. Runs an entry only compares against (`bar_run_id`,
+    `base_run_id`) are supporting runs and are not required in `run_ids`.
+    """
+    try:
+        doc = json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        print(f"judging_json: cannot read {path}: {exc}", file=sys.stderr)
+        return 2
+    slots, edges = doc.get("slots"), doc.get("edge_cases", [])
+    if not isinstance(slots, list) or not isinstance(edges, list):
+        print("judging_json: no `slots` list in judging.json", file=sys.stderr)
+        return 2
+    run_ids = set(doc.get("run_ids", []))
+    bad, listed = [], set()
+
+    def show(entry: dict) -> bool:
+        ids = _ids(entry)
+        filled = entry.get("status") == "filled"
+        if filled != bool(ids) or (filled and not set(ids) <= run_ids):
+            bad.append(entry.get("slot"))
+        listed.update(ids)
+        detail = ", ".join(ids) if filled else f"pending: {entry.get('waiting_for', '')}"
+        print(f"  {str(entry.get('slot')):>3}  {'FILLED ' if filled else 'pending'}  {entry.get('name')}  ->  {detail}")
+        return filled
+
+    print("slots:")
+    n_filled = sum(show(sl) for sl in slots)
+    if edges:
+        print("edge cases:")
+    e_filled = sum(show(e) for e in edges)
+    print(f"{n_filled} of {len(slots)} slots filled; {e_filled} of {len(edges)} edge cases filled; {len(run_ids)} run id(s) listed")
+    extra = sorted(run_ids - listed)
+    if extra:
+        print(f"run ids listed but in no slot or edge case: {', '.join(extra)}")
+    if bad or extra:
+        print(f"judging_json: slots and run_ids disagree (entries {bad})", file=sys.stderr)
+        return 1
+    return 0
+
+
 # --- main ---------------------------------------------------------------------------------------------
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    src = ap.add_mutually_exclusive_group(required=True)
+    src = ap.add_mutually_exclusive_group()
     src.add_argument("--s3", help="evidence prefix, s3://bucket/evidence/")
     src.add_argument("--dir", type=Path, help="local evidence directory (with results/)")
     ap.add_argument("--judging", type=Path, default=DEFAULT_JUDGING)
@@ -149,7 +200,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--allow-synthetic", action="store_true")
     ap.add_argument("--skip-bad", action="store_true", help="write even if some result files were unreadable")
     ap.add_argument("--max-runs", type=int, default=MAX_RUNS)
+    ap.add_argument("--slots-report", action="store_true",
+                    help="print which of the planned slots in judging.json are filled; reads no store, writes nothing")
     args = ap.parse_args(argv)
+
+    if args.slots_report:
+        return slots_report(args.judging)
+    if not (args.s3 or args.dir):
+        ap.error("one of --s3 or --dir is required (or --slots-report)")
 
     try:
         judging = json.loads(args.judging.read_text())

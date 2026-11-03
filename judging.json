@@ -2,7 +2,7 @@
   "primary_track": "track-3",
   "team_code": "team13",
   "evidence": {
-    "bucket": "<team data bucket>",
+    "bucket": "bb26-p-team13-data-483598626742-use2",
     "prefix": "evidence/",
     "declared": "evidence/declared/<run_id>.json",
     "records": "evidence/records/<run_id>/",
@@ -11,31 +11,236 @@
     "copy_of_this_file": "judging/judging.json",
     "repo_mirror": "evidence/"
   },
-  "run_ids": [],
-  "run_ids_comment": [
-    "Up to 20 run ids. Filled by tools/judging_json.py from the result records in S3; empty until the runs exist. Planned slots (PLAN v5.1, section 8):",
-    "1 t3 deny: 27/27 denied, each with a Cedar decision record",
-    "2 t3 allow: 14/14 allowed and applied, each approved by a person",
-    "3 t3 pause: calls refused while paused, allowed after resume",
-    "4 t3 rebuilt trace: one trace id rebuilt from CloudWatch, with no Gateway bypass",
-    "5 t3 swarm incident eval: masked-tier gain over config_revert, CI lower bound above 0; all four baselines reported",
-    "6 t1 knowledge, base",
-    "7 t1 knowledge, tuned",
-    "8 t1 execution, base",
-    "9 t1 execution, tuned",
-    "10 t1 safety, base",
-    "11 t1 safety, tuned",
-    "12 t1 price and latency, base",
-    "13 t1 price and latency, tuned",
-    "14 t1 interface, base",
-    "15 t1 interface, tuned",
-    "16 t1 RL train and evaluate (hosted twin)",
-    "17 gate eval v1, healthy model",
-    "18 gate eval v1, degraded model",
-    "19 ladder, healthy (R1 and R2 gains, settings shift)",
-    "20 Viavi R3 retention (only with a machine credential) or the live grounding demo"
+  "run_ids": [
+    "t1.execution.replay-check-g5-1",
+    "t1.execution.replay-check-g5-2xl-1",
+    "t1.rl.eval-20261103T043115Z-bf52",
+    "t3.trust.gate_v1_degraded-20261103T045624Z",
+    "t3.trust.gate_v1_healthy-20261103T045624Z"
   ],
-  "live_test_command": "python tools/show_record.py --run-id <run_id> --item <item_id> --s3 s3://<team data bucket>/evidence/",
+  "run_ids_comment": [
+    "A curated set: ten slots and two edge cases (the layout is in `slots` and `edge_cases`), not twenty runs.",
+    "`run_ids` lists the runs that exist for filled slots and edge cases. Filled by tools/judging_json.py from the result records in S3.",
+    "Pending slots name what they wait for. Runs a slot compares against (`bar_run_id`, `base_run_id`) and every other run are under `supporting_run_ids`.",
+    "`python tools/judging_json.py --slots-report` prints which slots are filled and checks them against `run_ids`."
+  ],
+  "live_test_command": "scripts/live_test.sh <run_id>   (read-only; or: python tools/show_record.py --run-id <run_id> --item <item_id> --s3 s3://bb26-p-team13-data-483598626742-use2/evidence/)",
   "rebuild_command": "make -C dashboard evidence-rebuild",
-  "reported_results": []
+  "reported_results": [
+    {
+      "run_id": "t1.execution.replay-check-g5-1",
+      "unit": "t1.execution.replay-check",
+      "metric": "pass_rate",
+      "value": 0.9375,
+      "target": {
+        "metric": "pass_rate",
+        "op": "==",
+        "unit": "ratio",
+        "value": 1.0
+      },
+      "passed": false,
+      "n_items": 80,
+      "checked_at": "2026-11-03T03:53:08.921Z"
+    },
+    {
+      "run_id": "t1.execution.replay-check-g5-2xl-1",
+      "unit": "t1.execution.replay-check",
+      "metric": "pass_rate",
+      "value": 1.0,
+      "target": {
+        "metric": "pass_rate",
+        "op": "==",
+        "unit": "ratio",
+        "value": 1.0
+      },
+      "passed": true,
+      "n_items": 80,
+      "checked_at": "2026-11-03T04:06:20.078Z"
+    },
+    {
+      "run_id": "t1.rl.eval-20261103T043115Z-bf52",
+      "unit": "t1.rl.eval",
+      "metric": "pass_rate",
+      "value": 0.8333333333333334,
+      "target": {
+        "metric": "pass_rate",
+        "op": ">=",
+        "unit": "ratio",
+        "value": 1.0
+      },
+      "passed": false,
+      "n_items": 6,
+      "checked_at": "2026-11-03T04:36:20.447Z"
+    },
+    {
+      "run_id": "t3.trust.gate_v1_degraded-20261103T045624Z",
+      "unit": "t3.trust_gate.v1.degraded",
+      "metric": "pass_count",
+      "value": 20.0,
+      "target": {
+        "metric": "pass_count",
+        "op": ">=",
+        "unit": "runs (degraded model paused by change 6)",
+        "value": 19
+      },
+      "passed": true,
+      "n_items": 20,
+      "checked_at": "2026-11-03T04:59:12.125354Z"
+    },
+    {
+      "run_id": "t3.trust.gate_v1_healthy-20261103T045624Z",
+      "unit": "t3.trust_gate.v1.healthy",
+      "metric": "fail_count",
+      "value": 7.0,
+      "target": {
+        "metric": "fail_count",
+        "op": "<=",
+        "unit": "runs (healthy model paused)",
+        "value": 2
+      },
+      "passed": false,
+      "n_items": 20,
+      "checked_at": "2026-11-03T05:00:04.310652Z"
+    }
+  ],
+  "slots": [
+    {
+      "slot": 1,
+      "name": "t3 deny: 27 of 27 refused",
+      "status": "pending",
+      "run_id": null,
+      "waiting_for": "the deny unit run through the deployed Gateway (checkpoint deploy and kit check)"
+    },
+    {
+      "slot": 2,
+      "name": "t3 allow: 14 of 14 applied, each approved by a person",
+      "status": "pending",
+      "run_id": null,
+      "waiting_for": "the allow unit; needs a person's approvals through the real approvals page (G-011)"
+    },
+    {
+      "slot": 3,
+      "name": "t3 pause and resume, live grounding",
+      "status": "pending",
+      "run_id": null,
+      "waiting_for": "the pause floor and the live grounding demo on the deployed checkpoint"
+    },
+    {
+      "slot": 4,
+      "name": "swarm incident eval: masked-tier gain over config_revert",
+      "status": "pending",
+      "run_id": null,
+      "bar_run_id": "t3.evals.config_revert-masked-20261103T035108Z-x86",
+      "bar": "the bar is config_revert on the masked tier: gain over no_action 0.468, ci_low 0.167",
+      "waiting_for": "the swarm run (needs the deployed agents)"
+    },
+    {
+      "slot": 5,
+      "name": "t1 execution, tuned vs base (gain_ci_low_vs_base > 0)",
+      "status": "pending",
+      "run_id": null,
+      "base_run_id": "t1.execution-otel-base-1",
+      "waiting_for": "the LoRA job t1.sft.train-20261103T034500Z-9d4f (declared, no result yet), then the tuned run on ml.g5.2xlarge"
+    },
+    {
+      "slot": 6,
+      "name": "t1 interface, tuned vs base (change > -0.02)",
+      "status": "pending",
+      "run_id": null,
+      "base_run_id": "t1.interface-otel-base-1",
+      "waiting_for": "the LoRA job, then the tuned run on the same instance type as the base"
+    },
+    {
+      "slot": 7,
+      "name": "t1 execution, Bedrock general model (reproduces the paper's bar)",
+      "status": "pending",
+      "run_id": null,
+      "expected_run_id": "t1.execution-bedrock-gpt-oss-20b-1",
+      "waiting_for": "the Bedrock baseline run under the team role (G-010); not declared yet"
+    },
+    {
+      "slot": 8,
+      "name": "RL scored eval",
+      "status": "filled",
+      "run_id": "t1.rl.eval-20261103T043115Z-bf52",
+      "note": "5 of 6 gates pass; UPLIFT missed, so the run FAILS its declared target. The 100k-step training run crashed (G-008); this scores the 50k checkpoint."
+    },
+    {
+      "slot": 9,
+      "name": "t2 federated vs local-only: gain for silos B and C, with CI bound",
+      "status": "pending",
+      "run_id": null,
+      "waiting_for": "the federated comparison (the FL service is not provisioned for a real session, G-005; local FedAvg and local-only runs are on S3 under supporting_run_ids)"
+    },
+    {
+      "slot": 10,
+      "name": "trust gate v1, degraded model paused",
+      "status": "filled",
+      "run_id": "t3.trust.gate_v1_degraded-20261103T045624Z",
+      "note": "20 of 20 paused by change 6 (target at least 19): PASS"
+    }
+  ],
+  "supporting_run_ids": {
+    "the bar and the bases that slots 4 to 6 compare against": [
+      "t3.evals.config_revert-masked-20261103T035108Z-x86",
+      "t1.execution-otel-base-1",
+      "t1.interface-otel-base-1"
+    ],
+    "base runs for the other Track 1 units (tuned runs and the safety and price-latency comparisons come after the LoRA job)": [
+      "t1.safety-otel-base-1",
+      "t1.price_latency-otel-base-1",
+      "t1.knowledge-otel-base-2 (declared; supersedes t1.knowledge-otel-base-1, a parser defect, see evidence/superseded.json and G-013)"
+    ],
+    "trust gate and ladder, supporting measurement": [
+      "t3.trust.ladder_healthy-20261103T045624Z (PASS, gain CI low +0.0195)"
+    ],
+    "Track 3 baselines (oracle not run on AWS yet)": [
+      "t3.evals.no_action-20261103T032552Z-x86",
+      "t3.evals.rule_baseline-20261103T035108Z-x86",
+      "t3.evals.config_revert-20261103T035108Z-x86"
+    ],
+    "Track 2, simulated silos, local training (not the FL service; G-005)": [
+      "t2.silo_data-20261103T033435Z",
+      "t2.local_only.A.disjoint-20261103T041539Z",
+      "t2.local_only.B.disjoint-20261103T041553Z",
+      "t2.local_only.C.disjoint-20261103T041606Z",
+      "t2.central.disjoint-20261103T041620Z",
+      "t2.fedavg_local.disjoint-20261103T041634Z"
+    ],
+    "lineage, data and freeze jobs": [
+      "t1.rl.link-test-20261102T234623Z-7368",
+      "t1.rl.reward-check-20261103T020244Z-4f92",
+      "t1.sft.stage-20261103T034500Z-5b1e",
+      "t1.sft.data-20261103T034500Z-7c2a",
+      "t1.sft.train-20261103T034500Z-9d4f (declared, no result yet)",
+      "t1.execution.refreeze-x86-1",
+      "t3.evals.suite-freeze-20261103T031439Z-32b3",
+      "runner.selftest-20261103T024617Z-5793"
+    ],
+    "replay checks": [
+      "t1.execution.replay-check-x86-1 (ml.m5.xlarge, against the Mac freeze: 75 of 80)"
+    ],
+    "superseded runs, not to be used": [
+      "see evidence/superseded.json"
+    ]
+  },
+  "edge_cases": [
+    {
+      "slot": "E1",
+      "name": "trust gate v1, healthy model falsely paused (known limitation)",
+      "status": "filled",
+      "run_id": "t3.trust.gate_v1_healthy-20261103T045624Z",
+      "note": "7 of 20 healthy runs were paused (limit 2): MISSED. Reported plainly; the fix is a better predictor, not other thresholds."
+    },
+    {
+      "slot": "E2",
+      "name": "why we pin instance types: the same replay check on two GPU sizes",
+      "status": "filled",
+      "run_ids": [
+        "t1.execution.replay-check-g5-1",
+        "t1.execution.replay-check-g5-2xl-1"
+      ],
+      "note": "75 of 80 items replay exactly on ml.g5.4xlarge (16 threads), 80 of 80 on ml.g5.2xlarge (8 threads). Each evaluation runs on the instance type that froze its items (G-009)."
+    }
+  ]
 }
