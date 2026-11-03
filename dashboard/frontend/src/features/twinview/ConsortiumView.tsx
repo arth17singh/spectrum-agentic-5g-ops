@@ -4,6 +4,7 @@ import { Hash, Panel } from '@/ui'
 import { fixed, pct, utc } from './format'
 import { Banner, NoteChip, ProvenanceChip } from './shared'
 import RealConsortium from './RealConsortium'
+import { sessionFacts, useOverview } from '../scorecard/overview'
 import { AwsTimeSummary } from '@/ui/AwsTime'
 
 // Consortium mode, from GET /api/twinview/consortium. Dataset facts come from silos/manifest.json (written by our
@@ -138,6 +139,15 @@ function MetricsPanel({ data }: { data: Rec }) {
   const runs: Rec[] = data.runs ?? []
   const run = runs[0]
   const pv: Rec | null = data.preview
+  // the t2.fl records carry neither the final round nor DP; the convergence run records both (session facts, final-round check)
+  const { ov } = useOverview()
+  const conv: Rec | null | undefined = ov?.curves?.t2_convergence
+  const sess = sessionFacts(conv)
+  const fr: Rec | null = conv?.details?.final_round_check ?? null
+  const dpNone = sess != null && (sess.dp === false || String(sess.dp ?? '').toLowerCase() === 'none')
+  const eps = run?.dp?.enabled ? fixed(run.dp.epsilon, 2) : dpNone ? 'none (no DP in this session)' : run ? 'not recorded' : 'not run yet'
+  const finalRound = run?.final_round ?? fr?.round ?? (run ? 'not recorded in this record' : 'not run yet')
+  const recFrom = conv ? `from t2.fl_convergence run ${conv.run_id}` : undefined
   return (
     <Panel id="twin-fl-metrics" plane="learn" title="Federated vs local" subtitle="skill on the shared test (lower is better)">
       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -167,8 +177,8 @@ function MetricsPanel({ data }: { data: Rec }) {
         </tbody>
       </table>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-micro text-ink-3">
-        <span>ε <span className="tnum mono">{run ? (run.dp?.enabled ? fixed(run.dp.epsilon, 2) : 'DP off') : 'not run yet'}</span></span>
-        <span>final aggregation round <span className="tnum mono">{run?.final_round ?? 'not run yet'}</span></span>
+        <span data-testid="fl-eps" title={dpNone && !run?.dp?.enabled ? recFrom : undefined}>ε <span className="tnum mono">{eps}</span></span>
+        <span data-testid="fl-final-round" title={run?.final_round == null && fr?.round != null ? recFrom : undefined}>final aggregation round <span className="tnum mono">{finalRound}</span></span>
         {run && <span>run <span className="mono">{run.run_id}</span> · {utc(run.time, true)}</span>}
         {run && run.same_test_set === false && <span style={{ color: 'var(--critical-ink)' }}>scored on a different test set than the manifest’s shared test</span>}
       </div>
