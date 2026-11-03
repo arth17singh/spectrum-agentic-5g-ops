@@ -69,7 +69,7 @@ class Release:
     def _manifest(self, t: dict, version: str) -> dict:
         m = {
             "target": t["id"], "version": version, "region": "us-west-2",
-            "image": f"111122223333.dkr.ecr.us-west-2.amazonaws.com/spectrum-nlm@sha256:{sha256_hex('img' + version)}",
+            "image": f"registry.example/spectrum-nlm@sha256:{sha256_hex('img' + version)}",
             "adapter_hash": sha256_hex(f"adapter-{version}"), "stack": t["stack"],
             "dialect": {"vendor-a": "json/v3", "vendor-b": "cli/v2"}.get(t["id"], "n/a"),
             "iac_hash": sha256_hex(f"cdk-{t['stack']}-{version}"),

@@ -60,7 +60,7 @@ export const useUi = create<UiState>((set, get) => ({
   streamOpen: false,
   paletteOpen: false,
   helpOpen: false,
-  directorOpen: saved.directorOpen ?? true,
+  directorOpen: false, // closed on every load: it covers the screen; D opens it on purpose
   notesOpen: saved.notesOpen ?? true,
   spotlight: saved.spotlight ?? true,
   lit: [],
