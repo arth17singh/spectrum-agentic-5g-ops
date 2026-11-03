@@ -69,7 +69,7 @@ export function TrustChart({ points, pauses, pauseBelow, height = 260 }: {
                   <text x={w} y={y(pauseBelow) + 12} textAnchor="end" style={{ ...AXIS_TEXT, fill: 'var(--critical-ink)' }}>pause below {pauseBelow.toFixed(2)}</text>
                 </g>
               )}
-              {pauses.map((p, i) => <PauseMarker key={i} p={p} x={x(p.t)} h={h} />)}
+              {labelled(pauses.map((p) => x(p.t)), w).map((show, i) => <PauseMarker key={i} p={pauses[i]} x={x(pauses[i].t)} h={h} label={show} />)}
               {path && <path d={path} fill="none" style={{ stroke: 'var(--release)' }} strokeWidth={2} strokeLinejoin="round" />}
               {pts.map((p, i) => (
                 <circle key={i} cx={x(p.t)} cy={y(p.trust_after)} r={p.over_tau ? 5 : 3.5}
@@ -92,7 +92,18 @@ export function TrustChart({ points, pauses, pauseBelow, height = 260 }: {
   )
 }
 
-function PauseMarker({ p, x, h }: { p: PauseEvent; x: number; h: number }) {
+/** Which markers get a text label: one only when it clears the previous label (~96 px) and the right edge;
+ * the others keep their glyph and tooltip, so labels never overlap. */
+function labelled(xs: number[], width: number, gap = 96): boolean[] {
+  let last = -Infinity
+  return xs.map((x) => {
+    const ok = x - last >= gap && x + 70 <= width + 8
+    if (ok) last = x
+    return ok
+  })
+}
+
+function PauseMarker({ p, x, h, label = true }: { p: PauseEvent; x: number; h: number; label?: boolean }) {
   const auto = p.by_kind === 'trust-gate'
   const resume = p.action === 'resume'
   const color = resume ? 'var(--good)' : auto ? 'var(--critical)' : 'var(--ink-2)'
@@ -105,7 +116,7 @@ function PauseMarker({ p, x, h }: { p: PauseEvent; x: number; h: number }) {
       {auto && !resume && <polygon points="-6,-12 6,-12 11,-6 11,2 6,8 -6,8 -11,2 -11,-6" transform="translate(0,-4) scale(0.75)" style={{ fill: color }} />}
       {!auto && !resume && <rect x={-5} y={-12} width={10} height={10} transform="rotate(45 0 -7)" style={{ fill: 'var(--surface-1)', stroke: color }} strokeWidth={2} />}
       {resume && <circle cy={-7} r={5} style={{ fill: 'var(--surface-1)', stroke: color }} strokeWidth={2} />}
-      <text x={9} y={-4} style={{ ...AXIS_TEXT, fill: ink, fontWeight: 600 }}>{word}</text>
+      {label && <text x={9} y={-4} style={{ ...AXIS_TEXT, fill: ink, fontWeight: 600 }}>{word}</text>}
     </g>
   )
 }
