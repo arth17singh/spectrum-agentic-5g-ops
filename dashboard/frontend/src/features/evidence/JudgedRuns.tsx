@@ -24,12 +24,12 @@ const RunState = ({ r }: { r: Rec }) => (
 function Slot({ s }: { s: Rec }) {
   const filled = (s.runs ?? []).length > 0
   return (
-    <li className={clsx('rounded-md border px-3 py-2', filled ? 'border-line' : 'border-dashed border-line')} data-slot={s.slot} data-filled={filled ? 'true' : 'false'}>
+    <li className={clsx('min-w-0 rounded-md border px-3 py-2', filled ? 'border-line' : 'border-dashed border-line')} data-slot={s.slot} data-filled={filled ? 'true' : 'false'}>
       <div className="flex items-baseline gap-2">
         <span className="tnum w-6 shrink-0 text-cap font-semibold text-ink-3">{s.slot}</span>
         <span className="text-cap font-medium text-ink-1">{s.name}</span>
       </div>
-      <div className="mt-1 space-y-1 pl-8">
+      <div className="mt-1 min-w-0 space-y-1 pl-8">
         {filled ? (s.runs as Rec[]).map((r) => <RunState key={r.run_id} r={r} />)
           : <div className="flex items-start gap-1.5 text-micro text-ink-3"><CircleDashed size={12} className="mt-0.5 shrink-0" aria-hidden />pending{s.waiting_for ? `: ${s.waiting_for}` : ''}</div>}
         {s.note && <div className="text-micro text-ink-3">{s.note}</div>}
@@ -49,9 +49,9 @@ export default function JudgedRuns() {
       {err && !ov && <div className="text-cap text-critical-ink">Unavailable: <span className="mono">{err}</span></div>}
       {ov && !j && <div className="text-cap text-ink-2">No judging.json found. Copy it from the hand-in branch with <span className="mono">make evidence-sync HANDIN=&lt;branch&gt;</span>.</div>}
       {j && (
-        <div className="grid gap-4 xl:grid-cols-[2fr_1fr]" data-testid="judged-runs">
-          <ol className="space-y-2">{(j.slots as Rec[]).map((s) => <Slot key={String(s.slot)} s={s} />)}</ol>
-          <div>
+        <div className="grid min-w-0 gap-4 [overflow-wrap:anywhere] xl:grid-cols-[2fr_1fr]" data-testid="judged-runs">
+          <ol className="min-w-0 space-y-2">{(j.slots as Rec[]).map((s) => <Slot key={String(s.slot)} s={s} />)}</ol>
+          <div className="min-w-0">
             <div className="mb-2 text-cap font-medium text-ink-2">Edge cases</div>
             <ol className="space-y-2">{(j.edge_cases as Rec[]).map((s) => <Slot key={String(s.slot)} s={s} />)}</ol>
           </div>

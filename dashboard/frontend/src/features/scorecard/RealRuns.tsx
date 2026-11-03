@@ -34,6 +34,7 @@ export interface Overview {
   t2_consortium: Rec
   judged: Rec | null
   curves?: { t2_convergence: Rec | null; t1: Rec | null }
+  viavi_operate?: Rec | null
   empty: boolean
 }
 
@@ -99,7 +100,7 @@ export default function RealRuns() {
         <div className="col-span-12 xl:col-span-5"><Bar t1={ov.t1} /></div>
         <div className="col-span-12 xl:col-span-7">{ov.rl ? <RL rl={ov.rl} /> : <Panel title="Track 1 RL gate"><NotRun /></Panel>}</div>
       </div>
-      <TrainingCurves c={ov.curves?.t1} />
+      <TrainingCurves c={ov.curves?.t1} rlEval={ov.rl} />
       <Track3Live rows={ov.t3_live ?? []} />
       <Track3 rows={ov.t3} />
       {ov.t2.length > 0 && <Track2 rows={ov.t2} />}

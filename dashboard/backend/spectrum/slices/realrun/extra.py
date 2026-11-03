@@ -247,3 +247,38 @@ def latest_unit(store: Store, runs: list[str], unit: str) -> dict | None:
     return {"run_id": run, "unit": unit, "checked_at": r.get("checked_at"), "state": verdict(store, r, d) or "inconsistent",
             "why": verdict_why(store, r), "synthetic": bool(r.get("synthetic") or d.get("synthetic")),
             "details": r.get("details") if isinstance(r.get("details"), dict) else {}}
+
+
+# --------------------------------------------------------------------- Viavi rung (measure-only operate run)
+
+def viavi_operate(store: Store, runs: list[str], unit: str = "t1.rl.viavi_operate") -> dict | None:
+    """The newest declared run of the measure-only Viavi operate unit: declaration, per-step item records as
+    recorded, the result (or None while it runs) with its governed verdict, and the cached check_unit parts.
+    Its part c is expected to be CANNOT CHECK (no AWS job or AWS-written log): shown as such, never as a pass."""
+    sup = superseded(store)
+    cands = []
+    for run in runs:
+        d = store.declared(run) or {}
+        if run in sup or not ((d.get("unit") or "") == unit or (d.get("unit") or "").startswith(unit + ".")):
+            continue
+        cands.append((d.get("declared_at") or "", run, d))
+    if not cands:
+        return None
+    _, run, d = max(cands)
+    r = store.result(run)
+    items = []
+    base = store.root / "records" / run / "item"
+    for f in sorted(base.glob("*.json")) if base.is_dir() else []:
+        try:
+            items.append(json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            continue
+    items.sort(key=lambda x: (str(x.get("item_id") or ""), str(x.get("created_at") or "")))
+    chk = store.check(run)
+    parts = {k: v.get("state") for k, v in (((chk or {}).get("summary") or {}).get("parts") or {}).items() if isinstance(v, dict)}
+    return {"run_id": run, "model_id": d.get("model_id"), "declared_at": d.get("declared_at"), "target": d.get("target"),
+            "n_items_declared": d.get("n_items"), "items": items[:50],
+            "result": None if not isinstance(r, dict) else {"value": num(r.get("value")), "metric": r.get("metric"),
+                                                            "checked_at": r.get("checked_at"), "state": verdict(store, r, d) or "inconsistent",
+                                                            "why": verdict_why(store, r)},
+            "check": None if chk is None else {"exit_code": chk.get("exit_code"), "parts": parts}}
