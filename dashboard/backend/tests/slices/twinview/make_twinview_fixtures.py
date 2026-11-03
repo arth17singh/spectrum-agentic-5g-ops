@@ -15,16 +15,22 @@ Each change record carries the PROPOSED field `twin_state` (not in the W1 contra
       baseline: TwinSnapshot   optional: the no-change counterfactual at the same step
     }
     TwinSnapshot: {step, coverage_ratio, sla_ratio, per_cell: [{cell, power_dbm, tilt_deg, ue_count,
-                   coverage_share, sla_share, sinr_p10_db, sinr_mean_db, rsrp_p10_dbm, alarm, asleep}]}
+                   coverage_share, sla_share, sinr_p10_db, sinr_mean_db, rsrp_mean_dbm, rsrp_p10_dbm, alarm, asleep}]}
 
-`coverage_share` / `sla_share` (share of the cell's served UEs with RSRP > the coverage threshold /
-SINR > the SLA threshold) are NOT in the SDK's state; this script computes them from the twin's per-UE
-arrays exactly as the SDK's observe() does for the network ratios, and checks that the UE-weighted
-mean equals the network ratio. W2's kpis() would have to do the same for real records.
+The preset name is `twin.preset` on the change record (contract decision, 2 Nov).
 
-Some changes carry the PROPOSED field `approval: {status, decided_by, decided_at, reason}`; others
-get their approver from a suite `item` record (extra.approval) or only a `decision` ALLOW (when, not
-who), so the view's three approval sources are all exercised.
+Per-cell shares, as W2 defines them (commit 2977a7e):
+  coverage_share = share of the cell's served UEs with serving RSRP > -97 dBm (RSRP only, no SINR condition,
+                   same as the SDK's network coverage_ratio);
+  sla_share      = share with SINR > 0 dB (strictly greater);
+  both None for a cell with 0 UEs.
+This script computes them from the twin's per-UE arrays and checks that the UE-weighted mean equals the
+network ratio. When the twin exposes W2's `ReplayTwin.kpis()` (2977a7e), its per-cell shares are used
+for the live states and must equal this computation.
+
+Some changes carry the contract's top-level `approved_by` / `approved_at` (written by the tools Lambda);
+others get their approver from a suite `item` record (extra.approval) or only a `decision` ALLOW (when,
+not who), so the view's three approval sources are all exercised.
 """
 
 from __future__ import annotations
@@ -101,11 +107,23 @@ def snapshot(mt, state: dict, step: int) -> dict:
             "coverage_share": None if cov[i] is None else round(cov[i], 4),
             "sla_share": None if sla[i] is None else round(sla[i], 4),
             "sinr_p10_db": round(float(state["sinr_p10_db"][i]), 3), "sinr_mean_db": round(float(state["sinr_mean_db"][i]), 3),
+            "rsrp_mean_dbm": round(float(state["rsrp_mean_dbm"][i]), 3),
             "rsrp_p10_dbm": round(float(state["rsrp_p10_dbm"][i]), 3),
             "alarm": bool(state["alarm"][i]), "asleep": bool(state["asleep"][i]),
         })
     return {"step": step, "coverage_ratio": round(float(state["coverage_ratio"]), 4),
             "sla_ratio": round(float(state["sla_ratio"]), 4), "per_cell": cells}
+
+
+def check_against_w2(rt, snap: dict) -> None:
+    """If W2's ReplayTwin.kpis() exists, its per-cell shares must equal ours (same definitions)."""
+    if not callable(getattr(rt, "kpis", None)):
+        return
+    theirs = rt.kpis()["per_cell"]
+    for mine, w2 in zip(snap["per_cell"], theirs):
+        for k in ("coverage_share", "sla_share"):
+            a, b = mine[k], w2.get(k)
+            assert (a is None and b is None) or (a is not None and b is not None and abs(a - b) < 1e-3), (k, a, b)
 
 
 def headline(snap: dict) -> dict:
@@ -124,7 +142,7 @@ def envelope(kind: str, run_id: str, t: datetime) -> dict:
             "aws_time": None, "aws_time_source": None, "synthetic": True}
 
 
-def run_case(*, run_id, case_id, scenario, seed, config, twin_kind, plan, rng, t0):
+def run_case(*, run_id, case_id, scenario, seed, config, twin_kind, plan, rng, t0):  # config: the preset name
     """plan: list of dicts {change|None, approval_via ('record'|'item'|'decision'|'none'), probe, predict}."""
     rt = ReplayTwin(scenario, seed, config)
     state = rt.reset()
@@ -147,6 +165,7 @@ def run_case(*, run_id, case_id, scenario, seed, config, twin_kind, plan, rng, t
         baseline = snapshot(trial, base_state, step + 1)
         state = rt.apply(cells)
         after = snapshot(rt._twin, state, step + 1)
+        check_against_w2(rt, after)
         entry = rt.action_log[-1]
         hb, hm = headline(baseline), headline(after)
         md = {k: hm[k] - hb[k] for k in KPI}
@@ -157,7 +176,8 @@ def run_case(*, run_id, case_id, scenario, seed, config, twin_kind, plan, rng, t
                "change": [{"cell": c["cell"], "d_power_db": float(f"{c['d_power_db']:.1f}"),
                            "d_tilt_deg": float(f"{c['d_tilt_deg']:.1f}")} for c in sorted(cells, key=lambda c: c["cell"])],
                "change_text": text,
-               "twin": {"kind": twin_kind, "version": "ran-rl-1.2.9", "scenario": scenario, "seed": seed, "step": step},
+               "twin": {"kind": twin_kind, "version": "ran-rl-1.2.9", "scenario": scenario, "seed": seed, "step": step,
+                        "preset": config},
                "baseline_kpis": hb, "measured_kpis": hm, "measured_delta": md,
                "predicted_delta": None, "predictor": None, "policy": None, "error": None, "direction_agree": None,
                "scored": False, "unscored_reason": None, "probe": bool(p.get("probe")),
@@ -181,8 +201,8 @@ def run_case(*, run_id, case_id, scenario, seed, config, twin_kind, plan, rng, t
         approver = p.get("approver", "person:navigator-1")
         via = p["approval_via"]
         if via == "record":
-            rec["approval"] = {"status": "APPROVED", "decided_by": approver, "decided_at": iso(t_dec),
-                               "reason": "checked the preflight; cell load stays within limits"}
+            rec["approved_by"] = approver
+            rec["approved_at"] = iso(t_dec)
         if via == "item":
             items.append({**envelope("item", run_id, t_app), "item_id": f"t3-{case_id[-2:]}-{step}",
                           "input_sha256": "0" * 64, "output_sha256": "1" * 64, "score": 1, "passed": True,

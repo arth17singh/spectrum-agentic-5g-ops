@@ -5,7 +5,7 @@ Nothing here reads a file or calls AWS, and nothing is filled in. In particular:
   - per-cell power, tilt, users and KPIs come ONLY from the PROPOSED `twin_state` field on a change
     record (see FIELD_SPEC). The W1 contract does not have it yet, so real records show the headline
     KPIs and say that the per-cell state was not recorded;
-  - the rung is R3 only for twin kind `viavi`, R2 only when the config preset is `viavi-like`, R1 only
+  - the rung is R3 only for twin kind `viavi`, R2 only when the preset (twin.preset) is `viavi-like`, R1 only
     when it is known to be another Maveric config; an unknown preset is said to be unknown;
   - an approver is shown only when a record names one; a decision ALLOW gives the time, not the person;
   - provenance is REAL only if every record shown is not synthetic and has an AWS time.
@@ -23,11 +23,12 @@ Rec = dict[str, Any]
 KPI_KEYS = ("coverage_ratio", "sla_ratio", "sinr_p10_db", "sinr_mean_db")
 CELL_NAMES = ("S1/B3/C1", "S2/B3/C1", "S3/B3/C1", "S4/B3/C1")
 CELL_KEYS = ("power_dbm", "tilt_deg", "ue_count", "coverage_share", "sla_share", "sinr_p10_db", "sinr_mean_db",
-             "rsrp_p10_dbm", "alarm", "asleep")
+             "rsrp_mean_dbm", "rsrp_p10_dbm", "alarm", "asleep")
 MAVERIC_KINDS = ("maveric-inprocess", "maveric-hosted")
 REHEARSAL_PRESET = "viavi-like"
 
-# What a change record must carry for this view to draw the cells (the ask to W1/W2/W3).
+# What a change record carries for this view to draw the cells (contract decision 2 Nov: W1 adds twin_state
+# with per-cell CellState and twin.preset; the approver is the existing approved_by / approved_at).
 FIELD_SPEC = {
     "field": "twin_state",
     "on": "change record (written by ran___apply_change)",
@@ -36,9 +37,11 @@ FIELD_SPEC = {
         "after": "TwinSnapshot after the change and one step (what measured_kpis summarises)",
         "baseline": "optional TwinSnapshot: the no-change counterfactual at the same step",
     },
-    "snapshot": "{step, coverage_ratio, sla_ratio, per_cell: [{cell, power_dbm, tilt_deg, ue_count, coverage_share, "
-                "sla_share, sinr_p10_db, sinr_mean_db, rsrp_p10_dbm, alarm, asleep}]}",
-    "also": "twin.config (preset name) on the change record, and approval {status, decided_by (pseudonym), decided_at, reason}",
+    "snapshot": "{step, coverage_ratio, sla_ratio, per_cell: [CellState {cell, power_dbm, tilt_deg, ue_count, coverage_share, "
+                "sla_share, sinr_p10_db, sinr_mean_db, rsrp_mean_dbm, rsrp_p10_dbm, alarm, asleep}]}",
+    "shares": "coverage_share = served UEs with serving RSRP > -97 dBm (RSRP only); sla_share = SINR > 0 dB (strict); "
+              "None for a 0-UE cell (W2 2977a7e: twin.kpis(state, shares=...))",
+    "also": "twin.preset (e.g. official | viavi-like) on the change record; approver from the top-level approved_by / approved_at",
 }
 
 
@@ -119,21 +122,24 @@ def provenance(records: Iterable[Rec]) -> Rec:
 # ---------------------------------------------------------------------------------------------- rung
 
 def preset_of(change: Rec, declared: Rec | None) -> tuple[str | None, str]:
-    """(preset name or None, where it came from). The change record's own twin.config wins over the run's
-    declaration. A declared twin with config None is the official preset (twin.presets.resolve_config)."""
+    """(preset name or None, where it came from). Order: the change record's `twin.preset` (the contract field),
+    then a string `twin.config` on the change record (older writers), then the run's declaration
+    (`declared.twin.config`: a preset name, a dict with "preset", or None meaning the official preset)."""
     tw = change.get("twin") if isinstance(change.get("twin"), dict) else {}
-    for where, cfg, has in (("change.twin.config", tw.get("config"), "config" in tw),
-                            ("declared.twin.config", ((declared or {}).get("twin") or {}).get("config"),
-                             isinstance((declared or {}).get("twin"), dict) and "config" in (declared or {})["twin"])):
-        if not has:
-            continue
+    if isinstance(tw.get("preset"), str) and tw["preset"]:
+        return tw["preset"], "change.twin.preset"
+    if isinstance(tw.get("config"), str) and tw["config"]:
+        return tw["config"], "change.twin.config"
+    dt = (declared or {}).get("twin")
+    if isinstance(dt, dict) and "config" in dt:
+        cfg = dt["config"]
         if cfg is None:
-            return "official", where
+            return "official", "declared.twin.config"
         if isinstance(cfg, str) and cfg:
-            return cfg, where
+            return cfg, "declared.twin.config"
         if isinstance(cfg, dict) and isinstance(cfg.get("preset"), str) and cfg["preset"]:
-            return cfg["preset"], where
-        return None, where
+            return cfg["preset"], "declared.twin.config"
+        return None, "declared.twin.config"
     return None, "not recorded"
 
 
@@ -206,16 +212,14 @@ def applied_deltas(change: list[Rec], before: Rec | None, after: Rec | None) -> 
 
 def approval_for(change: Rec, decisions: list[Rec], items: list[Rec]) -> tuple[Rec, list[Rec]]:
     """Who approved a change and when, and the records that say so. Sources, best first:
-      1. the change record's own `approval` (proposed field),
+      1. the change record's top-level `approved_by` / `approved_at` (contract fields, written by the tools Lambda),
       2. a suite `item` with extra.approval_id == change_id and extra.approval {decided_by, decided_at},
       3. an ALLOWed apply_change `decision` naming the approval id: gives the time Cedar let it through, not the person.
     """
     cid = change.get("change_id")
-    own = change.get("approval")
-    if isinstance(own, dict) and (own.get("decided_by") or own.get("decided_at")):
-        return {"status": own.get("status") or "APPROVED", "by": pseudonym(own.get("decided_by")),
-                "at": _iso_time(own.get("decided_at")), "reason": own.get("reason"),
-                "source": "change.approval", "allowed_at": None}, []
+    if change.get("approved_by") or change.get("approved_at"):
+        return {"status": "APPROVED", "by": pseudonym(change.get("approved_by")), "at": _iso_time(change.get("approved_at")),
+                "reason": None, "source": "change.approved_by", "allowed_at": None}, []
     used: list[Rec] = []
     out: Rec = {"status": None, "by": None, "at": None, "reason": None, "source": None, "allowed_at": None}
     for it in items:
@@ -347,10 +351,10 @@ def build_case(case_id: str, changes: list[Rec], decisions: list[Rec], items: li
     if any(w["has_state"] and any(c["coverage_share"] is None and (c["ue_count"] or 0) > 0 for c in w["after"]["per_cell"]) for w in windows):
         missing.append({"field": "twin_state.*.per_cell[].coverage_share", "effect": "cells are not coloured by coverage"})
     if any(w["approval"]["by"] is None for w in windows):
-        missing.append({"field": "approval.decided_by", "n_windows": sum(1 for w in windows if w["approval"]["by"] is None),
+        missing.append({"field": "approved_by", "n_windows": sum(1 for w in windows if w["approval"]["by"] is None),
                         "effect": "the approver is shown as not recorded"})
     if head["rung"]["code"] is None:
-        missing.append({"field": "twin.config", "effect": head["rung"]["basis"]})
+        missing.append({"field": "twin.preset", "effect": head["rung"]["basis"]})
     return {
         **head, "windows": windows, "provenance": provenance(shown), "missing": missing, "field_spec": FIELD_SPEC,
         "cell_names": list(CELL_NAMES), "other_runs": [k[0] for k in keys if k != key],

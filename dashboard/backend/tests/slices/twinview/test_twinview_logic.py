@@ -27,8 +27,22 @@ def test_rung_needs_the_preset_to_tell_r1_from_r2():
 def test_preset_sources_in_order():
     assert logic.preset_of(change(), {"twin": {"config": None}}) == ("official", "declared.twin.config")
     assert logic.preset_of(change(), {"twin": {"config": {"preset": "viavi-like"}}})[0] == "viavi-like"
+    # twin.preset (contract) wins over a string twin.config, which wins over the declaration
+    c = change(twin={"kind": "maveric-inprocess", "step": 0, "preset": "viavi-like", "config": "official"})
+    assert logic.preset_of(c, {"twin": {"config": "official"}}) == ("viavi-like", "change.twin.preset")
     c = change(twin={"kind": "maveric-inprocess", "step": 0, "config": "viavi-like"})
     assert logic.preset_of(c, {"twin": {"config": "official"}}) == ("viavi-like", "change.twin.config")
+    c = change(twin={"kind": "maveric-inprocess", "step": 0, "config": {"twin": {}}})  # a dict config on a change is not a preset
+    assert logic.preset_of(c, None) == (None, "not recorded")
+
+
+def test_approved_by_on_the_change_is_the_first_source():
+    d = {"kind": "decision", "run_id": "r1", "case_id": "c1", "tool": "ran___apply_change", "decision": "ALLOW",
+         "approval_id": "chg-000000000001", "time": "2026-11-02T20:00:05Z", "approved_by": "person:other"}
+    c = change(approved_by="arn:aws:sts::123456789012:assumed-role/Ops/kim", approved_at="2026-11-02T20:00:04Z")
+    a = logic.build_case("c1", [c], [d], [], {})["windows"][0]["approval"]
+    assert a == {"status": "APPROVED", "by": "kim", "at": "2026-11-02T20:00:04Z", "reason": None,
+                 "source": "change.approved_by", "allowed_at": None}
 
 
 def test_provenance_real_only_when_every_record_is_aws_timed_and_not_synthetic():
@@ -52,7 +66,7 @@ def test_a_record_without_twin_state_is_drawn_from_headline_kpis_only():
     w = out["windows"][0]
     assert w["has_state"] is False and w["before"] is None and w["cells"][0]["applied"] is None
     fields = [m["field"] for m in out["missing"]]
-    assert "twin_state" in fields and "twin.config" in fields and "approval.decided_by" in fields
+    assert "twin_state" in fields and "twin.preset" in fields and "approved_by" in fields
     assert out["provenance"]["state"] == "unverified"
 
 

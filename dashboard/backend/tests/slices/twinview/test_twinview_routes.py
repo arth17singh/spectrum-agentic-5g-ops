@@ -38,20 +38,21 @@ def test_case_windows_carry_four_cells_before_and_after(monkeypatch):
     w = j["windows"][0]
     assert w["has_state"] and [c["name"] for c in w["before"]["per_cell"]] == ["S1/B3/C1", "S2/B3/C1", "S3/B3/C1", "S4/B3/C1"]
     for c in w["after"]["per_cell"]:
-        assert {"power_dbm", "tilt_deg", "ue_count", "coverage_share", "sla_share", "sinr_p10_db"} <= set(c)
+        assert {"power_dbm", "tilt_deg", "ue_count", "coverage_share", "sla_share", "sinr_p10_db", "rsrp_mean_dbm"} <= set(c)
     # the first change asked for a tilt the safety filter did not pass: shown, not hidden
     assert w["unscored_reason"] == "clipped" and w["cells"][0]["differs"] is True
     assert w["cells"][0]["applied"] == {"d_power_db": 3.0, "d_tilt_deg": 0.0}
     sources = [x["approval"]["source"] for x in j["windows"]]
-    assert sources == ["change.approval", "item.extra.approval", "decision"]
+    assert sources == ["change.approved_by", "item.extra.approval", "decision"]
+    assert j["windows"][0]["approval"]["by"] == "person:navigator-1" and j["windows"][0]["approval"]["at"]
     assert j["windows"][2]["approval"]["by"] is None and j["windows"][2]["approval"]["allowed_at"]
     assert j["provenance"]["state"] == "synthetic" and j["provenance"]["n_records"] == 7
-    assert any(m["field"] == "approval.decided_by" for m in j["missing"])
+    assert any(m["field"] == "approved_by" for m in j["missing"])
 
 
 def test_rehearsal_case_shows_gap_and_unrecorded_approver(monkeypatch):
     j = client(monkeypatch).get("/api/twinview/case/case-twin-02").json()
-    assert j["rung"]["code"] == "R2" and j["rung"]["preset"] == "viavi-like"
+    assert j["rung"]["code"] == "R2" and j["rung"]["preset"] == "viavi-like" and "change.twin.preset" in j["rung"]["basis"]
     assert [w["gap_steps"] for w in j["windows"]] == [0, 1]
     assert j["windows"][0]["probe"] is True and j["windows"][1]["approval"]["source"] is None
 

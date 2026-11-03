@@ -152,7 +152,7 @@ function covColor(v: unknown): string | null {
 function CoverageLegend() {
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-micro text-ink-3">
-      <span>colour = coverage share (RSRP above −97 dBm):</span>
+      <span>colour = coverage share (serving RSRP above −97 dBm, RSRP only):</span>
       {[['var(--good)', '≥ 95%'], ['var(--warn)', '80–95%'], ['var(--critical)', '< 80%'], ['var(--surface-3)', 'not recorded']].map(([c, l]) => (
         <span key={l} className="flex items-center gap-1"><span className="inline-block size-2.5 rounded-sm" style={{ background: c }} />{l}</span>
       ))}
@@ -195,14 +195,15 @@ function CellCard({ cell, change, phase }: { cell: Rec; change?: Rec; phase: 'be
         <span className="mono text-body font-medium text-ink-1">{cell.name}</span>
         <span className="text-micro text-ink-3">cell {cell.cell}</span>
         {down && <StatusPill status="critical" size="sm">{cell.alarm ? 'alarm' : 'asleep'}</StatusPill>}
-        <span className="tnum ml-auto text-cap font-medium" style={{ color: col ?? 'var(--ink-3)' }} title="coverage share of this cell's served users">{cell.coverage_share == null ? 'cov. —' : `cov. ${pct(cell.coverage_share)}`}</span>
+        <span className="tnum ml-auto text-cap font-medium" style={{ color: col ?? 'var(--ink-3)' }} title="Coverage share: this cell's served users with serving RSRP > −97 dBm (RSRP only, no SINR condition). Empty when the cell serves no users.">{cell.coverage_share == null ? 'cov. —' : `cov. ${pct(cell.coverage_share)}`}</span>
       </div>
       <div className="tnum mono mt-1 grid grid-cols-3 gap-x-2 gap-y-0.5 text-cap text-ink-1">
         <span title="transmit power"><span className="text-ink-3">P </span>{fixed(cell.power_dbm)} dBm</span>
         <span title="electrical tilt"><span className="text-ink-3">tilt </span>{fixed(cell.tilt_deg)}°</span>
         <span title="users served"><span className="text-ink-3">UEs </span>{cell.ue_count ?? '—'}</span>
-        <span title="share of served users with SINR above 0 dB"><span className="text-ink-3">SLA </span>{pct(cell.sla_share)}</span>
+        <span title="SLA share: this cell's served users with SINR > 0 dB (strictly greater). Empty when the cell serves no users."><span className="text-ink-3">SLA </span>{pct(cell.sla_share)}</span>
         <span className="col-span-2" title="10th percentile SINR of served users"><span className="text-ink-3">p10 SINR </span>{fixed(cell.sinr_p10_db)} dB</span>
+        <span className="col-span-3" title="mean RSRP of served users"><span className="text-ink-3">RSRP mean </span>{fixed(cell.rsrp_mean_dbm)} dBm</span>
       </div>
       {change && <ChangeArrow x={change} phase={phase} />}
     </div>
