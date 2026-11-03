@@ -183,7 +183,8 @@ def test_fixture_mode_is_labelled_and_never_live(tmp_path, monkeypatch):
     svc = Service(offline=None)
     c = client(svc)
     p = c.get("/api/kitapprovals/pending").json()
-    assert p["label"] == "FIXTURE" and len(p["rows"]) == 4 and p["rows"][0]["status"] == "PENDING"
+    assert p["label"] == "FIXTURE" and len(p["rows"]) == 5 and p["rows"][0]["status"] == "PENDING"
+    assert [r["proposal_only"] for r in p["rows"]].count(True) == 1
     s = c.get("/api/kitapprovals/status").json()
     assert s["label"] == "FIXTURE" and "FIXTURE" in s["approver"]["aws_session"]
 

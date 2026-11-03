@@ -15,6 +15,10 @@
     {"pk": "chg-c71d09e5f2ab", "status": "APPLIED", "agent": "noc_lead", "case_id": "case-9c0d1e2f", "created_at": -5400,
      "decided_by": "person:team13-op1", "decided_at": -5200, "applied_at": -5100, "decision_reason": "rehearsal approve",
      "change": "{\"item_id\": \"step-0\", \"change\": \"cell=3;d_power_db=+0.0;d_tilt_deg=-2.0\", \"reason\": \"uptilt cell 3\"}"},
+    {"pk": "chg-5a1b2c3d4e5f", "status": "PENDING", "agent": "noc_lead", "case_id": "case-1f2e3d4c-i00s0", "created_at": -900,
+     "change": "{\"item_id\": \"step-0\", \"change\": \"cell=1;d_power_db=+1.0;d_tilt_deg=-1.0\", \"reason\": \"eval incident 0\"}"},
+    {"pk": "t3-case-1f2e3d4c-i00s0", "case_id": "case-1f2e3d4c-i00s0", "run_id": "t3.swarm-live-20261103T0500Z",
+     "unit": "t3.evals.swarm-proposals", "created_at": -950, "source": "t3/evals/live_swarm.py"},
     {"pk": "chg-04e6b9a8d3f7", "status": "REJECTED", "agent": "noc_lead", "case_id": "case-smoke001", "created_at": -7200,
      "decided_by": "person:team13-op1", "decided_at": -7000, "decision_reason": "smoke cleanup",
      "change": "{\"item_id\": \"item-1\", \"change\": \"setting=6\", \"reason\": \"kit example\"}"}

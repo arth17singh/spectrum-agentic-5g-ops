@@ -208,6 +208,17 @@ def row_view(item: dict, now: float, approvers: dict | None, key: bytes) -> dict
     }
 
 
+EVAL_UNITS = {"t3.evals.swarm-proposals"}
+
+
+def is_eval_mapping(row: dict) -> bool:
+    """A t3-<case> row that maps the case to an evaluation run (t3/evals/live_swarm.py writes run_id
+    t3.swarm-live-<UTC>, unit t3.evals.swarm-proposals, source t3/evals/live_swarm.py)."""
+    run_id, unit, source = row.get("run_id"), row.get("unit"), row.get("source")
+    return ((isinstance(run_id, str) and run_id.startswith("t3.swarm-")) or unit in EVAL_UNITS
+            or (isinstance(source, str) and source.endswith("evals/live_swarm.py")))
+
+
 def order_rows(rows: list[dict]) -> list[dict]:
     pending = sorted((r for r in rows if r["status"] == "PENDING"), key=lambda r: r["created_at"] or 0)
     rest = sorted((r for r in rows if r["status"] != "PENDING"),

@@ -29,6 +29,8 @@ export interface Row {
   decided_at: number | null
   decision_reason: string | null
   applied_at: number | null
+  /** the case belongs to an evaluation run (t3/evals/live_swarm.py): recorded, scored offline, never approved */
+  proposal_only: boolean
 }
 
 export interface Pending { mode: Mode; label: string; rows: Row[]; read_at: string; message?: string }

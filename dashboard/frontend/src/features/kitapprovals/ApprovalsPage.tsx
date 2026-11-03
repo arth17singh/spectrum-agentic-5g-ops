@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Button, PageHeader, Panel, StatusPill, type Status as Pill } from '@/ui'
 import { age, clock, kit, PIN_COMMAND, type DecideOk, type Detail, type Pending, type Row, type Status } from './api'
 import { ConfirmSheet } from './ConfirmSheet'
@@ -46,7 +46,8 @@ function RowItem({ row, selected, onSelect }: { row: Row; selected: boolean; onS
       <div className="mt-0.5 flex flex-wrap gap-x-3 text-micro text-ink-3">
         <span>{row.agent ?? '—'}</span><span>{row.case_id ?? '—'}</span>
         {!row.canonical && <span style={{ color: 'var(--warn-ink)' }}>{row.canonical_text ? 'not canonical' : 'kit example tool (not the twin)'}</span>}
-        {row.status === 'PENDING' && (row.age_s ?? 0) > STALE_S && <span style={{ color: 'var(--warn-ink)' }}>stale: waiting over 30 min</span>}
+        {row.proposal_only && <span>evaluation proposal: not for approval</span>}
+        {row.status === 'PENDING' && !row.proposal_only && (row.age_s ?? 0) > STALE_S && <span style={{ color: 'var(--warn-ink)' }}>stale: waiting over 30 min</span>}
         {row.decided_by && <span>by {row.decided_by}</span>}
       </div>
     </button>
@@ -95,8 +96,9 @@ function DetailView({ d, canDecide, onReview }: { d: Detail; canDecide: boolean;
         {d.case_note && d.prediction && <div className="text-micro text-ink-3">{d.case_note}</div>}
       </div>
       {d.warnings.length > 0 && <Note tone="amber">{d.warnings.map((w) => <div key={w}>{w}</div>)}</Note>}
+      {d.proposal_only && <Note tone="info"><span className="font-medium">Evaluation proposal (proposal-only, not for approval).</span> This case belongs to an evaluation run of the swarm: the change was recorded and is scored offline. Approve and reject are disabled.</Note>}
       {d.status === 'PENDING' && (
-        <Button variant="primary" onClick={onReview} disabled={!canDecide} data-action="review">Review and decide…</Button>
+        <Button variant="primary" onClick={onReview} disabled={!canDecide || d.proposal_only} data-action="review">Review and decide…</Button>
       )}
       {d.status === 'APPROVED' && (
         <Note tone="amber"><span className="font-medium">Approved, not yet applied.</span> noc_lead applies it on its next apply_change call: say “Approved.” in <Link className="underline" to={d.links.ask_noc}>Ask the NOC</Link> for case {d.case_id} (or use the kit's <code>ask --case</code>).</Note>
@@ -132,17 +134,24 @@ export default function ApprovalsPage() {
     return () => { clearTimeout(first); clearInterval(t) }
   }, [load])
 
-  const rows = pending?.rows ?? []
-  const sel = rows.find((r) => r.approval_id === selected)
+  // Link contract for other pages (Ask the NOC): /approvals?case=<case_id> shows only that case's rows.
+  const [params, setParams] = useSearchParams()
+  const caseFilter = params.get('case')
+  const allRows = pending?.rows ?? []
+  const rows = caseFilter ? allRows.filter((r) => r.case_id === caseFilter) : allRows
+  // with ?case=, open that case's waiting change without a click
+  const current = selected ?? (caseFilter ? (rows.find((r) => r.status === 'PENDING')?.approval_id ?? null) : null)
+  const sel = rows.find((r) => r.approval_id === current)
   const selStatus = sel?.status
   useEffect(() => {
-    if (!selected) return
-    const t = window.setTimeout(() => loadDetail(selected), 0)
+    if (!current) return
+    const t = window.setTimeout(() => loadDetail(current), 0)
     return () => clearTimeout(t)
-  }, [selected, selStatus, loadDetail])
+  }, [current, selStatus, loadDetail])
 
-  const refresh = () => { setBusy(true); load().finally(() => setBusy(false)); if (selected) loadDetail(selected) }
-  const waiting = rows.filter((r) => r.status === 'PENDING')
+  const refresh = () => { setBusy(true); load().finally(() => setBusy(false)); if (current) loadDetail(current) }
+  const waiting = rows.filter((r) => r.status === 'PENDING' && !r.proposal_only)
+  const proposals = rows.filter((r) => r.status === 'PENDING' && r.proposal_only)
   const decided = rows.filter((r) => r.status !== 'PENDING')
   const mode = status?.mode ?? pending?.mode
   const pinOk = !!status?.pin.set && !status.pin.locked_for_s
@@ -175,6 +184,10 @@ export default function ApprovalsPage() {
       )}
       <Note tone="info">Real decisions on the kit's table (team13-approvals), separate from the simulated Oversight desk. Approving does not apply a change: noc_lead applies it on its next apply_change call, after you say “Approved.” in Ask the NOC (or the kit's <code>ask --case</code>).</Note>
 
+      {caseFilter && (
+        <Note tone="info"><span data-filter="case">Showing case <span className="font-mono">{caseFilter}</span> only ({rows.length} of {allRows.length} rows).</span>{' '}
+          <button type="button" className="underline" onClick={() => setParams({}, { replace: true })}>Show all</button></Note>
+      )}
       <div className="grid gap-4 lg:grid-cols-[minmax(320px,2fr)_3fr]">
         <Panel title="Waiting for a decision" subtitle={pending ? `last read ${pending.read_at} · ${label}` : undefined}>
           {waiting.length === 0 ? (
@@ -183,19 +196,27 @@ export default function ApprovalsPage() {
               <div className="mt-1 text-cap text-ink-3">Last read {pending?.read_at ?? '—'}, {label}. A row appears when noc_lead asks to apply a change.</div>
             </div>
           ) : (
-            <div className="space-y-2">{waiting.map((r) => <RowItem key={r.approval_id} row={r} selected={r.approval_id === selected} onSelect={() => setSelected(r.approval_id)} />)}</div>
+            <div className="space-y-2">{waiting.map((r) => <RowItem key={r.approval_id} row={r} selected={r.approval_id === current} onSelect={() => setSelected(r.approval_id)} />)}</div>
+          )}
+          {proposals.length > 0 && (
+            <details className="mt-5" data-section="eval-proposals">
+              <summary className="cursor-pointer text-micro font-semibold tracking-[0.06em] text-ink-3 uppercase">
+                Evaluation proposals (proposal-only, not for approval) · {proposals.length}
+              </summary>
+              <div className="mt-2 space-y-2">{proposals.map((r) => <RowItem key={r.approval_id} row={r} selected={r.approval_id === current} onSelect={() => setSelected(r.approval_id)} />)}</div>
+            </details>
           )}
           {decided.length > 0 && (
             <>
               <div className="mt-5 mb-2 text-micro font-semibold tracking-[0.06em] text-ink-3 uppercase">Decided</div>
-              <div className="space-y-2">{decided.map((r) => <RowItem key={r.approval_id} row={r} selected={r.approval_id === selected} onSelect={() => setSelected(r.approval_id)} />)}</div>
+              <div className="space-y-2">{decided.map((r) => <RowItem key={r.approval_id} row={r} selected={r.approval_id === current} onSelect={() => setSelected(r.approval_id)} />)}</div>
             </>
           )}
         </Panel>
         <Panel title="Change">
-          {!selected && <div className="py-8 text-center text-cap text-ink-3">Select a change on the left to review it.</div>}
-          {selected && detailErr && <Note tone="red">{detailErr}</Note>}
-          {selected && detail && <DetailView d={detail} canDecide={canDecide} onReview={() => setSheet(true)} />}
+          {!current && <div className="py-8 text-center text-cap text-ink-3">Select a change on the left to review it.</div>}
+          {current && detailErr && <Note tone="red">{detailErr}</Note>}
+          {current && detail && detail.approval_id === current && <DetailView d={detail} canDecide={canDecide} onReview={() => setSheet(true)} />}
         </Panel>
       </div>
 

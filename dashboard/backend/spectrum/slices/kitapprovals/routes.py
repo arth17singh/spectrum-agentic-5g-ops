@@ -66,6 +66,7 @@ class Service:
         self._sts_cache: tuple[float, str] | None = None
         self._key: bytes | None = None
         self._last_drain = 0.0
+        self._eval_cache: dict[str, tuple[bool, float]] = {}
 
     @property
     def label(self) -> str:
@@ -124,6 +125,24 @@ class Service:
         arn = self.aws.sts.get_caller_identity()["Arn"]
         self._sts_cache = (now, arn)
         return arn
+
+    def is_eval_case(self, case_id: Any) -> bool:
+        """True when the case is mapped to an evaluation run (W4's t3.evals.live_swarm, proposal-only):
+        its t3-<case> row has run_id t3.swarm-*, unit t3.evals.swarm-proposals or source live_swarm.py.
+        A True answer is cached for good (a mapping never changes); False for 60 s."""
+        if not isinstance(case_id, str) or not SAFE_CASE.fullmatch(case_id):
+            return False
+        hit = self._eval_cache.get(case_id)
+        now = self.clock()
+        if hit and (hit[0] or now - hit[1] < 60):
+            return hit[0]
+        resp = self.aws.ddb.get_item(TableName=awsmod.TABLE, Key={"pk": {"S": "t3-" + case_id}}, ConsistentRead=True,
+                                     ProjectionExpression="run_id, #u, #src",
+                                     ExpressionAttributeNames={"#u": "unit", "#src": "source"})
+        row = awsmod.to_item(resp.get("Item")) or {}
+        flag = logic.is_eval_mapping(row)
+        self._eval_cache[case_id] = (flag, now)
+        return flag
 
     def view(self, item: dict) -> dict:
         return logic.row_view(logic.plain(item), self.clock(), self.approvers(), self.key())
@@ -231,6 +250,13 @@ def _scan_all(svc: Service) -> list[dict]:
     raise RuntimeError("Scan did not finish")
 
 
+def _views(svc: Service, items: list[dict]) -> list[dict]:
+    rows = [svc.view(i) for i in items if str(i.get("pk", "")).startswith("chg-") and "status" in i]
+    for r in rows:
+        r["proposal_only"] = svc.is_eval_case(r["case_id"])
+    return logic.order_rows(rows)
+
+
 @router.get("/pending")
 async def pending(request: Request, svc: Service = Depends(get_service)):
     refused = _laptop(request)
@@ -247,7 +273,12 @@ async def pending(request: Request, svc: Service = Depends(get_service)):
         log.warning("kitapprovals: scan failed (%s)", awsmod.error_code(exc))
         return JSONResponse({"mode": mode, "label": svc.label, "rows": [], "read_at": read_at,
                              "message": awsmod.MESSAGES[mode]}, headers=NO_STORE)
-    rows = logic.order_rows([svc.view(i) for i in items if str(i.get("pk", "")).startswith("chg-") and "status" in i])
+    try:
+        rows = await _call(_views, svc, items)
+    except Exception as exc:  # noqa: BLE001
+        mode = awsmod.classify(exc)
+        return JSONResponse({"mode": mode, "label": svc.label, "rows": [], "read_at": read_at,
+                             "message": awsmod.MESSAGES[mode]}, headers=NO_STORE)
     return JSONResponse({"mode": "ok", "label": svc.label, "rows": rows, "read_at": read_at}, headers=NO_STORE)
 
 
@@ -318,6 +349,7 @@ async def detail(request: Request, approval_id: str = PathParam(pattern=logic.AP
         if item is None or "status" not in item:
             return _err(404, "not_found", f"{approval_id} is not in the approvals table.")
         row = svc.view(item)
+        row["proposal_only"] = await _call(svc.is_eval_case, row["case_id"])
         ctx = await _call(_context, svc, row)
     except Exception as exc:  # noqa: BLE001
         return _aws_failure(exc)
@@ -364,6 +396,9 @@ def _decide(svc: Service, approval_id: str, body: dict) -> JSONResponse:
     item = _get(svc, approval_id)
     if item is None or "status" not in item:
         return _err(404, "not_found", f"{approval_id} is not in the approvals table.")
+    if svc.is_eval_case(item.get("case_id")):
+        return _err(409, "proposal_only", "This change is a recorded proposal of an evaluation run "
+                    "(proposal-only): it is scored offline and is not for approval. Nothing changed.")
     if item["status"] != "PENDING":
         w = _who(svc, item)
         return _err(409, "not_pending", f"Already {w['status']}. Nothing changed.", **w)

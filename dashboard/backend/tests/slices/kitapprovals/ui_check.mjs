@@ -65,6 +65,19 @@ if (mode === 'empty') {
   await page.waitForSelector('[data-detail="chg-c71d09e5f2ab"]')
   await page.waitForTimeout(300)
   await page.screenshot({ path: join(out, '5-applied.png'), fullPage: true })
+
+  // evaluation proposals: collapsed, and not decidable; ?case= filters to one case and opens its row
+  const ev = page.locator('details[data-section="eval-proposals"]')
+  if (!(await ev.count())) fail('no evaluation-proposals section')
+  else if (await ev.evaluate((d) => d.open)) fail('evaluation-proposals section is not collapsed')
+  if (await page.locator('[data-row="chg-5a1b2c3d4e5f"]').isVisible()) fail('an evaluation proposal is visible outside its collapsed section')
+  await page.goto(`${base}/approvals?case=case-1f2e3d4c-i00s0`)
+  await page.waitForSelector('[data-detail="chg-5a1b2c3d4e5f"]')
+  await page.waitForTimeout(400)
+  if (await page.locator('[aria-label="Demo Director"]').isVisible()) { await page.keyboard.press('d'); await page.waitForTimeout(300) }
+  if (!(await page.locator('[data-filter="case"]').isVisible())) fail('no case filter note')
+  if (!(await page.locator('[data-action="review"]').isDisabled())) fail('review is enabled on an evaluation proposal')
+  await page.screenshot({ path: join(out, '6-case-filter-eval-proposal.png'), fullPage: true })
 }
 if (errors.length) fail(`console errors: ${errors.join(' | ')}`)
 await browser.close()
