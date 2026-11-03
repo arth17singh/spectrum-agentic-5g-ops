@@ -117,7 +117,7 @@ python -m tools.sm.run --run-id <id> --declaration /tmp/decl.json --instance-typ
   [--no-sdk] --entry "-m t1.evals.run <the same flags> --run-id {run_id} --evidence-dir {evidence_dir}" [--dry-run]
 ```
 
-- `--no-sdk` is for every unit except execution, which replays the twin.
+- `--no-sdk` is for interface, knowledge and price_latency only. execution replays the twin, and safety grades with the SDK `ActionSafetyFilter`, so both need the SDK. Always add `--requirement "pydantic>=2.7,<3"` (team13_contracts needs it; the SDK brings it, the bare image may not), plus `transformers==4.57.6` and `peft==0.21.2` for `--client local-hf`.
 - With the SDK, the generated requirements.txt (ran-rl[maveric], gpytorch 1.15.2, linear-operator 0.6.1, plus `--requirement` lines such as `transformers==4.57.6` and `peft==0.21.2`) resolves with torch pinned at the DLC's 2.9.0. I checked this with `uv pip compile … -c torch==2.9.0` for x86_64 manylinux and py3.12. pip leaves a satisfied torch alone, so the image's CUDA torch survives.
 - The image's torch (2.9.0) differs from the Mac venv's (2.15.0). That is one more reason for the platform check below.
 
