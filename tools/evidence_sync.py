@@ -152,8 +152,7 @@ class Sync:
         with os.fdopen(fd, "wb") as f:
             f.write(body)
         os.utime(tmp, (o["ts"], o["ts"]))
-        os.replace(tmp, p)
-        return {**o, "sha256": sha, "errors": [], "key_attested": bool(m)}
+        return {**o, "sha256": sha, "errors": [], "key_attested": bool(m), "tmp": tmp, "dest": p}
 
     def mirror(self) -> dict:
         t0 = time.time()
@@ -171,6 +170,7 @@ class Sync:
             + (f"; not evidence layout, skipped: {', '.join(sorted(self.skipped_tops))}/" if self.skipped_tops else ""))
         new = dict(old)
         failed = 0
+        ready = []
         with ThreadPoolExecutor(self.a.workers) as ex:
             futs = [ex.submit(self.fetch, o) for o in todo]
             for i, f in enumerate(as_completed(futs), 1):
@@ -179,9 +179,14 @@ class Sync:
                     failed += 1
                     self.problems.append(f"{r['rel']}: " + "; ".join(r["errors"]))
                 else:
-                    new[r["rel"]] = {k: r[k] for k in ("etag", "size", "last_modified", "sha256")}
+                    ready.append(r)
                 if i % 5000 == 0:
                     say(f"  {i}/{len(todo)}")
+        # Files appear in the mirror in S3 LastModified order (each fetched to a temp file first), so a ledger
+        # scan running during the sync sees a prefix of S3's write order, never a result before its records.
+        for r in sorted(ready, key=lambda r: (r["ts"], r["rel"])):
+            os.replace(r["tmp"], r["dest"])
+            new[r["rel"]] = {k: r[k] for k in ("etag", "size", "last_modified", "sha256")}
         listed = {o["rel"] for o in keys}
         gone = sorted(k for k in new if k not in listed)
         for k in gone:
