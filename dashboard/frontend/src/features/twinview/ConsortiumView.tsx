@@ -4,6 +4,7 @@ import { Hash, Panel } from '@/ui'
 import { fixed, pct, utc } from './format'
 import { Banner, NoteChip, ProvenanceChip } from './shared'
 import RealConsortium from './RealConsortium'
+import { AwsTimeSummary } from '@/ui/AwsTime'
 
 // Consortium mode, from GET /api/twinview/consortium. Dataset facts come from silos/manifest.json (written by our
 // generator: simulated operators on the same 4-cell Maveric twin, never partner data). Metrics come only from
@@ -30,6 +31,11 @@ export function ConsortiumView({ data }: { data: Rec }) {
       )}
       <RealConsortium />
       {runs.length > 0 && <Banner p={data.runs_provenance} />}
+      {runs.length > 0 && data.runs_provenance?.aws_time_summary?.n > 0 && (
+        <div className="-mt-2 text-micro text-ink-3" data-testid="consortium-aws-time">
+          Track 2 result records: <AwsTimeSummary s={data.runs_provenance.aws_time_summary} />
+        </div>
+      )}
       {!facts && <div className="rounded-md border border-line p-4 text-cap text-ink-2">{data.facts_note}</div>}
       {facts && (
         <>
@@ -137,6 +143,7 @@ function MetricsPanel({ data }: { data: Rec }) {
       <div className="mb-2 flex flex-wrap items-center gap-2">
         {run ? <ProvenanceChip p={data.runs_provenance} /> : <NoteChip label="NOT RUN YET" title="No t2.fl result record exists yet" />}
         <span className="text-micro text-ink-3">{run ? 'from t2.fl result records' : 'no Track 2 federated run has written a t2.fl result yet'}</span>
+        {run && <AwsTimeSummary s={data.runs_provenance?.aws_time_summary} />}
       </div>
       <table className="w-full table-fixed text-cap" data-state={run ? 'run' : 'not-run'}>
         <thead>
