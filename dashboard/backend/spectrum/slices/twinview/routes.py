@@ -135,8 +135,13 @@ def viavi_sites_view(doc: Any) -> dict | None:
             ok = lat is not None and lon is not None and -90 <= lat <= 90 and -180 <= lon <= 180
             sites.append({"name": str(s.get("name") or "?"), "cells": _num(s.get("cells")),
                           "lat": lat if ok else None, "lon": lon if ok else None})
+        mc = sc.get("map_center") if isinstance(sc.get("map_center"), dict) else {}
+        clat, clon = _num(mc.get("lat")), _num(mc.get("lon"))
+        centre = {"lat": clat, "lon": clon} if clat is not None and clon is not None and -90 <= clat <= 90 and -180 <= clon <= 180 else None
         out.append({"name": sc["name"], "cells": _num(sc.get("cells")), "ues": _num(sc.get("ues")),
-                    "note": sc.get("note") if isinstance(sc.get("note"), str) else None, "sites": sites})
+                    "note": sc.get("note") if isinstance(sc.get("note"), str) else None, "sites": sites,
+                    "map_center": centre,
+                    "coordinate_source": sc.get("coordinate_source") if isinstance(sc.get("coordinate_source"), str) else None})
     return {"source": doc.get("source") if isinstance(doc.get("source"), str) else None,
             "read_at": doc.get("read_at") if isinstance(doc.get("read_at"), str) else None, "scenarios": out}
 
