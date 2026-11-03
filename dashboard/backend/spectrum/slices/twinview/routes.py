@@ -67,16 +67,20 @@ def _declared(r, run_ids) -> dict:
 
 
 @router.get("/cases")
-def cases():
+def cases(show_superseded: bool = False):
+    """Superseded runs are left out unless `show_superseded`; counts and banner are computed on the runs shown."""
+    from spectrum.slices._shared.verified import hide_superseded
+
     try:
         r = _reader()
-        changes = _records(r, "change")
+        (changes,), sup = hide_superseded([_records(r, "change")], show_superseded)
         decl = _declared(r, [c.get("run_id") for c in changes])
     except Exception as e:  # noqa: BLE001 - shown as an error, never as "no records"
         return _unavailable(e)
     ov = logic.build_overview(changes, decl)
     return _govern_listing({"cases": ov["cases"], "n_cases": len(ov["cases"]), "n_changes": len(changes),
-                            "provenance": ov["provenance"], "field_spec": logic.FIELD_SPEC, "source": _source(r)})
+                            "provenance": ov["provenance"], "field_spec": logic.FIELD_SPEC, "source": _source(r),
+                            "superseded_runs": sup, "n_superseded": len(sup), "showing_superseded": bool(show_superseded)})
 
 
 @router.get("/case/{case_id}")

@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { CircleDashed } from 'lucide-react'
 import type { Rec } from '@/core/types'
 import { Panel } from '@/ui'
+import { checkWords } from './checkWords'
 import { VerifyLive } from './VerifyLive'
 import { RunLink, Superseded, Verdict } from '../scorecard/RealRuns'
 import { num, targetText } from '../scorecard/format'
@@ -17,7 +18,7 @@ const RunState = ({ r, verify = true }: { r: Rec; verify?: boolean }) => (
       : r.state === 'declared' ? <span className="text-micro text-ink-3">declared, no result yet</span>
       : <><Verdict s={r.state} why={r.why} /><span className="tnum text-micro text-ink-1">{num(r.value)} {r.metric}</span><span className="text-micro text-ink-3">target {targetText(r.target)}</span></>}
     <RunLink id={r.run_id} />
-    {r.check != null && <span className="text-micro text-ink-3">check_unit exit {r.check}</span>}
+    {r.check != null && <span className="text-micro text-ink-3">checked by check_unit: {checkWords(r.check, r.check_parts)}</span>}
     {r.superseded && <Superseded reason={r.superseded.reason} by={r.superseded.by} />}
     {verify && r.state !== 'missing' && <div className="basis-full"><VerifyLive runId={r.run_id} compact /></div>}
   </div>

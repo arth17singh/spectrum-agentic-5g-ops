@@ -320,7 +320,7 @@ def summarize(run_id: str, case_id: str, rows: list[Rec], declared: Rec | None) 
     first = rows[0]
     preset, src = preset_of(first, declared)
     kinds = sorted({str((r.get("twin") or {}).get("kind")) for r in rows})
-    shown = rows + ([declared] if declared else [])
+    shown = rows  # what this case draws: its declaration belongs to the run and the page summary, it is no row here
     times = sorted(t for t in (record_time(r) for r in rows) if t)
     return {
         "case_id": case_id, "run_id": run_id or None, "n_changes": len(rows),
@@ -362,7 +362,7 @@ def build_case(case_id: str, changes: list[Rec], decisions: list[Rec], items: li
     decl = declared.get(key[0])
     head = summarize(key[0], case_id, rows, decl)
     seen, shown = set(), []
-    for r in rows + used + ([decl] if decl else []):
+    for r in rows + used:
         if id(r) not in seen:
             seen.add(id(r))
             shown.append(r)

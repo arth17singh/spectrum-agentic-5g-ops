@@ -55,15 +55,21 @@ def _unavailable(e: Exception) -> JSONResponse:
 
 
 @router.get("/cases")
-def cases():
+def cases(show_superseded: bool = False):
+    """Superseded runs (the list the evidence code keeps) are left out unless `show_superseded`; the counts and the
+    banner are computed on the runs actually shown, and the response says how many it is hiding."""
+    from spectrum.slices._shared.verified import hide_superseded
+
     try:
         decisions, changes, controls, src = _load()
     except Exception as e:  # noqa: BLE001 - reported to the page, which shows it as an error, not as "no records"
         return _unavailable(e)
+    (decisions, changes, controls), sup = hide_superseded([decisions, changes, controls], show_superseded)
     ov = logic.build_overview(decisions, changes, controls)
     rows = ov["cases"]
     return _govern_listing({"cases": rows, "n_cases": len(rows), "n_records": len(decisions) + len(changes) + len(controls),
-                            "provenance": ov["provenance"], "source": src})
+                            "provenance": ov["provenance"], "source": src, "superseded_runs": sup, "n_superseded": len(sup),
+                            "showing_superseded": bool(show_superseded)})
 
 
 @router.get("/case/{case_id}")

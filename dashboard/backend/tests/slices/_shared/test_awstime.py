@@ -276,8 +276,8 @@ def test_twinview_windows_carry_aws_time_and_source(monkeypatch, tmp_path):
     assert w["chg-1"]["runner_time"] == "2026-11-03T05:50:30.545Z" and w["chg-1"]["real"] is False
     assert (w["chg-2"]["aws_time"], w["chg-2"]["aws_time_source"]) == (None, "none")
     s = j["provenance"]["aws_time_summary"]
-    # two changes + the declaration (S3 stored): the declaration is a shown record too
-    assert (s["k"], s["n"]) == (2, 3) and s["by_source"]["s3_stored"] == 2
+    # a case counts the records it draws (its two changes); the run's declaration is in the page summary only
+    assert (s["k"], s["n"]) == (1, 2) and s["by_source"]["s3_stored"] == 1
     listing = c.get("/api/twinview/cases").json()
     assert listing["provenance"]["aws_time_summary"]["n"] == 3
     assert awstime.STORED_KEY not in json.dumps(j)
@@ -483,3 +483,88 @@ def test_the_allow_that_is_logged_at_request_end_is_ordered_by_the_gateway_windo
     _attest(tmp_path, run, {rel: {"job": None, "log_time": "2026-11-03T05:31:59.884Z", "sha256": _sha(tmp_path, rel), "state": "match",
                                   "via": "lambda_log", "gateway_window": {"start": "2026-11-03T05:31:51.874Z", "end": "2026-11-03T05:31:52.970Z"}}})
     assert c.get(f"/api/trace/case/c?run_id={run}").json()["check"]["order_ok"] is False
+
+
+# ---------------------------------------------------------------------------------------------- superseded runs, notes
+
+def _check(root: Path, run: str, parts: dict, exit_code: int = 0):
+    d = root / ".sync" / "checks"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{run}.json").write_text(json.dumps({"exit_code": exit_code, "checked_at": "2026-11-03T08:00:00Z",
+                                               "summary": {"parts": {k: {"state": v} for k, v in parts.items()}}}))
+
+
+def _two_runs(tmp_path, monkeypatch):
+    good, bad = "t3.deny-20261103T054914Z", "t3.deny-20261103T051458Z"
+    for run, case in ((good, "case-g"), (bad, "case-b")):
+        _put(tmp_path, f"records/{run}/decision/a.json", rec(kind="decision", run_id=run, case_id=case, tool="ran___observe", decision="DENY",
+                                                           time="2026-11-03T05:50:00Z", aws_time="2026-11-03T05:50:00Z",
+                                                           aws_time_source="cloudwatch:/team13/checkpoint"))
+    _check(tmp_path, good, {"a": "PASS", "b": "PASS", "c": "PASS", "d": "PASS", "e": "PASS"})
+    _check(tmp_path, bad, {"a": "PASS", "e": "FAIL"}, 1)
+    (tmp_path / "superseded.json").write_text(json.dumps({"superseded": [
+        {"run_ids": [bad], "reason": "crashed at item 7", "superseded_by": {"run_ids": [good]}}]}))
+    monkeypatch.setenv("SPECTRUM_RECORDS_ROOT", str(tmp_path))
+    return good, bad
+
+
+def test_trace_hides_superseded_runs_by_default_and_shows_them_as_superseded(monkeypatch, tmp_path):
+    good, bad = _two_runs(tmp_path, monkeypatch)
+    c = _trace_client(monkeypatch, tmp_path)
+    j = c.get("/api/trace/cases").json()
+    assert [r["run_id"] for r in j["cases"]] == [good] and j["n_cases"] == 1
+    assert j["n_superseded"] == 1 and j["superseded_runs"] == [{"run_id": bad, "by": [good]}] and j["showing_superseded"] is False
+    assert j["n_records"] == 1 and j["provenance"]["n_records"] == 1  # counts and banner are for what is shown
+    j = c.get("/api/trace/cases?show_superseded=true").json()
+    by = {r["run_id"]: r for r in j["cases"]}
+    assert set(by) == {good, bad} and j["showing_superseded"] is True
+    p = by[bad]["provenance"]
+    assert p["state"] == "superseded" and p["label"] == "SUPERSEDED" and p["claim"] == ""
+    assert p["note"] == f"replaced by {good}; this attempt failed check_unit part e."
+    assert "UNVERIFIED" not in json.dumps(p)
+    assert by[good]["provenance"]["state"] == "real"
+    d = c.get(f"/api/trace/case/case-b?run_id={bad}").json()
+    assert d["provenance"]["state"] == "superseded"
+
+
+def test_twinview_hides_superseded_runs_by_default(monkeypatch, tmp_path):
+    good, bad = _two_runs(tmp_path, monkeypatch)
+    for run, case in ((good, "case-g"), (bad, "case-b")):
+        _put(tmp_path, f"records/{run}/change/c.json", rec(kind="change", run_id=run, case_id=case, change_id=f"chg-{case}",
+                                                          created_at="2026-11-03T05:51:00Z", change=[{"cell": 1, "d_power_db": 1.0, "d_tilt_deg": 0.0}],
+                                                          change_text="cell=1", twin={"kind": "maveric-inprocess", "step": 0}))
+    monkeypatch.setattr(tv_routes, "_reader", lambda: RecordsReader(str(tmp_path)))
+    app = FastAPI()
+    app.include_router(twinview.router)
+    c = TestClient(app)
+    j = c.get("/api/twinview/cases").json()
+    assert [r["run_id"] for r in j["cases"]] == [good] and j["n_superseded"] == 1 and j["n_changes"] == 1
+    j = c.get("/api/twinview/cases?show_superseded=true").json()
+    assert {r["run_id"]: r["provenance"]["state"] for r in j["cases"]}[bad] == "superseded"
+
+
+def test_the_note_and_the_banner_agree_once_the_lambda_log_attests_the_change(monkeypatch, tmp_path):
+    """Trace's note ("AWS time on k of n ...") and the banner's count come from one summary."""
+    run = "t3.allow-20261103T052448Z"
+    _put(tmp_path, f"records/{run}/decision/a.json", rec(kind="decision", run_id=run, case_id="c", tool="ran___observe", decision="ALLOW",
+                                                       time="2026-11-03T05:50:00Z", aws_time="2026-11-03T05:50:00Z",
+                                                       aws_time_source="cloudwatch:/team13/checkpoint"))
+    _put(tmp_path, f"records/{run}/change/b.json", rec(kind="change", run_id=run, case_id="c", change_id="chg-1", created_at="2026-11-03T05:50:30.545Z",
+                                                     aws_time="2026-11-03T05:50:30.546Z", aws_time_source="lambda:clock",
+                                                     change=[{"cell": 1, "d_power_db": 1.0, "d_tilt_deg": 0.0}], change_text="cell=1",
+                                                     twin={"kind": "maveric-inprocess", "step": 0}))
+    _check(tmp_path, run, {k: "PASS" for k in "abcde"})
+    monkeypatch.setenv("SPECTRUM_RECORDS_ROOT", str(tmp_path))
+    c = _trace_client(monkeypatch, tmp_path)
+
+    def both():
+        p = c.get("/api/trace/cases").json()["provenance"]
+        return p["aws_time_summary"], p["note"]
+
+    s, note = both()
+    assert (s["k"], s["n"]) == (1, 2) and s["text"] in note and "check_unit verified" in note  # the change has no AWS time yet
+    rel = f"records/{run}/change/b.json"
+    _attest(tmp_path, run, {rel: {"job": None, "log_time": "2026-11-03T05:50:30.884Z", "sha256": _sha(tmp_path, rel), "state": "match", "via": "lambda_log"}})
+    s, note = both()
+    assert s["by_source"]["cloudwatch_lambda"] == 1 and s["text"] in note and "563" not in note
+    assert f"AWS time on {s['n']} of {s['n']}" in note
