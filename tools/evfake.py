@@ -22,11 +22,12 @@ import hashlib
 import io
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 READ_ONLY_OPS = {"GetObject", "ListObjectsV2", "HeadObject", "StartQuery", "GetQueryResults", "GetItem",
-                 "DescribeTrainingJob", "DescribeProcessingJob", "DescribeEndpoint"}
+                 "DescribeTrainingJob", "DescribeProcessingJob", "DescribeEndpoint", "FilterLogEvents",
+                 "DescribeLogGroups", "ListTrainingJobs", "GetCallerIdentity"}
 
 
 class FakeClientError(Exception):
@@ -66,6 +67,7 @@ class FakeS3:
         self.objects: dict[tuple[str, str], dict] = {}  # (bucket, key) -> {body, last_modified, etag}
         self.page_size = page_size
         self.writes = 0
+        self.write_log: list[str] = []  # keys in PutObject order
 
     def _rec(self, op: str) -> None:
         self.aws.calls.append(("s3", op, "global"))
@@ -87,6 +89,7 @@ class FakeS3:
                                   "PutObject", 412)
         body = Body if isinstance(Body, bytes) else Body.encode()
         self.writes += 1
+        self.write_log.append(Key)
         self.put(Bucket, Key, body, self.aws.now().replace(microsecond=0))  # S3 LastModified is whole seconds
         return {"ETag": self.objects[(Bucket, Key)]["etag"]}
 
@@ -193,6 +196,73 @@ class FakeLogs:
                          {"field": "@ptr", "value": e.get("event_id", "")}])
         return {"status": "Complete", "results": rows}
 
+    # writes (the runner's /team13/runner events) and FilterLogEvents (job-log attestation)
+    def _groups(self) -> set:
+        return set(self.aws.log_groups.get(self.region, [])) | {
+            e["log_group"] for e in self.aws.events if e.get("region") == self.region}
+
+    def create_log_group(self, logGroupName, **_):
+        self._rec("CreateLogGroup")
+        if logGroupName in self._groups():
+            raise FakeClientError("ResourceAlreadyExistsException", "The specified log group already exists",
+                                  "CreateLogGroup")
+        self.aws.log_groups.setdefault(self.region, []).append(logGroupName)
+        return {}
+
+    def put_retention_policy(self, logGroupName, retentionInDays, **_):
+        self._rec("PutRetentionPolicy")
+        self.aws.retention[(self.region, logGroupName)] = retentionInDays
+        return {}
+
+    def describe_log_groups(self, logGroupNamePrefix="", **_):
+        self._rec("DescribeLogGroups")
+        return {"logGroups": [{"logGroupName": g} for g in sorted(self._groups()) if g.startswith(logGroupNamePrefix)]}
+
+    def create_log_stream(self, logGroupName, logStreamName, **_):
+        self._rec("CreateLogStream")
+        if logGroupName not in self._groups():
+            raise FakeClientError("ResourceNotFoundException", "The specified log group does not exist",
+                                  "CreateLogStream")
+        key = (self.region, logGroupName, logStreamName)
+        if key in self.aws.streams:
+            raise FakeClientError("ResourceAlreadyExistsException", "The specified log stream already exists",
+                                  "CreateLogStream")
+        self.aws.streams.add(key)
+        return {}
+
+    def put_log_events(self, logGroupName, logStreamName, logEvents, **_):
+        self._rec("PutLogEvents")
+        if (self.region, logGroupName, logStreamName) not in self.aws.streams:
+            raise FakeClientError("ResourceNotFoundException", "The specified log stream does not exist",
+                                  "PutLogEvents")
+        for ev in logEvents:  # @timestamp is the caller's; @ingestionTime is the fake clock
+            self.aws.events.append({"region": self.region, "log_group": logGroupName, "log_stream": logStreamName,
+                                    "timestamp": datetime.fromtimestamp(ev["timestamp"] / 1000, timezone.utc),
+                                    "ingestion_time": self.aws.now(), "message": ev["message"],
+                                    "event_id": f"ev-{len(self.aws.events):06d}"})
+        return {}
+
+    def filter_log_events(self, logGroupName, logStreamNamePrefix=None, filterPattern=None, startTime=None,
+                          endTime=None, nextToken=None, **_):
+        self._rec("FilterLogEvents")
+        if logGroupName not in self._groups():
+            raise FakeClientError("ResourceNotFoundException", "The specified log group does not exist",
+                                  "FilterLogEvents")
+        term = (filterPattern or "").strip().strip('"')
+        out = []
+        for e in self.aws.events:
+            t = _t(e["timestamp"])
+            ms = int(t.timestamp() * 1000)
+            if (e.get("region") != self.region or e["log_group"] != logGroupName
+                    or (logStreamNamePrefix and not e.get("log_stream", "").startswith(logStreamNamePrefix))
+                    or (startTime is not None and ms < startTime) or (endTime is not None and ms > endTime)
+                    or (term and term not in e["message"])):
+                continue
+            out.append({"logStreamName": e.get("log_stream", ""), "timestamp": ms, "message": e["message"],
+                        "ingestionTime": int(_t(e.get("ingestion_time") or t).timestamp() * 1000),
+                        "eventId": e.get("event_id", "")})
+        return {"events": sorted(out, key=lambda x: x["timestamp"])}
+
 
 class FakeSageMaker:
     def __init__(self, aws: "FakeAws", region: str):
@@ -215,6 +285,52 @@ class FakeSageMaker:
 
     def describe_endpoint(self, EndpointName, **_):
         return {"EndpointName": EndpointName, **self._find("endpoint", EndpointName, "DescribeEndpoint")}
+
+    # the runner's writes: a created job starts InProgress; tests move it on with FakeAws.finish_job
+    def create_training_job(self, TrainingJobName, **req):
+        self.aws.calls.append(("sagemaker", "CreateTrainingJob", self.region))
+        if any(j["name"] == TrainingJobName and j["kind"] == "training" for j in self.aws.jobs):
+            raise FakeClientError("ResourceInUse", f"Training job {TrainingJobName} already exists", "CreateTrainingJob")
+        arn = f"arn:aws:sagemaker:{self.region}:000000000000:training-job/{TrainingJobName.lower()}"
+        self.aws.jobs.append({"region": self.region, "kind": "training", "name": TrainingJobName,
+                              "TrainingJobArn": arn, "TrainingJobStatus": "InProgress", "SecondaryStatus": "Starting",
+                              "CreationTime": self.aws.now(), "LastModifiedTime": self.aws.now(),
+                              "HyperParameters": dict(req.get("HyperParameters") or {}),
+                              "ResourceConfig": dict(req.get("ResourceConfig") or {}),
+                              "AlgorithmSpecification": dict(req.get("AlgorithmSpecification") or {}),
+                              "Environment": dict(req.get("Environment") or {}),
+                              "InputDataConfig": list(req.get("InputDataConfig") or []),
+                              "OutputDataConfig": dict(req.get("OutputDataConfig") or {}),
+                              "StoppingCondition": dict(req.get("StoppingCondition") or {}),
+                              "RoleArn": req.get("RoleArn")})
+        self.aws.created.append({"TrainingJobName": TrainingJobName, **req})
+        return {"TrainingJobArn": arn}
+
+    def list_training_jobs(self, StatusEquals=None, **_):
+        self.aws.calls.append(("sagemaker", "ListTrainingJobs", self.region))
+        return {"TrainingJobSummaries": [{"TrainingJobName": j["name"], "TrainingJobStatus": j.get("TrainingJobStatus")}
+                                         for j in self.aws.jobs if j.get("region") == self.region
+                                         and j["kind"] == "training"
+                                         and (StatusEquals is None or j.get("TrainingJobStatus") == StatusEquals)]}
+
+    def get_paginator(self, name: str):
+        assert name == "list_training_jobs", name
+        fake = self
+
+        class _P:
+            def paginate(self, **kw):
+                yield fake.list_training_jobs(**kw)
+
+        return _P()
+
+
+class FakeSTS:
+    def __init__(self, aws: "FakeAws"):
+        self.aws = aws
+
+    def get_caller_identity(self):
+        self.aws.calls.append(("sts", "GetCallerIdentity", "global"))
+        return {"Account": "000000000000", "Arn": "arn:aws:sts::000000000000:assumed-role/test/test", "UserId": "x"}
 
 
 def _ddb(v):
@@ -252,10 +368,13 @@ class FakeAws:
         self.events = list(events or [])
         self.jobs = list(jobs or [])
         self.ddb = list(ddb or [])
-        self.log_groups: dict[str, list[str]] = dict(log_groups or {})
+        self.log_groups: dict[str, list[str]] = {k: list(v) for k, v in (log_groups or {}).items()}
         self._now = _t(now) if now else None
         self.s3 = FakeS3(self)
         self._clients: dict[tuple[str, str], object] = {}
+        self.streams: set = set()
+        self.retention: dict = {}
+        self.created: list[dict] = []  # CreateTrainingJob requests, as sent
 
     def now(self) -> datetime:
         return self._now or datetime.now(timezone.utc)
@@ -263,14 +382,29 @@ class FakeAws:
     def set_now(self, t: str | datetime) -> None:
         self._now = _t(t)
 
+    def advance(self, seconds: float) -> None:
+        self._now = self.now() + timedelta(seconds=seconds)
+
+    def clock(self) -> float:
+        """Epoch seconds on the fake clock (the runner stamps its log events with it)."""
+        return self.now().timestamp()
+
+    def finish_job(self, name: str, status: str = "Completed", billable_s: int = 60, **fields) -> dict:
+        """Move a fake training job to its end, now, as SageMaker would report it."""
+        j = next(j for j in self.jobs if j["name"] == name and j["kind"] == "training")
+        j.update({"TrainingJobStatus": status, "SecondaryStatus": status, "TrainingEndTime": self.now(),
+                  "LastModifiedTime": self.now(), "BillableTimeInSeconds": billable_s, **fields})
+        j.setdefault("TrainingStartTime", _t(j["CreationTime"]) + timedelta(seconds=30))
+        return j
+
     def client(self, service: str, region: str | None = None):
         if service == "s3":
             return self.s3
         region = region or "us-east-2"
         key = (service, region)
         if key not in self._clients:
-            cls = {"logs": FakeLogs, "sagemaker": FakeSageMaker, "dynamodb": FakeDynamoDB}[service]
-            self._clients[key] = cls(self, region)
+            cls = {"logs": FakeLogs, "sagemaker": FakeSageMaker, "dynamodb": FakeDynamoDB, "sts": FakeSTS}[service]
+            self._clients[key] = cls(self) if cls is FakeSTS else cls(self, region)
         return self._clients[key]
 
     def ops(self) -> set[str]:
