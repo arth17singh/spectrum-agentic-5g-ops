@@ -43,7 +43,30 @@
       "run_ids": [
         "t3.deny-20261103T051458Z"
       ],
-      "reason": "crashed at item 23: the Cedar validator rejected the pause-forbid guard form (fixed in 51010f8); superseded by a fresh deny run (id to follow). Its result record on S3 covers only the 22 items that completed. See GAPS.md G-015.",
+      "reason": "crashed at item 23: the Cedar validator rejected the pause-forbid guard form (fixed in 51010f8); superseded by a fresh deny run (t3.deny-20261103T054914Z). Its result record on S3 covers only the 22 items that completed. See GAPS.md G-015.",
+      "superseded_by": {
+        "run_ids": [
+          "t3.deny-20261103T054914Z"
+        ]
+      }
+    },
+    {
+      "run_ids": [
+        "t2.compare.federated_vs_B.disjoint-20261103T054303Z",
+        "t2.compare.federated_vs_C.disjoint-20261103T054442Z",
+        "t2.compare.distance_to_central.disjoint-20261103T054624Z",
+        "t2.compare.federated_vs_localfedavg.disjoint-20261103T054804Z"
+      ],
+      "reason": "not run: CreateTrainingJob refused before AWS (ParamValidationError); relaunched under new ids. The declarations exist on S3 but no job was created.",
+      "superseded_by": {
+        "run_ids": []
+      }
+    },
+    {
+      "run_ids": [
+        "t3.swarm-trial-20261103T052430Z"
+      ],
+      "reason": "trial before the seed rules existed (G-017); not a scored run",
       "superseded_by": {
         "run_ids": []
       }
