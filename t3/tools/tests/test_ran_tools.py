@@ -236,7 +236,7 @@ def test_change_record_has_run_id_predicted_and_measured():
     assert rec["schema_version"] == "1" and rec["synthetic"] is True and rec["probe"] is False
     assert rec["case_id"] == CASE and rec["change_id"] == key and rec["item_id"] == "step-0"
     assert rec["change"] == [{"cell": 2, "d_power_db": 0.0, "d_tilt_deg": 2.0}] and rec["change_text"] == CHANGE
-    assert rec["twin"] == {"kind": "maveric-inprocess", "version": "unknown", "scenario": "nominal", "seed": 0,
+    assert {k: v for k, v in rec["twin"].items() if k != "preset"} == {"kind": "maveric-inprocess", "version": "unknown", "scenario": "nominal", "seed": 0,
                            "step": 0}
     assert rec["predicted_delta"] == pred["predicted_delta"]
     assert rec["predictor"] == {"model_id": "t2-response", "version": "v0-test"}

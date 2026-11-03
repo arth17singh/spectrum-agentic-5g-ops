@@ -1,0 +1,9 @@
+{
+  "unit": "runner.selftest",
+  "track": "track-3",
+  "target": {"metric": "pass_rate", "op": ">=", "value": 1.0, "unit": "ratio"},
+  "test_set": "t3/evals/suite/incidents-test.jsonl",
+  "model_id": "none (no model under test: runner self-test)",
+  "grader": "tools/sm/selftest.py:v1 (line is canonical JSON)",
+  "synthetic": false
+}

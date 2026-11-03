@@ -1157,8 +1157,15 @@ class Checker:
                 continue
             if (result_seq is not None and rel.startswith("records/") and not rel.endswith(".jsonl")
                     and entries[0]["seq"] > result_seq):
-                d.fail(f"{rel}: record object first appeared at ledger #{entries[0]['seq']}, after the result "
-                       f"was recorded at #{result_seq}")
+                if self.kind_of(rel) == "job":
+                    # A job record summarises the finished job (billable seconds exist only after it ends),
+                    # so it always lands after the result; the result never reads it (e recomputes from
+                    # items), and part c compares every field with DescribeTrainingJob.
+                    d.note(f"{rel}: job record ledgered at #{entries[0]['seq']}, after the result (#{result_seq}), "
+                           "as expected for a job summary")
+                else:
+                    d.fail(f"{rel}: record object first appeared at ledger #{entries[0]['seq']}, after the result "
+                           f"was recorded at #{result_seq}")
             covered += 1
             if content is None:
                 d.fail(f"{rel}: recorded at ledger #{entries[0]['seq']} but the file is gone")

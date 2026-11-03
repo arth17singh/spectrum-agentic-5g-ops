@@ -375,6 +375,39 @@ def test_tampered_source_fails_b(tmp_path, clean_tree):
     assert "differ from commit" in text and "tools/sm/spec.py" in text
 
 
+def ledger_from_s3(aws: FakeAws, run_id: str, out: Path) -> Path:
+    """A ledger that ingested the run's evidence in S3 LastModified order, like an S3-polling ingester."""
+    import unitfix
+
+    led = unitfix.MiniLedger()
+    objs = [(o["last_modified"], key[len("evidence/"):], o["body"]) for (b, key), o in aws.s3.objects.items()
+            if key.startswith("evidence/") and run_id in key and not key.startswith("evidence/outputs/")]
+    for lm, rel, body in sorted(objs, key=lambda x: (x[0], x[1])):
+        kind = {"declared": "declaration", "records": "record", "results": "result"}[rel.split("/")[0]]
+        led.add("evidence.artifact", rel, body, run_id, kind, lm.strftime("%Y-%m-%dT%H:%M:%S.000Z"))
+    led.write(out)
+    return out
+
+
+def test_part_d_accepts_the_job_record_after_the_result_but_not_an_item(tmp_path, clean_tree):
+    rc, aws, _ = launch(tmp_path, "t.sm-ledger")
+    ledger = ledger_from_s3(aws, "t.sm-ledger", tmp_path / "ledger")
+    ev = check_unit.S3Evidence(aws.client("s3"), EVIDENCE)
+    ck = check_unit.Checker("t.sm-ledger", ev, aws, ledger, poll_s=0.0, now=aws.now())
+    ck.run()
+    text = report(ck)
+    assert states(ck)["d"] == "PASS", text
+    assert "as expected for a job summary" in text
+    aws.advance(30)  # an item that appears after the result is still a failure
+    evlib.append_records("t.sm-ledger", "item", [{**items("t.sm-ledger")[0], "item_id": "late"}],
+                         store=evlib.S3Store(EVIDENCE, client=aws.s3))
+    ledger = ledger_from_s3(aws, "t.sm-ledger", tmp_path / "ledger2")
+    ck = check_unit.Checker("t.sm-ledger", check_unit.S3Evidence(aws.client("s3"), EVIDENCE), aws, ledger,
+                            poll_s=0.0, now=aws.now())
+    ck.run()
+    assert states(ck)["d"] == "FAIL" and "after the result was recorded" in report(ck)
+
+
 def test_job_record_disagreeing_with_aws_fails_c(tmp_path, clean_tree):
     rc, aws, _ = launch(tmp_path, "t.sm-cost")
     j = next(j for j in aws.jobs if j["kind"] == "training")
@@ -450,6 +483,35 @@ def test_entry_argv_and_exit_codes(tmp_path):
     script = tmp_path / "s.py"
     script.write_text("import sys\nsys.exit(7)\n")
     assert entry.run_argv([str(script)]) == 7
+
+
+def test_selftest_grades_the_declared_test_set_and_refuses_another(tmp_path, monkeypatch):
+    from tools.sm import selftest
+
+    aws = FakeAws(now=T0)
+    real = evlib.S3Store
+
+    class OnFake(real):  # a subclass, so evlib's isinstance checks still hold
+        def __init__(self, uri, **kw):
+            super().__init__(uri, client=aws.s3)
+
+    monkeypatch.setattr(evlib, "S3Store", OnFake)
+    monkeypatch.setenv("EVIDENCE_S3", EVIDENCE)
+    monkeypatch.chdir(REPO)
+    suite = "t3/evals/suite/incidents-test.jsonl"
+    decl = {"run_id": "r-self", "unit": "runner.selftest", "track": "track-3",
+            "target": {"metric": "pass_rate", "op": ">=", "value": 1.0, "unit": "ratio"}, "n_items": 33,
+            "test_set_sha256": hashlib.sha256((REPO / suite).read_bytes()).hexdigest(), "model_id": "none",
+            "grader": selftest.GRADER, "code_sha": HEAD, "region": "us-east-2"}
+    evlib.write_declared(decl, real(EVIDENCE, client=aws.s3))
+    assert selftest.main(["--test-set", suite, "--run-id", "r-self", "--evidence-dir", str(tmp_path)]) == 0
+    local = evlib.LocalStore(tmp_path)
+    its = evlib.read_records("r-self", "item", local)
+    assert len(its) == 33 and all(i["passed"] for i in its) and its[0]["item_id"].startswith("inc-")
+    assert evlib.read_result("r-self", local)["value"] == 1.0
+    assert selftest.main(["--test-set", "tools/sm/spec.py", "--run-id", "r-self", "--evidence-dir",
+                          str(tmp_path / "x")]) == 4  # not the declared test set
+    assert selftest.grade('{"b":1,"a":2}') == (False, '{"a":2,"b":1}')
 
 
 def test_evlib_code_sha_uses_the_pin_only_outside_git(tmp_path, monkeypatch):

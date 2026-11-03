@@ -56,7 +56,7 @@
         }
       ],
       "default": null,
-      "description": "Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime.",
+      "description": "Where aws_time came from, as <source>:<detail> with source one of lambda, sagemaker, cloudwatch, s3, unknown; e.g. lambda:clock (a Lambda's own clock), cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime.",
       "title": "Aws Time Source"
     },
     "billable_s": {

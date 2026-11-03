@@ -176,7 +176,7 @@ def fake_kpis(state) -> dict:
     cov = min(1.0, 0.5 + sum(p) / 400.0 - sum(abs(x - 8.0) for x in t) / 200.0 + 0.001 * step)
     return {"coverage_ratio": cov, "sla_ratio": cov * 0.9, "sinr_p10_db": sum(t) / 4.0 - 3.0 + 0.01 * step,
             "sinr_mean_db": sum(t) / 4.0 + 5.0, "rsrp_p10_dbm": -100.0 + sum(p) / 40.0,
-            "per_cell": [{"cell": i, "power_dbm": p[i], "tilt_deg": t[i]} for i in range(N_CELLS)]}
+            "per_cell": [{"cell": i, "power_dbm": p[i], "tilt_deg": t[i], "ue_count": 10 + i} for i in range(N_CELLS)]}
 
 
 def true_delta(state, change) -> dict:
