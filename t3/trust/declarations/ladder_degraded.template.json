@@ -18,19 +18,40 @@
  "twin": {
   "kind": "maveric-inprocess",
   "version": "<filled at run time from twin.replay>",
-  "scenario": "nominal (R1), viavi_stationary (R2)",
+  "scenario": "nominal",
   "seed": 3000,
-  "config": "official (R1), viavi-like (R2)"
- },
- "declared_also": null,
- "measured_not_targeted": [
-  "R2 (REHEARSAL) gain and CI",
-  "settings shift REHEARSAL / MAVERIC"
- ],
- "references": {
-  "laptop_run_commit": "f4a75a2",
-  "laptop_report": "t3/trust/runs/ladder_report.json"
- },
- "note": "Re-measurement on AWS of the laptop ladder run in f4a75a2 (t3/trust/runs/ladder_report.json), same seeds 3000-3019 and script; R2 and the settings shift are measurements, not targets.",
- "entry": "python -m t3.trust.job_ladder --model degraded"
+  "config": {
+   "preset": "official",
+   "seeds": [
+    3000,
+    3019
+   ],
+   "rungs": {
+    "R1": {
+     "config": "official",
+     "label": "MAVERIC",
+     "name": "maveric",
+     "scenario": "nominal"
+    },
+    "R2": {
+     "config": "viavi-like",
+     "label": "REHEARSAL (Viavi-like Maveric)",
+     "name": "rehearsal",
+     "scenario": "viavi_stationary"
+    }
+   },
+   "steps": 5,
+   "declared_also": null,
+   "measured_not_targeted": [
+    "R2 (REHEARSAL) gain and CI",
+    "settings shift REHEARSAL / MAVERIC"
+   ],
+   "command": "python -m t3.trust.job_ladder --model degraded",
+   "references": {
+    "laptop_run_commit": "f4a75a2",
+    "laptop_report": "t3/trust/runs/ladder_report.json"
+   },
+   "note": "Re-measurement on AWS of the laptop ladder run in f4a75a2 (t3/trust/runs/ladder_report.json), same seeds 3000-3019 and script; R2 and the settings shift are measurements, not targets."
+  }
+ }
 }

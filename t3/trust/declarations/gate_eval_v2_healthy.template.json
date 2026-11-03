@@ -20,15 +20,21 @@
   "version": "<filled at run time from twin.replay>",
   "scenario": "nominal",
   "seed": 2000,
-  "config": "official"
- },
- "thresholds_version": "v2",
- "thresholds_sha256": "395ed282e042b4c365f6ad2d92f5b8e560511df1cfc6b572d3aed369a7fef852",
- "references": {
-  "declaration_commit": "ed7d3c4",
-  "laptop_run_commit": "dd15c54",
-  "laptop_summary": "t3/trust/runs/v2_eval.json"
- },
- "note": "Re-measurement on AWS of the one-shot evaluation declared in commit ed7d3c4 (thresholds_v2.json sha256 395ed282...). These seeds (2000-2019) were used once before, on the laptop, in dd15c54 (t3/trust/runs/v2_eval.json); nothing was re-tuned since. The target is v2's declared bar.",
- "entry": "python -m t3.trust.job_gate_eval --version v2 --model healthy"
+  "config": {
+   "preset": "official",
+   "seeds": [
+    2000,
+    2019
+   ],
+   "thresholds_version": "v2",
+   "thresholds_sha256": "395ed282e042b4c365f6ad2d92f5b8e560511df1cfc6b572d3aed369a7fef852",
+   "command": "python -m t3.trust.job_gate_eval --version v2 --model healthy",
+   "references": {
+    "declaration_commit": "ed7d3c4",
+    "laptop_run_commit": "dd15c54",
+    "laptop_summary": "t3/trust/runs/v2_eval.json"
+   },
+   "note": "Re-measurement on AWS of the one-shot evaluation declared in commit ed7d3c4 (thresholds_v2.json sha256 395ed282...). These seeds (2000-2019) were used once before, on the laptop, in dd15c54 (t3/trust/runs/v2_eval.json); nothing was re-tuned since. The target is v2's declared bar."
+  }
+ }
 }

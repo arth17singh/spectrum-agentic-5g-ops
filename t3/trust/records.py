@@ -102,6 +102,21 @@ def direction_agreement(predicted_delta: dict, measured_delta: dict, deadband: d
     return agree > disagree
 
 
+def record_direction(predicted_delta: dict, measured_delta: dict, deadband: dict, keys=SCORED_KEYS) -> bool:
+    """The record's ``direction_agree`` (the contract needs a bool on every scored change).
+
+    The material-move verdict of ``direction_agreement`` when it gives one; when it gives none (no key
+    moved past its dead band, or a tie), the same majority over the raw signs of every key; a tie
+    there is False. The gate itself never reads this field: it recomputes the material-move verdict
+    and treats "no verdict" as error-only scoring.
+    """
+    d = direction_agreement(predicted_delta, measured_delta, deadband, keys)
+    if d is not None:
+        return d
+    raw = direction_agreement(predicted_delta, measured_delta, {k: 0.0 for k in keys}, keys)
+    return bool(raw)
+
+
 def delta_errors(predicted_delta: dict, measured_delta: dict, keys=SCORED_KEYS) -> dict[str, float]:
     """Exact absolute errors on deltas (never rounded, A15)."""
     return {k: abs(float(predicted_delta[k]) - float(measured_delta[k])) for k in keys}
@@ -148,13 +163,17 @@ def make_change_record(*, run_id: str, case_id: str, item_id: str, change, twin:
     if not rec["scored"]:
         rec["unscored_reason"] = unscored_reason or ("probe" if probe else "unspecified")
     if predicted_delta is not None:
-        pd = {k: float(predicted_delta[k]) for k in predicted_delta}
+        missing = [k for k in KPI_KEYS if k not in predicted_delta]
+        if missing:
+            raise ValueError(f"predicted_delta lacks {missing}: the contract needs all four KPIs")
+        pd = {k: float(predicted_delta[k]) for k in KPI_KEYS}
         rec["predicted_delta"] = pd
         if scales is not None:
-            rec["error"] = {**delta_errors(pd, measured_delta),
+            # per-KPI errors on all four KPIs (contract); the summary e uses only the scored KPIs
+            rec["error"] = {**delta_errors(pd, measured_delta, KPI_KEYS),
                             "summary": error_e(pd, measured_delta, scales)}
         if deadband is not None:
-            rec["direction_agree"] = direction_agreement(pd, measured_delta, deadband)
+            rec["direction_agree"] = record_direction(pd, measured_delta, deadband)
     if predictor is not None:
         rec["predictor"] = {"model_id": predictor["model_id"], "version": predictor["version"]}
     if policy is not None:
