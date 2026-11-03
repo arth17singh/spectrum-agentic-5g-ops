@@ -108,8 +108,11 @@ def parse_time(s) -> datetime:
 
 
 def insights_time(s: str) -> datetime:
-    """Logs Insights prints @timestamp as 'YYYY-MM-DD HH:MM:SS.mmm' in UTC."""
-    return datetime.fromisoformat(s.strip().replace(" ", "T")).replace(tzinfo=timezone.utc)
+    """Logs Insights prints @timestamp as 'YYYY-MM-DD HH:MM:SS.mmm' in UTC (epoch milliseconds accepted too)."""
+    s = s.strip()
+    if s.isdigit():
+        return datetime.fromtimestamp(int(s) / 1000.0, timezone.utc)
+    return datetime.fromisoformat(s.replace(" ", "T")).replace(tzinfo=timezone.utc)
 
 
 def iso(dt: datetime | None) -> str:
