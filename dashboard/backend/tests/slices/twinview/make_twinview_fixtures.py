@@ -253,7 +253,7 @@ def main() -> None:
 
     # R1 Maveric (official preset): three windows, three changes
     r1 = "t3-twin-maveric-20261102-a"
-    (OUT / "declared" / f"{r1}.json").write_text(json.dumps(declared(r1, "interference", 11, "official", "maveric-inprocess", BASE), indent=2) + "\n")
+    (OUT / "declared" / f"{r1}.json").write_text(json.dumps(declared(r1, "interference", 11, {"preset": "official"}, "maveric-inprocess", BASE), indent=2) + "\n")
     c, d, i = run_case(run_id=r1, case_id="case-twin-01", scenario="interference", seed=11, config="official",
                        twin_kind="maveric-inprocess", rng=rng, t0=BASE + timedelta(minutes=1), plan=[
                            {"change": [{"cell": 1, "d_power_db": 3.0, "d_tilt_deg": -1.0}], "approval_via": "record", "trust_before": 0.78},

@@ -27,7 +27,9 @@
     "version": "ran-rl-1.2.9",
     "scenario": "interference",
     "seed": 11,
-    "config": "official"
+    "config": {
+      "preset": "official"
+    }
   },
   "declared_at": "2026-11-02T21:00:00.000Z"
 }
