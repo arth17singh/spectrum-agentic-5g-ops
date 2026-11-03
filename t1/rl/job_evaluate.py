@@ -27,8 +27,16 @@ In order (nothing is written before step 6; any refusal exits non-zero, so the r
      against the declared target) into the local evidence store {evidence_dir}; the runner uploads and
      attests them. A gate with `pass: null` (REPEAT not measured) counts as NOT passed, with the reason.
 
+The model under test is either the training job's model.tar.gz (model.zip inside) or, when the declaration's
+twin.config.eval names checkpoint_sha256, an SB3 checkpoint .zip given whole in the model channel (the
+SDK evaluates an SB3 .zip as is; its checksum is the checkpoint's sha256).
+
+A twin error during the evaluation (ran_rl TwinUnavailable, an httpx transport error such as ReadError)
+reruns the WHOLE evaluation once from a clean output dir; the seeds are fixed, so both runs measure the
+same episodes. Never more than one retry; the attempts are in the result's details.
+
 Exit codes: 0 done (whatever the verdict); 7 refused (inputs, declaration or environment); 8 the
-evaluation itself failed (twin unavailable, SDK error): no records and no result are written.
+evaluation itself failed (twin unavailable after the retry, SDK error): no records and no result written.
 """
 
 from __future__ import annotations
@@ -39,8 +47,10 @@ import hashlib
 import json
 import os
 import sys
+import shutil
 import tarfile
 import tempfile
+import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
@@ -64,6 +74,8 @@ CONFIG_SHAS = {"config/env.yaml": "env_config_sha256", "config/reward.yaml": "re
 ARTIFACTS = ("evaluation.json", "baseline.json", "evaluation.md")
 ATTEST_MARK = "team13-evidence"
 EXIT_REFUSED, EXIT_EVAL = 7, 8
+EXIT_TWIN = 9  # internal: the SDK run ended on a twin error (retried once, then reported as EXIT_EVAL)
+MAX_ATTEMPTS = 2  # the first run and at most ONE retry
 GATE_GRADER = "ran_rl.evaluation.evaluate.compute_gates (RAN RL SDK {v})"
 COVERAGE_GRADER = "t1/rl/job_evaluate.py:coverage_vs_baseline (model >= baseline, no tolerance)"
 
@@ -99,9 +111,11 @@ def eval_block(decl: dict) -> dict:
     ev = cfg.get("eval")
     if not isinstance(ev, dict):
         raise Refused("the declaration has no twin.config.eval block (fill it with t1/rl/eval_declaration.py)")
-    for k in ("training_run_id", "model_artifact_sha256", "project_sha256"):
+    for k in ("training_run_id", "project_sha256"):
         if not ev.get(k):
             raise Refused(f"twin.config.eval.{k} is missing from the declaration")
+    if not (ev.get("model_artifact_sha256") or ev.get("checkpoint_sha256")):
+        raise Refused("twin.config.eval names neither model_artifact_sha256 nor checkpoint_sha256")
     items = cfg.get("items") or {}
     if sorted(items) != sorted(ITEM_IDS):
         raise Refused(f"twin.config.items names {sorted(items)}, this job writes {sorted(ITEM_IDS)}")
@@ -195,7 +209,22 @@ def sdk_evaluate(argv: list[str]) -> int:
         return evaluate.main(argv)
     except TwinUnavailable as e:
         say(f"evaluation failed: twin unavailable ({e.__class__.__name__}: {e})")
-        return EXIT_EVAL
+        return EXIT_TWIN
+
+
+TWIN_ERROR_NAMES = {"TwinUnavailable", "ReadError", "WriteError", "RemoteProtocolError", "ConnectError",
+                    "ConnectTimeout", "ReadTimeout", "WriteTimeout", "PoolTimeout", "NetworkError", "TransportError"}
+
+
+def is_twin_error(e: BaseException | None) -> bool:
+    """A twin (HTTP transport) failure anywhere in the exception chain: ran_rl's TwinUnavailable or an httpx
+    transport error such as ReadError ("Connection reset by peer"), as the training job hit."""
+    seen = 0
+    while e is not None and seen < 10:
+        if any(c.__name__ in TWIN_ERROR_NAMES for c in type(e).__mro__):
+            return True
+        e, seen = e.__cause__ or e.__context__, seen + 1
+    return False
 
 
 def sdk_version() -> str:
@@ -306,9 +335,15 @@ def _main(a, store, environ, run_eval) -> int:
     masker = twin_env(environ)
     say("twin variables set: " + ", ".join(TWIN_VARS) + " (values not printed)")
     # 3. inputs against the declaration
-    model_tgz = channel_file(Path(a.model_channel), "model.tar.gz")
+    checkpoint = bool(ev.get("checkpoint_sha256"))
+    if checkpoint:
+        model_in = channel_file(Path(a.model_channel), ev.get("checkpoint_name") or "checkpoint.zip")
+        model_what, model_want = "checkpoint", ev["checkpoint_sha256"]
+    else:
+        model_in = channel_file(Path(a.model_channel), "model.tar.gz")
+        model_what, model_want = "model artifact", ev["model_artifact_sha256"]
     project_tgz = channel_file(Path(a.project_channel), "sourcedir.tar.gz")
-    for what, path, want in (("model artifact", model_tgz, ev["model_artifact_sha256"]),
+    for what, path, want in ((model_what, model_in, model_want),
                              ("packed project", project_tgz, ev["project_sha256"])):
         got = evlib.sha256_file(path)
         if got != want:
@@ -318,9 +353,18 @@ def _main(a, store, environ, run_eval) -> int:
     work = Path(a.work_dir) if a.work_dir else Path(tempfile.mkdtemp(prefix="t1-rl-eval-"))
     work.mkdir(parents=True, exist_ok=True)
     mdir, pdir, odir = work / "model", work / "project", work / "out"
-    got_model = safe_extract(model_tgz, mdir, keep_model)
-    if "model.zip" not in got_model:
-        raise Refused(f"model.tar.gz has no model.zip (members kept: {got_model})")
+    if checkpoint:
+        # an SB3 checkpoint .zip, evaluated as is: the SDK's checksum is then sha256 of these very bytes
+        if not zipfile.is_zipfile(model_in):
+            raise Refused(f"checkpoint {model_in.name} is not a zip file")
+        mdir.mkdir(parents=True, exist_ok=True)
+        model_zip = mdir / model_in.name
+        shutil.copyfile(model_in, model_zip)
+    else:
+        got_model = safe_extract(model_in, mdir, keep_model)
+        if "model.zip" not in got_model:
+            raise Refused(f"model.tar.gz has no model.zip (members kept: {got_model})")
+        model_zip = mdir / "model.zip"
     got_project = safe_extract(project_tgz, pdir, keep_project)
     checks = {"config/eval_scenarios.yaml": decl["test_set_sha256"]}
     checks.update({p: cfg.get(k) for p, k in CONFIG_SHAS.items() if cfg.get(k)})
@@ -336,18 +380,28 @@ def _main(a, store, environ, run_eval) -> int:
     env_file = dotenv_reachable(pdir)
     if env_file is not None:
         raise Refused(f"a .env is reachable from the project dir ({env_file}); ran_rl would load it over the secrets")
-    model_zip = mdir / "model.zip"
     model_sha = evlib.sha256_file(model_zip)
-    say(f"model.zip sha256 {model_sha}")
-    # 5. evaluate
-    odir.mkdir(parents=True, exist_ok=True)
+    say(f"{model_zip.name} sha256 {model_sha} (evaluated as --model)")
+    # 5. evaluate; one retry of the WHOLE evaluation on a twin error (seeds are fixed, so a clean second
+    # run measures the same thing); never more than one
     sdk_argv = ["--model", str(model_zip), "--with-baseline", "--scenario-set", "config/eval_scenarios.yaml",
                 "--env-config", "config/env.yaml", "--reward-config", "config/reward.yaml",
                 "--output", str(odir / "evaluation.json"), "--baseline-output", str(odir / "baseline.json")]
-    say("evaluate: python -m ran_rl.evaluation.evaluate " + " ".join(sdk_argv))
-    rc = _run_masked(run_eval, sdk_argv, pdir, masker)
+    attempts: list[dict] = []
+    while True:
+        if odir.exists():
+            shutil.rmtree(odir)
+        odir.mkdir(parents=True)
+        say(f"evaluate (attempt {len(attempts) + 1} of {MAX_ATTEMPTS}): python -m ran_rl.evaluation.evaluate "
+            + " ".join(sdk_argv))
+        rc = _run_masked(run_eval, sdk_argv, pdir, masker)
+        attempts.append({"attempt": len(attempts) + 1, "exit": rc, "twin_error": rc == EXIT_TWIN})
+        if rc == EXIT_TWIN and len(attempts) < MAX_ATTEMPTS:
+            say("twin error: retrying the whole evaluation once")
+            continue
+        break
     if rc != 0:
-        say(f"evaluation failed (exit {rc}); no records and no result written")
+        say(f"evaluation failed (exit {rc}, {len(attempts)} attempt(s)); no records and no result written")
         return EXIT_EVAL
     files = {n: odir / n for n in ARTIFACTS}
     missing = [n for n, p in files.items() if not p.is_file()]
@@ -358,7 +412,7 @@ def _main(a, store, environ, run_eval) -> int:
     evaluation, baseline = json.loads(raw["evaluation.json"]), json.loads(raw["baseline.json"])
     ck = (evaluation.get("model") or {}).get("checksum")
     if ck != model_sha:
-        say(f"evaluation.json model.checksum {ck} is not sha256(model.zip) {model_sha}; no result written")
+        say(f"evaluation.json model.checksum {ck} is not sha256({model_zip.name}) {model_sha}; no result written")
         return EXIT_EVAL
     # 6. artifacts: job output, evidence store, attested hashes
     shas = {n: hashlib.sha256(b).hexdigest() for n, b in raw.items()}
@@ -391,7 +445,11 @@ def _main(a, store, environ, run_eval) -> int:
         "sdk_gates": {g: (gates.get(g) or {}).get("pass") for g in SDK_GATES},
         "repeat_rule": "a gate with pass: null (not measured) counts as not passed",
         "training_run_id": ev["training_run_id"], "training_job_name": ev.get("training_job_name"),
-        "model_artifact_uri": ev.get("model_artifact_uri"), "model_artifact_sha256": ev["model_artifact_sha256"],
+        "model_form": "checkpoint" if checkpoint else "model.tar.gz",
+        "model_artifact_uri": ev.get("model_artifact_uri"), "model_artifact_sha256": ev.get("model_artifact_sha256"),
+        "checkpoint_uri": ev.get("checkpoint_uri"), "checkpoint_sha256": ev.get("checkpoint_sha256"),
+        "checkpoint_steps": ev.get("checkpoint_steps"),
+        "evaluation_attempts": len(attempts), "retries": len(attempts) - 1, "attempts": attempts,
         "project_sha256": ev["project_sha256"], "model_zip_sha256": model_sha,
         "artifacts": {n: {"uri": uris[n], "sha256": shas[n], "job_output_member": f"eval/{n}",
                           **({"upload_error": upload_errors[n]} if n in upload_errors else {})} for n in ARTIFACTS},
@@ -425,7 +483,7 @@ def _run_masked(run_eval, argv: list[str], cwd: Path, masker: Masker) -> int:
                 return e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
             except Exception as e:  # noqa: BLE001 - the SDK failed: masked message, non-zero exit
                 print(f"evaluation raised {e.__class__.__name__}: {e}", file=sys.stderr)
-                return EXIT_EVAL
+                return EXIT_TWIN if is_twin_error(e) else EXIT_EVAL
     finally:
         out.flush()
         err.flush()

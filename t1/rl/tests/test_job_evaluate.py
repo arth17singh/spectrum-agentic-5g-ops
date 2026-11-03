@@ -273,6 +273,102 @@ def test_fixture_has_the_sdk_shape():
     assert evaluate.compute_gates(copy.deepcopy(ev), bl, evaluate.GateThresholds(), "cco") == ev["gates"]
 
 
+CKPT_NAME = "ppo_50000_steps.zip"
+
+
+def ckpt_bytes() -> bytes:
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("data", '{"policy_class": "SYNTHETIC"}')
+    return buf.getvalue()
+
+
+def checkpoint_world(tmp_path, ckpt_sha=None) -> World:
+    ck = ckpt_bytes()
+
+    def to_checkpoint(d):
+        ev = d["twin"]["config"]["eval"]
+        ev.pop("model_artifact_sha256")
+        ev.update(checkpoint_name=CKPT_NAME, checkpoint_sha256=ckpt_sha or sha(ck), checkpoint_steps=50000,
+                  checkpoint_uri="s3://synthetic-bucket/checkpoints/" + CKPT_NAME)
+
+    w = World(tmp_path, decl_patch=to_checkpoint)
+    (tmp_path / "ch" / "model" / "model.tar.gz").unlink()
+    (tmp_path / "ch" / "model" / CKPT_NAME).write_bytes(ck)
+    w.ckpt = ck
+    return w
+
+
+def test_checkpoint_is_evaluated_as_the_sb3_zip(tmp_path):
+    w = checkpoint_world(tmp_path)
+    assert w.run() == 0
+    model_arg = w.calls[0]["argv"][1]
+    assert Path(model_arg).name == CKPT_NAME and Path(model_arg).read_bytes() == w.ckpt
+    res = w.result()
+    assert res["passed"] is True and res["details"]["model_form"] == "checkpoint"
+    assert res["details"]["checkpoint_sha256"] == sha(w.ckpt) == res["details"]["model_zip_sha256"]
+    assert res["details"]["checkpoint_steps"] == 50000 and res["details"]["retries"] == 0
+
+
+def test_checkpoint_sha_mismatch_is_refused(tmp_path):
+    w = checkpoint_world(tmp_path, ckpt_sha="f" * 64)
+    assert w.run() == je.EXIT_REFUSED and w.calls == []
+
+
+class ReadError(Exception):
+    """Named like httpx.ReadError (the training job's 'Connection reset by peer')."""
+
+
+class TwinUnavailable(RuntimeError):
+    pass
+
+
+@pytest.mark.parametrize("exc", [ReadError, TwinUnavailable])
+def test_twin_error_retries_the_whole_evaluation_once(tmp_path, exc):
+    w = World(tmp_path)
+    n = {"calls": 0}
+
+    def flaky(argv):
+        n["calls"] += 1
+        if n["calls"] == 1:
+            Path(dict(zip(argv, argv[1:]))["--output"]).write_text("partial")  # a half-written first attempt
+            try:
+                raise exc("[Errno 104] Connection reset by peer")
+            except exc as inner:
+                raise RuntimeError("episode failed") from inner
+        return w.run_eval(argv)
+
+    assert je.main(w.argv(), store=w.store, environ=dict(ENV), run_eval=flaky) == 0
+    res = w.result()
+    assert n["calls"] == 2 and res["details"]["retries"] == 1 and res["details"]["evaluation_attempts"] == 2
+    assert res["details"]["attempts"][0]["twin_error"] is True and res["passed"] is True
+
+
+def test_twin_error_twice_fails_without_a_third_attempt(tmp_path):
+    w = World(tmp_path)
+    n = {"calls": 0}
+
+    def down(argv):
+        n["calls"] += 1
+        raise ReadError("[Errno 104] Connection reset by peer")
+
+    assert je.main(w.argv(), store=w.store, environ=dict(ENV), run_eval=down) == je.EXIT_EVAL
+    assert n["calls"] == 2 and evlib.read_result(RID, w.local()) is None and w.store.list("outputs/") == []
+
+
+def test_a_non_twin_error_is_not_retried(tmp_path):
+    w = World(tmp_path)
+    n = {"calls": 0}
+
+    def bug(argv):
+        n["calls"] += 1
+        raise KeyError("not a twin error")
+
+    assert je.main(w.argv(), store=w.store, environ=dict(ENV), run_eval=bug) == je.EXIT_EVAL and n["calls"] == 1
+
+
 def test_artifact_upload_denied_still_writes_items_and_result(tmp_path, capfd):
     w = World(tmp_path)
     real = w.store.put_new
