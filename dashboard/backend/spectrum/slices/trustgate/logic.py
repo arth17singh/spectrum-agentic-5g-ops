@@ -288,8 +288,12 @@ def model_detail(
     agree = [r["direction_agree"] for r in scored if r["direction_agree"] is not None]
     st = status_of(events, model_rec)
     synthetic = any(r["synthetic"] for r in rows) or any(e["synthetic"] for e in events) or (model_rec or {}).get("synthetic") is True
+    live_since, live_basis = _live_since(model_rec, rows, events)
     return {
         "model_id": key[0],
+        "live_since": live_since,
+        "live_since_basis": live_basis,
+        "last_scored_at": scored[-1]["time"] if scored else None,
         "version": key[1],
         **st,
         "model_kind": (model_rec or {}).get("model_kind"),
@@ -307,6 +311,25 @@ def model_detail(
         "rows": rows,
         "synthetic": bool(synthetic),
     }
+
+
+def _live_since(model_rec: dict | None, rows: list[dict], events: list[dict]) -> tuple[str | None, str | None]:
+    """When this version went live: its model record's AWS time (else its write time), else its first record."""
+    m = model_rec or {}
+    for k, basis in (("aws_time", "model record AWS time"), ("created_at", "model record written")):
+        if isinstance(m.get(k), str) and m[k]:
+            return m[k], basis
+    times = sorted(t for t in [r.get("time") for r in rows] + [e.get("time") for e in events] if isinstance(t, str) and t)
+    return (times[0], "first change or control record") if times else (None, None)
+
+
+def default_model(summaries: list[dict]) -> dict | None:
+    """The version the page opens on: the newest one that has scored changes (by its last scored change), so the
+    chart is never empty when any version has data; else the first listed."""
+    scored = [m for m in summaries if (m.get("n_scored") or 0) > 0]
+    if scored:
+        return max(scored, key=lambda m: m.get("last_scored_at") or "")
+    return summaries[0] if summaries else None
 
 
 def models_summary(detail: dict) -> dict:

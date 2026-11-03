@@ -34,7 +34,9 @@ export default function TrustGatePage() {
   useEffect(() => { fetchAll(); const id = setInterval(fetchAll, 15000); return () => clearInterval(id) }, [fetchAll])
 
   const list = models?.models ?? []
-  const current = list.find((m) => keyOf(m) === sel) ?? list[0] ?? null
+  // open on the newest version with scored changes (the server picks it), never on an empty chart
+  const dflt = models?.default_key ? list.find((m) => m.model_id === models.default_key![0] && m.version === models.default_key![1]) : undefined
+  const current = list.find((m) => keyOf(m) === sel) ?? dflt ?? list[0] ?? null
   const curKey = current ? keyOf(current) : null
   // refetch the selected model's rows whenever the summary changes (new records, a pause)
   const stamp = current ? `${current.n_changes}/${current.pauses.length}/${current.trust_latest}` : ''
@@ -128,7 +130,17 @@ function TrustPanel({ m }: { m: ModelSummary }) {
           <TriangleAlert size={14} aria-hidden />The model record says “{m.model_status}” but the newest control record says {m.paused ? 'pause' : 'resume'}. The control record is shown.
         </div>
       )}
-      <TrustChart points={m.points} pauses={m.pauses} pauseBelow={m.pause_below} />
+      {m.n_scored > 0
+        ? <TrustChart points={m.points} pauses={m.pauses} pauseBelow={m.pause_below} />
+        : (
+          <div className="rounded-md border border-dashed border-line px-4 py-6 text-center" data-testid="no-scored-changes">
+            <div className="text-cap font-medium text-ink-1">Live since {m.live_since ? `${m.live_since.slice(0, 10)} ${m.live_since.slice(11, 19)}Z` : 'an unrecorded time'}; no scored changes yet</div>
+            <div className="mt-1 text-micro text-ink-3">
+              {m.live_since_basis ? `Time from the ${m.live_since_basis}. ` : ''}Trust moves only when a change this version predicted is applied and measured.
+              {m.n_changes > 0 ? ` ${m.n_changes} change${m.n_changes === 1 ? '' : 's'} recorded, none scored.` : ''}
+            </div>
+          </div>
+        )}
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <PauseEvents events={m.pauses} />
         <RuleBox th={m.thresholds} />

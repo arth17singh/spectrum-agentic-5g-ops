@@ -76,7 +76,9 @@ def _verification(data: dict) -> dict:
 def models(reader: Any = Depends(get_reader)) -> dict:
     data, error = _load(reader)
     out = [logic.models_summary(_detail(reader, data, k)) for k in logic.model_keys(data["change"], data["control"])]
+    d = logic.default_model(out)
     return {"source": _source(reader), "error": error, "models": out, "probes": logic.probe_rows(data["change"]),
+            "default_key": [d["model_id"], d["version"]] if d else None,
             "verification": _verification(data)}
 
 
