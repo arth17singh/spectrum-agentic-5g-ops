@@ -54,9 +54,9 @@ async def guard(request: Request) -> None:
     if not loopback:
         if request.method == "GET" and request.url.path.rstrip("/") == "/api/asknoc/health":
             return
-        raise refuse(403, "loopback_only", "Ask the NOC works only on the presenter laptop (http://localhost:8787).")
+        raise refuse(403, "loopback_only", "Ask the NOC works only on the presenter laptop; this panel does not accept remote clients.")
     if hostname(request.headers.get("host", "")) not in LOCAL:
-        raise refuse(403, "bad_host", "Open the console as http://localhost:8787.")
+        raise refuse(403, "bad_host", "Open the console on the presenter laptop (its loopback address); this panel does not accept remote clients.")
     site = (request.headers.get("sec-fetch-site") or "").lower()
     if request.method in ("GET", "HEAD"):
         if site == "cross-site":
