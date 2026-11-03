@@ -31,6 +31,8 @@ def root(tmp_path, monkeypatch):
     (tmp_path / "declared" / f"{RUN}.json").write_text("{}")
     monkeypatch.setenv("SPECTRUM_EVIDENCE_DIR", str(tmp_path))
     monkeypatch.setenv("EVIDENCE_S3", "s3://bucket-for-tests/evidence/")
+    monkeypatch.setattr(live_verify, "credentials", lambda: ("000000000000", None))
+    monkeypatch.setattr(live_verify, "refresh_attest", lambda run, root, prefix: "refreshed")
     return tmp_path
 
 
@@ -78,13 +80,62 @@ def test_parse_and_cache_write_in_sync_format(root, monkeypatch):
     assert g["running"] is False and g["last"]["exit_code"] == 2
 
 
-def test_timeout_caches_nothing(root, monkeypatch):
+def test_timeout_caches_nothing_and_the_lock_is_released(root, monkeypatch):
     script = fake_check_unit(root, "import time; time.sleep(5)\n")
     monkeypatch.setattr(live_verify, "CHECK_UNIT", script)
     monkeypatch.setattr(live_verify, "TIMEOUT_S", 0.5)
-    r = TestClient(app, **LOCAL).post(f"/api/evidence/verify/{RUN}", headers=HDRS)
+    c = TestClient(app, **LOCAL)
+    r = c.post(f"/api/evidence/verify/{RUN}", headers=HDRS)
     assert r.status_code == 504 and r.json()["error"] == "timeout"
     assert not (root / ".sync" / "checks" / f"{RUN}.json").exists()
+    assert c.post(f"/api/evidence/verify/{RUN}", headers=HDRS).status_code == 504  # not 409: the lock was released
+
+
+def cache(root, exit_code, at="2099-01-01T00:00:00Z"):
+    f = root / ".sync" / "checks" / f"{RUN}.json"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps({"run_id": RUN, "exit_code": exit_code, "checked_at": at, "summary": SUMMARY}))
+    return f
+
+
+def test_never_downgrade_a_definitive_cache(root, monkeypatch):
+    f = cache(root, 0)
+    before = f.read_text()
+    monkeypatch.setattr(live_verify, "CHECK_UNIT", fake_check_unit(root, f"""
+        import json, sys
+        print(json.dumps({json.dumps(SUMMARY)}))
+        sys.exit(2)
+    """))
+    d = TestClient(app, **LOCAL).post(f"/api/evidence/verify/{RUN}", headers=HDRS).json()
+    assert d["cache"] == "retained" and d["cached"]["checked_at"] == "2099-01-01T00:00:00Z" and d["exit_code"] == 2
+    assert f.read_text() == before
+
+
+def test_a_non_definitive_cache_may_be_replaced(root, monkeypatch):
+    f = cache(root, 2)
+    monkeypatch.setattr(live_verify, "CHECK_UNIT", fake_check_unit(root, f"""
+        import json, sys
+        print(json.dumps({json.dumps(SUMMARY)}))
+        sys.exit(2)
+    """))
+    d = TestClient(app, **LOCAL).post(f"/api/evidence/verify/{RUN}", headers=HDRS).json()
+    assert d["cache"] == "replaced" and json.loads(f.read_text())["live"] is True
+
+
+def test_timeout_keeps_a_definitive_cache(root, monkeypatch):
+    f = cache(root, 0)
+    before = f.read_text()
+    monkeypatch.setattr(live_verify, "CHECK_UNIT", fake_check_unit(root, "import time; time.sleep(5)\n"))
+    monkeypatch.setattr(live_verify, "TIMEOUT_S", 0.5)
+    d = TestClient(app, **LOCAL).post(f"/api/evidence/verify/{RUN}", headers=HDRS).json()
+    assert d["error"] == "timeout" and d["cache"] == "retained" and f.read_text() == before
+
+
+def test_expired_sign_in_names_the_fix(root, monkeypatch):
+    monkeypatch.setenv("AWS_PROFILE", "fyuz")
+    monkeypatch.setattr(live_verify, "credentials", lambda: (None, live_verify._signin_hint()))
+    d = TestClient(app, **LOCAL).post(f"/api/evidence/verify/{RUN}", headers=HDRS).json()
+    assert d["message"] == "AWS sign-in expired: run `aws sso login --profile fyuz`, then press again."
 
 
 def test_concurrent_request_is_refused(root, monkeypatch):
@@ -99,12 +150,27 @@ def test_concurrent_request_is_refused(root, monkeypatch):
 
 
 def test_no_credentials_is_said_plainly(root, monkeypatch):
-    monkeypatch.delenv("EVIDENCE_S3")
-    monkeypatch.delenv("TEAM13_DATA_BUCKET", raising=False)
-    monkeypatch.setattr(live_verify, "s3_prefix", lambda: (None, "No AWS credentials are available to this server (NoCredentialsError)."))
+    monkeypatch.setattr(live_verify, "credentials", lambda: (None, "No AWS credentials are available to this server (NoCredentialsError)."))
     r = TestClient(app, **LOCAL).post(f"/api/evidence/verify/{RUN}", headers=HDRS)
     assert r.status_code == 503 and "No AWS credentials" in r.json()["message"]
 
 
 def test_python_is_the_servers_own():
     assert sys.executable  # the subprocess uses the server's interpreter (boto3 and its AWS environment)
+
+
+def test_attest_merge_keeps_untouched_entries():
+    old = {"run_id": RUN, "source": "old", "files": {
+        "records/x/item/a.json": {"state": "match", "sha256": "1"},
+        "records/x/item/b.json": {"state": "match", "sha256": "2"},
+        "lambda/log-entry": {"state": "match", "source": "CloudWatch Lambda log"}}}
+    new = {"run_id": RUN, "source": "new", "checked_at": "2099", "files": {
+        "records/x/item/a.json": {"state": "MISMATCH", "sha256": "9"},
+        "records/x/item/b.json": {"state": "not attested", "sha256": "2"},
+        "records/x/item/c.json": {"state": "not attested", "sha256": "3"}}}
+    m, n = live_verify.merge_attest(old, new)
+    assert m["files"]["records/x/item/a.json"]["state"] == "MISMATCH"       # a definitive re-check replaces
+    assert m["files"]["records/x/item/b.json"]["state"] == "match"          # a non-definitive one never downgrades
+    assert m["files"]["records/x/item/c.json"]["state"] == "not attested"   # a new entry is added
+    assert m["files"]["lambda/log-entry"]["source"] == "CloudWatch Lambda log"  # an untouched entry is kept
+    assert m["counts"] == {"MISMATCH": 1, "match": 2, "not attested": 1} and m["checked_at"] == "2099" and n == 2
