@@ -1,0 +1,52 @@
+{
+ "artifact": "t1/rl/artifacts/ppo_sm_50k.zip",
+ "artifact_sha256": "e04d8c907ca30fd3c876121b924c2836157cb546b1890a984184bb52f37484c1",
+ "evaluation": {
+  "baseline_overall": {
+   "coverage_mean": 0.8432048611111111,
+   "energy_score": 0.9391184799331403,
+   "episodes": 20,
+   "objective_mean": 29.7570287398331,
+   "reward_mean": 57.46352873983311,
+   "safety_violations": 0,
+   "sla_ratio_mean": 0.9517847222222222,
+   "spectral_efficiency": 0.25885500566936837
+  },
+  "gates": {
+   "COVERAGE": true,
+   "REPEAT": true,
+   "SAFETY": true,
+   "SERVICE": true,
+   "TRACE": true,
+   "UPLIFT": false
+  },
+  "honest_summary": "5 of 6 SDK gates pass (SAFETY, SERVICE, COVERAGE, REPEAT, TRACE). UPLIFT FAILS, and not narrowly: the scoring objective is 3.20 for the policy vs 29.76 for the baseline (threshold 31.24). The policy buys coverage (0.970 vs 0.843) and SLA (0.985 vs 0.952) with energy (0.656 vs 0.939).",
+  "model_overall": {
+   "coverage_mean": 0.9695763888888888,
+   "energy_score": 0.6563768579255438,
+   "episodes": 20,
+   "objective_mean": 3.2041189815420594,
+   "reward_mean": 48.83178564820872,
+   "safety_violations": 0,
+   "sla_ratio_mean": 0.985111111111111,
+   "spectral_efficiency": 0.21499467364066072
+  },
+  "passed": false,
+  "run_id": "t1.rl.eval-20261103T043115Z-bf52",
+  "unit": "t1.rl.eval",
+  "value": 0.8333333333333334
+ },
+ "model_id": "t1-ppo-cco-sm",
+ "model_kind": "ppo",
+ "observation": "sdk (RANOptimizationEnv observation, no mask); prev_action = 0 in a stateless tool call",
+ "source_s3_uri": "s3://bb26-p-team13-data-483598626742-use2/teams/team13/checkpoints/t1-rl-train-20261103T023805Z-a09e-20261103-023807/ppo_50000_steps.zip",
+ "training": {
+  "algorithm": "ppo",
+  "job_name": "t1-rl-train-20261103T023805Z-a09e-20261103-023807",
+  "note": "the 100k run crashed at about 67.6k steps; this is its 50k checkpoint (the last complete one). The SDK registry step was not run (no run_metadata.json).",
+  "run_id": "t1.rl.train-20261103T023805Z-a09e",
+  "steps": 50000,
+  "use_case": "cco"
+ },
+ "version": "50k-a09e"
+}

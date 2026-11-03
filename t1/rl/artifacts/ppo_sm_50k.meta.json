@@ -1,0 +1,6 @@
+{
+ "label": "SageMaker-trained (official SDK trainer, hosted Maveric twin), 50k steps",
+ "model_id": "t1-ppo-cco-sm",
+ "obs": "sdk",
+ "version": "50k-a09e"
+}
