@@ -54,7 +54,8 @@ export interface Thresholds {
   alpha?: number
   warmup?: number
   n_min?: number
-  window?: number
+  /** a number, or the declared {needed, of_last} k-of-n window */
+  window?: number | { needed?: number; of_last?: number }
   k_of?: number
   source?: string
 }
