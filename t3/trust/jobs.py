@@ -12,10 +12,10 @@ headline number is one result that ``tools/check_unit.py`` can recompute from it
   gate eval (4 runs)  items = one per twin seed 2000-2019 (version, model fixed by the run)
       healthy:  passed = never paused in 24 changes;    metric fail_count  (target <= 2, v2's declared bar)
       degraded: passed = paused by change 6;             metric pass_count  (target >= 19, v2's declared bar)
-  ladder (2 runs)     items = one per MAVERIC (R1) case, seeds 3000-3019, 5 steps; score = case gain
+  ladder (2 runs)     items = one per seed 3000-3019 (5 steps); score = the R1 (MAVERIC) case gain
       healthy:  metric mean_score, target > 0 (and, declared alongside, bootstrap 95 % CI lower bound > 0)
       degraded: metric mean_score, target < 0
-      R2 (REHEARSAL) cases and the settings shift are written as ``ladder_case`` records and in the
+      the R2 (REHEARSAL) case of the same seed is in the item's extra; R2 and the settings shift are in the
       result details: measurements, not targets.
 
 Every run also writes the underlying ``change`` records (and ``control`` records for pauses; the
@@ -77,9 +77,22 @@ def env_run_id() -> str | None:
 
 
 def code_sha_or_unknown() -> str:
+    """The commit the job runs: $CODE_SHA (set by the job runner; containers often lack the repo
+    history), else the repo HEAD, else "unknown" (which evlib/contracts reject, so a real run stops)."""
+    env = os.environ.get("CODE_SHA", "").strip()
+    if env:
+        return env
     from .demo import code_sha
 
     return code_sha() or "unknown"
+
+
+def gate_command(version: str, model: str) -> str:
+    return f"python -m t3.trust.job_gate_eval --version {version} --model {model}"
+
+
+def ladder_command(model: str) -> str:
+    return f"python -m t3.trust.job_ladder --model {model}"
 
 
 # ---------------------------------------------------------------- declarations
@@ -96,35 +109,44 @@ def ladder_target(model: str) -> dict:
 
 def gate_declaration(*, run_id: str, version: str, model: str, code_sha: str, region: str, testset: dict,
                      testset_sha: str, twin_version: str | None) -> dict:
+    """Contract-shaped (no top-level extras): the run context lives in twin.config."""
     return {
         "run_id": run_id, "unit": f"t3.trust_gate.{version}.{model}", "track": "track-3",
         "target": gate_target(model), "n_items": len(testset["seeds"]), "test_set_sha256": testset_sha,
         "model_id": testset["models"][model]["model_id"], "grader": GRADER_GATE, "code_sha": code_sha,
         "region": region, "synthetic": False,
-        "twin": {"kind": "maveric-inprocess", "version": twin_version, "scenario": testset["scenario"],
-                 "seed": testset["seeds"][0], "config": testset["config"]},
-        "thresholds_version": version, "thresholds_sha256": testset["thresholds"][version],
-        "references": {"declaration_commit": "ed7d3c4", "laptop_run_commit": "dd15c54",
-                       "laptop_summary": "t3/trust/runs/v2_eval.json"},
-        "note": REMEASURE_NOTE_GATE,
+        "twin": {"kind": "maveric-inprocess", "version": twin_version or "ran-rl (version not resolved)",
+                 "scenario": testset["scenario"], "seed": testset["seeds"][0],
+                 "config": {"preset": testset["config"], "seeds": [testset["seeds"][0], testset["seeds"][-1]],
+                            "thresholds_version": version, "thresholds_sha256": testset["thresholds"][version],
+                            "command": gate_command(version, model),
+                            "references": {"declaration_commit": "ed7d3c4", "laptop_run_commit": "dd15c54",
+                                           "laptop_summary": "t3/trust/runs/v2_eval.json"},
+                            "note": REMEASURE_NOTE_GATE}},
     }
 
 
 def ladder_declaration(*, run_id: str, model: str, code_sha: str, region: str, testset: dict, testset_sha: str,
                        twin_version: str | None) -> dict:
-    extra = ("and the bootstrap 95 % CI lower bound of the healthy R1 mean gain > 0 (reported in "
-             "details.declared_ci_condition; check_unit recomputes the mean only)") if model == "healthy" else ""
+    """Contract-shaped (no top-level extras): the run context lives in twin.config."""
+    also = ("bootstrap 95 % CI lower bound of the healthy R1 mean gain > 0 (reported in "
+            "details.declared_ci_condition; check_unit recomputes the mean only)") if model == "healthy" else None
+    r1, r2 = testset["rungs"]["R1"], testset["rungs"]["R2"]
     return {
         "run_id": run_id, "unit": "t3.ladder", "track": "track-3", "target": ladder_target(model),
         "n_items": len(testset["seeds"]), "test_set_sha256": testset_sha,
         "model_id": testset["models"][model]["model_id"], "grader": GRADER_LADDER, "code_sha": code_sha,
         "region": region, "synthetic": False,
-        "twin": {"kind": "maveric-inprocess", "version": twin_version, "scenario": "nominal (R1), viavi_stationary (R2)",
-                 "seed": testset["seeds"][0], "config": "official (R1), viavi-like (R2)"},
-        "declared_also": extra or None,
-        "measured_not_targeted": ["R2 (REHEARSAL) gain and CI", "settings shift REHEARSAL / MAVERIC"],
-        "references": {"laptop_run_commit": "f4a75a2", "laptop_report": "t3/trust/runs/ladder_report.json"},
-        "note": REMEASURE_NOTE_LADDER,
+        "twin": {"kind": "maveric-inprocess", "version": twin_version or "ran-rl (version not resolved)",
+                 "scenario": r1["scenario"], "seed": testset["seeds"][0],
+                 "config": {"preset": r1["config"], "seeds": [testset["seeds"][0], testset["seeds"][-1]],
+                            "rungs": {"R1": r1, "R2": r2}, "steps": testset["steps"], "declared_also": also,
+                            "measured_not_targeted": ["R2 (REHEARSAL) gain and CI",
+                                                      "settings shift REHEARSAL / MAVERIC"],
+                            "command": ladder_command(model),
+                            "references": {"laptop_run_commit": "f4a75a2",
+                                           "laptop_report": "t3/trust/runs/ladder_report.json"},
+                            "note": REMEASURE_NOTE_LADDER}},
     }
 
 
@@ -276,25 +298,26 @@ def run_ladder_job(*, model: str, run_id: str, seeds: list[int], rungs: list[dic
 
     lad = ladder(predictor, rungs, kpis, seeds=seeds, changes=changes)
     sink = Sink(run_id)
-    r1 = lad["full"]["maveric"]
-    items, cases = [], []
+    # One item per paired seed: score = the R1 (MAVERIC) case gain (what the target is on); every rung's
+    # case for that seed, R2 included, is kept in the item's extra (no extra record kind, by contract).
+    by_seed: dict[int, dict] = {}
     for rung_name, rung in lad["full"].items():
         for c in rung["cases"]:
-            inp = {"model_id": predictor.model_id, "rung": rung_name, "seed": c["seed"], "testset": testset_sha}
-            cases.append(_env({"rung": rung_name, "label": rung["label"], "twin_kind": rung["twin_kind"],
-                               "twin_seed": c["seed"], "gain": c["gain"], "step_gains": c["step_gains"],
-                               "picks": c["picks"], "pairing": c["pairing"], "model_id": predictor.model_id,
-                               "version": predictor.version, "input_sha256": sha256_json(inp)},
-                              run_id, "ladder_case", synthetic))
-            if rung_name == "maveric":
-                items.append(_env({"item_id": f"{model}/R1/seed-{c['seed']}", "input_sha256": sha256_json(inp),
-                                   "output_sha256": sha256_json({"gain": c["gain"], "step_gains": c["step_gains"]}),
-                                   "score": float(c["gain"]), "passed": None, "grader": GRADER_LADDER,
-                                   "backend": BACKEND, "extra": {"rung": "maveric", "label": "MAVERIC",
-                                                                 "twin_seed": c["seed"], "picks": c["picks"]}},
-                                  run_id, "item", synthetic))
+            by_seed.setdefault(c["seed"], {})[rung_name] = {
+                "label": rung["label"], "twin_kind": rung["twin_kind"], "config": rung["config"],
+                "scenario": rung["scenario"], "gain": c["gain"], "step_gains": c["step_gains"],
+                "picks": c["picks"], "pairing": c["pairing"]}
+    items = []
+    for s in seeds:
+        cases = by_seed[s]
+        inp = {"model_id": predictor.model_id, "version": predictor.version, "seed": s, "testset": testset_sha,
+               "rungs": sorted(cases)}
+        items.append(_env({"item_id": f"{model}/seed-{s}", "input_sha256": sha256_json(inp),
+                           "output_sha256": sha256_json(cases), "score": float(cases["maveric"]["gain"]),
+                           "passed": None, "grader": GRADER_LADDER, "backend": BACKEND,
+                           "extra": {"twin_seed": s, "score_is": "R1 (MAVERIC) case gain", "rungs": cases}},
+                          run_id, "item", synthetic))
     sink.append_records(run_id, "item", items)
-    sink.append_records(run_id, "ladder_case", cases)
     target = ladder_target(model)
     value = float(np.mean([it["score"] for it in items]))
     passed = value > 0 if target["op"] == ">" else value < 0
@@ -361,11 +384,9 @@ def template_docs() -> dict[str, dict]:
         if kind == "gate":
             doc = gate_declaration(version=v, model=m, testset=gate_ts, testset_sha=gate_sha, **common)
             name = f"gate_eval_{v}_{m}"
-            doc["entry"] = f"python -m t3.trust.job_gate_eval --version {v} --model {m}"
         else:
             doc = ladder_declaration(model=m, testset=lad_ts, testset_sha=lad_sha, **common)
             name = f"ladder_{m}"
-            doc["entry"] = f"python -m t3.trust.job_ladder --model {m}"
         out[name] = doc
     return out
 

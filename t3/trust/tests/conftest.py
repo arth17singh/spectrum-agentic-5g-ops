@@ -28,7 +28,7 @@ class FakeTwin:
     """Deterministic 4-cell twin: KPIs = base + response(settings) + seeded per-step drift.
     config "viavi-like" halves the response (a harder rung); an alarmed cell 3 freezes (clips)."""
 
-    kind = "fake"
+    kind = "maveric-inprocess"  # a contract TwinKind; the fake stands in for the in-process twin
     version = "fake-1"
     n_cells = 4
 
