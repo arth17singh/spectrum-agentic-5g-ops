@@ -361,3 +361,55 @@ def test_trace_lists_the_reasons_a_record_is_unverified(monkeypatch, tmp_path):
     why = {x["reason"]: x["n"] for x in c.get("/api/trace/cases").json()["provenance"]["unverified_reasons"]}
     assert why  # the lambda-clock change, the .jsonl change and the two unmirrored decisions are named, not hidden
     assert any("Lambda's own clock" in k for k in why) and sum(why.values()) == 5
+
+
+# ---------------------------------------------------------------------------------------------- per-unit case status
+
+def _case_status(monkeypatch, tmp_path, run, rows):
+    """rows: [(kind, record)] for one run id; returns the /cases listing."""
+    root = tmp_path
+    for i, (kind, r) in enumerate(rows):
+        _put(root, f"records/{run}/{kind}/{i:02d}.json", {**r, "run_id": run, "kind": kind})
+    return _trace_client(monkeypatch, root).get("/api/trace/cases").json()
+
+
+def _dec(case, tool, decision, t, **kw):
+    return ("decision", rec(case_id=case, tool=tool, decision=decision, time=t, created_at=t, **kw))
+
+
+def test_a_deny_case_is_complete_when_its_refusal_is_recorded(monkeypatch, tmp_path):
+    run = "t3.deny-20261103T000000Z"
+    j = _case_status(monkeypatch, tmp_path, run, [
+        _dec("case-1", "ran___observe", "DENY", "2026-11-03T05:50:00Z"),
+        _dec("(missing)", "front___start_case", "DENY", "2026-11-03T05:50:01Z"),
+        _dec("no-case", "ran___observe", "DENY", "2026-11-03T05:50:02Z"),
+        _dec("case-3", "ran___observe", "ALLOW", "2026-11-03T05:50:03Z")])
+    by = {c["case_id"]: c for c in j["cases"]}
+    assert by["case-1"]["check_passed"] and by["(missing)"]["check_passed"] and by["no-case"]["check_passed"]
+    assert not by["case-3"]["check_passed"]  # an ALLOWed call is not a refusal
+    assert by["(missing)"]["case_label"] == "calls without a case id (deny items that test the case-id rule)"
+    assert by["case-1"]["case_label"] is None and by["case-1"]["unit"] == "t3.deny"
+    d = _trace_client(monkeypatch, tmp_path).get(f"/api/trace/case/case-1?run_id={run}").json()
+    assert d["check"]["by_unit"] is True and d["check"]["expected"] == ["refusal"] and d["check"]["missing"] == []
+
+
+def test_a_deny_case_that_applied_a_change_is_not_complete(monkeypatch, tmp_path):
+    run = "t3.deny-20261103T000001Z"
+    j = _case_status(monkeypatch, tmp_path, run, [
+        _dec("case-1", "ran___observe", "DENY", "2026-11-03T05:50:00Z"),
+        ("change", rec(case_id="case-1", change_id="chg-9", created_at="2026-11-03T05:50:05Z"))])
+    assert j["cases"][0]["check_passed"] is False
+
+
+def test_allow_pause_and_trust_units_have_their_own_expectation(monkeypatch, tmp_path):
+    j = _case_status(monkeypatch, tmp_path, "t3.allow-20261103T000000Z", [_dec("c", "ran___observe", "ALLOW", "2026-11-03T05:50:00Z")])
+    assert j["cases"][0]["check_passed"] is True
+    j = _case_status(monkeypatch, tmp_path / "p", "t3.pause-20261103T000000Z",
+                     [_dec("c", "ran___predict", "DENY", "2026-11-03T05:50:00Z", deciding_rule="default_deny", reason="tool is paused")])
+    assert j["cases"][0]["check_passed"] is True and j["cases"][0]["pauses"] == 1
+    j = _case_status(monkeypatch, tmp_path / "t", "t3.trust.gate_v1_healthy-20261103T000000Z",
+                     [("change", rec(case_id="c", change_id="chg-1", created_at="2026-11-03T05:50:00Z"))])
+    assert j["cases"][0]["check_passed"] is True
+    # an unknown unit keeps the full declared sequence
+    j = _case_status(monkeypatch, tmp_path / "u", "other-20261103T000000Z", [_dec("c", "ran___observe", "ALLOW", "2026-11-03T05:50:00Z")])
+    assert j["cases"][0]["check_passed"] is False

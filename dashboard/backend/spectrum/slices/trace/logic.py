@@ -14,6 +14,7 @@ never reported as AWS time.
 
 from __future__ import annotations
 
+import re
 import shlex
 from datetime import datetime, timezone
 from typing import Any, Iterable
@@ -233,6 +234,68 @@ def _is_pause_event(e: Rec) -> bool:
     return e.get("category") == "pause"
 
 
+# ---------------------------------------------------------------------------------------------- per-unit expectation
+
+_UNIT = re.compile(r"^(?P<unit>.+?)-\d{8}T\d{6}Z")
+# case ids a suite uses for calls that carry no case id at all (the deny items that test the case-id rule)
+NO_CASE_IDS = ("(missing)", "no-case")
+NO_CASE_LABEL = "calls without a case id (deny items that test the case-id rule)"
+
+
+def unit_of(run_id: str | None) -> str | None:
+    """The suite unit a run id names: t3.deny-20261103T054914Z -> t3.deny."""
+    m = _UNIT.match(run_id or "")
+    return m.group("unit") if m else None
+
+
+def case_label(case_id: str | None) -> str | None:
+    return NO_CASE_LABEL if case_id in NO_CASE_IDS else None
+
+
+def check_for_unit(run_id: str | None, timeline: list[Rec]) -> Rec:
+    """The check against the sequence expected for the case's OWN unit, not one flow for every unit:
+      t3.deny   complete when a refusal (DENY) is recorded and no change was applied;
+      t3.pause  complete when a refusal because the model is paused is recorded;
+      t3.allow  complete when an ALLOWed call is recorded; a case that asks for approval and applies a change must
+                also show the ALLOWed approval and the applied change, in order;
+      t3.trust* (the in-process trust loop: no agent calls, no human approval) complete when a change was applied
+                and measured;
+    any other unit: the full declared sequence (`check_sequence`). The result has the shape of `check_sequence`'s,
+    plus `unit`, `expected_label` and `by_unit`."""
+    generic = check_sequence(timeline)
+    unit = unit_of(run_id) or ""
+    steps_by = {s["step"]: s for s in generic["steps"]}
+    dec = [e for e in timeline if e["kind"] == "decision"]
+    applied = "change_applied" in steps_by and steps_by["change_applied"]["present"]
+
+    def build(label: str, expected: list[str], present: dict[str, bool], extra_ok: bool = True, notes: list[str] | None = None,
+              order_ok: bool = True) -> Rec:
+        missing = [s for s in expected if not present[s]]
+        return {"passed": not missing and extra_ok and order_ok, "order_ok": order_ok, "missing": missing,
+                "notes": notes or [], "expected": expected, "expected_label": label, "unit": unit, "by_unit": True,
+                "steps": [{"step": s, "present": present[s], "required": True, "index": None} for s in expected]}
+
+    if unit == "t3.deny":
+        refused = any(e["decision"] == "DENY" for e in dec)
+        return build("a refusal is recorded (DENY) and no change is applied", ["refusal"], {"refusal": refused}, not applied,
+                     ["A change was applied in a deny case."] if applied else [])
+    if unit == "t3.pause":
+        return build("a refusal because the model is paused is recorded", ["paused_refusal"],
+                     {"paused_refusal": any(_is_pause_event(e) for e in timeline)})
+    if unit == "t3.allow":
+        if applied or any(e["step"] == "approval" for e in timeline):
+            need = ["approval", "change_applied"]
+            return build("the approval is ALLOWed and the change is applied, in order", need,
+                         {s: steps_by[s]["present"] for s in need}, order_ok=generic["order_ok"],
+                         notes=[n for n in generic["notes"] if "approval" in n.lower()])
+        return build("an ALLOWed call is recorded", ["allowed_call"], {"allowed_call": any(e["decision"] == "ALLOW" for e in dec)})
+    if unit.startswith("t3.trust"):
+        return build("a change is applied and measured (in-process loop: no agent calls, no human approval)", ["change_applied"],
+                     {"change_applied": applied}, order_ok=generic["order_ok"])
+    return {**generic, "unit": unit or None, "expected_label": "case opened, agents asked, tools called, approval, change applied, observe",
+            "by_unit": False}
+
+
 # ---------------------------------------------------------------------------------------------- listing
 
 # ---------------------------------------------------------------------------------------------- provenance
@@ -281,7 +344,7 @@ def summarize(run_id: str, case_id: str, timeline: list[Rec], check: Rec) -> Rec
     parsed = sorted(((_parse(t), t) for t in times if _parse(t)), key=lambda p: p[0])
     dec = [e for e in timeline if e["kind"] == "decision"]
     return {
-        "case_id": case_id, "run_id": run_id or None,
+        "case_id": case_id, "run_id": run_id or None, "unit": unit_of(run_id), "case_label": case_label(case_id),
         "first_time": parsed[0][1] if parsed else None, "last_time": parsed[-1][1] if parsed else None,
         "n_events": len(timeline),
         "denies": sum(1 for e in dec if e["decision"] == "DENY"),
@@ -303,7 +366,7 @@ def build_overview(decisions: list[Rec], changes: list[Rec], controls: list[Rec]
     for key in sorted(set(d) | set(c)):
         run_id, case_id = key
         tl = build_timeline(case_id, d.get(key, []), c.get(key, []), [x for x in controls if (x.get("run_id") or "") == run_id or not x.get("run_id")])
-        rows.append(summarize(run_id, case_id, tl, check_sequence(tl)))
+        rows.append(summarize(run_id, case_id, tl, check_for_unit(run_id, tl)))
         for e in tl:
             if e["kind"] == "control":
                 if e["record_id"] in ctl_seen:
@@ -331,7 +394,7 @@ def build_case(case_id: str, decisions: list[Rec], changes: list[Rec], controls:
     key = max(keys, key=lambda k: rows[k]["last_time"] or "")
     ctl = [x for x in controls if (x.get("run_id") or "") == key[0] or not x.get("run_id")]
     tl = build_timeline(case_id, d.get(key, []), c.get(key, []), ctl)
-    check = check_sequence(tl)
+    check = check_for_unit(key[0], tl)
     row = summarize(key[0], case_id, tl, check)
     return {
         **row, "timeline": tl, "check": check,

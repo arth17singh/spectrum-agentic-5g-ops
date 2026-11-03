@@ -1,7 +1,10 @@
 import clsx from 'clsx'
 import { CircleCheck, CircleX, FlaskConical, Lock, TriangleAlert } from 'lucide-react'
 import type { ReactNode } from 'react'
+import type { Rec } from '@/core/types'
 import { EmptyState, Panel } from '@/ui'
+import { RunLink } from '../scorecard/RealRuns'
+import { useOverview } from '../scorecard/overview'
 import type { Ladder, Rung } from './types'
 
 // Which simulator a number came from is the one thing this panel must never blur. Every rung leads with its
@@ -62,13 +65,32 @@ export function SyntheticTag({ what = 'SYNTHETIC FIXTURE' }: { what?: string }) 
   )
 }
 
+/** The R3 rung when no ladder has a measured Viavi gain. Its words come from data: a t1.rl.viavi_operate run in the
+ *  evidence mirror (GET /api/realrun/overview) is a measure-only run and is said to exist; "not run" only without one. */
 function NoViavi() {
+  const { ov } = useOverview()
+  const v: Rec | null | undefined = ov ? (ov as Rec).viavi_operate : undefined
+  const steps = v ? (v.n_items_declared ?? (v.items as unknown[] | undefined)?.length) : null
   return (
-    <div className="flex items-center gap-3 rounded-md border border-dashed border-line px-4 py-3" data-testid="no-viavi" data-state="not-run">
+    <div className="flex items-center gap-3 rounded-md border border-dashed border-line px-4 py-3" data-testid="no-viavi" data-state={v ? 'measure-only' : v === null ? 'not-run' : 'loading'}>
       <Lock size={18} className="shrink-0 text-ink-3" aria-hidden />
       <div className="min-w-0 flex-1">
-        <div className="text-title font-semibold tracking-[0.02em] text-ink-2">VIAVI — not run (no access yet)</div>
-        <div className="text-cap text-ink-3">No measurement on the organisers’ realistic simulator exists, so no gain or fidelity is shown for it.</div>
+        {v ? (
+          <>
+            <div className="text-title font-semibold tracking-[0.02em] text-ink-2">
+              Viavi: one measure-only operate run ({steps != null ? `${steps} steps, ` : ''}through the team’s browser session; no AWS window)
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-2 text-cap text-ink-3">
+              <RunLink id={v.run_id} />
+              <span>No Viavi gain or retention is recorded for this model, so none is shown here. The run is listed in the Viavi rung below.</span>
+            </div>
+          </>
+        ) : v === null ? (
+          <>
+            <div className="text-title font-semibold tracking-[0.02em] text-ink-2">VIAVI — not run</div>
+            <div className="text-cap text-ink-3">No measurement on the organisers’ realistic simulator exists, so no gain or fidelity is shown for it.</div>
+          </>
+        ) : <div className="text-cap text-ink-3">Looking for a Viavi run…</div>}
       </div>
       <div className="shrink-0 text-right">
         <div className="text-micro text-ink-3">Retention on Viavi</div>
