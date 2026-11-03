@@ -85,7 +85,7 @@ def judged(store: Store) -> dict | None:
     slots = [slot(s) for s in d.get("slots") or [] if isinstance(s, dict)]
     edges = [slot(s) for s in d.get("edge_cases") or [] if isinstance(s, dict)]
     listed = [r for r in d.get("run_ids") or [] if isinstance(r, str)]
-    return {"source": where, "primary_track": d.get("primary_track"), "slots": slots, "edge_cases": edges,
+    return {"source": "judging.json" if where else None, "primary_track": d.get("primary_track"), "slots": slots, "edge_cases": edges,
             "run_ids": [status(r) for r in listed], "supporting_run_ids": [r for r in d.get("supporting_run_ids") or [] if isinstance(r, str)],
             "filled": sum(1 for s in slots if s["runs"]), "total": len(slots)}
 

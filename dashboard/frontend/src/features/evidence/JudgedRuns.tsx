@@ -45,7 +45,7 @@ export default function JudgedRuns() {
   const j: Rec | null | undefined = ov?.judged
   return (
     <Panel id="judged-runs" plane="prove" className="mt-4" title="Judged runs"
-      subtitle={j ? `${j.filled} of ${j.total} slots filled · primary ${j.primary_track ?? '—'} · from ${j.source}` : 'judging.json'}>
+      subtitle={j ? `${j.filled} of ${j.total} slots filled · primary ${j.primary_track ?? '—'} · judging.json` : 'judging.json'}>
       {err && !ov && <div className="text-cap text-critical-ink">Unavailable: <span className="mono">{err}</span></div>}
       {ov && !j && <div className="text-cap text-ink-2">No judging.json found. Copy it from the hand-in branch with <span className="mono">make evidence-sync HANDIN=&lt;branch&gt;</span>.</div>}
       {j && (
