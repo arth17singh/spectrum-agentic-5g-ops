@@ -39,12 +39,33 @@ def _unavailable(e: Exception) -> JSONResponse:
     return JSONResponse({"detail": f"evidence unavailable: {type(e).__name__}"}, status_code=503)
 
 
+def _govern(card: dict, results: dict) -> None:
+    """A result that says complete: false, or whose cached check_unit FAILED a part, is never shown as a pass:
+    the row becomes inconsistent with the reason. The checks come from the evidence mirror's .sync/checks."""
+    from spectrum.slices.realrun.logic import Store, root_from_env, verdict_why
+    from .logic import _count
+
+    root = root_from_env()
+    st = Store(root) if root is not None else None
+    if st is None:
+        return
+    for t in card.get("tracks", []):
+        for row in t["units"]:
+            why = verdict_why(st, results.get(row["run_id"]) if isinstance(results.get(row["run_id"]), dict) else None)
+            if why and row["state"] in ("pass", "fail"):
+                row["state"] = "inconsistent"
+                row["problems"] = row.get("problems", []) + [{"code": "evidence_check", "detail": w} for w in why]
+        t.update(_count(t["units"]))
+    card["totals"] = _count([r for t in card.get("tracks", []) for r in t["units"]])
+
+
 @router.get("/units")
 def units():
     try:
         reader = _reader()
         pairs = [(rid, reader.declared(rid), reader.result(rid)) for rid in _run_ids(reader)]
         card = build_scorecard(pairs)
+        _govern(card, {rid: res for rid, _, res in pairs})
         card["source"] = _source(reader)
     except Exception as e:
         return _unavailable(e)

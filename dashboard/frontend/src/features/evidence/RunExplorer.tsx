@@ -117,7 +117,7 @@ function Chain({ id }: { id: string }) {
         </Step>
         <Step n={4} title="Result" ok={d.result ? d.result.recomputed === 'pass' : null}>
           {d.result ? <>
-            <div className="flex flex-wrap items-baseline gap-2"><Verdict s={d.result.recomputed ?? 'inconsistent'} /><span className="tnum text-cap text-ink-1">{num(d.result.value)} {d.result.metric}</span><span>n = {d.result.n_items}</span></div>
+            <div className="flex flex-wrap items-baseline gap-2"><Verdict s={d.result.recomputed ?? 'inconsistent'} why={d.result.why} /><span className="tnum text-cap text-ink-1">{num(d.result.value)} {d.result.metric}</span><span>n = {d.result.n_items}</span></div>
             <div>checked_at (our clock) <span className="mono">{utc(d.result.checked_at)}</span> · stored in S3 <span className="mono">{utc(d.result.s3_time)}</span></div>
             {d.result.stored_passed !== (d.result.recomputed === 'pass') && d.result.recomputed && <div className="text-warn-ink">stored passed={String(d.result.stored_passed)} disagrees with the recomputed verdict</div>}
           </> : <div>No result yet.</div>}

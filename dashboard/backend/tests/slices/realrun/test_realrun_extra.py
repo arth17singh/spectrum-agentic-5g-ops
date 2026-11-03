@@ -50,3 +50,17 @@ def test_judged_slots_and_t3_live_and_t2(tmp_path):
     assert abs(a["federated_minus_local"] - 0.05) < 1e-9
     assert abs(sp["distance_to_central"]["value"] - 0.1) < 1e-9
     assert sp["federated"][0]["facts"]["rounds"]["value"] == 20 and sp["federated"][0]["facts"]["clients"] is None
+
+
+def test_failed_check_or_incomplete_never_reads_pass(tmp_path):
+    unit_run(tmp_path, "t3.deny-a", "t3.deny", 1.0, "2026-11-03T01:00:00Z", complete=False)
+    unit_run(tmp_path, "t3.deny-b", "t3.deny", 1.0, "2026-11-03T01:00:00Z")
+    w(tmp_path, ".sync/checks/t3.deny-b.json", {"exit_code": 1, "summary": {"parts": {
+        "e": {"state": "FAIL", "lines": ["FAIL: declared n_items 27, found 22 item records"]}}}})
+    unit_run(tmp_path, "t3.deny-c", "t3.deny", 1.0, "2026-11-03T01:00:00Z")
+    st = logic.Store(tmp_path)
+    live = {x["run_id"]: x for x in extra.track3_live(st, st.run_ids())}
+    assert live["t3.deny-a"]["state"] == "incomplete"
+    assert live["t3.deny-b"]["state"] == "check failed" and "27" in live["t3.deny-b"]["why"][0]
+    assert live["t3.deny-c"]["state"] == "pass"
+    assert logic.run_summary(st, "t3.deny-b")["result"]["recomputed"] == "check failed"

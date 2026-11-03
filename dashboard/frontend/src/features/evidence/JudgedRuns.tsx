@@ -14,7 +14,7 @@ const RunState = ({ r }: { r: Rec }) => (
     {r.state === 'missing'
       ? <span className="text-micro text-warn-ink">listed, but not in the evidence mirror</span>
       : r.state === 'declared' ? <span className="text-micro text-ink-3">declared, no result yet</span>
-      : <><Verdict s={r.state} /><span className="tnum text-micro text-ink-1">{num(r.value)} {r.metric}</span><span className="text-micro text-ink-3">target {targetText(r.target)}</span></>}
+      : <><Verdict s={r.state} why={r.why} /><span className="tnum text-micro text-ink-1">{num(r.value)} {r.metric}</span><span className="text-micro text-ink-3">target {targetText(r.target)}</span></>}
     <RunLink id={r.run_id} />
     {r.check != null && <span className="text-micro text-ink-3">check_unit exit {r.check}</span>}
     {r.superseded && <Superseded reason={r.superseded.reason} by={r.superseded.by} />}
