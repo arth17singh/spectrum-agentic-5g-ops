@@ -31,6 +31,24 @@ export interface CellChange {
   d_tilt_deg: number;
 }
 
+/** One cell's state in a twin snapshot. Non-finite twin values (e.g. -inf RSRP of a dark cell) go as null. */
+export interface CellState {
+  /** Cell index (0-based). */
+  cell: number;
+  power_dbm: number;
+  tilt_deg: number;
+  ue_count: number;
+  coverage_share?: number | null;
+  sla_share?: number | null;
+  sinr_mean_db?: number | null;
+  sinr_p10_db?: number | null;
+  rsrp_mean_dbm?: number | null;
+  rsrp_p10_dbm?: number | null;
+  /** The twin's per-cell alarm (bool in ran_rl). */
+  alarm?: boolean | null;
+  asleep?: boolean | null;
+}
+
 export interface ChangeTwin {
   kind: "maveric-inprocess" | "maveric-hosted" | "viavi" | "none";
   version: string;
@@ -38,6 +56,8 @@ export interface ChangeTwin {
   seed: number;
   /** Twin step at which the change was applied. */
   step: number;
+  /** Twin config preset name, e.g. "official" or "viavi-like" (tells R1 from R2). */
+  preset?: string | null;
 }
 
 export interface Checker {
@@ -100,6 +120,25 @@ export interface Target {
   unit: string;
 }
 
+export interface TwinSnapshot {
+  step: number;
+  /** A ratio in [0, 1]. */
+  coverage_ratio: number;
+  /** A ratio in [0, 1]. */
+  sla_ratio: number;
+  per_cell: Array<CellState>;
+}
+
+/** Per-cell twin state around a change, for the Twin View. */
+export interface TwinState {
+  /** State the agents observed at twin.step. */
+  before: TwinSnapshot;
+  /** State after the change plus one step. */
+  after: TwinSnapshot;
+  /** No-change counterfactual at the same step as after. */
+  baseline?: TwinSnapshot | null;
+}
+
 /** Fields carried by every record. */
 export interface RecordEnvelope {
   kind: RecordKind;
@@ -111,7 +150,7 @@ export interface RecordEnvelope {
   created_at: string;
   /** Time taken from an AWS source; null when there is none. */
   aws_time?: string | null;
-  /** Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
+  /** Where aws_time came from, as <source>:<detail> with source one of lambda, sagemaker, cloudwatch, s3, unknown; e.g. lambda:clock (a Lambda's own clock), cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
   aws_time_source?: string | null;
   /** True for fixtures, dry runs and anything not measured on a real system. */
   synthetic: boolean;
@@ -127,7 +166,7 @@ export interface DeclaredRecord {
   created_at: string;
   /** Time taken from an AWS source; null when there is none. */
   aws_time?: string | null;
-  /** Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
+  /** Where aws_time came from, as <source>:<detail> with source one of lambda, sagemaker, cloudwatch, s3, unknown; e.g. lambda:clock (a Lambda's own clock), cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
   aws_time_source?: string | null;
   /** True for fixtures, dry runs and anything not measured on a real system. */
   synthetic: boolean;
@@ -165,7 +204,7 @@ export interface ItemRecord {
   created_at: string;
   /** Time taken from an AWS source; null when there is none. */
   aws_time?: string | null;
-  /** Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
+  /** Where aws_time came from, as <source>:<detail> with source one of lambda, sagemaker, cloudwatch, s3, unknown; e.g. lambda:clock (a Lambda's own clock), cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
   aws_time_source?: string | null;
   /** True for fixtures, dry runs and anything not measured on a real system. */
   synthetic: boolean;
@@ -192,7 +231,7 @@ export interface DecisionRecord {
   created_at: string;
   /** Time taken from an AWS source; null when there is none. */
   aws_time?: string | null;
-  /** Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
+  /** Where aws_time came from, as <source>:<detail> with source one of lambda, sagemaker, cloudwatch, s3, unknown; e.g. lambda:clock (a Lambda's own clock), cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
   aws_time_source?: string | null;
   /** True for fixtures, dry runs and anything not measured on a real system. */
   synthetic: boolean;
@@ -224,7 +263,7 @@ export interface ChangeRecord {
   created_at: string;
   /** Time taken from an AWS source; null when there is none. */
   aws_time?: string | null;
-  /** Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
+  /** Where aws_time came from, as <source>:<detail> with source one of lambda, sagemaker, cloudwatch, s3, unknown; e.g. lambda:clock (a Lambda's own clock), cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
   aws_time_source?: string | null;
   /** True for fixtures, dry runs and anything not measured on a real system. */
   synthetic: boolean;
@@ -263,6 +302,8 @@ export interface ChangeRecord {
   approved_by?: string | null;
   /** When the approval was decided (decided_at), UTC. */
   approved_at?: string | null;
+  /** Per-cell twin state before and after the change, and the no-change baseline. */
+  twin_state?: TwinState | null;
 }
 
 /** A pause or resume of a model's tool. Stored as records/<run_id>/control/<key>.json or in records/<run_id>/control.jsonl. */
@@ -275,7 +316,7 @@ export interface ControlRecord {
   created_at: string;
   /** Time taken from an AWS source; null when there is none. */
   aws_time?: string | null;
-  /** Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
+  /** Where aws_time came from, as <source>:<detail> with source one of lambda, sagemaker, cloudwatch, s3, unknown; e.g. lambda:clock (a Lambda's own clock), cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
   aws_time_source?: string | null;
   /** True for fixtures, dry runs and anything not measured on a real system. */
   synthetic: boolean;
@@ -300,7 +341,7 @@ export interface JobRecord {
   created_at: string;
   /** Time taken from an AWS source; null when there is none. */
   aws_time?: string | null;
-  /** Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
+  /** Where aws_time came from, as <source>:<detail> with source one of lambda, sagemaker, cloudwatch, s3, unknown; e.g. lambda:clock (a Lambda's own clock), cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
   aws_time_source?: string | null;
   /** True for fixtures, dry runs and anything not measured on a real system. */
   synthetic: boolean;
@@ -330,7 +371,7 @@ export interface ModelRecord {
   created_at: string;
   /** Time taken from an AWS source; null when there is none. */
   aws_time?: string | null;
-  /** Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
+  /** Where aws_time came from, as <source>:<detail> with source one of lambda, sagemaker, cloudwatch, s3, unknown; e.g. lambda:clock (a Lambda's own clock), cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
   aws_time_source?: string | null;
   /** True for fixtures, dry runs and anything not measured on a real system. */
   synthetic: boolean;
@@ -356,7 +397,7 @@ export interface ResultRecord {
   created_at: string;
   /** Time taken from an AWS source; null when there is none. */
   aws_time?: string | null;
-  /** Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
+  /** Where aws_time came from, as <source>:<detail> with source one of lambda, sagemaker, cloudwatch, s3, unknown; e.g. lambda:clock (a Lambda's own clock), cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime. */
   aws_time_source?: string | null;
   /** True for fixtures, dry runs and anything not measured on a real system. */
   synthetic: boolean;
