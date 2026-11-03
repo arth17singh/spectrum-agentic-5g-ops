@@ -862,7 +862,7 @@ def test_runner_binding_row_is_read_by_the_real_tools_store():
                       log=lambda *a: None, unit="allow")
     r.map_case("case-abc12345-34")
     s = tstore.DynamoStore("team13-approvals", client=ddb)
-    assert s.get_case("case-abc12345-34") is None and s.case_run_id("case-abc12345-34") == "1102b-allow"
+    assert s.get_case("case-abc12345-34") is None and s.mapped_run_id("case-abc12345-34") == "1102b-allow"
     doc = {"case_id": "case-abc12345-34", "run_id": "1102b-allow", "scenario": "s", "seed": 1, "config": {},
            "action_log": [], "twin_kind": "maveric-inprocess", "predictions": [], "created_at": "t"}
     s.put_case(doc, None)

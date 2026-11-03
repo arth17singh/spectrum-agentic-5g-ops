@@ -396,10 +396,10 @@ class Tools:
         dflt = self.d.defaults
         twin = self.twin(dflt["scenario"], dflt["seed"], dflt["config"])
         resolved = getattr(twin, "config", None)
-        # the run the suite runner bound this case to; a chat case (no binding) is ad hoc, never the last
-        # suite run (t3-active is never cleared)
-        bound = self.d.store.case_run_id(case_id) if hasattr(self.d.store, "case_run_id") else None
-        new = {"case_id": case_id, "run_id": bound or f"adhoc-{case_id}",
+        # A suite case is mapped to its run by the runner (a doc-less t3-<case_id> row). Anything else,
+        # e.g. a chat case, is filed under adhoc-<case_id>: t3-active is never cleared, so it would
+        # wrongly pull chat cases into the last suite run.
+        new = {"case_id": case_id, "run_id": self.d.store.mapped_run_id(case_id) or f"adhoc-{case_id}",
                "scenario": dflt["scenario"], "seed": int(dflt["seed"]),
                "config": jsonable(resolved) if isinstance(resolved, dict) else dflt["config"],
                "action_log": [], "twin_kind": dflt["twin_kind"], "predictions": [], "created_at": self.d.now()}
