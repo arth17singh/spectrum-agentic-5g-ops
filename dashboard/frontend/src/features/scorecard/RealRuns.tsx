@@ -39,8 +39,9 @@ export interface Overview {
 }
 
 export const RunLink = ({ id, className }: { id: string; className?: string }) => (
-  <Link to={`/evidence?run=${encodeURIComponent(id)}`} className={clsx('mono inline-flex items-center gap-1 text-micro text-ink-3 underline decoration-dotted underline-offset-2 hover:text-ink-1', className)}
-    title="Open this run in the Evidence explorer: declaration, job, records, result, check_unit">
+  <Link to={`/evidence?run=${encodeURIComponent(id)}`} data-run-link={id}
+    className={clsx('mono inline-flex items-center gap-1 rounded-sm text-micro text-ink-1 underline decoration-ink-3 underline-offset-2 hover:text-[color:var(--prove)] hover:decoration-current focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]', className)}
+    title="Open this run's evidence chain: declaration, code, records, result, check_unit, ledger entries">
     {id}<ExternalLink size={10} aria-hidden />
   </Link>
 )
