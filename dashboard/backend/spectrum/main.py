@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -26,6 +26,7 @@ from .adapters import load_adapters
 from .engine import Engine
 from .evidence.service import EvidenceService
 from .evidence.store import utc_iso
+from .slices import SliceContext, include_slices, start_slices
 
 MODE = os.environ.get("SPECTRUM_MODE", "mock")
 SEED = int(os.environ.get("SPECTRUM_SEED", "7"))
@@ -51,9 +52,13 @@ async def lifespan(app: FastAPI):
     log_phone_link(_lan_ip())
     task = asyncio.create_task(engine.run())
     ev_task = asyncio.create_task(evidence.run())
+    slice_tasks = start_slices(app, SliceContext(engine=engine, evidence=evidence, emit=_emit_evidence, mode=MODE,
+                                                 offline=os.environ.get("SPECTRUM_OFFLINE") == "1"))
     yield
     task.cancel()
     ev_task.cancel()
+    for t in slice_tasks:
+        t.cancel()
 
 
 # Every handler is `async def` on purpose: it then runs on the event-loop thread, serialised with
@@ -444,9 +449,15 @@ async def ws(socket: WebSocket):
 
 # --------------------------------------------------------------------------- built frontend (demo day: one process)
 
+# Paths under these first segments are never client-side routes: an unknown one is a JSON 404, not
+# index.html (otherwise a missing or mis-registered API route answers 200 with the app's HTML).
+NOT_SPA = {"api", "ws", "docs"}
+
+
 def serve_frontend(app: FastAPI, dist: Path) -> None:
     """Serve the built UI: /assets as static files, any other GET as the file it names in `dist`,
-    else index.html so client-side routes such as /federation load the app."""
+    else index.html so client-side routes such as /federation load the app. Call it LAST: its
+    catch-all answers every GET route registered after it."""
     app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
     root = dist.resolve()
     index = root / "index.html"
@@ -455,6 +466,8 @@ def serve_frontend(app: FastAPI, dist: Path) -> None:
     def spa(path: str):  # sync on purpose: the filesystem calls run in the thread pool, off the loop
         # `path` comes from the URL: `..`, an absolute path (//etc/hosts) or a symlink in dist could
         # otherwise reach any file the server can read. Serve only regular files that resolve inside.
+        if path.split("/", 1)[0] in NOT_SPA:
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
         try:
             f = (root / path).resolve()
             if f.is_relative_to(root) and f.is_file():
@@ -463,6 +476,9 @@ def serve_frontend(app: FastAPI, dist: Path) -> None:
             pass
         return FileResponse(index)
 
+
+# Slices (spectrum/slices/<x>/) register here: after every core route, BEFORE the SPA catch-all.
+include_slices(app)
 
 DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 if DIST.exists():

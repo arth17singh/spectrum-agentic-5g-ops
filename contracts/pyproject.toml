@@ -1,0 +1,19 @@
+[project]
+name = "team13-contracts"
+version = "1.0.0"
+description = "Team13 evidence record contracts: pydantic v2 models, JSON Schema and TypeScript types"
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2.7"]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "jsonschema>=4.18"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["team13_contracts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

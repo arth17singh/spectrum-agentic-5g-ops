@@ -1,0 +1,31 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "0123456789abcdef0123456789abcdef01234567",
+  "created_at": "2026-11-02T20:05:00.000Z",
+  "declared_at": "2026-11-02T20:05:00.000Z",
+  "grader": "t3/suite/grade_trust.py",
+  "kind": "declared",
+  "model_id": "t1-ppo-maveric",
+  "n_items": 80,
+  "region": "us-east-2",
+  "run_id": "t3-ladder-rehearsal-20261102-a",
+  "schema_version": "1",
+  "synthetic": true,
+  "target": {
+    "metric": "retention",
+    "op": ">=",
+    "unit": "ratio",
+    "value": 0.5
+  },
+  "team": "team13",
+  "test_set_sha256": "4788224c17388846cdac203276c985bc2baa97f5289c535c191ef9b49aea416f",
+  "track": "track-3",
+  "twin": {
+    "kind": "maveric-inprocess",
+    "scenario": "interference",
+    "seed": 11,
+    "version": "ran-rl-1.2.9"
+  },
+  "unit": "t3.ladder"
+}

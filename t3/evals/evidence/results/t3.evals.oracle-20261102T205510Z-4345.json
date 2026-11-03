@@ -1,0 +1,122 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "checked_at": "2026-11-02T21:02:11.729Z",
+  "checker": {
+    "code_sha": "4f4868230274aeacedc149b52c0154dc5a608b39",
+    "script": "t3/evals/run.py"
+  },
+  "created_at": "2026-11-02T21:02:11.729Z",
+  "details": {
+    "by_group": {
+      "masked": {
+        "mean_recovery": 1.0,
+        "n": 18,
+        "success_rate": 1.0
+      },
+      "official": {
+        "mean_recovery": 1.0,
+        "n": 15,
+        "success_rate": 1.0
+      },
+      "viavi-like": {
+        "mean_recovery": 1.0,
+        "n": 18,
+        "success_rate": 1.0
+      },
+      "visible": {
+        "mean_recovery": 1.0,
+        "n": 15,
+        "success_rate": 1.0
+      }
+    },
+    "gain": {
+      "baseline_run_id": "t3.evals.no_action-20261102T205432Z-6a9b",
+      "ci_high": 1.0000000016377173,
+      "ci_low": 0.999999998632275,
+      "paired_n": 33,
+      "value": 1.000000000125022
+    },
+    "gains": [
+      {
+        "baseline_model_id": "no_action",
+        "baseline_run_id": "t3.evals.no_action-20261102T205432Z-6a9b",
+        "ci_high": 1.0000000016377173,
+        "ci_low": 0.999999998632275,
+        "excludes_zero": true,
+        "metric": "recovery",
+        "paired_n": 33,
+        "success_rate_gain": {
+          "ci_high": 1.0,
+          "ci_low": 1.0,
+          "excludes_zero": true,
+          "paired_n": 33,
+          "value": 1.0
+        },
+        "value": 1.000000000125022
+      },
+      {
+        "baseline_model_id": "ran_rl.evaluation.baseline:RuleBasedController@1.2.9",
+        "baseline_run_id": "t3.evals.rule_baseline-20261102T205449Z-c52d",
+        "ci_high": 0.658974808898963,
+        "ci_low": 0.3128670402566754,
+        "excludes_zero": true,
+        "metric": "recovery",
+        "paired_n": 33,
+        "success_rate_gain": {
+          "ci_high": 0.7878787878787878,
+          "ci_low": 0.48484848484848486,
+          "excludes_zero": true,
+          "paired_n": 33,
+          "value": 0.6363636363636364
+        },
+        "value": 0.48320195270669064
+      },
+      {
+        "baseline_model_id": "config-revert-median-v1",
+        "baseline_run_id": "t3.evals.config_revert-20261102T205456Z-0a49",
+        "ci_high": 0.4849146914843149,
+        "ci_low": 0.12907972276007232,
+        "excludes_zero": true,
+        "metric": "recovery",
+        "paired_n": 33,
+        "success_rate_gain": {
+          "ci_high": 0.48484848484848486,
+          "ci_low": 0.18181818181818182,
+          "excludes_zero": true,
+          "paired_n": 33,
+          "value": 0.3333333333333333
+        },
+        "value": 0.2906970319062215
+      }
+    ],
+    "items_clamped": 16,
+    "items_with_wrong_cell_action": 17,
+    "mean_changes_used": 1.5151515151515151,
+    "mean_recovery": 1.0,
+    "model_id": "oracle-best-of-248-greedy",
+    "n_items": 33,
+    "operator": "oracle",
+    "success_count": 33,
+    "success_rate": 1.0,
+    "test_set_sha256": "20f9013399da360b26214e11de15c9f9edbb8dcb9bcc4cf1d89fb7e194d3dd12",
+    "wall_s": 421.043,
+    "wrong_cell_actions_total": 20
+  },
+  "kind": "result",
+  "metric": "mean_score",
+  "n_items": 33,
+  "passed": true,
+  "run_id": "t3.evals.oracle-20261102T205510Z-4345",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "mean_score",
+    "op": ">=",
+    "unit": "recovery",
+    "value": 0.8
+  },
+  "team": "team13",
+  "unit": "t3.evals.recovery",
+  "value": 1.0
+}

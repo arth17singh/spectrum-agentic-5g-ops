@@ -1,0 +1,145 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "$id": "https://team13.invalid/contracts/model.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A model version and its artifact. Stored at models/<model_id>/<version>.json.",
+  "properties": {
+    "artifact_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Artifact Sha256",
+      "type": "string"
+    },
+    "artifact_uri": {
+      "minLength": 1,
+      "title": "Artifact Uri",
+      "type": "string"
+    },
+    "aws_time": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Time taken from an AWS source; null when there is none.",
+      "title": "Aws Time"
+    },
+    "aws_time_source": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime.",
+      "title": "Aws Time Source"
+    },
+    "created_at": {
+      "description": "When our code wrote the record (UTC, trailing Z).",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "kind": {
+      "const": "model",
+      "default": "model",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metrics": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Metrics",
+      "type": "object"
+    },
+    "model_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "title": "Model Id",
+      "type": "string"
+    },
+    "model_kind": {
+      "enum": [
+        "ppo",
+        "t2-response",
+        "llm-lora"
+      ],
+      "title": "Model Kind",
+      "type": "string"
+    },
+    "run_id": {
+      "description": "The run this record belongs to; safe as a path segment.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "approved",
+        "paused",
+        "withdrawn"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "synthetic": {
+      "description": "True for fixtures, dry runs and anything not measured on a real system.",
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "team": {
+      "const": "team13",
+      "default": "team13",
+      "title": "Team",
+      "type": "string"
+    },
+    "trained_on": {
+      "description": "What it was trained on: the training run_id, or a twin/dataset id.",
+      "minLength": 1,
+      "title": "Trained On",
+      "type": "string"
+    },
+    "version": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "team",
+    "run_id",
+    "created_at",
+    "synthetic",
+    "model_id",
+    "version",
+    "model_kind",
+    "artifact_uri",
+    "artifact_sha256",
+    "status",
+    "trained_on"
+  ],
+  "title": "ModelRecord",
+  "type": "object"
+}

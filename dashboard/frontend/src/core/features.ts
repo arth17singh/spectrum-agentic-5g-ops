@@ -26,7 +26,10 @@ export interface FeatureManifest {
   }
   title: string
   description: string
-  tracks?: ('T1' | 'T2' | 'T3' | 'Trust' | 'Obs')[]
+  tracks?: ('T1' | 'T2' | 'T3' | 'Trust' | 'Obs' | 'Bridge')[]
+  /** 'real' = every number comes from measured records (listed in the demo rail); 'mock' = the simulator.
+   *  Optional in the manifest; the registry fills it ('mock' unless declared). */
+  data?: 'real' | 'mock'
   component: LazyExoticComponent<ComponentType> | ComponentType
   /** warms the lazy chunk so the first visit during a demo never waits on the network */
   preload?: () => Promise<unknown>
@@ -36,3 +39,31 @@ export interface FeatureManifest {
 }
 
 export const defineFeature = (m: FeatureManifest) => m
+
+/** Routes held for the Track 3 slices (features/trace, features/trustgate, features/scorecard). */
+export const RESERVED_ROUTES: Record<string, string> = { '/trace': 'trace', '/trust-gate': 'trustgate', '/scorecard': 'scorecard' }
+
+/** Everything wrong with a registry: duplicate ids, routes or hotkeys, and reserved routes taken by
+ *  another folder. `folder` maps a feature id to the features/<folder> it came from. Empty = fine. */
+export function registryProblems(list: FeatureManifest[], folder: (id: string) => string | undefined = () => undefined): string[] {
+  const problems: string[] = []
+  const dupes = (what: string, key: (f: FeatureManifest) => string | undefined) => {
+    const seen = new Map<string, string>()
+    for (const f of list) {
+      const k = key(f)
+      if (k === undefined) continue
+      const other = seen.get(k)
+      if (other) problems.push(`duplicate ${what} ${JSON.stringify(k)}: ${other} and ${f.id}`)
+      else seen.set(k, f.id)
+    }
+  }
+  dupes('id', (f) => f.id)
+  dupes('route', (f) => f.route)
+  dupes('hotkey', (f) => f.nav.hotkey?.toLowerCase())
+  for (const f of list) {
+    const owner = RESERVED_ROUTES[f.route]
+    const from = folder(f.id)
+    if (owner && from !== undefined && from !== owner) problems.push(`route ${f.route} is reserved for features/${owner}, not features/${from}`)
+  }
+  return problems
+}
