@@ -39,24 +39,64 @@ def _unavailable(e: Exception) -> JSONResponse:
     return JSONResponse({"detail": f"evidence unavailable: {type(e).__name__}"}, status_code=503)
 
 
-def _govern(card: dict, results: dict) -> None:
-    """A result that says complete: false, or whose cached check_unit FAILED a part, is never shown as a pass:
-    the row becomes inconsistent with the reason. The checks come from the evidence mirror's .sync/checks."""
-    from spectrum.slices.realrun.logic import Store, root_from_env, verdict_why
-    from .logic import _count
+GOVERNED = ("check failed", "unverified", "incomplete")
+
+
+def _counts(rows: list[dict]) -> dict:
+    """Each bucket named by what it is. Superseded runs are counted only as superseded, never as declared."""
+    live = [r for r in rows if r["state"] != "superseded"]
+    out = {
+        "declared": len(live),
+        "passed": sum(r["state"] == "pass" for r in live),
+        "failed": sum(r["state"] == "fail" for r in live),
+        "check_failed": sum(r["state"] == "check failed" for r in live),
+        "unverified": sum(r["state"] == "unverified" for r in live),
+        "incomplete": sum(r["state"] == "incomplete" for r in live),
+        "not_checked": sum(r["state"] == "not checked" for r in live),
+        "inconsistent": sum(r["state"] == "inconsistent" for r in live),
+        "superseded": len(rows) - len(live),
+    }
+    # the evidence buckets appear only when used, so the base shape is unchanged
+    return {k: v for k, v in out.items() if v or k not in ("check_failed", "unverified", "incomplete", "superseded")}
+
+
+def _govern(card: dict, pairs: list) -> None:
+    """The evidence checks govern the row state (cached check_unit in the mirror's .sync/checks):
+      superseded     listed in superseded.json: shown apart, counted nowhere else
+      incomplete     the result says complete: false
+      check failed   a check_unit part FAILED (the parts are named)
+      unverified     check_unit part c did not pass (no AWS window, so record times are not verified)
+    "inconsistent" stays reserved for a record that contradicts itself (the scorecard's own checks)."""
+    from spectrum.slices.realrun.extra import superseded
+    from spectrum.slices.realrun.logic import Store, failed_parts, part_c_not_pass, root_from_env, verdict
 
     root = root_from_env()
     st = Store(root) if root is not None else None
     if st is None:
         return
+    sup = superseded(st)
+    by = {rid: (d, r) for rid, d, r in pairs}
     for t in card.get("tracks", []):
         for row in t["units"]:
-            why = verdict_why(st, results.get(row["run_id"]) if isinstance(results.get(row["run_id"]), dict) else None)
-            if why and row["state"] in ("pass", "fail"):
-                row["state"] = "inconsistent"
-                row["problems"] = row.get("problems", []) + [{"code": "evidence_check", "detail": w} for w in why]
-        t.update(_count(t["units"]))
-    card["totals"] = _count([r for t in card.get("tracks", []) for r in t["units"]])
+            rid = row["run_id"]
+            if rid in sup:
+                row["state"] = "superseded"
+                row["superseded"] = sup[rid]
+                continue
+            d, r = by.get(rid, (None, None))
+            if not isinstance(r, dict) or row["state"] not in ("pass", "fail"):
+                continue
+            v = verdict(st, r, d if isinstance(d, dict) else None)
+            if v in GOVERNED:
+                row["state"] = v
+                if v == "check failed":
+                    row["evidence_reason"] = "check_unit " + "; ".join(failed_parts(st, rid))
+                elif v == "unverified":
+                    row["evidence_reason"] = f"check_unit {part_c_not_pass(st, rid)}"
+                else:
+                    row["evidence_reason"] = "the result says complete: false"
+        t.update(_counts(t["units"]))
+    card["totals"] = _counts([r for t in card.get("tracks", []) for r in t["units"]])
 
 
 @router.get("/units")
@@ -65,7 +105,7 @@ def units():
         reader = _reader()
         pairs = [(rid, reader.declared(rid), reader.result(rid)) for rid in _run_ids(reader)]
         card = build_scorecard(pairs)
-        _govern(card, {rid: res for rid, _, res in pairs})
+        _govern(card, pairs)
         card["source"] = _source(reader)
     except Exception as e:
         return _unavailable(e)

@@ -3,8 +3,9 @@
 export type UnitState = 'pass' | 'fail' | 'not checked' | 'inconsistent'
 
 /** data-state values: stable strings for tests and styling. */
-export const stateAttr = (s: string): 'pass' | 'fail' | 'not-checked' | 'inconsistent' =>
-  s === 'pass' ? 'pass' : s === 'fail' ? 'fail' : s === 'not checked' ? 'not-checked' : 'inconsistent'
+export const stateAttr = (s: string): string =>
+  s === 'pass' || s === 'fail' || s === 'inconsistent' || s === 'unverified' || s === 'incomplete' || s === 'superseded' ? s
+    : s === 'not checked' ? 'not-checked' : s === 'check failed' ? 'check-failed' : 'inconsistent'
 
 const OP: Record<string, string> = { '>=': '≥', '<=': '≤', '==': '=', '>': '>', '<': '<' }
 
