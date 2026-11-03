@@ -19,7 +19,8 @@ Times are Seattle time (PST, UTC−8) with UTC in brackets. Each entry keeps a d
 | [G-009](#g-009) | Open · measurement | Frozen eval references drift across CPU architecture, torch build and instance size | Track 1 execution and Track 3 incident units: frozen values are valid only on the instance type that froze them | 2 Nov 19:14 PST |
 | [G-010](#g-010) | Declared risk · organiser-side IAM | The organisers' SageMaker role has no Bedrock access; Bedrock baselines run under a team role. SageMaker roles can read any secret named AmazonSageMaker-* | Track 1 Bedrock baselines; secret exposure | 3 Nov (time TODO) |
 | [G-011](#g-011) | Open · feature gap | The dashboard's phone approve page drives the simulator, not the real approvals table | Track 3 human-approval demo until the real page (W7g) is built | 3 Nov (time TODO) |
-| [G-012](#g-012) | Open · checker | `tools/check_unit.py` cannot recompute the paired-bootstrap gain metric (`gain_ci_low_vs_no_action`), so part [e] reports "cannot check" (exit 2) for the gain runs | Track 3 baselines and the swarm incident eval (slot 5): parts a to c pass, part e is not independently recomputed | 3 Nov (found during the live-test rehearsal) |
+| [G-012](#g-012) | Resolved · found and fixed 2 Nov | `tools/check_unit.py` could not recompute the paired-bootstrap gain metric, so part [e] said "cannot check" (exit 2) for the Track 3 gain runs | Was: Track 3 baselines and the swarm incident eval (slot 5) | 3 Nov (found during the live-test rehearsal) |
+| [G-013](#g-013) | Resolved · harness defect | The Track 1 knowledge parser rejected bare-letter answers (90% parse failures); the first base knowledge run is superseded | Slot 6 (knowledge, base); the other four base runs stand | 2 Nov 20:43 PST |
 
 ### Watching
 
@@ -217,16 +218,31 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - 3 Nov (time TODO): gap logged; W7g started.
 
 <a id="g-012"></a>
-## G-012 · The independent checker cannot recompute the gain metric
+## G-012 · The independent checker could not recompute the gain metric (found and fixed)
 
-- **Status:** open.
-- **What:** `tools/check_unit.py` is deliberately separate from the code that writes results, and recomputes a result's value from the item records. For the gain runs (`gain_ci_low_vs_no_action`, a paired bootstrap against `no_action`) it prints `cannot check: unknown metric` and exits 2. Seen on `t3.evals.config_revert-masked-20261103T035108Z-x86`; the same metric is used by the `rule_baseline` and `config_revert` runs. Parts a (declared before), b (code in the repo) and c (records agree with AWS times) pass.
-- **Limits:** part [e] of the four-part rule for the Track 3 baselines and for the swarm incident eval. The value in the result file is computed by `t3/evals/run.py` and is not yet independently recomputed.
-- **Meanwhile:** the paired gains are recomputable by hand from the item records with `python -m t3.evals.run gains --run <A> --baseline <B>`. A bootstrap in the checker (same seed and resamples as `t3/evals/targets.json`) is TODO.
+- **Status:** resolved. Found and fixed on the same evening.
+- **What was found:** `tools/check_unit.py` is deliberately separate from the code that writes results and recomputes a result's value from the item records. At int/v4 `175860e` it had no rule for the paired-bootstrap gain metric (`gain_ci_low_vs_no_action`): part [e] printed `cannot check: unknown metric` and the run exited 2. This was seen on `t3.evals.config_revert-masked-20261103T035108Z-x86` while rehearsing `scripts/live_test.sh`. Parts a (declared before), b (code in the repo) and c (records agree with AWS times) passed.
+- **Fix:** commit `6f616c8` (the runner and `check_unit.py`, merged in integration batch 7) makes part [e] replay the `paired-bootstrap-v1` interval exactly (same seed, resamples and pairing).
+- **Verified:** after that merge, the live-test rehearsal on `t3.evals.config_revert-masked-20261103T035108Z-x86` ends with all of parts a, b, c and e passing (d skipped, no ledger on this machine). The other two re-run gain baselines (`...T035108Z-x86`) pass part e too, per the lead.
 - **Who we told:** not applicable (our own code).
 
 **Log**
-- 3 Nov (time TODO): found while rehearsing `scripts/live_test.sh`.
+- 3 Nov (time TODO): found at `175860e` during the rehearsal.
+- 3 Nov (time TODO): fixed in `6f616c8`; rehearsal repeated, exit 0.
+
+<a id="g-013"></a>
+## G-013 · The knowledge parser rejected bare-letter answers (harness defect, fixed)
+
+- **Status:** resolved; the affected run is superseded.
+- **What happened:** the first base knowledge run `t1.knowledge-otel-base-1` (2 Nov 20:43 PST) scored 0.025 against a declared target of 0.70. The harness's JSON-only parser rejected answers given as a bare letter, so about 90% of the answers counted as parse failures (parse_fail 0.90). That is a defect of our harness, not model behaviour.
+- **Fix:** commit `c4b4b5e` (W12) changes the knowledge parser narrowly and versions it for the knowledge unit only. The re-run is `t1.knowledge-otel-base-2`, which is declared as its own run and is running from `c4b4b5e` (result TODO).
+- **What stands:** the other four base runs (safety, interface, execution, price-latency) were not changed. W12's diagnosis is that their low scores are model behaviour, not parsing. Their parser and prompt are unchanged.
+- **Why we keep the first run:** it stays in S3 and in `evidence/superseded.json`, listed with this reason, so the change of parser is visible. It is not listed in `judging.json`.
+- **Who we told:** not applicable (our own code).
+
+**Log**
+- 2 Nov 20:43 PST (3 Nov 04:43 UTC): `t1.knowledge-otel-base-1` result written.
+- 2 Nov about 20:57 PST: `t1.knowledge-otel-base-2` declared.
 
 ---
 
@@ -234,6 +250,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 
 | Run | Why it is superseded | Replaced by |
 |---|---|---|
+| `t1.knowledge-otel-base-1` | Harness defect: the JSON-only knowledge parser rejected bare-letter answers (parse_fail 0.90); fixed narrowly in `c4b4b5e` (G-013) | `t1.knowledge-otel-base-2` |
 | `t3.evals.no_action-20261103T023304Z-0cd3` | Failed smoke run on the stand-in twin backend, against the old v2 suite; no result record | `t3.evals.no_action-20261103T032552Z-x86` |
 | `t3.evals.no_action-20261103T024101Z-22ae` | Failed smoke run, same cause; no result record | `t3.evals.no_action-20261103T032552Z-x86` |
 | `t3.evals.rule_baseline-20261103T033026Z-x86`, `t3.evals.config_revert-20261103T033026Z-x86`, `t3.evals.config_revert_masked-20261103T033026Z-x86` | First gain baselines on suite v4; replaced by the replayable runs below | the `...T035108Z-x86` runs |
