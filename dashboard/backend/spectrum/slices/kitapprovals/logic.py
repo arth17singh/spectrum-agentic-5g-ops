@@ -209,6 +209,8 @@ def row_view(item: dict, now: float, approvers: dict | None, key: bytes) -> dict
 
 
 EVAL_UNITS = {"t3.evals.swarm-proposals"}
+# live_swarm.case_id_for: case-<8 hex of the run id>-i<incident>s<step>. Front-door cases are case-<8 hex> only.
+EVAL_CASE_RE = re.compile(r"^case-[0-9a-f]{8}-i\d{2}s\d$")
 
 
 def is_eval_mapping(row: dict) -> bool:

@@ -140,7 +140,7 @@ class Service:
                                      ProjectionExpression="run_id, #u, #src",
                                      ExpressionAttributeNames={"#u": "unit", "#src": "source"})
         row = awsmod.to_item(resp.get("Item")) or {}
-        flag = logic.is_eval_mapping(row)
+        flag = logic.is_eval_mapping(row) or logic.EVAL_CASE_RE.fullmatch(case_id) is not None
         self._eval_cache[case_id] = (flag, now)
         return flag
 

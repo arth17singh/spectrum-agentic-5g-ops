@@ -39,7 +39,7 @@ export function ConfirmSheet({ row, pseudonym, onClose, onDone }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-4" data-sheet="kitapprovals"
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-4 outline-none" data-sheet="kitapprovals" tabIndex={-1}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !busy) onClose() }}>
       <div role="dialog" aria-modal="true" aria-labelledby="kit-sheet-title"
         className="w-full max-w-[640px] rounded-[10px] border border-line bg-s1 shadow-2xl">

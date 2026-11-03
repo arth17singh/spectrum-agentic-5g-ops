@@ -40,6 +40,10 @@ def test_eval_rows_are_flagged_and_refused(tmp_path, monkeypatch):
         assert r.status_code == 409 and r.json()["error"] == "proposal_only"
     assert not [op for op, _ in ddb.calls if op == "UpdateItem"]
     assert decide(c, real).status_code == 200
+    # no mapping row, or one rewritten with an adhoc run id: the eval case-id shape still flags it
+    lone = pending_row(case_id="case-0a0b0c0d-i17s2")
+    svc2, *_ = make(tmp_path, monkeypatch, [lone, {"pk": "t3-case-0a0b0c0d-i17s2", "run_id": "adhoc-x", "doc": "{}"}])
+    assert client(svc2).get("/api/kitapprovals/pending").json()["rows"][0]["proposal_only"] is True
     # the GetItem for the mapping aliases its attribute names
     gets = [kw for op, kw in ddb.calls if op == "GetItem" and kw.get("ProjectionExpression")]
     assert gets and all("#u" in kw["ProjectionExpression"] for kw in gets)
