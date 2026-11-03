@@ -117,6 +117,20 @@ def _items(response) -> list:
     return []
 
 
+def list_all(api: "Api", service: str, op: str, **params) -> list:
+    """Every item of a paged list call (nextToken), not only the first page. Dry run: []."""
+    out, token, pages = [], None, 0
+    while True:
+        resp = api(service, op, read=True, **params, **({"nextToken": token} if token else {}))
+        out.extend(_items(resp))
+        token = (resp or {}).get("nextToken")
+        pages += 1
+        if not token:
+            return out
+        if pages >= 100:
+            raise RuntimeError(f"{service}.{op}: more than 100 pages")
+
+
 def function_specs(*, team: str, region: str, account: str, image_uri: str, arch: str, bucket: str,
                    gateway_arn: str, engine_id: str, standin: str, nlm_endpoint: str, predictor_path: str,
                    policy_path: str, trust_live: bool, gateway_id: str = "") -> list[dict]:
@@ -201,8 +215,7 @@ def register(api: Api, *, team: str, fn_arn: str, gateway_id: str, gateway_arn: 
              wait: Callable[[float], None] = time.sleep, out=print) -> int:
     failed = 0
     out("\n== Gateway targets")
-    listed = api(ACP, "list_gateway_targets", read=True, gatewayIdentifier=gateway_id)
-    existing = {t["name"]: t for t in _items(listed)}
+    existing = {t["name"]: t for t in list_all(api, ACP, "list_gateway_targets", gatewayIdentifier=gateway_id)}
     if not api.apply:  # dry run: the kit has deployed, so its nlm target exists
         existing.setdefault(catalog.NLM_TARGET, {"targetId": "<kit nlm targetId>"})
     creds = [{"credentialProviderType": "GATEWAY_IAM_ROLE"}]
@@ -220,8 +233,8 @@ def register(api: Api, *, team: str, fn_arn: str, gateway_id: str, gateway_arn: 
     if api.apply:
         ours = set(catalog.targets())
         for _ in range(60):
-            states = {t["name"]: t.get("status") for t in _items(api(
-                ACP, "list_gateway_targets", read=True, gatewayIdentifier=gateway_id))}
+            states = {t["name"]: t.get("status") for t in list_all(
+                api, ACP, "list_gateway_targets", gatewayIdentifier=gateway_id)}
             if any("FAIL" in str(states.get(n)) for n in ours):
                 out(f"targets failed: {states}")
                 return 1
@@ -234,7 +247,7 @@ def register(api: Api, *, team: str, fn_arn: str, gateway_id: str, gateway_arn: 
         wait(20)  # the guide: rules are checked against the tool schemas, so let the schema settle
 
     out("\n== Cedar rules")
-    current = {p["name"]: p for p in _items(api(ACP, "list_policies", read=True, policyEngineId=engine_id))}
+    current = {p["name"]: p for p in list_all(api, ACP, "list_policies", policyEngineId=engine_id)}
     for rule in generate.rules(team):
         statement = generate.fill(rule["statement"], gateway_arn)
         have = current.get(rule["name"])
@@ -338,9 +351,14 @@ def main(argv: list[str] | None = None, client_factory: Callable[[str], Any] | N
                            standin=a.standin_model, nlm_endpoint=a.nlm_endpoint, predictor_path=a.predictor_path,
                            policy_path=a.policy_path, trust_live=a.trust_live,
                            gateway_id=state.get("gateway_id", ""))
-    fn_arn = deploy_functions(api, team=team, region=region, account=account, specs=specs, wait=wait, out=out)
-    failed = register(api, team=team, fn_arn=fn_arn, gateway_id=state.get("gateway_id", "<gateway_id>"),
-                      gateway_arn=gateway_arn, engine_id=engine_id, wait=wait, out=out)
+    try:
+        fn_arn = deploy_functions(api, team=team, region=region, account=account, specs=specs, wait=wait, out=out)
+        failed = register(api, team=team, fn_arn=fn_arn, gateway_id=state.get("gateway_id", "<gateway_id>"),
+                          gateway_arn=gateway_arn, engine_id=engine_id, wait=wait, out=out)
+    except Exception as exc:  # noqa: BLE001 - say which call failed and why, then fail
+        last = api.calls[-1] if api.calls else ("?", "?", {})
+        out(f"\nFAILED at {last[0]}.{last[1]}: {type(exc).__name__}: {exc}")
+        return 1
     if failed:
         out(f"\n{failed} rule(s) failed")
     return 1 if failed else 0
