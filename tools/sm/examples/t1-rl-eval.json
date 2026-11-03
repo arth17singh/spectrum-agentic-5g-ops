@@ -1,0 +1,15 @@
+{
+  "about": "Launch spec for the Track 1 RL scoring job (unit t1.rl.eval). t1/rl/eval_declaration.py reads it, fills the declaration from the training run and AWS (read-only), and prints the tools/sm/run.py command lines.",
+  "unit": "t1.rl.eval",
+  "instance_type": "ml.c5.2xlarge",
+  "max_run_s": 3600,
+  "paths": ["contracts", "tools", "t1/rl"],
+  "entry": "-m t1.rl.job_evaluate --run-id {run_id} --evidence-s3 {evidence_s3} --evidence-dir {evidence_dir} --output-dir {output_dir} --model-channel {channel:model} --project-channel {channel:project}",
+  "channels": {"model": "model.tar.gz", "project": "sourcedir.tar.gz"},
+  "secrets": {"RAN_RL_TWIN_URL": "AmazonSageMaker-team13-twin-url", "RAN_RL_ADAPTER_TOKEN": "AmazonSageMaker-team13-twin-token"},
+  "expected_runtime_s": 900,
+  "training": {
+    "run_id": "t1.rl.train-20261103T023805Z-a09e",
+    "job_name": "t1-rl-train-20261103T023805Z-a09e-20261103-023807"
+  }
+}
