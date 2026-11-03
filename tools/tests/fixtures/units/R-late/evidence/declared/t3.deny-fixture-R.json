@@ -15,17 +15,11 @@
   "target": {
     "metric": "pass_rate",
     "op": ">=",
-    "unit": "",
+    "unit": "ratio",
     "value": 0.8
   },
   "team": "team13",
   "test_set_sha256": "202b67cf628c2c22d4a249412c88900aa07f8790723944d15d026bcff2ad7afd",
   "track": "track-3",
-  "twin": {
-    "kind": "none",
-    "scenario": "",
-    "seed": 0,
-    "version": ""
-  },
   "unit": "t3.deny"
 }

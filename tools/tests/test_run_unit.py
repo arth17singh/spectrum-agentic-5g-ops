@@ -50,7 +50,7 @@ def test_declare_run_collect_result(setup, capsys):
     store = evlib.LocalStore(ev)
     d = evlib.read_declared("t3.deny-ru-1", store)
     assert d["n_items"] == 4 and d["test_set_sha256"] == evlib.sha256_file(test_set) and d["synthetic"] is True
-    assert d["code_sha"] == evlib.code_sha()
+    assert d["code_sha"] == evlib.code_sha() and d["target"]["unit"] == "ratio"  # from METRIC_UNITS
     r = evlib.read_result("t3.deny-ru-1", store)
     assert r["value"] == 1.0 and r["passed"] is True and r["checker"]["script"] == "tools/run_unit.py"
     assert r["details"]["command_rc"] == 0 and "command_s" in r["details"]["timing_s"]

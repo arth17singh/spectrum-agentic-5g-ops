@@ -83,6 +83,49 @@ The outputs are in `runs/` and `calibration.json`.
   - Healthy gain is +0.0154 [0.0098, 0.0213] on MAVERIC and +0.0037 [0.0003, 0.0076] on REHEARSAL.
   - Retention is null because there is no VIAVI rung.
 
+## Thresholds v2 (declared, evaluated once, FAILED its criterion)
+
+v2 was chosen on calibration data only: twin seeds 20000–20039, 960 changes. It was declared before any evaluation in commit ed7d3c4, 2026-11-02T13:26:06-08:00, as `thresholds_v2.json`, sha256 `395ed282e042b4c365f6ad2d92f5b8e560511df1cfc6b572d3aed369a7fef852`.
+
+Settings: residual-p90 scales 0.0333 / 0.0391 / 0.8046 dB, α 0.10, pause line 0.50, τ 1.10. The A6 rule itself is unchanged. The procedure is in the `calibrate_v2.py` docstring.
+
+- **Forecast from calibration:** healthy false-pause rate 14% per run, degraded paused by change 6 in 93%, P(pass) 0.27. The same estimator gave v1 38%, matching v1's observed held-out rate of 4 in 11.
+- **Criterion** (seeds 2000–2019, 24-change script): healthy false pauses ≤ 2 of 20, and the degraded model paused by change 6 in ≥ 19 of 20 runs.
+
+One-shot result (`runs/v2_eval.json`):
+
+| Thresholds | Healthy false pauses | Degraded paused by change 6 | Criterion |
+|---|---|---|---|
+| v2 (395ed282) | 6/20 (5 at change 3, 1 at 20) | 20/20, all at change 3 | **failed** |
+| v1 (d051c1e0), same seeds, for reference | 8/20 (at 3, 3, 4, 15, 15, 19, 19, 24) | 20/20, at 3–4 | failed |
+
+v1's original results (seeds 0 and 1000–1009) stay as recorded above.
+
+**The deployed default stays v1, as pre-declared.** Switching to v2 after seeing the 2000–2019 outcome would mean choosing thresholds on the test set. v2 also failed its own declared bar. A future v3 needs its own calibration-only declaration and fresh evaluation seeds.
+
+Five of v2's six false pauses fire on the EWMA line at change 3, the first change where a decision is allowed. They come on the script's opening two-cell changes; calibration showed that change type has 3.5× the exceedance rate. The handler still defaults to v1 (`T3_TRUST_THRESHOLDS` selects the version).
+
+## AWS-recorded re-measurements (CPU SageMaker job entry points)
+
+Every headline number becomes one evidence run that `tools/check_unit.py` can recompute from its item records. The job runner sets `EVIDENCE_S3` and `RUN_ID`, and writes the declaration before the run; templates are in `declarations/*.template.json`. Every entry accepts `--dry-run`, `--print-declaration` and `--declare-first`.
+
+| Headline number | Entry (`python -m …`) | Items | Declared target |
+|---|---|---|---|
+| v1 false groundings | `t3.trust.job_gate_eval --version v1 --model healthy` | 20 seeds (2000–2019) | `fail_count <= 2` |
+| v2 false groundings | `t3.trust.job_gate_eval --version v2 --model healthy` | 20 | `fail_count <= 2` |
+| degraded caught (v1) | `t3.trust.job_gate_eval --version v1 --model degraded` | 20 | `pass_count >= 19` (paused by change 6) |
+| degraded caught (v2) | `t3.trust.job_gate_eval --version v2 --model degraded` | 20 | `pass_count >= 19` |
+| ladder, healthy | `t3.trust.job_ladder --model healthy` | 20 seeds (3000–3019), score = R1 gain | `mean_score > 0`, with the CI lower bound > 0 in `details.declared_ci_condition` |
+| ladder, degraded | `t3.trust.job_ladder --model degraded` | 20 seeds, score = R1 gain | `mean_score < 0` |
+
+How to read these runs:
+- **Not fresh seeds.** The gate runs re-measure the one-shot evaluation declared in ed7d3c4. Seeds 2000–2019 were used once before, on the laptop (dd15c54), and every declaration and result says so. Likewise the ladder re-measures f4a75a2.
+- **Ladder measurements.** R2 (Rehearsal) and the 0.24× settings shift are measurements, not targets. The R2 case for each seed sits in that seed's item `extra`, the shift is in the result's `details.settings_shift`, and retention stays null.
+- **Pauses are simulated.** Pauses use the dry-run policy client, so control records are `synthetic: true`; all other records are `synthetic: false`.
+- **Storage.** On S3, records are written one object per record, so each gets an AWS time.
+- **Test sets.** `testsets/*.json` are the declared specs; each declaration's `test_set_sha256` is the sha256 of one of these files.
+- **Regeneration.** `python -m t3.trust.jobs` regenerates the test sets and templates.
+
 ## Commands
 
 ```

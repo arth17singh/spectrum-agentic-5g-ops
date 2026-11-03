@@ -72,3 +72,14 @@ def bootstrap_retention(gains_rung1: Sequence[float], gains_rung2: Sequence[floa
     lo, hi = np.percentile(ratios, [(1 - level) / 2 * 100, (1 + level) / 2 * 100])
     out["ci"] = [float(lo), float(hi)]
     return out
+
+
+def wilson(k: int, n: int, z: float = 1.959964) -> list[float] | None:
+    """Wilson score 95 % interval for k successes in n trials (as [low, high]); None when n == 0."""
+    if n <= 0:
+        return None
+    p = k / n
+    denom = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / denom
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
+    return [max(0.0, centre - half), min(1.0, centre + half)]

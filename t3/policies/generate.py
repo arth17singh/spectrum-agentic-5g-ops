@@ -16,7 +16,10 @@ Rules (prefix `<team>_ran_`):
 - nlm_safe_questions: the NLM permit, only if the question scores <= 0.4 for jailbreak and
   prompt injection (same semantics as the kit's allow_nlm_safe_questions);
 - screen_nlm_answers: suppressOutput when the answer scores > 0.2 for violence, hate or
-  misconduct (same semantics as the kit's screen_nlm_answers);
+  misconduct (same semantics as the kit's screen_nlm_answers), on nlm___ask AND nlm___ask_nlm:
+  after the takeover of target `nlm` both names reach our code;
+- no_kit_apply_change: forbid the kit's work___apply_change for our four agents. It hashes its
+  approval exactly like ran___apply_change, so it would consume an approval without changing the twin;
 - require_case_id: forbid every one of our tools without a case id like "case-*";
 - require_human_approval: forbid ran___apply_change unless the checkpoint injected
   approval == "APPROVED". The kit's interceptor rewrites the refusal only when the Cedar error
@@ -59,6 +62,10 @@ MODEL_TOOLS = {
     "otel-nlm": "@NLM@",                # our tuned OTel model (or its labelled stand-in)
 }
 EXAMPLE_PAUSES = [("t2-response", "v0"), ("t2-response", "v0-degraded"), ("ppo-maveric", "v0"), ("otel-nlm", "v0")]
+
+# Kit actions our rules may name: the kit's NLM tool (now served by our Lambda) and its example apply.
+KNOWN_KIT_ACTIONS = {catalog.KIT_NLM_ASK, catalog.KIT_WORK_APPLY}
+KIT_WORK_APPLY_FIELDS = {"case_id", "item_id", "change", "reason", "approval", "special_context"}  # kit 376-382
 
 GUARD_IN = ("JAILBREAK", "PROMPT_INJECTION")
 GUARD_OUT = ("VIOLENCE", "HATE", "MISCONDUCT")
@@ -130,12 +137,23 @@ when guardrails {{
   {input_guard("context.input.question")}
 }}
 unless {{ !({team_expr(team)} && {agent_in(nlm_agents)}) }};"""})
-    out.append({"name": safe_name(p, "screen_nlm_answers"), "mode": LOOSE, "actions": [nlm], "statement": f"""
-suppressOutput (principal, action == {_action(nlm)}, resource == @GW@)
+    # Both names reach our code after the takeover of `nlm`. One suppressOutput rule per action, in
+    # the kit's exact `action ==` form (it never uses `action in` for suppressOutput).
+    for action, suffix in ((catalog.NLM_ASK, ""), (catalog.KIT_NLM_ASK, "_kit_name")):
+        out.append({"name": safe_name(p, "screen_nlm_answers" + suffix), "mode": LOOSE, "actions": [action],
+                    "statement": f"""
+suppressOutput (principal, action == {_action(action)}, resource == @GW@)
 when guardrails {{
   {output_guard()}
 }};"""})
-    every = catalog.all_tools()
+    # The kit's nlm___ask_nlm is permitted by the kit's own rule (any team agent, with the same
+    # prompt-attack guardrail). It reaches our NLM, so only ran_explainer may use it, as nlm___ask.
+    not_nlm = sorted(a for a, tools in AGENT_TOOLS.items() if "@NLM@" not in tools)
+    out.append({"name": safe_name(p, "nlm_kit_name_explainer_only"), "mode": LOOSE,
+                "actions": [catalog.KIT_NLM_ASK], "statement": f"""
+forbid (principal, action == {_action(catalog.KIT_NLM_ASK)}, resource == @GW@)
+when {{ {agent_in(not_nlm)} }};"""})
+    every = catalog.governed_tools()
     out.append({"name": safe_name(p, "require_case_id"), "mode": LOOSE, "actions": every, "statement": f"""
 forbid (principal, action in [{", ".join(_action(a) for a in every)}], resource == @GW@)
 unless {{ context.input has case_id && context.input.case_id like "case-*" }};"""})
@@ -144,6 +162,14 @@ unless {{ context.input has case_id && context.input.case_id like "case-*" }};""
 forbid (principal, action == {_action(apply_tool)}, resource == @GW@)
 when {{ {agent_in(APPLY_AGENTS)} }}
 unless {{ context.input has approval && context.input.approval == "APPROVED" }};"""})
+    # The kit's work___apply_change keys its approval exactly like ran___apply_change (same
+    # [case_id, item_id, change] hash), so calling it would consume a person's approval without
+    # changing the twin. Our agents may never call it. The kit's `check` only expects that call to
+    # be REFUSED, which this keeps.
+    kit_apply = catalog.KIT_WORK_APPLY
+    out.append({"name": f"{p}_no_kit_apply_change", "mode": LOOSE, "actions": [kit_apply], "statement": f"""
+forbid (principal, action == {_action(kit_apply)}, resource == @GW@)
+when {{ {agent_in(list(AGENT_TOOLS))} }};"""})
     for r in out:
         r["statement"] = r["statement"].strip()
     return out
@@ -166,9 +192,12 @@ def pause_rule(model_id: str, version: str, team: str = "team13", suffix: str = 
     if not VERSION_RE.fullmatch(version):
         raise ValueError(f"version {version!r}: letters, digits, _ . : - only")
     tool = _full(MODEL_TOOLS[model_id])
+    tools = list(catalog.NLM_NAMES) if tool == catalog.NLM_ASK else [tool]  # the NLM answers on both names
+    scope = (f"action == {_action(tools[0])}" if len(tools) == 1
+             else f"action in [{', '.join(_action(t) for t in tools)}]")
     name = safe_name(f"{team}_ranpause", tool.split("___", 1)[1], model_id, version, suffix)
-    return {"name": name, "mode": LOOSE, "actions": [tool], "model_id": model_id, "version": version,
-            "statement": f"forbid (principal, action == {_action(tool)}, resource == @GW@)\n"
+    return {"name": name, "mode": LOOSE, "actions": tools, "model_id": model_id, "version": version,
+            "statement": f"forbid (principal, {scope}, resource == @GW@)\n"
                          f"when {{ !(context.input has model_version) || context.input.model_version == "
                          f"{json.dumps(version)} }};"}
 
@@ -231,10 +260,10 @@ def check(rule_list: list[dict], team: str = "team13") -> list[str]:
         if sorted(set(acted)) != sorted(set(r["actions"])):
             problems.append(f"{n}: actions in text {acted} != declared {r['actions']}")
         for a in acted:
-            if a not in tools:
+            if a not in tools and a not in KNOWN_KIT_ACTIONS:
                 problems.append(f"{n}: unknown tool {a}")
                 continue
-            declared = catalog.input_fields(a)
+            declared = catalog.input_fields(a) if a != catalog.KIT_WORK_APPLY else KIT_WORK_APPLY_FIELDS
             for field in set(re.findall(r"context\.input\.([A-Za-z_][A-Za-z0-9_]*)", s)) | \
                     set(re.findall(r"context\.input has ([A-Za-z_][A-Za-z0-9_]*)", s)):
                 if field not in declared:
@@ -246,12 +275,20 @@ def check(rule_list: list[dict], team: str = "team13") -> list[str]:
         if t not in permitted:
             problems.append(f"{t}: no permit (default deny refuses every call)")
     case_rules = [r for r in rule_list if r["name"].endswith("_require_case_id")]
-    if len(case_rules) != 1 or sorted(case_rules[0]["actions"]) != sorted(tools):
-        problems.append("the case-id forbid must cover every tool")
+    if len(case_rules) != 1 or sorted(case_rules[0]["actions"]) != sorted(catalog.governed_tools()):
+        problems.append("the case-id forbid must cover every tool (including nlm___ask_nlm)")
     approval = [r for r in rule_list if "require_human_approval" in r["name"]]
     if len(approval) != 1 or approval[0]["actions"] != [catalog.ran(catalog.APPLY)] \
             or not approval[0]["actions"][0].endswith("___apply_change"):
         problems.append("need exactly one require_human_approval forbid on a ___apply_change tool")
+    # whatever governs the NLM must govern both of its names
+    screened = {a for r in rule_list if r["statement"].startswith("suppressOutput") for a in r["actions"]}
+    if not set(catalog.NLM_NAMES) <= screened:
+        problems.append(f"the answer screen must cover both {' and '.join(catalog.NLM_NAMES)}")
+    for r in rule_list:
+        if r["name"].startswith(f"{team}_ranpause_") and set(r["actions"]) & set(catalog.NLM_NAMES) \
+                and sorted(r["actions"]) != sorted(catalog.NLM_NAMES):
+            problems.append(f"{r['name']}: must cover both {' and '.join(catalog.NLM_NAMES)}")
     return problems
 
 

@@ -53,6 +53,9 @@ LABELS = {"maveric": "MAVERIC", "rehearsal": "REHEARSAL (Viavi-like Maveric)", "
 OBJECTIVE = {"coverage_ratio": 1.0, "sla_ratio": 1.0, "sinr_p10_db": 0.05}
 OBJECTIVE_SHA = hashlib.sha256(json.dumps(OBJECTIVE, sort_keys=True).encode()).hexdigest()
 RETENTION_TARGET = 0.5  # declared: at least half the rehearsal gain should survive on Viavi
+SHIFT_NOTE = "settings shift on Maveric (REHEARSAL gain / MAVERIC gain). NOT retention: no Viavi involved"
+SHIFT_METHOD = ("ratio of mean paired case gains, REHEARSAL / MAVERIC (same seeds and script); 95 % interval by "
+                "case bootstrap (2000 resamples, seed 0); null unless the MAVERIC mean gain > 1e-3")
 NO_VIAVI = "no VIAVI rung (no Viavi access yet): retention = gain(VIAVI) / gain(REHEARSAL) is undefined"
 
 
@@ -118,35 +121,38 @@ def ladder(model, rungs: list[dict], kpis, *, seeds, changes) -> dict:
     if any(n not in LABELS for n in names) or len(set(names)) != len(names):
         raise ValueError(f"rung names must be distinct and from {sorted(LABELS)}")
     results = {r["name"]: run_rung(model, r, kpis, seeds=seeds, changes=changes) for r in rungs}
+    viavi = results.get("viavi")
+    reh = results.get("rehearsal")
+    has_real_viavi = bool(viavi and viavi["twin_kind"] == "viavi" and viavi["gain"] is not None)
     ret, ret_ci, boot = None, None, None
-    if "viavi" in results and "rehearsal" in results:
-        boot = bootstrap_retention([c["gain"] for c in results["rehearsal"]["cases"]],
-                                   [c["gain"] for c in results["viavi"]["cases"]])
+    if has_real_viavi and reh is not None and reh["gain"] is not None:
+        boot = bootstrap_retention([c["gain"] for c in reh["cases"]], [c["gain"] for c in viavi["cases"]])
         ret, ret_ci = boot["point"], boot["ci"]
     shift = None
-    if "maveric" in results and "rehearsal" in results:
-        b = bootstrap_retention([c["gain"] for c in results["maveric"]["cases"]],
-                                [c["gain"] for c in results["rehearsal"]["cases"]])
-        shift = {"what": "settings shift on Maveric (REHEARSAL gain / MAVERIC gain). NOT retention: "
-                         "no Viavi involved", "point": b["point"], "ci": b["ci"], "rule": b["rule"]}
+    if "maveric" in results and reh is not None:
+        b = bootstrap_retention([c["gain"] for c in results["maveric"]["cases"]], [c["gain"] for c in reh["cases"]])
+        shift = {"what": SHIFT_NOTE, "point": b["point"], "value": b["point"], "ci": b["ci"],
+                 "method": SHIFT_METHOD, "rule": b["rule"], "n_cases": b["n_cases"]}
     details = {
         "rungs": [{k: results[n][k] for k in ("name", "label", "twin_kind", "n_cases", "gain", "gain_ci")}
                   for n in names],
         "retention": ret, "retention_ci": ret_ci,
         "model_id": model.model_id, "version": model.version,
+        "settings_shift": shift, "has_real_viavi": has_real_viavi,
     }
     if ret is None:
-        details["retention_null_reason"] = (NO_VIAVI if "viavi" not in results else
-                                            (boot or {}).get("rule", "rehearsal rung missing"))
+        details["retention_null_reason"] = (
+            NO_VIAVI if not has_real_viavi else
+            ("rehearsal rung missing" if reh is None else (boot or {}).get("rule", "rehearsal gain missing")))
     return {"details": details, "full": results, "retention_bootstrap": boot, "settings_shift": shift,
-            "has_real_viavi": "viavi" in results}
+            "has_real_viavi": has_real_viavi}
 
 
 def ladder_result_record(lad: dict, *, run_id: str, n_items: int, code_sha=None, synthetic=True) -> dict:
     d = lad["details"]
     if d["retention"] is not None:
         metric, value = "retention", float(d["retention"])
-        target = {"metric": "retention", "op": ">=", "value": RETENTION_TARGET, "unit": ""}
+        target = {"metric": "retention", "op": ">=", "value": RETENTION_TARGET, "unit": "ratio"}
         passed = value >= RETENTION_TARGET
     else:
         reh = next((r for r in d["rungs"] if r["name"] == "rehearsal"), d["rungs"][-1])

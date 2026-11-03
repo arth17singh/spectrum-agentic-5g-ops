@@ -231,7 +231,9 @@ def make(name: str, **kw: Any) -> Any:
     if name == "swarm":
         from t3.evals.swarm import SwarmOperator, load_client
 
-        return SwarmOperator(kw.get("client") or load_client(kw.get("swarm_client")))
+        return SwarmOperator(kw.get("client") or load_client(kw.get("swarm_client")),
+                             mode=kw.get("swarm_mode") or "proposal",
+                             proposal_steps=int(kw.get("proposal_steps") or 3))
     raise ValueError(f"unknown operator {name!r}")
 
 

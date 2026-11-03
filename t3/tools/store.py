@@ -27,6 +27,7 @@ CASE_FIELDS = ("case_id", "run_id", "scenario", "seed", "config", "action_log", 
                "predictions", "created_at")
 CASE_PREFIX = "t3-"
 ACTIVE_PK = "t3-active"
+TRUST_PREFIX = "t3-trust#"   # W5's trust rows in the same table (t3/trust/store.py)
 
 
 class ConflictError(RuntimeError):
@@ -40,6 +41,8 @@ class Store(Protocol):
     def put_case(self, case: dict, expected_version: int | None) -> None: ...
     def active_run_id(self) -> str | None: ...
     def approval_status(self, key: str) -> str | None: ...
+    def approval_item(self, key: str) -> dict | None: ...
+    def model_paused(self, model_id: str, version: str) -> bool: ...
     def ensure_pending(self, key: str, item: dict) -> str: ...
     def apply_and_save(self, key: str, case: dict, expected_version: int | None) -> tuple[bool, str | None]:
         """Atomically APPROVED -> APPLIED and write the case. (False, status seen) if not approved;
@@ -99,6 +102,14 @@ class LocalStore:
 
     def approval_status(self, key: str) -> str | None:
         return (self._read(self._appr_path(key)) or {}).get("status")
+
+    def approval_item(self, key: str) -> dict | None:
+        return self._read(self._appr_path(key))
+
+    def model_paused(self, model_id: str, version: str) -> bool:
+        """The trust gate's pause flag for one model version (local: trust/<model>@<version>.json)."""
+        row = self._read(self.root / "trust" / f"{_safe(f'{model_id}@{version}')}.json") or {}
+        return row.get("gate_status") == "paused"
 
     def ensure_pending(self, key: str, item: dict) -> str:
         current = self._read(self._appr_path(key))
@@ -188,6 +199,17 @@ class DynamoStore:
     def approval_status(self, key: str) -> str | None:
         row = self._get(key)
         return row.get("status") if row else None
+
+    def approval_item(self, key: str) -> dict | None:
+        """The kit's approval row: status, and after `approve`, decided_by (the approver's AWS
+        identity, kit 935-946), decided_at and decision_reason."""
+        return self._get(key)
+
+    def model_paused(self, model_id: str, version: str) -> bool:
+        """The trust gate's pause flag (W5 DynamoTrustStore: pk "t3-trust#<model>@<version>",
+        attribute gate_status). Read-only for the tools."""
+        row = self._get(f"{TRUST_PREFIX}{model_id}@{version}") or {}
+        return row.get("gate_status") == "paused"
 
     def ensure_pending(self, key: str, item: dict) -> str:
         return self.approval_status(key) or "MISSING"

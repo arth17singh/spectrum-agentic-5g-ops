@@ -216,8 +216,8 @@ def builtin_errors(rec: dict) -> list[str]:
                 errs.append(f"target.op must be one of {' '.join(OPS)}")
             if not _is_num(t.get("value")):
                 errs.append("target.value must be a JSON number")
-            if "unit" not in t:
-                errs.append("target.unit is required (use \"\" for a ratio)")
+            if not _is_str(t.get("unit")):
+                errs.append("target.unit must be a non-empty string (e.g. ratio, count, calls, ms, usd_per_1k)")
     if kind == "declared":
         if not (isinstance(rec.get("test_set_sha256"), str) and HEX64.match(rec["test_set_sha256"])):
             errs.append("test_set_sha256 must be 64 lowercase hex characters")
@@ -555,6 +555,12 @@ def read_records(run_id: str, kind: str, store=None) -> list[dict]:
 
 # --------------------------------------------------------------------------- writer-side metrics
 # tools/check_unit.py recomputes these with its OWN code on purpose: the check shares nothing with the writer.
+
+# The unit a writer should declare for each metric's target (the contract requires a non-empty unit).
+METRIC_UNITS = {"pass_rate": "ratio", "accuracy": "ratio", "pass_count": "count", "fail_count": "count",
+                "n_items": "count", "mean_score": "score", "min_score": "score", "max_score": "score",
+                "p50_latency_ms": "ms", "p95_latency_ms": "ms", "max_latency_ms": "ms", "total_cost_usd": "usd",
+                "cost_per_1k_usd": "usd_per_1k"}
 
 METRICS = ("pass_rate", "accuracy", "pass_count", "fail_count", "n_items", "mean_score", "min_score",
            "max_score", "p50_latency_ms", "p95_latency_ms", "max_latency_ms", "total_cost_usd", "cost_per_1k_usd")

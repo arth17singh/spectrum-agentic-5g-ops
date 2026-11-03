@@ -1,0 +1,40 @@
+{
+ "run_id": "<RUN_ID>",
+ "unit": "t3.trust_gate.v1.degraded",
+ "track": "track-3",
+ "target": {
+  "metric": "pass_count",
+  "op": ">=",
+  "value": 19,
+  "unit": "runs (degraded model paused by change 6)"
+ },
+ "n_items": 20,
+ "test_set_sha256": "6ef21c01787f9482d16858d2f4b24988365365556e9061a7c12cbb266aa0e540",
+ "model_id": "t2-response-v0-degraded-tilt-reversed@v0",
+ "grader": "t3.trust gate rule (A6) replayed on twin.replay; per-seed pause index",
+ "code_sha": "<CODE_SHA: 40-hex commit the job image runs>",
+ "region": "<AWS_REGION, e.g. us-east-2>",
+ "synthetic": false,
+ "twin": {
+  "kind": "maveric-inprocess",
+  "version": "<filled at run time from twin.replay>",
+  "scenario": "nominal",
+  "seed": 2000,
+  "config": {
+   "preset": "official",
+   "seeds": [
+    2000,
+    2019
+   ],
+   "thresholds_version": "v1",
+   "thresholds_sha256": "d051c1e05efbca5491fd90741ea835a3c83d0ba55ef320dfaf76cc24df4af74b",
+   "command": "python -m t3.trust.job_gate_eval --version v1 --model degraded",
+   "references": {
+    "declaration_commit": "ed7d3c4",
+    "laptop_run_commit": "dd15c54",
+    "laptop_summary": "t3/trust/runs/v2_eval.json"
+   },
+   "note": "Re-measurement on AWS of the one-shot evaluation declared in commit ed7d3c4 (thresholds_v2.json sha256 395ed282...). These seeds (2000-2019) were used once before, on the laptop, in dd15c54 (t3/trust/runs/v2_eval.json); nothing was re-tuned since. The target is v2's declared bar."
+  }
+ }
+}

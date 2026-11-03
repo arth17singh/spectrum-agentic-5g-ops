@@ -41,10 +41,9 @@ def _env(kind: str, run_id: str, created: str, aws_time, src) -> dict:
 
 def declaration(run_id: str, code_sha: str, metric="pass_rate", op=">=", value=0.8) -> dict:
     return {**_env("declared", run_id, "2026-11-02T17:59:59.500Z", None, None),
-            "unit": "t3.deny", "track": "track-3", "target": {"metric": metric, "op": op, "value": value, "unit": ""},
+            "unit": "t3.deny", "track": "track-3", "target": {"metric": metric, "op": op, "value": value, "unit": "ratio"},
             "n_items": len(ITEMS), "test_set_sha256": TEST_SET_SHA, "model_id": "openai.gpt-oss-20b-1:0",
             "grader": "cedar-decision-from-aws-spans", "code_sha": code_sha, "region": "us-east-2",
-            "twin": {"kind": "none", "version": "", "scenario": "", "seed": 0},
             "declared_at": "2026-11-02T17:59:59.500Z"}
 
 
@@ -85,7 +84,7 @@ def change(run_id: str, **over) -> dict:
 def result(run_id: str, code_sha: str, value=0.8, passed=True, n=5, metric="pass_rate", op=">=", target=0.8) -> dict:
     return {**_env("result", run_id, "2026-11-02T18:31:30.000Z", None, None),
             "unit": "t3.deny", "metric": metric, "value": value,
-            "target": {"metric": metric, "op": op, "value": target, "unit": ""}, "passed": passed, "n_items": n,
+            "target": {"metric": metric, "op": op, "value": target, "unit": "ratio"}, "passed": passed, "n_items": n,
             "checked_at": "2026-11-02T18:31:30.000Z", "checker": {"script": "tools/run_unit.py", "code_sha": code_sha},
             "details": {}}
 

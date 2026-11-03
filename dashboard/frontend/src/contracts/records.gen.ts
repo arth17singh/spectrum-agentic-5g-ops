@@ -259,6 +259,10 @@ export interface ChangeRecord {
   probe: boolean;
   trust_before?: number | null;
   trust_after?: number | null;
+  /** Approver as the kit's approvals table stores it (decided_by): a pseudonymous id, never a real name. */
+  approved_by?: string | null;
+  /** When the approval was decided (decided_at), UTC. */
+  approved_at?: string | null;
 }
 
 /** A pause or resume of a model's tool. Stored as records/<run_id>/control/<key>.json or in records/<run_id>/control.jsonl. */

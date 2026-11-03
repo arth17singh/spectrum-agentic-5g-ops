@@ -2,9 +2,22 @@
 
     python -m t3.evals.run --operator no_action
     python -m t3.evals.run --operator rule_baseline --baseline-run-id <no_action run>
-    python -m t3.evals.run --operator oracle --baseline-run-id <no_action run> <rule run> --workers 8
-    python -m t3.evals.run --operator swarm --swarm-client mymod:factory --baseline-run-id <...>
+    python -m t3.evals.run --operator config_revert --baseline-run-id <no_action run>
+    python -m t3.evals.run --operator oracle --workers 10 \\
+        --baseline-run-id <no_action run> <rule_baseline run> <config_revert run>
+    python -m t3.evals.run --operator swarm --mode proposal --subset masked --swarm-client mymod:factory \\
+        --baseline-run-id <config_revert run> <rule_baseline run>
     python -m t3.evals.run gains --run <A> --baseline <B>          # paired gain from stored items
+
+Baseline arguments (``--baseline-run-id``, one or more run ids in the same evidence store):
+- the FIRST id is ``declared.baseline_run_id`` and ``result.details.gain``'s baseline (except for the
+  swarm, whose ``details.gain`` is its declared primary below);
+- ``rule_baseline``, ``config_revert`` and ``ppo`` declare "gain over no_action", so their list must
+  include a no_action run (found by its declared model_id ``no_action``);
+- ``swarm`` declares "gain over config_revert on the masked tier": its list must include a
+  config_revert run (model_id ``config-revert-median-v1``, run on the FULL test split so every masked
+  incident is paired) and should include a rule_baseline run for the secondary wrong-cell check;
+- every id listed gets a paired gain in ``result.details.gains``.
 
 Order per run: the declaration (target from targets.json, suite hash, item count, code sha) is
 written first, then one ``item`` record per incident, then the ``result``. Gains are paired by
@@ -90,6 +103,8 @@ def run_incident(incident: dict[str, Any], op: Any, targets: dict[str, Any], run
         "change_texts": texts,
         **st,
     }
+    if hasattr(op, "mode"):
+        extra["mode"] = op.mode
     if hasattr(op, "extra"):
         extra["operator_extra"] = op.extra()
     # A live operator (swarm) may report the KPIs its own twin measured; they must match ours.
@@ -177,6 +192,53 @@ def gains_against(ev: Evidence, items: list[dict[str, Any]], baseline_ids: list[
     return out
 
 
+CONFIG_REVERT_MODEL = "config-revert-median-v1"
+RULE_MODEL_PREFIX = "ran_rl.evaluation.baseline:RuleBasedController"
+SUBSETS = {"masked": "tier=masked"}
+
+
+def _tier(item: dict[str, Any]) -> str:
+    return item["extra"]["incident"].get("tier", "visible")
+
+
+def baseline_by_model(ev: Evidence, baseline_ids: list[str], pred) -> tuple[str, list[dict[str, Any]]] | None:
+    for bid in baseline_ids:
+        if pred((ev.read_declared(bid) or {}).get("model_id", "")):
+            return bid, ev.read_records(bid, "item")
+    return None
+
+
+def swarm_primary(ev: Evidence, items: list[dict[str, Any]], baseline_ids: list[str],
+                  boot: dict[str, Any], tier: str = "masked") -> dict[str, Any]:
+    """Paired recovery gain over config_revert on one tier, plus the declared secondary numbers."""
+    found = baseline_by_model(ev, baseline_ids, lambda m: m == CONFIG_REVERT_MODEL)
+    if found is None:
+        raise SystemExit("the swarm target needs a config_revert baseline: pass --baseline-run-id <config_revert run>")
+    bid, base = found
+    mine = [it for it in items if _tier(it) == tier]
+    g = paired_bootstrap({i["item_id"]: i["score"] for i in mine}, {b["item_id"]: b["score"] for b in base},
+                         boot["resamples"], boot["seed"], boot["ci"])
+    if g is None:
+        raise SystemExit(f"no {tier} items shared with the config_revert run {bid}")
+    ids = {i["item_id"] for i in mine}
+    rule = baseline_by_model(ev, baseline_ids, lambda m: m.startswith(RULE_MODEL_PREFIX))
+    secondary: dict[str, Any] = {
+        "tier": tier,
+        "success_rate": sum(1 for i in mine if i["passed"]) / len(mine),
+        "wrong_cell_actions": sum(i["extra"]["wrong_cell_actions"] for i in mine),
+    }
+    if rule is None:
+        secondary["rule_baseline"] = None
+        secondary["wrong_cell_not_worse_than_rule"] = None
+    else:
+        rid, ritems = rule
+        rw = sum(b["extra"]["wrong_cell_actions"] for b in ritems if b["item_id"] in ids)
+        secondary.update(rule_baseline=rid, rule_baseline_wrong_cell_actions=rw,
+                         wrong_cell_not_worse_than_rule=secondary["wrong_cell_actions"] <= rw)
+    return {"gain": {**g, "baseline_run_id": bid, "baseline_model_id": CONFIG_REVERT_MODEL, "tier": tier},
+            "secondary": secondary}
+
+
 def compare(value: float, op: str, target: float) -> bool:
     return {">=": value >= target, "<=": value <= target, "==": value == target, ">": value > target,
             "<": value < target}[op]
@@ -193,7 +255,8 @@ REGION = "us-east-2"  # the team's region (where this evidence is kept); the run
 
 
 def build_declared(run_id: str, operator: str, op: Any, unit: dict[str, Any], incidents: list[dict[str, Any]],
-                   digest: str, baseline_run_ids: list[str], targets: dict[str, Any]) -> dict[str, Any]:
+                   digest: str, baseline_run_ids: list[str], targets: dict[str, Any],
+                   subset: str | None = None) -> dict[str, Any]:
     d = {
         "run_id": run_id,
         "synthetic": bool(getattr(op, "synthetic", False)),
@@ -224,12 +287,17 @@ def build_declared(run_id: str, operator: str, op: Any, unit: dict[str, Any], in
                     "episode": targets["episode"],
                     "executed": "local, offline, in-process twin (no AWS call)",
                     "evidence_writer": EVLIB,
+                    "mode": getattr(op, "mode", None),
+                    "proposal_steps": getattr(op, "proposal_steps", None) if getattr(op, "mode", None) == "proposal"
+                    else None,
                 },
             },
         },
     }
     if baseline_run_ids:
         d["baseline_run_id"] = baseline_run_ids[0]
+    if subset:
+        d["subset"] = SUBSETS[subset]
     unknown = set(d) - DECLARED_FIELDS
     if unknown:
         raise ValueError(f"declared carries keys the contract forbids: {sorted(unknown)}")
@@ -237,11 +305,16 @@ def build_declared(run_id: str, operator: str, op: Any, unit: dict[str, Any], in
 
 
 def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers: int = 1,
-        allow_dirty: bool = False, op_kwargs: dict[str, Any] | None = None, run_id: str | None = None) -> dict[str, Any]:
+        allow_dirty: bool = False, op_kwargs: dict[str, Any] | None = None, run_id: str | None = None,
+        subset: str | None = None) -> dict[str, Any]:
     single_thread()
     targets = load_targets()
     unit = targets["units"][operator]
     incidents, digest = inc_mod.load_test()
+    if subset is not None:
+        if subset not in SUBSETS:
+            raise SystemExit(f"unknown subset {subset!r}; known: {sorted(SUBSETS)}")
+        incidents = [i for i in incidents if i.get("tier", "visible") == "masked"]
     if code_dirty() and not allow_dirty:
         raise SystemExit("t3/evals has uncommitted changes: commit first so code_sha is the code that runs "
                          "(or pass --allow-dirty for a dry run)")
@@ -250,7 +323,7 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
     ev = Evidence(evidence_dir)
     run_id = run_id or new_run_id(f"t3.evals.{operator}")
     synthetic = bool(getattr(op, "synthetic", False))
-    declared = build_declared(run_id, operator, op, unit, incidents, digest, baseline_run_ids, targets)
+    declared = build_declared(run_id, operator, op, unit, incidents, digest, baseline_run_ids, targets, subset)
     ev.write_declared(declared)
     t0 = time.time()
     if workers > 1 and operator != "swarm":
@@ -271,9 +344,17 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
         if not na:
             raise SystemExit(f"{operator}'s target needs a no_action baseline: pass --baseline-run-id <no_action run>")
         value = na[0]["ci_low"]
+    elif metric == "gain_ci_low_vs_config_revert_masked":
+        sp = swarm_primary(ev, items, baseline_run_ids, targets["bootstrap"])
+        value = sp["gain"]["ci_low"]
     else:
         raise SystemExit(f"unknown target metric {metric}")
     primary = gains[0] if gains else None
+    extra_details: dict[str, Any] = {"subset": SUBSETS.get(subset) if subset else None,
+                                     "mode": getattr(op, "mode", None)}
+    if metric == "gain_ci_low_vs_config_revert_masked":
+        primary = sp["gain"]
+        extra_details.update(primary_gain=sp["gain"], secondary=sp["secondary"])
     result = {
         "run_id": run_id,
         "synthetic": synthetic,
@@ -294,6 +375,7 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
             "gain": None if primary is None else {k: primary[k] for k in
                                                   ("value", "ci_low", "ci_high", "baseline_run_id", "paired_n")},
             "gains": gains,
+            **extra_details,
         },
     }
     ev.write_result(result)
@@ -320,11 +402,18 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ppo-path", default=None, help="W9 policy artifact for t1.rl.policy.load")
     ap.add_argument("--swarm-client", default=None, help="module:factory returning the live swarm client; "
                                                           "omitted = the dry-run fake (synthetic)")
+    ap.add_argument("--mode", choices=["proposal", "full"], default="proposal",
+                    help="swarm only. proposal: each step is one front-door case stopped at the approval refusal; "
+                         "the proposed change is graded on our twin (no approvals). full: real approvals.")
+    ap.add_argument("--proposal-steps", type=int, default=3, help="swarm proposal mode: cases per incident")
+    ap.add_argument("--subset", choices=sorted(SUBSETS), default=None,
+                    help="masked = the masked-tier incidents of the frozen test split")
     ap.add_argument("--run-id", default=None)
     ap.add_argument("--allow-dirty", action="store_true")
     a = ap.parse_args(argv)
     res = run(a.operator, a.evidence_dir, a.baseline_run_id, a.workers, a.allow_dirty,
-              {"ppo_path": a.ppo_path, "swarm_client": a.swarm_client}, a.run_id)
+              {"ppo_path": a.ppo_path, "swarm_client": a.swarm_client, "swarm_mode": a.mode,
+               "proposal_steps": a.proposal_steps}, a.run_id, a.subset)
     d = res["details"]
     print(json.dumps({
         "run_id": res["run_id"], "synthetic": res["synthetic"], "metric": res["metric"], "value": res["value"],
@@ -334,7 +423,8 @@ def main(argv: list[str] | None = None) -> int:
         "items_clamped": d["items_clamped"], "by_group": d["by_group"],
         "gains": [{k: g[k] for k in ("baseline_run_id", "baseline_model_id", "value", "ci_low", "ci_high",
                                      "paired_n")} | {"success_rate_gain": g["success_rate_gain"]} for g in d["gains"]],
-        "wall_s": d["wall_s"],
+        "wall_s": d["wall_s"], "subset": d.get("subset"), "mode": d.get("mode"),
+        "primary_gain": d.get("primary_gain"), "secondary": d.get("secondary"),
     }, indent=2))
     return 0
 

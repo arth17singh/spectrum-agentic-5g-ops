@@ -18,7 +18,7 @@
   "target": {
     "metric": "pass_rate",
     "op": ">=",
-    "unit": "",
+    "unit": "ratio",
     "value": 0.8
   },
   "team": "team13",

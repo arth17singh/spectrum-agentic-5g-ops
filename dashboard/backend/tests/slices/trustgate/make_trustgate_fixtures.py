@@ -10,7 +10,8 @@ scored, probe). Scenarios:
                                          while the EWMA trust is still above the pause line);
                                          a person resumes it; one more change follows
   probe     two no-model probe changes (no predictor)
-  ladders   t1-ppo-maveric v3 -> REHEARSAL (no Viavi yet);  t1-ppo-maveric v4 -> VIAVI
+  ladders   t1-ppo-maveric v3 -> maveric + rehearsal (no Viavi: retention null, settings shift shown apart)
+            t1-ppo-maveric v4 -> maveric + rehearsal + viavi (retention = Viavi gain / rehearsal gain)
 """
 
 from __future__ import annotations
@@ -167,19 +168,33 @@ def build() -> dict[str, list]:
                                                          trust=None, scored=False, probe=True))
     put(f"declared/{p_run}.json", declared(p_run, "t3.probe", "track-3", "probes_run", ">=", 2, "count", "none", 2))
 
-    # ---- ladders
-    def ladder(run_id: str, version: str, rungs: list[dict], retention: float, ci, when: datetime) -> None:
-        put(f"declared/{run_id}.json", declared(run_id, "t3.ladder", "track-3", "retention", ">=", 0.5, "ratio", "t1-ppo-maveric", sum(r["n_cases"] for r in rungs)))
-        put(f"results/{run_id}.json", result(run_id, "t3.ladder", "retention", ">=", retention, 0.5, "ratio", sum(r["n_cases"] for r in rungs), when, retention >= 0.5,
-                                             {"rungs": rungs, "retention": retention, "retention_ci": ci, "model_id": "t1-ppo-maveric", "version": version}))
+    # ---- ladders, in the shape of W5's t3/trust/ladder.py: rungs maveric / rehearsal / viavi; retention is
+    # gain(VIAVI) / gain(REHEARSAL) and null without a VIAVI rung; settings_shift (REHEARSAL / MAVERIC) is separate
+    null_why = "no VIAVI rung (no Viavi access yet): retention = gain(VIAVI) / gain(REHEARSAL) is undefined"
 
-    maveric = {"name": "rung-1", "label": "MAVERIC", "twin_kind": "maveric-inprocess", "n_cases": 40, "gain": 0.120, "gain_ci": [0.090, 0.150]}
-    ladder("t3-ladder-rehearsal-20261102-a", "v3",
-           [maveric, {"name": "rung-2", "label": "REHEARSAL (Viavi-like Maveric)", "twin_kind": "maveric-inprocess", "n_cases": 40, "gain": 0.084, "gain_ci": [0.050, 0.118]}],
-           0.7, [0.42, 1.05], BASE + timedelta(minutes=30))
+    def ladder(run_id: str, version: str, rungs: list[dict], retention, ci, shift: dict, when: datetime) -> None:
+        n_items = sum(r["n_cases"] for r in rungs)
+        details = {"rungs": rungs, "retention": retention, "retention_ci": ci, "model_id": "t1-ppo-maveric", "version": version,
+                   "settings_shift": shift, "has_real_viavi": False}  # fixtures never hold a real Viavi measurement
+        if retention is None:
+            details["retention_null_reason"] = null_why
+            reh = next(r for r in rungs if r["name"] == "rehearsal")
+            res = result(run_id, "t3.ladder", "gain_rehearsal", ">", reh["gain"], 0, "objective", n_items, when, reh["gain"] > 0, details)
+        else:
+            res = result(run_id, "t3.ladder", "retention", ">=", retention, 0.5, "ratio", n_items, when, retention >= 0.5, details)
+        tg = res["target"]
+        put(f"declared/{run_id}.json", declared(run_id, "t3.ladder", "track-3", res["metric"], tg["op"], tg["value"], tg["unit"], "t1-ppo-maveric", n_items))
+        put(f"results/{run_id}.json", res)
+
+    maveric = {"name": "maveric", "label": "MAVERIC", "twin_kind": "maveric-inprocess", "n_cases": 40, "gain": 0.120, "gain_ci": [0.090, 0.150]}
+    rehearsal = {"name": "rehearsal", "label": "REHEARSAL (Viavi-like Maveric)", "twin_kind": "maveric-inprocess", "n_cases": 40, "gain": 0.084, "gain_ci": [0.050, 0.118]}
+    shift_what = "settings shift on Maveric (REHEARSAL gain / MAVERIC gain). NOT retention: no Viavi involved"
+    ladder("t3-ladder-rehearsal-20261102-a", "v3", [maveric, rehearsal], None, None,
+           {"what": shift_what, "point": 0.7, "ci": [0.42, 1.05]}, BASE + timedelta(minutes=30))
     ladder("t3-ladder-viavi-20261102-a", "v4",
-           [{**maveric, "gain": 0.140, "gain_ci": [0.110, 0.170]}, {"name": "rung-2", "label": "VIAVI", "twin_kind": "viavi", "n_cases": 12, "gain": 0.063, "gain_ci": [0.010, 0.116]}],
-           0.45, None, BASE + timedelta(minutes=45))
+           [{**maveric, "gain": 0.140, "gain_ci": [0.110, 0.170]}, rehearsal,
+            {"name": "viavi", "label": "VIAVI", "twin_kind": "viavi", "n_cases": 12, "gain": 0.063, "gain_ci": [0.010, 0.116]}],
+           0.75, [0.15, 1.45], {"what": shift_what, "point": 0.6, "ci": [0.35, 0.9]}, BASE + timedelta(minutes=45))
     for v, ms in (("v3", "approved"), ("v4", "candidate")):
         put(f"models/t1-ppo-maveric/{v}.json", model_rec("t1-ppo-20261102-a", "t1-ppo-maveric", v, ms, "ppo", "t1-ppo-20261102-a", {"mean_episode_reward": 12.84}))
     return files

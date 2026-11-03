@@ -4,6 +4,7 @@ import json
 import math
 import sys
 import types
+from pathlib import Path
 
 import pytest
 
@@ -16,7 +17,7 @@ HEAD = evlib.code_sha()
 
 def decl(run_id="t3.deny-test-1", **over):
     d = {"run_id": run_id, "unit": "t3.deny", "track": "track-3",
-         "target": {"metric": "pass_rate", "op": ">=", "value": 0.8, "unit": ""}, "n_items": 3,
+         "target": {"metric": "pass_rate", "op": ">=", "value": 0.8, "unit": "ratio"}, "n_items": 3,
          "test_set_sha256": "a" * 64, "model_id": "m", "grader": "g", "code_sha": HEAD, "region": "us-east-2"}
     d.update(over)
     return d
@@ -68,7 +69,7 @@ def test_declared_and_result_are_never_overwritten(local):
     with pytest.raises(FileExistsError):
         evlib.write_declared(decl(), local)
     r = {"run_id": "t3.deny-test-1", "unit": "t3.deny", "metric": "pass_rate", "value": 1.0,
-         "target": {"metric": "pass_rate", "op": ">=", "value": 0.8, "unit": ""}, "passed": True, "n_items": 1,
+         "target": {"metric": "pass_rate", "op": ">=", "value": 0.8, "unit": "ratio"}, "passed": True, "n_items": 1,
          "checker": {"script": "x", "code_sha": HEAD}}
     evlib.write_result(r, local)
     with pytest.raises(FileExistsError):
@@ -86,8 +87,9 @@ def test_appends_only_grow_by_whole_lines(local):
 @pytest.mark.parametrize("bad,match", [
     (decl(test_set_sha256="xyz"), "test_set_sha256"),
     (decl(code_sha="abc"), "code_sha"),
-    (decl(target={"metric": "pass_rate", "op": "~", "value": 0.8, "unit": ""}), "target.op"),
-    (decl(target={"metric": "pass_rate", "op": ">=", "value": "0.8", "unit": ""}), "target.value"),
+    (decl(target={"metric": "pass_rate", "op": "~", "value": 0.8, "unit": "ratio"}), "target.op"),
+    (decl(target={"metric": "pass_rate", "op": ">=", "value": "0.8", "unit": "ratio"}), "target.value"),
+    (decl(target={"metric": "pass_rate", "op": ">=", "value": 0.8, "unit": ""}), "target.unit"),
     (decl(run_id="bad id with spaces"), "run_id"),
     ({k: v for k, v in decl().items() if k != "grader"}, "grader"),
 ])
@@ -221,6 +223,20 @@ def test_writer_metrics_golden_values():
     assert math.isclose(evlib.summarize_items(its, "cost_per_1k_usd"), 1.0)
     with pytest.raises(evlib.EvidenceError, match="unknown metric"):
         evlib.summarize_items(its, "vibes")
+
+
+def test_committed_fixtures_pass_team13_contracts_when_importable():
+    tc = pytest.importorskip("team13_contracts")
+    root = Path(__file__).resolve().parent / "fixtures" / "units"
+    n = 0
+    for p in root.rglob("*"):
+        if "evidence" not in p.parts or p.suffix not in (".json", ".jsonl"):
+            continue
+        for line in (p.read_text().splitlines() if p.suffix == ".jsonl" else [p.read_text()]):
+            if line.strip():
+                tc.validate_record(json.loads(line))
+                n += 1
+    assert n > 30
 
 
 def test_fixture_records_are_contract_valid(tmp_path):

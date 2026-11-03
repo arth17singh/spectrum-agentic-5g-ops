@@ -1,0 +1,56 @@
+{
+ "artifact": "t2/artifacts/t2_response_v0.npz",
+ "artifact_sha256": "39f25386b7797b458e0e6d1e67e1361f3b9e2a10bfde6e3f7902f738334bda38",
+ "models": {
+  "degraded": {
+   "fault": "tilt_reversed",
+   "load": "t2.predict.load_degraded",
+   "model_id": "t2-response-v0-degraded-tilt-reversed@v0"
+  },
+  "healthy": {
+   "fault": null,
+   "load": "t2.predict.load",
+   "model_id": "t2-response-v0@v0"
+  }
+ },
+ "rungs": {
+  "R1": {
+   "config": "official",
+   "label": "MAVERIC",
+   "name": "maveric",
+   "scenario": "nominal"
+  },
+  "R2": {
+   "config": "viavi-like",
+   "label": "REHEARSAL (Viavi-like Maveric)",
+   "name": "rehearsal",
+   "scenario": "viavi_stationary"
+  }
+ },
+ "script": "t3/trust/scripted_changes.json",
+ "script_sha256": "bb53f1173c0bd7481226644068a8b72483ec15065469748be00389400f4df842",
+ "seeds": [
+  3000,
+  3001,
+  3002,
+  3003,
+  3004,
+  3005,
+  3006,
+  3007,
+  3008,
+  3009,
+  3010,
+  3011,
+  3012,
+  3013,
+  3014,
+  3015,
+  3016,
+  3017,
+  3018,
+  3019
+ ],
+ "steps": 5,
+ "what": "ladder seeds (used once before on the laptop, f4a75a2)"
+}
