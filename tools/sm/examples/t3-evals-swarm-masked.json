@@ -33,6 +33,7 @@
         "live_phase": "t3/evals/live_swarm.py, run from a terminal with the team profile BEFORE this job: the governed swarm (noc_lead + 3 students, Agent Builder, Bedrock) works every (incident, step) case through the checkpoint's front door, seeded with ran___seed_case (app token only), and stops at the approval refusal; its proposals are the job's `recording` input",
         "approval_policy": "proposal-only: nobody approves; the proposal is read from the checkpoint's approval refusal and applied here, on the harness's own x86 twin replay, never through the governed tool",
         "executed": "SageMaker training job started by tools/sm/run.py on ml.m5.xlarge (x86_64, the platform the suite was frozen on); in-process twin, no network twin; t3/evals/recorded_client.py replays the recorded proposals and refuses a harness that diverged",
+        "served_models": "the live swarm's tools served the FEDERATED response model t2-response-federated-disjoint v1-5fb29b2d (t2/artifacts/t2_response_federated_v1.npz, via ran___predict) and the SageMaker PPO t1-ppo-cco-sm 50k-a09e (ran___propose); the score does NOT use any predictor: the harness grades each recorded proposal by replaying it on its own twin",
         "baselines": "--baseline-run-id t3.evals.config_revert-masked-20261103T035108Z-x86 t3.evals.rule_baseline-20261103T035108Z-x86 to the runner AND the module"
       },
       "pathspec_note": "ship contracts, t3, tools and twin"

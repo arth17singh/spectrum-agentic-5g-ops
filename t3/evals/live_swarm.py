@@ -49,6 +49,16 @@ DEFAULT_MODEL = "noc_lead=openai.gpt-oss-120b-1:0;students=openai.gpt-oss-20b-1:
 APPROVAL_POLICY = "proposal-only: no change is approved; the proposal is read from the approval refusal"
 
 
+def served_models() -> dict[str, Any]:
+    """The models behind the swarm's tools in this run (as deployed by t3/deploy/register.py)."""
+    return {"predictor": {"model_id": os.environ.get("T3_PREDICTOR_ID", "t2-response-federated-disjoint"),
+                          "version": os.environ.get("T3_PREDICTOR_VERSION", "v1-5fb29b2d"),
+                          "artifact": "t2/artifacts/t2_response_federated_v1.npz"},
+            "policy": {"model_id": "t1-ppo-cco-sm", "version": "50k-a09e",
+                       "artifact": "t1/rl/artifacts/ppo_sm_50k.zip"},
+            "agents": os.environ.get("T3_SWARM_MODEL_ID", DEFAULT_MODEL)}
+
+
 def masked_incidents(path: Path | None = None) -> tuple[list[dict[str, Any]], str]:
     incidents, digest = inc_mod.load_test(path or inc_mod.TEST_PATH)
     return [i for i in incidents if i.get("tier", "visible") == "masked"], digest
@@ -110,6 +120,7 @@ class LiveSwarm:
                   "seed": min(i["seed"] for i in incidents),
                   "config": {"suite": "t3/evals/suite/incidents-test.jsonl", "suite_version": inc_mod.SUITE_VERSION,
                              "tier": "masked", "operator_steps": steps, "approval_policy": APPROVAL_POLICY,
+                             "served_models": served_models(),
                              "twin_host": "team13-ran-tools Lambda (arm64 in-process replay); the score is "
                                           "computed on x86 by the scoring run"}},
             declared_at=utc_now_iso())
