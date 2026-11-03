@@ -294,6 +294,13 @@ class ChangeRecord(Envelope):
     probe: StrictBool = Field(description="True for a fixed change applied with no model (A14).")
     trust_before: Optional[Number] = None
     trust_after: Optional[Number] = None
+    approved_by: Optional[NonEmptyStr] = Field(
+        default=None,
+        description="Approver as the kit's approvals table stores it (decided_by): a pseudonymous id, never a real name.",
+    )
+    approved_at: Optional[UtcTimestamp] = Field(
+        default=None, description="When the approval was decided (decided_at), UTC."
+    )
 
     @model_validator(mode="after")
     def _consistent(self) -> "ChangeRecord":

@@ -209,6 +209,35 @@
   "additionalProperties": false,
   "description": "One applied change: measured KPI delta vs the no-change counterfactual, and the predicted delta.\n\nAmendment 1 (A2, A5, A14, A15). Stored as records/<run_id>/change/<change_id>.json\n(one object per record, Lambdas) or appended to records/<run_id>/change.jsonl (batch).\n\nPython-only rules:\n- change_text == canon(change) and change == parse(change_text) (store the rounded list);\n- measured_delta == measured_kpis - baseline_kpis (abs tol 1e-6);\n- error.<kpi> == |predicted_delta - measured_delta| (abs tol 1e-6); error needs predicted_delta;\n- scored: false requires unscored_reason (e.g. \"clipped\"); scored: true forbids it;\n- scored: true requires predictor, predicted_delta, error and direction_agree; scored: false\n  makes them optional (reasons: \"probe\", \"clipped\", \"no_prediction\" when ran___predict is paused).",
   "properties": {
+    "approved_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When the approval was decided (decided_at), UTC.",
+      "title": "Approved At"
+    },
+    "approved_by": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Approver as the kit's approvals table stores it (decided_by): a pseudonymous id, never a real name.",
+      "title": "Approved By"
+    },
     "aws_time": {
       "anyOf": [
         {
