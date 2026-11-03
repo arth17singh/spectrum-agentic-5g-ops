@@ -133,6 +133,7 @@ class EvalIndex:
     files: dict[str, str] = field(default_factory=dict)
     manifest_sha256: str | None = None
     prompt_sha256: str | None = None
+    items: list[dict[str, Any]] = field(default_factory=list)  # every eval item with its own hashes
 
     def summary(self) -> dict[str, Any]:
         return {"n_items": self.n_items, "n_items_total": sum(self.n_items.values()),
@@ -153,14 +154,17 @@ def index_items(items: Iterable[dict[str, Any]], index: EvalIndex | None = None)
     for it in items:
         tpl, inp, iid = it["template"], it["input"], it["item_id"]
         hs = hashes(tpl, inp, eval_answer(it))
+        ph = prompt_hash(tpl, inp)
         idx.item_hash.setdefault(hs["item_hash"], iid)
         idx.input_hash.setdefault(hs["input_hash"], iid)
-        idx.prompt_hash.setdefault(prompt_hash(tpl, inp), iid)
+        idx.prompt_hash.setdefault(ph, iid)
         key = exec_state_key(it.get("meta") or {}) if it["unit"] == "execution" else None
         if key is not None:
             idx.exec_state.setdefault(key, iid)
             idx.exec_seeds.append(key[1])
         idx.n_items[it["unit"]] = idx.n_items.get(it["unit"], 0) + 1
+        idx.items.append({"unit": it["unit"], "item_id": iid, "item_hash": hs["item_hash"],
+                          "input_hash": hs["input_hash"], "prompt_hash": ph, "exec_state": key})
     return idx
 
 
@@ -244,6 +248,29 @@ def filter_examples(examples: list[dict[str, Any]], idx: EvalIndex) -> tuple[lis
         u["kept"] += 1
     rep["kept"] = len(kept)
     return kept, rep
+
+
+GRADER = f"t1/sft/overlap.py:{HASH_METHOD} (item, input, prompt and (scenario, seed, step) hashes)"
+
+
+def eval_item_records(rows: Iterable[dict[str, Any]], idx: EvalIndex, backend: str) -> list[dict[str, Any]]:
+    """One item record per frozen eval item (all units, dev and test): passed when no written SFT row
+    matches it by any hash. check_unit recomputes fail_count from these (the declared target is 0)."""
+    seen: dict[str, set] = {r: set() for r in REASONS}
+    for row in rows:
+        h = example_hashes(row)
+        for r in REASONS:
+            if h.get(r) is not None:
+                seen[r].add(tuple(h[r]) if r == "exec_state" else h[r])
+    out = []
+    for e in idx.items:
+        hits = [r for r in REASONS if e.get(r) is not None and (tuple(e[r]) if r == "exec_state" else e[r]) in seen[r]]
+        out.append({"item_id": f"{e['unit']}/{e['item_id']}", "input_sha256": e["prompt_hash"],
+                    "output_sha256": _sha({"m": HASH_METHOD, "item_hash": e["item_hash"],
+                                           "input_hash": e["input_hash"], "hits": hits}),
+                    "passed": not hits, "score": 0.0 if hits else 1.0, "grader": GRADER, "backend": backend,
+                    "extra": {"unit": e["unit"], "hits": hits}})
+    return out
 
 
 def check_disjoint(rows: Iterable[dict[str, Any]], idx: EvalIndex) -> dict[str, Any]:

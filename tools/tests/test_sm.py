@@ -22,9 +22,15 @@ from tools.sm import run as runner
 
 REPO = Path(__file__).resolve().parents[2]
 HEAD = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True).stdout.strip()
-BUCKET = spec.BUCKET
+FAKE_ACCOUNT = "000000000000"  # the fake STS account (evfake); never a real id in this repo
+BUCKET = f"bb26-p-team13-data-{FAKE_ACCOUNT}-use2"
 EVIDENCE = f"s3://{BUCKET}/evidence/"
 T0 = "2026-11-03T02:00:00.250Z"
+
+
+@pytest.fixture(autouse=True)
+def _no_bucket_override(monkeypatch):
+    monkeypatch.delenv(spec.BUCKET_ENV, raising=False)
 
 
 def base_args(run_id: str, *extra: str) -> list[str]:
@@ -149,8 +155,31 @@ def test_secret_looking_or_reserved_env_is_refused(key):
         spec.check_env({key: "v"})
 
 
+def test_data_bucket_comes_from_the_environment_or_the_account(monkeypatch):
+    assert spec.data_bucket("111122223333") == "bb26-p-team13-data-111122223333-use2"
+    assert spec.data_bucket(None) == "bb26-p-team13-data-<account>-use2"
+    monkeypatch.setenv(spec.BUCKET_ENV, "some-team-bucket")
+    assert spec.data_bucket("111122223333") == "some-team-bucket"
+    assert not hasattr(spec, "BUCKET")  # no bucket literal: its name holds the account id
+
+
+def test_dry_run_derives_the_bucket_from_the_sts_account(clean_tree, monkeypatch):
+    out: list[str] = []
+    args = [x for x in base_args("t.sm-bucket", "--dry-run") if x not in ("--account", FAKE_ACCOUNT)]
+    assert runner.main(args, aws=FakeAws(now=T0), out=out.append) == 0  # account from the fake STS
+    req, _ = dry_run_parts(out)
+    assert req["HyperParameters"]["sagemaker_submit_directory"] == json.dumps(
+        f"s3://{BUCKET}/jobs/t.sm-bucket/source/sourcedir.tar.gz")
+    assert req["OutputDataConfig"]["S3OutputPath"] == f"s3://{BUCKET}/jobs/t.sm-bucket/output"
+    out.clear()
+    monkeypatch.setenv(spec.BUCKET_ENV, "override-bucket")
+    assert runner.main(base_args("t.sm-bucket2", "--dry-run"), aws=FakeAws(now=T0), out=out.append) == 0
+    req, _ = dry_run_parts(out)
+    assert req["InputDataConfig"][0]["DataSource"]["S3DataSource"]["S3Uri"].startswith("s3://override-bucket/")
+
+
 def test_secrets_must_be_secrets_manager_arns():
-    spec.check_secrets({"RAN_RL_ADAPTER_TOKEN": "arn:aws:secretsmanager:us-east-2:483598626742:secret:AmazonSageMaker-twin-AbCdEf"})
+    spec.check_secrets({"RAN_RL_ADAPTER_TOKEN": "arn:aws:secretsmanager:us-east-2:111122223333:secret:AmazonSageMaker-twin-AbCdEf"})
     with pytest.raises(spec.SpecError):
         spec.check_secrets({"RAN_RL_ADAPTER_TOKEN": "hunter2"})
 
@@ -222,6 +251,62 @@ def test_dry_run_request_sets_code_sha_to_the_declared_commit(clean_tree):
     assert spec.SHA40_RE.match(p["request"]["Environment"]["CODE_SHA"])
     with pytest.raises(spec.SpecError):
         spec.check_env({"CODE_SHA": "f" * 40})  # the runner sets it; a launch cannot override it
+
+
+def dry_run_parts(out: list[str]) -> tuple[dict, dict]:
+    text = "\n".join(out)
+    req = json.loads(text[text.index("CreateTrainingJob request"):].split("\n", 1)[1])
+    decl = json.loads(text[text.index("(written FIRST):") + len("(written FIRST):"):text.index("CreateTrainingJob")])
+    return req, decl
+
+
+def test_role_defaults_to_the_organisers_role(clean_tree):
+    out: list[str] = []
+    assert runner.main(base_args("t.sm-role0", "--dry-run"), aws=FakeAws(now=T0), out=out.append) == 0
+    req, decl = dry_run_parts(out)
+    assert req["RoleArn"] == "arn:aws:iam::000000000000:role/bb26-SageMakerExecution"
+    assert decl["twin"]["config"]["runner"]["role"] == "bb26-SageMakerExecution"
+    assert "role        arn:aws:iam::000000000000:role/bb26-SageMakerExecution" in out
+
+
+def test_team_role_under_bb26_in_the_dry_run(clean_tree):
+    out: list[str] = []
+    rc = runner.main(base_args("t.sm-role1", "--dry-run", "--role", "bb26/team13-sm-bedrock-eval"),
+                     aws=FakeAws(now=T0), out=out.append)
+    assert rc == 0
+    req, decl = dry_run_parts(out)
+    assert req["RoleArn"] == "arn:aws:iam::000000000000:role/bb26/team13-sm-bedrock-eval"
+    assert decl["twin"]["config"]["runner"]["role"] == "bb26/team13-sm-bedrock-eval"
+    assert "role        arn:aws:iam::000000000000:role/bb26/team13-sm-bedrock-eval" in out
+
+
+@pytest.mark.parametrize("role", ["OrganizationAccountAccessRole", "bb26/other-role", "bb26-OrgAdmin", "team13-x",
+                                  "bb26/team13-", "bb26/x/team13-y", "aws-reserved/team13-x", "bb26/team13-a*b",
+                                  "bb26-SageMakerExecution2"])
+def test_other_roles_are_refused(clean_tree, role):
+    out: list[str] = []
+    aws = FakeAws(now=T0)
+    assert runner.main(base_args("t.sm-role2", "--dry-run", "--role", role), aws=aws, out=out.append) == 2
+    assert "--role" in out[-1] and not aws.s3.objects
+
+
+def test_missing_team_role_is_refused_before_the_declaration(tmp_path, clean_tree):
+    rc, aws, out = launch(tmp_path, "t.sm-role3", "--role", "bb26/team13-sm-bedrock-eval")
+    assert rc == 2 and "create it in CloudShell first" in out[-1]
+    assert not aws.s3.write_log and not aws.created  # nothing declared, nothing launched
+
+
+def test_team_role_is_passed_and_recorded_in_the_job_map(tmp_path, clean_tree):
+    aws = fake_aws()
+    aws.roles["team13-sm-bedrock-eval"] = "/bb26/"
+    rc, aws, out = launch(tmp_path, "t.sm-role4", "--role", "bb26/team13-sm-bedrock-eval", aws=aws)
+    assert rc == 0, "\n".join(out)
+    arn = "arn:aws:iam::000000000000:role/bb26/team13-sm-bedrock-eval"
+    assert aws.created[0]["RoleArn"] == arn
+    jm = json.loads(aws.s3.objects[(BUCKET, "evidence/outputs/t.sm-role4/job-map.json")]["body"])
+    assert jm["role"] == "bb26/team13-sm-bedrock-eval" and jm["role_arn"] == arn
+    decl = json.loads(aws.s3.objects[(BUCKET, "evidence/declared/t.sm-role4.json")]["body"])
+    assert decl["twin"]["config"]["runner"]["role"] == "bb26/team13-sm-bedrock-eval"
 
 
 def test_gpu_profile_dry_run(clean_tree):

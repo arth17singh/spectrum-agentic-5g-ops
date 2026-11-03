@@ -28,6 +28,26 @@ def sdk_version() -> str:
     return importlib.metadata.version("ran-rl")
 
 
+def platform_key() -> tuple[str, str, str | None]:
+    """(system, machine, torch version): what the float32 GP twin's exact numbers depend on."""
+    import platform
+
+    try:
+        torch = importlib.metadata.version("torch")
+    except importlib.metadata.PackageNotFoundError:
+        torch = None
+    return platform.system(), platform.machine(), torch
+
+
+def on_freezing_platform() -> bool:
+    """True when this process runs where the execution items were frozen (items/execution.platform.json),
+    i.e. where their twin values must replay exactly. Elsewhere use `replay_job check` to find out."""
+    from t1.evals import freeze
+
+    f = (freeze.frozen_on() or {}).get("frozen_on") or {}
+    return (f.get("system"), f.get("machine"), (f.get("versions") or {}).get("torch")) == platform_key()
+
+
 def case(scenario: str, seed: int, prefix: list[str]) -> ReplayTwin:
     tw = ReplayTwin(scenario, seed, CONFIG)
     tw.reset()
