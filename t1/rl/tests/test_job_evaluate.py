@@ -310,6 +310,7 @@ def test_checkpoint_is_evaluated_as_the_sb3_zip(tmp_path):
     assert res["passed"] is True and res["details"]["model_form"] == "checkpoint"
     assert res["details"]["checkpoint_sha256"] == sha(w.ckpt) == res["details"]["model_zip_sha256"]
     assert res["details"]["checkpoint_steps"] == 50000 and res["details"]["retries"] == 0
+    assert "NOT run" in res["details"]["release"] and "run_metadata.json" in res["details"]["release"]
 
 
 def test_checkpoint_sha_mismatch_is_refused(tmp_path):

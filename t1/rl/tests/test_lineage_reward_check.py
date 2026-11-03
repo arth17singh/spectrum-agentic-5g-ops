@@ -142,11 +142,12 @@ def test_lineage_failed_job_with_checkpoint():
     assert lineage.main(["--write"], aws=aws, out=out.append) == 2  # no model without a checkpoint
     assert aws.s3.writes == 0
     uri = f"{ckp}/ppo_50000_steps.zip"
-    assert lineage.main(["--write", "--checkpoint-uri", uri], aws=aws, out=out.append) == 0, "\n".join(out)
+    assert lineage.main(["--write", "--checkpoint-uri", uri, "--model-id", "ppo-ckpt50k"], aws=aws,
+                        out=out.append) == 0, "\n".join(out)
     store = evlib.S3Store(EV, client=aws.s3)
     jobs = evlib.read_records(lineage.TRAIN_RUN_ID, "job", store)
     assert jobs[0]["status"] == "Failed" and jobs[0]["billable_s"] == 6034
-    m = evlib.read_model("ppo-synthetic", f"{lineage.TRAIN_JOB}-ckpt-50000", store)
+    m = evlib.read_model("ppo-ckpt50k", f"{lineage.TRAIN_JOB}-ckpt-50000", store)
     assert m["artifact_uri"] == uri and m["artifact_sha256"] == hashlib.sha256(ck).hexdigest()
     assert m["metrics"]["steps"] == 50000 and m["metrics"]["checkpoint"]["source_checkpoint_uri"] == uri
     assert m["metrics"]["training_job"]["failure_reason"] == "AlgorithmError: ExitCode 1"

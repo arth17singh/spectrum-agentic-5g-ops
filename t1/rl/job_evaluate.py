@@ -450,6 +450,9 @@ def _main(a, store, environ, run_eval) -> int:
         "checkpoint_uri": ev.get("checkpoint_uri"), "checkpoint_sha256": ev.get("checkpoint_sha256"),
         "checkpoint_steps": ev.get("checkpoint_steps"),
         "evaluation_attempts": len(attempts), "retries": len(attempts) - 1, "attempts": attempts,
+        "release": ("SDK registry step (ran_rl.release.registry) NOT run: the training run failed and never wrote "
+                    "run_metadata.json, which the SDK packager needs beside the checkpoint" if checkpoint else
+                    "SDK registry step not run by this job"),
         "project_sha256": ev["project_sha256"], "model_zip_sha256": model_sha,
         "artifacts": {n: {"uri": uris[n], "sha256": shas[n], "job_output_member": f"eval/{n}",
                           **({"upload_error": upload_errors[n]} if n in upload_errors else {})} for n in ARTIFACTS},

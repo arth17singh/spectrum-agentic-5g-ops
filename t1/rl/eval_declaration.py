@@ -90,7 +90,8 @@ def unquote(v: Any) -> Any:
 CKPT_STEPS_RE = re.compile(r"_(\d+)_steps\.zip$")
 
 
-def build(aws, sp: dict, bucket: str = smspec.BUCKET, checkpoint_uri: str | None = None) -> tuple[dict, dict]:
+def build(aws, sp: dict, bucket: str = smspec.BUCKET, checkpoint_uri: str | None = None,
+          model_id: str | None = None) -> tuple[dict, dict]:
     """(declaration template for run.py --declaration, facts for the command lines)."""
     region = getattr(aws, "region", None) or smspec.REGION
     s3, sm = aws.client("s3"), aws.client("sagemaker", region)
@@ -171,6 +172,7 @@ def build(aws, sp: dict, bucket: str = smspec.BUCKET, checkpoint_uri: str | None
             "training_run_id": tr_rid,
             "training_declared_at": train.get("declared_at"),
             "training_code_sha": train.get("code_sha"),
+            "training_model_id": train.get("model_id"),
             "training_job_name": tr_job,
             "training_job_arn": d.get("TrainingJobArn"),
             "training_end_time": smspec.iso(d.get("TrainingEndTime")),
@@ -222,7 +224,7 @@ def build(aws, sp: dict, bucket: str = smspec.BUCKET, checkpoint_uri: str | None
         })
     decl = {
         "unit": sp["unit"], "track": train["track"], "target": train["target"], "n_items": train["n_items"],
-        "test_set_sha256": train["test_set_sha256"], "model_id": train["model_id"],
+        "test_set_sha256": train["test_set_sha256"], "model_id": model_id or train["model_id"],
         "grader": ("ran_rl.evaluation.evaluate --with-baseline (RAN RL SDK 1.2.9) on the team-hosted Maveric twin "
                    "(http) in a SageMaker CPU job (t1/rl/job_evaluate.py); one item per SDK gate (SAFETY, SERVICE, "
                    "UPLIFT, REPEAT, TRACE) plus COVERAGE; the run passes only if all six pass"),
@@ -263,6 +265,7 @@ def main(argv: list[str] | None = None, aws=None, out=print) -> int:
     ap.add_argument("--region", default=smspec.REGION)
     ap.add_argument("--bucket", default=smspec.BUCKET)
     ap.add_argument("--spec", default=str(SPEC_PATH))
+    ap.add_argument("--model-id", help="model under test (default: the training declaration's model_id)")
     ap.add_argument("--checkpoint-uri", help="evaluate this SDK checkpoint .zip (s3://.../<algo>_<steps>_steps.zip "
                     "under the training job's CheckpointConfig) instead of model.tar.gz; allows a Failed job")
     a = ap.parse_args(argv)
@@ -280,7 +283,9 @@ def main(argv: list[str] | None = None, aws=None, out=print) -> int:
 
         aws = Aws(a.profile, a.region)
     try:
-        decl, facts = build(aws, sp, a.bucket, a.checkpoint_uri)
+        if a.model_id and not evlib.NAME_RE.match(a.model_id):
+            raise Refusal(f"--model-id {a.model_id!r} must match {evlib.NAME_RE.pattern}")
+        decl, facts = build(aws, sp, a.bucket, a.checkpoint_uri, a.model_id)
     except Refusal as e:
         out(f"refused: {e}")
         return 2

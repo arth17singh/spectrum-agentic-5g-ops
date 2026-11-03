@@ -92,7 +92,7 @@ def tar_sha(data: bytes, name: str) -> str | None:
 
 
 def build(aws, run_id: str, job: str, region: str, bucket: str,
-          checkpoint_uri: str | None = None) -> tuple[dict, dict]:
+          checkpoint_uri: str | None = None, model_id: str | None = None) -> tuple[dict, dict]:
     s3, sm = aws.client("s3"), aws.client("sagemaker", region)
     store = evlib.S3Store(f"s3://{bucket}/{smspec.EVIDENCE_PREFIX}", client=s3)
     decl = evlib.read_declared(run_id, store)
@@ -150,7 +150,7 @@ def build(aws, run_id: str, job: str, region: str, bucket: str,
              for m in d.get("FinalMetricDataList") or []}
     billable = int(d.get("BillableTimeInSeconds") or 0)
     model_rec = {
-        "run_id": run_id, "model_id": decl["model_id"], "version": version, "model_kind": "ppo",
+        "run_id": run_id, "model_id": model_id or decl["model_id"], "version": version, "model_kind": "ppo",
         "artifact_uri": artifact_uri, "artifact_sha256": evlib.sha256_bytes(model), "status": "candidate",
         "trained_on": run_id, "synthetic": False,
         "aws_time": aws_time, "aws_time_source": aws_src,
@@ -212,6 +212,7 @@ def main(argv: list[str] | None = None, aws=None, out=print) -> int:
     ap.add_argument("--job", default=TRAIN_JOB)
     ap.add_argument("--write", action="store_true", help="write the two records (default: dry run)")
     ap.add_argument("--checkpoint-uri", help="record this SDK checkpoint .zip as the model (allows a Failed job)")
+    ap.add_argument("--model-id", help="model id of the record (default: the training declaration's model_id)")
     ap.add_argument("--profile", default=os.environ.get("AWS_PROFILE"))
     ap.add_argument("--region", default=smspec.REGION)
     ap.add_argument("--bucket", default=smspec.BUCKET)
@@ -222,7 +223,7 @@ def main(argv: list[str] | None = None, aws=None, out=print) -> int:
         aws = Aws(a.profile, a.region)
     store = evlib.S3Store(f"s3://{a.bucket}/{smspec.EVIDENCE_PREFIX}", client=aws.client("s3"), region=a.region)
     try:
-        job_rec, model_rec = build(aws, a.run_id, a.job, a.region, a.bucket, a.checkpoint_uri)
+        job_rec, model_rec = build(aws, a.run_id, a.job, a.region, a.bucket, a.checkpoint_uri, a.model_id)
         check_new(store, a.run_id, job_rec, model_rec)
         pj, pm = preview(job_rec, "job"), preview(model_rec, "model")
     except (Refusal, evlib.EvidenceError) as e:

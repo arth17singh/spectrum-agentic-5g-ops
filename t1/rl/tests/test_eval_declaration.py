@@ -186,13 +186,15 @@ def test_failed_training_needs_a_checkpoint_and_records_the_failure(tmp_path):
     aws, w, ck, uri = failed_world()
     rc, text, decl = fill(tmp_path, aws)
     assert rc == 2 and "--checkpoint-uri" in text and decl is None
-    rc, text, decl = fill(tmp_path, aws, "--checkpoint-uri", uri, "--url-secret-arn", URL_ARN,
+    rc, text, decl = fill(tmp_path, aws, "--checkpoint-uri", uri, "--model-id", "ppo-cco-reward-v1-ckpt50k",
+                          "--url-secret-arn", URL_ARN,
                           "--token-secret-arn", TOK_ARN)
     assert rc == 0, text
     assert aws.ops() <= READ_ONLY_OPS and aws.s3.writes == 0
     ev = decl["twin"]["config"]["eval"]
     assert ev["checkpoint_sha256"] == sha(ck) and ev["checkpoint_steps"] == 50000 and ev["checkpoint_uri"] == uri
     assert "model_artifact_sha256" not in ev
+    assert decl["model_id"] == "ppo-cco-reward-v1-ckpt50k" and ev["training_model_id"] == "ppo-cco-reward-v1-100k"
     tf = ev["training_failure"]
     assert tf["status"] == "Failed" and tf["billable_s"] == 6034 and "ExitCode 1" in tf["failure_reason"]
     assert tf["last_metric_timesteps"]["value"] == 67584
