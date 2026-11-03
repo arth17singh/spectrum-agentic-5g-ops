@@ -8,14 +8,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shlex
 from datetime import datetime, timezone
 from typing import Any
 
 REGION = "us-east-2"
-BUCKET = "bb26-p-team13-data-483598626742-use2"
+# The team's us-east-2 data bucket is never written into the repo (its name holds the account id): it is
+# $TEAM13_DATA_BUCKET when set, else bb26-p-team13-data-<account>-use2 with the account from STS.
+BUCKET_ENV = "TEAM13_DATA_BUCKET"
 ROLE_NAME = "bb26-SageMakerExecution"  # ready-made by the organisers; never create IAM from here
+# --role: the organisers' role, or a team role created in CloudShell under /bb26/ with the event boundary
+# (e.g. bb26/team13-sm-bedrock-eval from team13-kit/iam/bedrock_eval_role.sh). Nothing else is passed.
+TEAM_ROLE_RE = re.compile(r"^bb26/team13-[A-Za-z0-9+=,.@_-]{1,57}$")
 EVIDENCE_PREFIX = "evidence/"
 JOBS_PREFIX = "jobs/"  # jobs/<run_id>/source/sourcedir.tar.gz and jobs/<run_id>/output/
 LOG_GROUP = "/team13/runner"
@@ -109,6 +115,34 @@ def job_name(run_id: str) -> str:
 def stream_name(run_id: str, writer: str) -> str:
     """CloudWatch stream names cannot contain ':' or '*'."""
     return f"{run_id.replace(':', '_').replace('*', '_')}/{writer}"
+
+
+def data_bucket(account: str | None) -> str:
+    """$TEAM13_DATA_BUCKET, else bb26-p-team13-data-<account>-use2 (the Participant Guide's naming).
+    With no account (a dry run without AWS access) the name keeps an <account> placeholder."""
+    env = os.environ.get(BUCKET_ENV, "").strip()
+    if env:
+        return env
+    return f"bb26-p-team13-data-{account or '<account>'}-use2"
+
+
+def check_role(role: str) -> str:
+    """The job's execution role, as '<path>/<name>' without the leading slash. Only the organisers' role or a
+    team role under /bb26/ named team13-* (created in CloudShell with the event boundary) may be passed."""
+    if role == ROLE_NAME or TEAM_ROLE_RE.match(role or ""):
+        return role
+    raise SpecError(f"--role {role!r}: use {ROLE_NAME} (default) or a team role bb26/team13-<name> "
+                    "(created in CloudShell under /bb26/ with the event boundary)")
+
+
+def role_arn(account: str, role: str) -> str:
+    return f"arn:aws:iam::{account}:role/{role}"
+
+
+def role_name_and_path(role: str) -> tuple[str, str]:
+    """('team13-x', '/bb26/') for 'bb26/team13-x'; ('bb26-SageMakerExecution', '/') for the default."""
+    path, _, name = role.rpartition("/")
+    return name, f"/{path}/" if path else "/"
 
 
 def device_for(instance_type: str, gpu: bool | None) -> str:
