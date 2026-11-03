@@ -1275,9 +1275,27 @@ class Checker:
                     # items), and part c compares every field with DescribeTrainingJob.
                     d.note(f"{rel}: job record ledgered at #{entries[0]['seq']}, after the result (#{result_seq}), "
                            "as expected for a job summary")
+                elif isinstance(self.ev, S3Evidence):
+                    # Ledger order is the order the ingester synced objects, not the order they were written.
+                    # The write order is S3's own LastModified: fail only if the record was stored after the result.
+                    rec_t = self.record_files.get(rel)
+                    res_t = self.ev.time(self.result_rel)[0]
+                    if rec_t is None or res_t is None:
+                        d.cannot(f"{rel}: first ledgered at #{entries[0]['seq']}, after the result (#{result_seq}), "
+                                 "and an S3 LastModified is missing to compare the write order")
+                    elif rec_t > res_t:
+                        d.fail(f"{rel}: record object first appeared at ledger #{entries[0]['seq']}, after the result "
+                               f"was recorded at #{result_seq}, and S3 LastModified agrees: stored {iso(rec_t)}, "
+                               f"after the result {iso(res_t)}")
+                    else:
+                        d.note(f"{rel}: ledger order differs from S3 order (ledger #{entries[0]['seq']} is after the "
+                               f"result #{result_seq}); S3 LastModified shows "
+                               + (f"record before result ({iso(rec_t)} < {iso(res_t)})" if rec_t < res_t else
+                                  f"record and result stored in the same second ({iso(rec_t)}), not record after result"))
                 else:
                     d.fail(f"{rel}: record object first appeared at ledger #{entries[0]['seq']}, after the result "
-                           f"was recorded at #{result_seq}")
+                           f"was recorded at #{result_seq} (local evidence has no S3 times, so the ledger order "
+                           "cannot be checked against AWS write order)")
             covered += 1
             if content is None:
                 d.fail(f"{rel}: recorded at ledger #{entries[0]['seq']} but the file is gone")
