@@ -101,6 +101,8 @@ One-shot result (`runs/v2_eval.json`):
 
 v1's original results (seeds 0 and 1000–1009) stay as recorded above.
 
+**The deployed default stays v1, as pre-declared.** Switching to v2 after seeing the 2000–2019 outcome would mean choosing thresholds on the test set. v2 also failed its own declared bar. A future v3 needs its own calibration-only declaration and fresh evaluation seeds.
+
 Five of v2's six false pauses fire on the EWMA line at change 3, the first change where a decision is allowed. They come on the script's opening two-cell changes; calibration showed that change type has 3.5× the exceedance rate. The handler still defaults to v1 (`T3_TRUST_THRESHOLDS` selects the version).
 
 ## Commands
