@@ -152,7 +152,7 @@ def ladder_result_record(lad: dict, *, run_id: str, n_items: int, code_sha=None,
     d = lad["details"]
     if d["retention"] is not None:
         metric, value = "retention", float(d["retention"])
-        target = {"metric": "retention", "op": ">=", "value": RETENTION_TARGET, "unit": ""}
+        target = {"metric": "retention", "op": ">=", "value": RETENTION_TARGET, "unit": "ratio"}
         passed = value >= RETENTION_TARGET
     else:
         reh = next((r for r in d["rungs"] if r["name"] == "rehearsal"), d["rungs"][-1])
