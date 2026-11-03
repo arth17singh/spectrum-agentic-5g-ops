@@ -26,13 +26,8 @@ def _reader():
 
 
 def _records(r, kind: str) -> list[dict]:
-    """The records of a kind. Each one that was read from its own object carries, in a private field the views never
-    output, the S3 LastModified AWS assigned when it stored that object (the fallback AWS time). A reader without
-    that method (a test double) just gives the records."""
-    stored = getattr(r, "all_records_stored", None)
-    if stored is None:
-        return list(r.all_records(kind))
-    return [{**rec, awstime.STORED_KEY: at} if at else rec for rec, at in stored(kind)]
+    """The records of a kind, each carrying the AWS times of its file (see awstime.read_records)."""
+    return awstime.read_records(r, kind)
 
 
 def _load() -> tuple[list[dict], list[dict], list[dict], Any]:

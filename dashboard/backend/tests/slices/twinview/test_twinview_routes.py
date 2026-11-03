@@ -99,14 +99,22 @@ def test_consortium_reads_a_t2_fl_result_and_checks_the_test_set(monkeypatch, tm
     shared = next(f["sha256"] for f in manifest["files"] if f["role"] == "shared_test" and f["split"] == "disjoint")
     (tmp_path / "results").mkdir()
     rec = {"schema_version": "1", "kind": "result", "run_id": "t2-fl-x", "team": "team13", "created_at": "2026-11-02T22:00:00Z",
-           "aws_time": "2026-11-02T22:00:00Z", "aws_time_source": "sagemaker:CreationTime", "synthetic": False,
+           "aws_time": None, "aws_time_source": None, "synthetic": False,
            "unit": "t2.fl", "metric": "skill", "value": 0.44, "passed": True,
            "details": {"split": "disjoint", "shared_test_sha256": shared, "rounds_completed": 20, "final_round": 20,
                        "dp": {"enabled": True, "epsilon": 8.0, "delta": 1e-5},
                        "per_silo": {"A": {"local_only_skill": 0.4, "federated_skill": 0.43, "n_train_rows": 24000}}}}
     (tmp_path / "results" / "t2-fl-x.json").write_text(json.dumps(rec))
+    # the FL job attests the file in CloudWatch: that is the run's AWS time (the result carries none of its own)
+    import hashlib
+    (tmp_path / ".sync" / "attest").mkdir(parents=True)
+    sha = hashlib.sha256((tmp_path / "results" / "t2-fl-x.json").read_bytes()).hexdigest()
+    (tmp_path / ".sync" / "attest" / "t2-fl-x.json").write_text(json.dumps({"files": {
+        "results/t2-fl-x.json": {"job": "j", "log_time": "2026-11-02T22:00:05Z", "sha256": sha, "state": "match"}}}))
     j = client(monkeypatch, RecordsReader(str(tmp_path))).get("/api/twinview/consortium").json()
     assert j["runs_state"] == "run" and j["runs_provenance"]["state"] == "real"
+    assert j["runs_provenance"]["aws_time_summary"]["by_source"]["cloudwatch_attest"] == 1
+    assert j["runs"][0]["aws_time_source"] == "cloudwatch_attest" and j["runs"][0]["aws_time"] == "2026-11-02T22:00:05Z"
     run = j["runs"][0]
     assert run["same_test_set"] is True and run["dp"]["epsilon"] == 8.0 and run["final_round"] == 20
     assert run["per_silo"]["A"]["federated_skill"] == 0.43

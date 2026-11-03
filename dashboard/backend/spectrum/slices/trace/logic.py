@@ -7,7 +7,7 @@ declared expected sequence:
     case_opened -> ask_agent* -> tool calls -> approval -> change_applied -> observe
 
 Ordering uses the record's own time (`aws_time` when it has one, otherwise the time our own code wrote), as before.
-Every event also carries, separately, `aws_time` + `aws_time_source` (cloudwatch | s3_stored | policy_createdAt |
+Every event also carries, separately, `aws_time` + `aws_time_source` (cloudwatch | cloudwatch_attest | s3_stored | policy_createdAt |
 gateway_date | none: see `_shared/awstime.py`) and `runner_time`, the clock of our own code. A runner or Lambda clock is
 never reported as AWS time.
 """
@@ -61,7 +61,8 @@ def _prov(rec: Rec) -> Rec:
     not that the event was real, so it is not enough; a Lambda or runner clock is never one."""
     synthetic = rec.get("synthetic") is True
     t = awstime.resolve(rec)
-    return {"synthetic": synthetic, "real": (not synthetic) and t["aws_time_source"] in awstime.EVENT_SOURCES, **t}
+    return {"synthetic": synthetic, "real": (not synthetic) and t["aws_time_source"] in awstime.EVENT_SOURCES, **t,
+            "no_event_reason": awstime.no_event_reason(rec)}
 
 
 def _is_pause(rec: Rec) -> bool:
@@ -263,7 +264,7 @@ def provenance(events: Iterable[Rec]) -> Rec:
         note = f"{n_syn} of {n} records synthetic" + (f"; {n_unv} more have no AWS-recorded event time." if n_unv else ".")
     claim = "Nothing here is simulated." if state == "real" else ""
     return {"state": state, "label": label, "note": note, "claim": claim, "n_records": n, "n_synthetic": n_syn, "n_unverified": n_unv,
-            "aws_time_summary": awstime.summary(ev)}
+            "aws_time_summary": awstime.summary(ev), "unverified_reasons": awstime.reasons(ev)}
 
 
 def _group(records: Iterable[Rec]) -> dict[tuple[str, str], list[Rec]]:

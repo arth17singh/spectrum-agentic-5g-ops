@@ -23,6 +23,7 @@ root while SPECTRUM_OFFLINE=1 all raise RecordsError. Only a missing file or key
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -115,6 +116,64 @@ def _manifest(root: Path) -> dict[str, tuple[str, int]]:
         return out
 
 
+_ATTEST_CACHE: dict[str, tuple[tuple[int, int], dict[str, tuple[str, str]]]] = {}
+_SHA_CACHE: dict[str, tuple[tuple[int, int], str]] = {}
+
+
+def _run_of(rel: str) -> str:
+    """The run a file belongs to: records/<run>/..., results/<run>.json or declared/<run>.json."""
+    parts = rel.split("/")
+    if parts[0] == "records" and len(parts) > 2:
+        return parts[1]
+    return parts[1][:-5] if len(parts) > 1 and parts[1].endswith(".json") else ""
+
+
+def _attest(root: Path, run_id: str) -> dict[str, tuple[str, str]]:
+    """<root>/.sync/attest/<run>.json (the evidence sync's reading of the job's `team13-evidence` log lines) as
+    rel -> (CloudWatch log time, sha256), for entries whose state is "match" only, without the item records (they
+    are never shown with a time). Cached until the file changes: a run's file can be several MB."""
+    if not run_id or "/" in run_id or ".." in run_id:
+        return {}
+    p = root / ".sync" / "attest" / f"{run_id}.json"
+    try:
+        st = p.stat()
+    except OSError:
+        return {}
+    sig = (st.st_mtime_ns, st.st_size)
+    with _MANIFEST_LOCK:
+        hit = _ATTEST_CACHE.get(str(p))
+        if hit and hit[0] == sig:
+            return hit[1]
+        try:
+            raw = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        out: dict[str, tuple[str, str]] = {}
+        files = raw.get("files") if isinstance(raw, dict) else None
+        if isinstance(files, dict):
+            for k, v in files.items():
+                if isinstance(v, dict) and v.get("state") == "match" and isinstance(v.get("log_time"), str) \
+                        and isinstance(v.get("sha256"), str) and "/item/" not in k:
+                    out[k] = (v["log_time"], v["sha256"])
+        _ATTEST_CACHE[str(p)] = (sig, out)
+        return out
+
+
+def _file_sha(p: Path, st: os.stat_result) -> str | None:
+    sig = (st.st_mtime_ns, st.st_size)
+    with _MANIFEST_LOCK:
+        hit = _SHA_CACHE.get(str(p))
+        if hit and hit[0] == sig:
+            return hit[1]
+    try:
+        h = hashlib.sha256(p.read_bytes()).hexdigest()
+    except OSError:
+        return None
+    with _MANIFEST_LOCK:
+        _SHA_CACHE[str(p)] = (sig, h)
+    return h
+
+
 def _parse_json(text: str, where: str) -> Any:
     try:
         return json.loads(text)
@@ -183,47 +242,63 @@ class RecordsReader:
             entries += self._entries(run_id, kind)
         return _order(entries)
 
-    def all_records_stored(self, kind: str) -> list[tuple[dict, str | None]]:
-        """Like all_records(kind), each record paired with the S3 LastModified of its own object (whole-second
-        UTC ISO), or None. Only a per-record object (records/<run>/<kind>/<key>.json) gets one; a record read from
-        a .jsonl batch file never does, because the file's time bounds many records and is not theirs. The time is
-        AWS's: S3 itself for an s3:// root, the evidence sync's manifest for a mirrored directory (and only for a
-        file whose size still matches what S3 stored)."""
+    def all_records_times(self, kind: str) -> list[tuple[dict, dict]]:
+        """Like all_records(kind), each record paired with the AWS times that belong to its own file:
+        {"stored": S3 LastModified, "attested": CloudWatch time of the job log line that attests the file}. Each is a
+        whole-second UTC ISO string or None.
+          stored    only a per-record object (records/<run>/<kind>/<key>.json) gets one; a record read from a .jsonl
+                    batch file never does, because the file's time bounds many records and is not theirs. S3 itself
+                    for an s3:// root; the evidence sync's manifest for a mirrored directory (and only for a file
+                    whose size still matches what S3 stored).
+          attested  mirrored directory only: <root>/.sync/attest/<run>.json, written by the evidence sync from the
+                    SageMaker job's `team13-evidence` log lines. Used only when the entry's state is "match" AND the
+                    sha256 it names is the sha256 of the file on disk."""
         kind = _name(kind, "kind")
         entries: list[tuple[str, Any]] = []
-        stored: dict[str, str | None] = {}
+        meta: dict[str, dict] = {}
         for run_id in self.runs():
             es = self._entries(run_id, kind)
-            times = self._stored_times(f"records/{run_id}/{kind}/", [k for k, _ in es])
-            for k, _ in es:
-                stored[k] = times.get(k)
+            meta.update(self._file_times(f"records/{run_id}/{kind}/", [k for k, _ in es]))
             entries += es
-        return [(rec, stored.get(key)) for key, rec in _order_keyed(entries)]
+        return [(rec, meta.get(key) or {"stored": None, "attested": None}) for key, rec in _order_keyed(entries)]
+
+    def all_records_stored(self, kind: str) -> list[tuple[dict, str | None]]:
+        """all_records_times with only the S3 stored time."""
+        return [(rec, m.get("stored")) for rec, m in self.all_records_times(kind)]
+
+    def declared_times(self, run_id: str) -> dict:
+        rel = f"declared/{_name(run_id, 'run_id')}.json"
+        return self._file_times("declared/", [rel]).get(rel) or {"stored": None, "attested": None}
 
     def declared_stored(self, run_id: str) -> str | None:
-        """S3 LastModified of declared/<run_id>.json, or None."""
-        rel = f"declared/{_name(run_id, 'run_id')}.json"
-        return self._stored_times("declared/", [rel]).get(rel)
+        return self.declared_times(run_id).get("stored")
 
-    # ------------------------------------------------------------------ stored (S3 LastModified) times
+    def result_times(self, run_id: str) -> dict:
+        rel = f"results/{_name(run_id, 'run_id')}.json"
+        return self._file_times("results/", [rel]).get(rel) or {"stored": None, "attested": None}
 
-    def _stored_times(self, prefix: str, rels: list[str]) -> dict[str, str]:
+    # ------------------------------------------------------------------ AWS times of a file (S3 stored, job attestation)
+
+    def _file_times(self, prefix: str, rels: list[str]) -> dict[str, dict]:
         rels = [r for r in rels if r.startswith(prefix) and r.endswith(".json") and "#" not in r]
         if not rels:
             return {}
         if self.kind == "file":
             man = _manifest(self.dir)
-            out = {}
+            out: dict[str, dict] = {}
             for r in rels:
+                stored = attested = None
                 ent = man.get(r)
-                if not ent:
-                    continue
                 try:
-                    if (self.dir / r).stat().st_size != ent[1]:
-                        continue  # the local file is not what S3 stored
+                    st = (self.dir / r).stat()
                 except OSError:
                     continue
-                out[r] = ent[0]
+                if ent and st.st_size == ent[1]:  # else the local file is not what S3 stored
+                    stored = ent[0]
+                att = _attest(self.dir, _run_of(r)).get(r)
+                if att and _file_sha(self.dir / r, st) == att[1]:
+                    attested = att[0]
+                out[r] = {"stored": stored, "attested": attested}
             return out
         want = set(rels)
         full = self.prefix + prefix
@@ -233,7 +308,7 @@ class RecordsReader:
                 for o in page.get("Contents", []):
                     rel = o["Key"][len(self.prefix):]
                     if rel in want and (iso := _s3_iso(o.get("LastModified"))):
-                        out[rel] = iso
+                        out[rel] = {"stored": iso, "attested": None}  # the attestation cache lives with a mirror only
         except Exception as e:  # noqa: BLE001
             raise RecordsError(f"cannot list s3://{self.bucket}/{full}: {_describe(e)}") from None
         return out

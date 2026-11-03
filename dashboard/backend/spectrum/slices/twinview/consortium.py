@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .logic import _num, prov, provenance
+from .logic import _num, case_prov, case_provenance
 
 Rec = dict[str, Any]
 
@@ -131,7 +131,7 @@ def run_view(rec: Rec, shared_sha: str | None) -> Rec:
                          "federated_skill": _f((per.get(s) or {}).get("federated_skill")),
                          "n_train_rows": (per.get(s) or {}).get("n_train_rows")} for s in SILOS if isinstance(per.get(s), dict)},
         "same_test_set": None if not sha or not shared_sha else sha == shared_sha,
-        **prov(rec),
+        **case_prov(rec),
     }
 
 
@@ -145,7 +145,7 @@ def build(manifest: Rec | None, preview: Rec | None, results: list[Rec], split: 
         "split": split, "facts": facts,
         "facts_note": None if facts else "silos/manifest.json not found: no dataset facts to show",
         "runs": runs, "runs_state": "run" if runs else "not run yet",
-        "runs_provenance": provenance(fl),
+        "runs_provenance": case_provenance(fl),
         "preview": preview_view(preview, split),
         "result_spec": RESULT_SPEC,
         "hub": {"name": "the FL service", "carries": "model weights only; no data leaves a silo",
