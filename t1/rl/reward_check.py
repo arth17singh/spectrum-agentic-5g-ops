@@ -57,17 +57,30 @@ def ms_iso(ms: int) -> str:
     return smspec.iso(datetime.fromtimestamp(ms / 1000.0, timezone.utc))
 
 
-def metric_regex(d: dict) -> tuple[re.Pattern, str]:
+def metric_regex(d: dict, metric: str = METRIC) -> tuple[re.Pattern, str]:
     for m in (d.get("AlgorithmSpecification") or {}).get("MetricDefinitions") or []:
-        if m.get("Name") == METRIC and m.get("Regex"):
+        if m.get("Name") == metric and m.get("Regex"):
             return re.compile(m["Regex"]), "DescribeTrainingJob.AlgorithmSpecification.MetricDefinitions"
-    return re.compile(DEFAULT_REGEX), "default (the SDK launcher's metric definition shape)"
+    return re.compile(DEFAULT_REGEX.replace(METRIC, metric)), "default (the SDK launcher's metric definition shape)"
 
 
-def metric_events(logs, job: str, rx: re.Pattern) -> list[dict]:
-    """Every `METRIC coverage_mean` event of the job, de-duplicated by eventId, oldest first."""
+def last_metric(aws, job: str, region: str, d: dict, metric: str) -> dict | None:
+    """The job's last `METRIC <metric>=<x>` log event: value, time, ingestion time, stream, event id; or None."""
+    rx, src = metric_regex(d, metric)
+    evs = metric_events(aws.client("logs", region), job, rx, metric)
+    if not evs:
+        return None
+    e = evs[-1]
+    return {"metric": metric, "value": e["value"], "timestamp": ms_iso(e["timestamp"]),
+            "ingestion_time": ms_iso(e["ingestionTime"]) if e.get("ingestionTime") else None,
+            "log_group": LOG_GROUP, "log_stream": e.get("logStreamName"), "event_id": e.get("eventId"),
+            "n_events": len(evs), "regex_source": src}
+
+
+def metric_events(logs, job: str, rx: re.Pattern, metric: str = METRIC) -> list[dict]:
+    """Every `METRIC <metric>` event of the job, de-duplicated by eventId, oldest first."""
     seen: dict[str, dict] = {}
-    kw = {"logGroupName": LOG_GROUP, "logStreamNamePrefix": f"{job}/", "filterPattern": f'"METRIC {METRIC}"'}
+    kw = {"logGroupName": LOG_GROUP, "logStreamNamePrefix": f"{job}/", "filterPattern": f'"METRIC {metric}"'}
     while True:
         r = logs.filter_log_events(**kw)
         for e in r.get("events", []):

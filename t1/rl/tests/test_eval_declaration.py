@@ -161,6 +161,57 @@ def test_printed_dry_run_is_a_valid_request_with_no_secret_in_environment(tmp_pa
                     "aws_time_source": None})
 
 
+def failed_world():
+    import zipfile
+
+    aws, w = world(status="Failed")
+    j = aws.jobs[0]
+    ck_prefix = f"s3://{BUCKET}/teams/team13/checkpoints/{TRAIN_JOB}"
+    j.update(FailureReason="AlgorithmError: ExecuteUserScriptError: ExitCode 1", BillableTimeInSeconds=6034,
+             CheckpointConfig={"S3Uri": ck_prefix, "LocalPath": "/opt/ml/checkpoints"})
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("data", "{}")
+    ck = buf.getvalue()
+    aws.s3.put(BUCKET, f"teams/team13/checkpoints/{TRAIN_JOB}/ppo_50000_steps.zip", ck, "2026-11-03T03:52:46Z")
+    for n, v in enumerate((65536, 67584)):
+        aws.events.append({"region": "us-east-2", "log_group": "/aws/sagemaker/TrainingJobs",
+                           "log_stream": f"{TRAIN_JOB}/algo-1-1", "timestamp": f"2026-11-03T04:1{5 + n}:00Z",
+                           "message": f"METRIC timesteps={v}", "event_id": f"t{n}"})
+    aws.log_groups.setdefault("us-east-2", []).append("/aws/sagemaker/TrainingJobs")
+    return aws, w, ck, f"{ck_prefix}/ppo_50000_steps.zip"
+
+
+def test_failed_training_needs_a_checkpoint_and_records_the_failure(tmp_path):
+    aws, w, ck, uri = failed_world()
+    rc, text, decl = fill(tmp_path, aws)
+    assert rc == 2 and "--checkpoint-uri" in text and decl is None
+    rc, text, decl = fill(tmp_path, aws, "--checkpoint-uri", uri, "--url-secret-arn", URL_ARN,
+                          "--token-secret-arn", TOK_ARN)
+    assert rc == 0, text
+    assert aws.ops() <= READ_ONLY_OPS and aws.s3.writes == 0
+    ev = decl["twin"]["config"]["eval"]
+    assert ev["checkpoint_sha256"] == sha(ck) and ev["checkpoint_steps"] == 50000 and ev["checkpoint_uri"] == uri
+    assert "model_artifact_sha256" not in ev
+    tf = ev["training_failure"]
+    assert tf["status"] == "Failed" and tf["billable_s"] == 6034 and "ExitCode 1" in tf["failure_reason"]
+    assert tf["last_metric_timesteps"]["value"] == 67584
+    assert "NOT met" in tf["statement"] and "67584" in tf["statement"] and "Connection reset" in tf["cause_observed"]
+    assert "BEFORE training" in ev["target_first_declared"]
+    argv = shlex.split(text.split("dry_run:\n", 1)[1].splitlines()[0].strip())
+    assert f"model={uri}" in argv
+    a = runner.parser().parse_args([x for x in argv[3:] if x != "--dry-run"])
+    p = runner.plan(a, aws)
+    chans = {c["ChannelName"]: c["DataSource"]["S3DataSource"]["S3Uri"] for c in p["request"]["InputDataConfig"]}
+    assert chans["model"] == uri and chans["project"] == w["project_uri"]
+
+
+def test_checkpoint_outside_the_jobs_checkpoint_prefix_is_refused(tmp_path):
+    aws, _, _, _ = failed_world()
+    rc, text, _ = fill(tmp_path, aws, "--checkpoint-uri", f"s3://{BUCKET}/elsewhere/ppo_50000_steps.zip")
+    assert rc == 2 and "CheckpointConfig" in text
+
+
 def test_placeholder_secret_arns_are_refused_by_the_runner(tmp_path):
     aws, _ = world()
     rc, text, _ = fill(tmp_path, aws)
