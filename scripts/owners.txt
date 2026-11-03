@@ -99,6 +99,8 @@ W12 t1/evals/**
 
 LLM t1/sft/**
 
+W13 tools/viavi_bridge/**
+
 lead **
 
 nobody evidence/public_keys.json
