@@ -108,3 +108,18 @@ def test_missing_store_is_exit_2(tmp_path):
 def test_s3_path_needs_a_valid_uri(tmp_path):
     skeleton(tmp_path)
     assert jj.main(["--s3", "not-a-uri", "--judging", str(tmp_path / "judging.json")]) == 2
+
+
+def test_slots_report(tmp_path, capsys):
+    j = tmp_path / "judging.json"
+    doc = {"run_ids": ["a"], "slots": [{"slot": 1, "name": "x", "status": "filled", "run_id": "a"},
+                                         {"slot": 2, "name": "y", "status": "pending", "run_id": None, "waiting_for": "z"}]}
+    j.write_text(json.dumps(doc))
+    assert jj.main(["--slots-report", "--judging", str(j)]) == 0
+    assert "1 of 2 slots filled" in capsys.readouterr().out
+    doc["run_ids"] = []  # a filled slot whose run is not listed
+    j.write_text(json.dumps(doc))
+    assert jj.main(["--slots-report", "--judging", str(j)]) == 1
+    doc["run_ids"] = ["a", "stray"]
+    j.write_text(json.dumps(doc))
+    assert jj.main(["--slots-report", "--judging", str(j)]) == 1
