@@ -1,0 +1,41 @@
+{
+  "unit": "t3.evals.swarm-vs-heuristic",
+  "track": "track-3",
+  "target": {
+    "metric": "gain_ci_low_vs_config_revert_masked",
+    "op": ">",
+    "value": 0.0,
+    "unit": "recovery"
+  },
+  "test_set": "t3/evals/suite/incidents-test.jsonl",
+  "model_id": "noc_lead=openai.gpt-oss-120b-1:0;students=openai.gpt-oss-20b-1:0",
+  "grader": "t3/evals/graders.py:v1 (twin replay, same-step healthy counterfactual)",
+  "synthetic": false,
+  "subset": "tier=masked",
+  "twin": {
+    "kind": "maveric-inprocess",
+    "version": "ran-rl-1.2.9",
+    "scenario": "incident-suite",
+    "seed": 4102,
+    "config": {
+      "backend": "maveric-inprocess",
+      "suite": "t3/evals/suite/incidents-test.jsonl",
+      "suite_version": "t3-incidents-v4",
+      "suite_sha256": "128b229489d3b1e050223a03c7a23bb2e0bec995cb480a6e44552d2d51984638",
+      "frozen_by": "t3.evals.suite-freeze-20261103T031439Z-32b3 (ml.m5.xlarge, x86_64)",
+      "tiers": ["masked"],
+      "eval": {
+        "operator": "swarm",
+        "mode": "proposal",
+        "proposal_steps": 3,
+        "targets_sha256": "8ab60e1ace2c587aff903a5f400b3be826cdad97967999414c0db00ba18e8e51",
+        "primary": "paired recovery gain over config_revert on the masked tier; lower 95% bound > 0; paired-bootstrap-v1, seed 20261102, 10000 resamples (targets.json bootstrap), spec written into result.details.gain so check_unit part e replays it",
+        "live_phase": "t3/evals/live_swarm.py, run from a terminal with the team profile BEFORE this job: the governed swarm (noc_lead + 3 students, Agent Builder, Bedrock) works every (incident, step) case through the checkpoint's front door, seeded with ran___seed_case (app token only), and stops at the approval refusal; its proposals are the job's `recording` input",
+        "approval_policy": "proposal-only: nobody approves; the proposal is read from the checkpoint's approval refusal and applied here, on the harness's own x86 twin replay, never through the governed tool",
+        "executed": "SageMaker training job started by tools/sm/run.py on ml.m5.xlarge (x86_64, the platform the suite was frozen on); in-process twin, no network twin; t3/evals/recorded_client.py replays the recorded proposals and refuses a harness that diverged",
+        "baselines": "--baseline-run-id t3.evals.config_revert-masked-20261103T035108Z-x86 t3.evals.rule_baseline-20261103T035108Z-x86 to the runner AND the module"
+      },
+      "pathspec_note": "ship contracts, t3, tools and twin"
+    }
+  }
+}

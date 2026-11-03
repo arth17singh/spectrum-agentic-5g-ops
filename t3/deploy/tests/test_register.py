@@ -215,7 +215,7 @@ def test_apply_makes_valid_calls_in_order(kit_dir):
     updated = {p["name"]: p for _, op, p in log if op == "update_gateway_target"}
     assert set(created) == {"ran"} and set(updated) == {"nlm"} and updated["nlm"]["targetId"] == "t-nlm"
     ran_tools = {t["name"]: t for t in created["ran"]["targetConfiguration"]["mcp"]["lambda"]["toolSchema"]["inlinePayload"]}
-    assert set(ran_tools) == {"observe", "propose", "predict", "preflight", "apply_change"}
+    assert set(ran_tools) == {"observe", "propose", "predict", "preflight", "apply_change", "seed_case"}
     apply_schema = ran_tools["apply_change"]["inputSchema"]
     assert {"case_id", "item_id", "change", "reason", "approval", "special_context"} == set(apply_schema["properties"])
     assert apply_schema["properties"]["change"]["type"] == "string"
