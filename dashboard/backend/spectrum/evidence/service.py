@@ -240,7 +240,7 @@ class EvidenceService:
                 self._emit_status(critical=True)
         return self.state == "ok"
 
-    def ingest(self, artifacts: list[Artifact], verified: bool = False) -> dict:
+    def ingest(self, artifacts: list[Artifact], verified: bool = False, emit_update: bool = True) -> dict:
         counts = {"seen": len(artifacts), "new": 0, "changed": 0, "appended": 0, "missing": 0, "reappeared": 0,
                   "invalid": 0}
         # re-read and re-verify from disk before every scan (scan() has just done it off the event loop)
@@ -298,9 +298,11 @@ class EvidenceService:
                 sev = "warn"
             self.emit("evidence.record", "prove", _summary(rec), {"record": rec}, sev, "evidence-ingester",
                       {"seq": rec["seq"], "hash": rec["hash"]})
-        if appended:
+        if appended and emit_update:
             self.emit("evidence.update", "prove", f"evidence ledger: {len(appended)} new record(s)",
                       self.snapshot(), "debug", "evidence-ingester")
+        if not emit_update:  # scan() emits the update itself, after building the snapshot off the loop
+            counts["_appended"] = len(appended)
         return counts
 
     def _is_append(self, a: Artifact, known: dict) -> bool:
@@ -378,7 +380,12 @@ class EvidenceService:
             # the full re-read and signature re-verify (~3.5 s at 66k records) runs off the event loop; the
             # appends stay on the event-loop thread, under the same lock, so nothing writes in between
             ok = await asyncio.to_thread(self.check_disk, True)
-            return self.ingest(arts, verified=ok)
+            counts = self.ingest(arts, verified=ok, emit_update=False)
+            n = counts.pop("_appended", 0)
+            if n:  # the run summaries over every record (~3 s at 66k) are built off the event loop
+                snap = await asyncio.to_thread(self.snapshot)
+                self.emit("evidence.update", "prove", f"evidence ledger: {n} new record(s)", snap, "debug", "evidence-ingester")
+            return counts
 
     async def run(self) -> None:
         if self.state != "ok":
@@ -435,12 +442,22 @@ class EvidenceService:
         }
 
     def snapshot(self) -> dict:
-        runs, judged = summarise_runs(self.ledger.records, self.verify_result["ok"])
+        runs, judged = self._summaries()
         return {"real": True, "status": self.status(), "runs": runs, "judged": judged,
                 "recent": self.ledger.records[-30:]}
 
+    def _summaries(self) -> tuple[list[dict], list[str]]:
+        """summarise_runs over the whole chain, memoised until the chain's length, head or verified state changes."""
+        recs = self.ledger.records
+        key = (id(recs), len(recs), recs[-1].get("hash") if recs else None, bool(self.verify_result.get("ok")))
+        memo = getattr(self, "_sum_memo", None)
+        if memo is None or memo[0] != key:
+            memo = (key, summarise_runs(recs, self.verify_result["ok"]))
+            self._sum_memo = memo
+        return memo[1]
+
     def run_detail(self, run_id: str) -> dict | None:
-        runs, _ = summarise_runs(self.ledger.records, self.verify_result["ok"])
+        runs, _ = self._summaries()
         s = next((r for r in runs if r["run_id"] == run_id), None)
         if s is None:
             return None
