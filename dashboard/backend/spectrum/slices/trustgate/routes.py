@@ -95,7 +95,19 @@ def changes(
     return {"source": _source(reader), "error": error, **_detail(reader, data, key)}
 
 
+def _viavi_run(reader: Any, results: list[dict]) -> str | None:
+    """The newest t1.rl.viavi_operate run (declared or with a result), or None."""
+    ids = {r.get("run_id") for r in results if str(r.get("unit") or "").startswith("t1.rl.viavi_operate")}
+    for run in _call(reader.runs, default=[]) or []:
+        rid = run.get("run_id") if isinstance(run, dict) else run
+        if isinstance(rid, str) and rid.startswith("t1.rl.viavi_operate"):
+            ids.add(rid)
+    ids.discard(None)
+    return max(ids) if ids else None
+
+
 @router.get("/ladder")
 def ladder(reader: Any = Depends(get_reader)) -> dict:
     data, error = _load(reader)
-    return {"source": _source(reader), "error": error, "ladders": logic.latest_ladders(data["result"])}
+    return {"source": _source(reader), "error": error,
+            "ladders": logic.viavi_wording(logic.latest_ladders(data["result"]), _viavi_run(reader, data["result"]))}

@@ -20,7 +20,7 @@ from typing import Any, Iterable
 
 KPI_ORDER = ("coverage_ratio", "sla_ratio", "sinr_p10_db", "sinr_mean_db")
 LADDER_UNIT = "t3.ladder"
-NO_VIAVI_REASON = "no VIAVI rung (no Viavi access yet): retention = gain(VIAVI) / gain(REHEARSAL) is undefined"
+NO_VIAVI_REASON = "no Viavi run: retention = gain(VIAVI) / gain(REHEARSAL) is undefined"
 LADDER_LABELS = ("MAVERIC", "REHEARSAL (Viavi-like Maveric)", "VIAVI")
 MAVERIC_KINDS = ("maveric-inprocess", "maveric-hosted")
 # threshold keys we pass through when a declared thresholds object carries them
@@ -453,3 +453,23 @@ def latest_ladders(results: list[dict]) -> list[dict]:
         if k not in best or ts >= best[k][0]:
             best[k] = (ts, v)
     return [v for _, v in sorted(best.values(), key=lambda p: (p[1]["model_id"], p[1]["version"], p[1]["top_label"]))]
+
+
+MEASURE_ONLY_REASON = ("The Viavi run was measure-only (no baseline policy run on Viavi), so gain(VIAVI) is undefined.")
+
+
+def viavi_wording(ladders: list[dict], viavi_run_id: str | None) -> list[dict]:
+    """Data-driven retention words for ladders without a measured Viavi gain: when a t1.rl.viavi_operate run exists
+    the Viavi run was measure-only (no baseline on Viavi), so gain(VIAVI) is undefined; 'no Viavi run' only when none
+    exists. A reason recorded in the ladder result is replaced in both cases (it predates the Viavi run)."""
+    for l in ladders:
+        if l.get("retention") is not None or l.get("real_viavi"):
+            continue
+        if viavi_run_id:
+            l["retention_heading"] = "Retention: not measured"
+            l["retention_null_reason"] = MEASURE_ONLY_REASON
+            l["viavi_run_id"] = viavi_run_id
+        elif not l.get("has_viavi"):
+            l["retention_heading"] = "Retention: not measured (no Viavi run)"
+            l["retention_null_reason"] = NO_VIAVI_REASON
+    return ladders
