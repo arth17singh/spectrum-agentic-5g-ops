@@ -24,7 +24,7 @@ It prints the rule and the file (and a short blob id, and a line number for text
 | JWTs | `eyJ....eyJ....sig` |
 | `Bearer` tokens | `Bearer ` followed by 20 or more token characters |
 | IPv4 addresses | Except the explicit allow-list `ALLOWED_IPV4` in the script: loopback block, `0.0.0.0`, `255.255.255.0/255`, `10.0.0.x`, the three RFC 5737 documentation ranges, `169.254.169.254`, `10.255.255.255` and `192.168.1.20` (both used in the dashboard's code and tests). One file is waived for this rule (`PATH_WAIVERS`: the GSMA text, where 3GPP clause numbers look like addresses). |
-| 12-digit account ids | Not touching longer digit runs, hex strings or decimals. Example ids are allowed (`ALLOWED_ACCOUNT_IDS`). |
+| 12-digit account ids | Not touching longer digit runs, hex strings or decimals. Example ids and AWS's public Deep Learning Containers registry id are allowed (`ALLOWED_ACCOUNT_IDS`), and so is any run below 1,000,000 (zero-padded dummy ids such as `chg-000000000001`; `ACCOUNT_ID_FLOOR`). |
 | `amazoncognito`, `X-Amz-Signature`, `ec2-...amazonaws.com` | Hosted login addresses, presigned-URL signatures, EC2 public names |
 | Organiser and secret files by name | `checkpoint_kit.py`, `*.whl`, `ran-rl-starter*`, `twin-host*`, `hackathon_docs/`, `tokens/`, `kit.json`, `kit-state.json`, `a2a_token*`, `builder_admin_password*`, `.env` and `.env.*` (not `.env.example`), `host.env`, `*.pem`, `.evidence-key` |
 | Files over 5 MB | |

@@ -58,7 +58,13 @@ PATH_WAIVERS = [
     ("EC2 public host name", re.compile(r"^scripts/hooks/(README\.md|prepush_scan\.py|tests/test_prepush_scan\.py)$")),
 ]
 # 12-digit values that are the documented AWS example ids.
-ALLOWED_ACCOUNT_IDS = {"123456789012", "000000000000", "111111111111", "111122223333"}
+ALLOWED_ACCOUNT_IDS = {
+    "123456789012", "000000000000", "111111111111", "111122223333",
+    "763104351884",  # AWS's own Deep Learning Containers registry: public, in AWS docs, not a team id
+}
+# A 12-digit run below this value is a counter or dummy id padded with zeros (for example chg-000000000001),
+# not an account id: real ids are issued far above it.
+ACCOUNT_ID_FLOOR = 10**6
 # kit.json / kit-state.json keys whose values are public names, already written in our docs and code.
 PUBLIC_KIT_KEYS = {"bedrock_log_group", "specialists", "lead", "may_change", "name", "region"}
 
@@ -209,7 +215,7 @@ def scan_content(data: bytes, secrets: dict[bytes, str], path: str = "") -> list
             text = m.group(0)
             if rule == "IPv4 address" and any(a.match(text.decode()) for a in ALLOWED_IPV4):
                 continue
-            if rule == "12-digit account id" and text.decode() in ALLOWED_ACCOUNT_IDS:
+            if rule == "12-digit account id" and (text.decode() in ALLOWED_ACCOUNT_IDS or int(text) < ACCOUNT_ID_FLOOR):
                 continue
             out.append((rule, line_of(m.start())))
             break  # one finding per rule per file is enough to act on

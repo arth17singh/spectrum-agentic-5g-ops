@@ -105,6 +105,38 @@ def test_documented_example_account_ids_pass(repo):
     assert scan(repo, "--refs", "HEAD", "--no-evidence").returncode == 0
 
 
+@pytest.mark.parametrize("text", [
+    'change_id = "chg-' + "0" * 11 + '1"',  # the dashboard test fixture's dummy id
+    "chg-" + "0" * 8 + "0042",
+    "0" * 6 + "999999",  # the largest value below the floor
+])
+def test_zero_padded_dummy_ids_are_not_account_ids(repo, text):
+    commit(repo, {"tests/fixture.py": text + "\n"})
+    assert scan(repo, "--refs", "HEAD", "--no-evidence").returncode == 0
+
+
+@pytest.mark.parametrize("value", ["0" * 5 + "1" + "0" * 6, FAKE_ACCOUNT, "1" + "0" * 11])
+def test_real_looking_ids_are_still_blocked(repo, value):
+    commit(repo, {"tests/fixture.py": f"change_id = 'chg-{value}'\n"})
+    res = scan(repo, "--refs", "HEAD", "--no-evidence")
+    assert res.returncode == 1 and "12-digit account id" in res.stderr and value not in res.stderr
+
+
+def test_account_id_from_the_kit_is_blocked(repo, tmp_path):
+    kit = make_kit(tmp_path)
+    state = json.loads((kit / "kit-state.json").read_text())
+    state["gateway_arn"] = "arn:aws:bedrock-agentcore:us-east-2:" + FAKE_ACCOUNT + ":gateway/g-fake-0001"
+    (kit / "kit-state.json").write_text(json.dumps(state))
+    commit(repo, {"cfg.txt": "bucket-" + FAKE_ACCOUNT + "-use2\n"})
+    res = scan(repo, "--refs", "HEAD", "--no-evidence", kit=kit)
+    assert res.returncode == 1 and "12-digit account id" in res.stderr and FAKE_ACCOUNT not in res.stderr
+
+
+def test_the_public_dlc_registry_id_passes(repo):
+    commit(repo, {"job.json": '{"image": "' + "763104" + "351884" + '.dkr.ecr.us-east-2.example.invalid/x:1"}\n'})
+    assert scan(repo, "--refs", "HEAD", "--no-evidence").returncode == 0
+
+
 def test_binary_files_skip_text_only_rules(repo):
     blob = b"\0\x01\x02" + FAKE_IP.encode() + b"\0" + FAKE_ACCOUNT.encode() + b"\0"
     commit(repo, {"data.bin": blob})
