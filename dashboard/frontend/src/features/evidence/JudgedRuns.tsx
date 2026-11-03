@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { CircleDashed } from 'lucide-react'
 import type { Rec } from '@/core/types'
 import { Panel } from '@/ui'
+import { VerifyLive } from './VerifyLive'
 import { RunLink, Superseded, Verdict } from '../scorecard/RealRuns'
 import { num, targetText } from '../scorecard/format'
 import { useOverview } from '../scorecard/overview'
@@ -9,7 +10,7 @@ import { useOverview } from '../scorecard/overview'
 // The curated judged layout from judging.json (10 slots + edge cases), with each slot's live status read from
 // the mirrored result records: filled (PASS / MISS recomputed against the declared target) or pending.
 
-const RunState = ({ r }: { r: Rec }) => (
+const RunState = ({ r, verify = true }: { r: Rec; verify?: boolean }) => (
   <div className="flex flex-wrap items-baseline gap-x-2" data-run={r.run_id} data-state={r.state}>
     {r.state === 'missing'
       ? <span className="text-micro text-warn-ink">listed, but not in the evidence mirror</span>
@@ -18,6 +19,7 @@ const RunState = ({ r }: { r: Rec }) => (
     <RunLink id={r.run_id} />
     {r.check != null && <span className="text-micro text-ink-3">check_unit exit {r.check}</span>}
     {r.superseded && <Superseded reason={r.superseded.reason} by={r.superseded.by} />}
+    {verify && r.state !== 'missing' && <div className="basis-full"><VerifyLive runId={r.run_id} compact /></div>}
   </div>
 )
 
@@ -34,7 +36,7 @@ function Slot({ s }: { s: Rec }) {
           : <div className="flex items-start gap-1.5 text-micro text-ink-3"><CircleDashed size={12} className="mt-0.5 shrink-0" aria-hidden />pending{s.waiting_for ? `: ${s.waiting_for}` : ''}</div>}
         {s.note && <div className="text-micro text-ink-3">{s.note}</div>}
         {s.bar && <div className="text-micro text-ink-3">{s.bar}</div>}
-        {(s.related_status ?? []).map((r: Rec) => <div key={r.run_id} className="text-micro text-ink-3">compared against: <RunState r={r} /></div>)}
+        {(s.related_status ?? []).map((r: Rec) => <div key={r.run_id} className="text-micro text-ink-3">compared against: <RunState r={r} verify={false} /></div>)}
       </div>
     </li>
   )
