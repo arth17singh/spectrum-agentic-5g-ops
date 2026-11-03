@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from team13_contracts import parse_record
+from team13_contracts import dump_record, parse_record
 from team13_contracts.change import approval_key, canon, parse
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -248,4 +248,57 @@ def test_fixture_change_ids_follow_kit_formula():
 def test_delta_ratio_bounds():
     raw = copy.deepcopy(load(SCORED))
     raw["predicted_delta"]["coverage_ratio"] = 1.5
+    bad(raw)
+
+
+# --------------------------------------------------------------------------
+# approved_by / approved_at (red-team ask: who approved each applied change, and when)
+# --------------------------------------------------------------------------
+
+
+def test_approved_by_present():
+    raw = load(SCORED)
+    raw["approved_by"] = "person:op-blue"
+    m = parse_record(raw)
+    assert m.approved_by == "person:op-blue"
+    assert dump_record(m)["approved_by"] == "person:op-blue"
+
+
+def test_approved_by_absent():
+    raw = load(SCORED)
+    raw.pop("approved_by", None)
+    m = parse_record(raw)
+    assert m.approved_by is None
+    raw["approved_by"] = None
+    assert parse_record(raw).approved_by is None
+
+
+@pytest.mark.parametrize("value", ["", 42, True])
+def test_approved_by_rejects_empty_or_non_string(value):
+    raw = load(SCORED)
+    raw["approved_by"] = value
+    bad(raw)
+
+
+def test_approved_at_present():
+    raw = load(SCORED)
+    raw["approved_at"] = "2026-11-02T20:20:12.480Z"
+    m = parse_record(raw)
+    assert m.approved_at == "2026-11-02T20:20:12.480Z"
+    assert dump_record(m)["approved_at"] == "2026-11-02T20:20:12.480Z"
+
+
+def test_approved_at_absent():
+    raw = load(SCORED)
+    raw.pop("approved_at", None)
+    m = parse_record(raw)
+    assert m.approved_at is None
+    raw["approved_at"] = None
+    assert parse_record(raw).approved_at is None
+
+
+@pytest.mark.parametrize("value", ["2026-11-02T20:20:12+00:00", "2026-11-02 20:20:12", "", 1730580012])
+def test_approved_at_must_be_utc_z(value):
+    raw = load(SCORED)
+    raw["approved_at"] = value
     bad(raw)

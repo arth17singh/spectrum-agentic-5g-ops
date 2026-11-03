@@ -74,5 +74,7 @@
   "unscored_reason": null,
   "probe": false,
   "trust_before": 0.82,
-  "trust_after": 0.84
+  "trust_after": 0.84,
+  "approved_by": "person:op-blue",
+  "approved_at": "2026-11-02T20:20:12.480Z"
 }

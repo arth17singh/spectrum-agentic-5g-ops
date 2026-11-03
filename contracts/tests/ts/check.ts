@@ -34,6 +34,8 @@ const change: ChangeRecord = {
   scored: false,
   unscored_reason: "probe",
   probe: true,
+  approved_by: "person:op-blue",
+  approved_at: "2026-11-02T21:29:58.000Z",
 };
 
 // decision is v0: extra keys allowed.
