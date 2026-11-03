@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom'
 import { get } from '@/core/api'
 import type { Rec } from '@/core/types'
 import { CodeBlock, Panel } from '@/ui'
-import { JobLine, Verdict, type Job, type Overview } from '../scorecard/RealRuns'
+import { JobLine, Superseded, Verdict, type Job, type Overview } from '../scorecard/RealRuns'
 import { num, targetText, utc } from '../scorecard/format'
 
 // Run id -> declaration -> SageMaker job -> records -> result -> check_unit, read from the local mirror of
@@ -82,6 +82,7 @@ function Chain({ id }: { id: string }) {
   const cu: Rec | null = d.check_unit
   return (
     <div className="mt-4 grid grid-cols-12 gap-4" data-testid="run-chain" data-run={id}>
+      {d.superseded && <div className="col-span-12 rounded-md border border-dashed border-line px-3 py-2"><Superseded reason={d.superseded.reason} by={d.superseded.by} /><div className="text-micro text-ink-3">{d.superseded.reason}</div></div>}
       <ol className="col-span-12 lg:col-span-6">
         <Step n={1} title="Declaration" ok={d.declared ? d.declared_before_job ?? null : false}>
           {d.declared ? <>
