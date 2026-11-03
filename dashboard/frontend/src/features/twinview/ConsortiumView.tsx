@@ -9,7 +9,7 @@ import { Banner, NoteChip, ProvenanceChip } from './shared'
 // `t2.fl` result records; until one exists every metric says "not run yet". The laptop preview is labelled LOCAL.
 
 const KINDS: [string, string, string][] = [
-  ['zero', 'no change', 'var(--s4)'],
+  ['zero', 'no change', 'var(--ink-3)'],
   ['single_power', 'power, one cell', 'var(--release)'],
   ['single_tilt', 'tilt, one cell', 'var(--learn)'],
   ['single_both', 'both, one cell', 'var(--verify)'],
@@ -33,6 +33,12 @@ export function ConsortiumView({ data }: { data: Rec }) {
         <>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {(facts.silos as Rec[]).map((s) => <SiloCard key={s.silo} s={s} />)}
+          </div>
+          <div className="-mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-micro text-ink-3" aria-label="Change mix legend">
+            <span>change mix:</span>
+            {KINDS.map(([key, label, color]) => (
+              <span key={key} className="flex items-center gap-1"><span className="inline-block size-2.5 rounded-sm" style={{ background: color }} />{label}</span>
+            ))}
           </div>
           <Hub hub={data.hub} />
         </>
@@ -102,7 +108,7 @@ function Hub({ hub }: { hub: Rec }) {
       <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-micro text-ink-2">
         {['A', 'B', 'C'].map((s) => <span key={s} className="flex items-center gap-1"><ArrowDown size={12} aria-hidden />{s}: {hub?.carries}</span>)}
       </div>
-      <div className="flex max-w-full items-center gap-2 rounded-lg border-2 px-4 py-2" style={{ borderColor: 'var(--learn)', background: 'color-mix(in oklab, var(--learn) 10%, var(--s1))' }}>
+      <div className="flex max-w-full items-center gap-2 rounded-lg border-2 px-4 py-2" style={{ borderColor: 'var(--learn)', background: 'color-mix(in oklab, var(--learn) 10%, var(--surface-1))' }}>
         <Lock size={16} aria-hidden style={{ color: 'var(--learn)' }} />
         <div className="min-w-0 text-left">
           <div className="text-body font-medium text-ink-1">Secure aggregation · {hub?.name}</div>
@@ -125,8 +131,11 @@ function MetricsPanel({ data }: { data: Rec }) {
   const run = runs[0]
   const pv: Rec | null = data.preview
   return (
-    <Panel id="twin-fl-metrics" plane="learn" title="Federated vs local-only" subtitle="skill on the one shared test set (lower is better)"
-      actions={run ? <ProvenanceChip p={data.runs_provenance} /> : <NoteChip label="NOT RUN YET" title="No t2.fl result record exists yet" />}>
+    <Panel id="twin-fl-metrics" plane="learn" title="Federated vs local" subtitle="skill on the shared test (lower is better)">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        {run ? <ProvenanceChip p={data.runs_provenance} /> : <NoteChip label="NOT RUN YET" title="No t2.fl result record exists yet" />}
+        <span className="text-micro text-ink-3">{run ? 'from t2.fl result records' : 'no Track 2 federated run has written a t2.fl result yet'}</span>
+      </div>
       <table className="w-full table-fixed text-cap" data-state={run ? 'run' : 'not-run'}>
         <thead>
           <tr className="text-left text-micro text-ink-3">

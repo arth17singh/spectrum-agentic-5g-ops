@@ -38,7 +38,7 @@ export default function TwinViewPage() {
   const prov = cases.state === 'ok' && (cases.data.cases ?? []).length > 0 ? cases.data.provenance : null
 
   return (
-    <div className="min-w-0">
+    <div className="min-w-0" data-slice="twinview">
       <PageHeader title={manifest.title} tracks={manifest.tracks} description={manifest.description}
         actions={<>
           <Segmented ariaLabel="Mode" value={mode} onChange={setMode}

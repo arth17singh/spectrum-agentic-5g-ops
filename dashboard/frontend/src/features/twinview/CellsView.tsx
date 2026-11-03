@@ -91,8 +91,12 @@ function CaseDetail({ summary }: { summary: Rec }) {
   return (
     <div className="flex flex-col gap-4">
       <Panel id="twin-schematic" plane="operate" title="Network twin"
-        subtitle={`${c.scenario ?? '?'} · seed ${c.seed ?? '?'}`}
-        actions={<><RungBadge r={c.rung} />{c.provenance && <ProvenanceChip p={c.provenance} />}</>}>
+        subtitle={`${c.scenario ?? '?'} · seed ${c.seed ?? '?'}`}>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <RungBadge r={c.rung} />
+          {c.provenance && <ProvenanceChip p={c.provenance} />}
+          <span className="min-w-0 text-micro text-ink-3">{c.rung?.basis}</span>
+        </div>
         <Timeline windows={ws} index={wi} onPick={setWi} />
         {w && (
           <>
@@ -149,7 +153,7 @@ function CoverageLegend() {
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-micro text-ink-3">
       <span>colour = coverage share (RSRP above −97 dBm):</span>
-      {[['var(--good)', '≥ 95%'], ['var(--warn)', '80–95%'], ['var(--critical)', '< 80%'], ['var(--s3)', 'not recorded']].map(([c, l]) => (
+      {[['var(--good)', '≥ 95%'], ['var(--warn)', '80–95%'], ['var(--critical)', '< 80%'], ['var(--surface-3)', 'not recorded']].map(([c, l]) => (
         <span key={l} className="flex items-center gap-1"><span className="inline-block size-2.5 rounded-sm" style={{ background: c }} />{l}</span>
       ))}
     </span>
@@ -186,7 +190,7 @@ function CellCard({ cell, change, phase }: { cell: Rec; change?: Rec; phase: 'be
   return (
     <div data-cell={cell.cell} data-touched={change ? 'true' : 'false'}
       className={clsx('relative min-w-0 rounded-md border p-2.5', change ? 'border-2' : 'border-line')}
-      style={{ background: col ? `color-mix(in oklab, ${col} 12%, var(--s1))` : 'var(--s2)', borderColor: change ? 'var(--operate)' : undefined }}>
+      style={{ background: col ? `color-mix(in oklab, ${col} 16%, var(--surface-1))` : 'var(--surface-2)', borderColor: change ? 'var(--operate)' : undefined }}>
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
         <span className="mono text-body font-medium text-ink-1">{cell.name}</span>
         <span className="text-micro text-ink-3">cell {cell.cell}</span>

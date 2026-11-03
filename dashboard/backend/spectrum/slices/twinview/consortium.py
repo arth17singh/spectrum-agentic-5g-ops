@@ -55,7 +55,7 @@ def _mix(op: Rec) -> Rec:
     pf, tf = _f(op.get("power_change_fraction")), _f(op.get("tilt_change_fraction"))
     lean = None
     if pf is not None and tf is not None:
-        lean = "mostly power changes" if pf > tf + 0.1 else "mostly tilt changes" if tf > pf + 0.1 else "power and tilt"
+        lean = "mostly power changes" if pf > tf + 0.2 else "mostly tilt changes" if tf > pf + 0.2 else "power and tilt"
     return {"kinds": shares, "power_change_fraction": pf, "tilt_change_fraction": tf, "lean": lean}
 
 
