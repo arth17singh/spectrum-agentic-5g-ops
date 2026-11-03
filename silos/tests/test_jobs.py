@@ -261,3 +261,12 @@ def test_declarations_say_what_they_must():
     assert ("cross" + "trainer") not in text and ("4835" + "98626742") not in text
     for k in ("local_only_A_disjoint", "central_disjoint", "fl_federated_disjoint", "compare_dp_cost_disjoint", "compare_distance_to_central_disjoint"):
         assert t[k]["target"]["op"] in (">=", ">") and t[k]["target"]["metric"] in ("n_items", "mean_score")
+
+
+def test_dp_accounting_service_vs_standard_counts():
+    pytest.importorskip("opacus")
+    from silos import dp_accounting as dp
+
+    e_service = dp.service_epsilon(24000, 256, 1.0, 1, 20)
+    e_standard = dp.standard_epsilon(24000, 256, 1.0, 1, 20)
+    assert 1.5 < e_service < 3.0 < e_standard and dp.delta_for(3000) == pytest.approx(1.11e-7, rel=0.01)

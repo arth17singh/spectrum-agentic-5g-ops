@@ -73,7 +73,10 @@ def build_all() -> dict[str, dict]:
             dd["privacy"] = {"epsilon": 3.0, "delta": "(training-set size)^-2 per silo, fixed by the FL service's framework",
                              "delta_by_silo": {"A": 1 / 24000**2, "B": 1 / 9000**2, "C": 1 / 3000**2},
                              "source": "privacy_budget() override in the model-code class; Opacus per-sample clipping with a Renyi-DP accountant, noise on each silo's update (record-level DP-SGD per silo)",
-                             "planning_value_not_used": "delta = 1e-5 (the service does not take a delta)"}
+                             "planning_value_not_used": "delta = 1e-5 (the service does not take a delta)",
+                             "epsilon_reported_by_the_service": "<fill from the session: the service's own figure; offline estimate for 20 rounds x 1 local epoch, batch 256, noise multiplier 1 / 1 / 2: A 2.2, B 2.8, C 1.5>",
+                             "epsilon_recomputed_counting_every_optimizer_step": "<fill: offline estimate with silos.dp_accounting.standard_epsilon: A 4.4, B 7.2, C 4.3>",
+                             "caveat": "Reading the framework code, its accountant counts local_epochs x rounds sampled steps, while a local epoch over the silo's data is n // 256 optimizer steps. We state the service's epsilon as the declared one and report our recomputation next to it; the offline numbers are estimates from code, not measurements of a run."}
         out[f"fl_{label}_{split}"] = dd
     fake = {"test_set_sha256": TEST_PH}
     for name, kind, xk, yk in (("federated_vs_B", "beats", "fl_federated", "local_B"), ("federated_vs_C", "beats", "fl_federated", "local_C"),
