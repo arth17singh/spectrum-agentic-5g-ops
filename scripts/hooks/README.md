@@ -23,7 +23,7 @@ It prints the rule and the file (and a short blob id, and a line number for text
 | Private key blocks | `-----BEGIN ... PRIVATE KEY-----` |
 | JWTs | `eyJ....eyJ....sig` |
 | `Bearer` tokens | `Bearer ` followed by 20 or more token characters |
-| IPv4 addresses | Except the explicit allow-list `ALLOWED_IPV4` in the script: loopback block, `0.0.0.0`, `255.255.255.0/255`, `10.0.0.x`, the three RFC 5737 documentation ranges, `169.254.169.254`, `10.255.255.255` and `192.168.1.20` (both used in the dashboard's code and tests). One file is waived for this rule (`PATH_WAIVERS`: the GSMA text, where 3GPP clause numbers look like addresses). |
+| IPv4 addresses | Any public address blocks. These never block: loopback 127/8 and `0.0.0.0`; RFC 1918 private ranges 10/8, 172.16/12 and 192.168/16; the RFC 5737 documentation ranges (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24); `255.255.255.0/255` and `169.254.169.254` (`ALLOWED_IPV4_NETWORKS`). The kit's real host address, when it is among the kit values, still blocks by value in the kit-secret check, whatever range it is in. One file is waived for this rule (`PATH_WAIVERS`: the GSMA text, where 3GPP clause numbers look like addresses). |
 | The FL service's product name | Case-insensitive, anywhere in a pushed file or commit message. The scanner holds the name in two halves, so its own source does not contain it. Say "the FL service" in published files. |
 | `amazoncognito`, `X-Amz-Signature`, `ec2-...amazonaws.com` | Hosted login addresses, presigned-URL signatures, EC2 public names |
 | Organiser and secret files by name | `checkpoint_kit.py`, `*.whl`, `ran-rl-starter*`, `twin-host*`, `hackathon_docs/`, `tokens/`, `kit.json`, `kit-state.json`, `a2a_token*`, `builder_admin_password*`, `.env` and `.env.*` (not `.env.example`), `host.env`, `*.pem`, `.evidence-key` |
@@ -35,7 +35,7 @@ Binary files skip the text-only rules (IPv4, 12-digit number, Bearer, AWS secret
 
 **Decision (user, 2 Nov 2026, about 20:20 PST): the team's own AWS account id may appear in the repo.** The repo is private, the organisers and judges know the account, and an account id is not a credential. So 12-digit numbers are no longer blocking. The scan counts them and lists up to ten, labelled `informational (not blocking)`; a number equal to the team account id (read from the kit's `kit-state.json` at run time, never printed) is labelled `team account id (informational)`. The exit code ignores them. Runs below 1,000,000 (zero-padded dummy ids such as `chg-000000000001`; `ACCOUNT_ID_FLOOR`), documentation example ids and AWS's public Deep Learning Containers registry id (`ALLOWED_ACCOUNT_IDS`) are not reported at all. Every other rule stays blocking; the full kit values (for example the gateway ARN) are still kit secrets.
 
-Every exemption is written in `prepush_scan.py` (`ALLOWED_IPV4`, `ALLOWED_ACCOUNT_IDS`, `PUBLIC_KIT_KEYS`, `PATH_WAIVERS`); add to those lists in a reviewed commit, not on the command line. There is deliberately no inline bypass. If the scan itself fails, the push is blocked (it fails closed).
+Every exemption is written in `prepush_scan.py` (`ALLOWED_IPV4_NETWORKS`, `ALLOWED_ACCOUNT_IDS`, `PUBLIC_KIT_KEYS`, `PATH_WAIVERS`); add to those lists in a reviewed commit, not on the command line. There is deliberately no inline bypass. If the scan itself fails, the push is blocked (it fails closed).
 
 ## Use by hand
 

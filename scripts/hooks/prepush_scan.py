@@ -20,6 +20,7 @@ PREPUSH_REQUIRE_KIT=1 to make a missing kit a failure.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
 import re
@@ -34,20 +35,28 @@ MIN_STATE_VALUE_LEN = 12
 ZERO_SHA = "0" * 40
 
 # --- allow-lists: every exemption is written here, explicitly -------------------------------------------
-# IPv4 values that are obviously not ours: loopback, "any", the broadcast mask, 10.0.0.x test addresses,
-# the three RFC 5737 documentation ranges, and the link-local instance metadata address.
-ALLOWED_IPV4 = [
-    re.compile(r"^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$"),  # the loopback block, 127.0.0.1 included
-    re.compile(r"^0\.0\.0\.0$"),
-    re.compile(r"^255\.255\.255\.(0|255)$"),
-    re.compile(r"^10\.0\.0\.\d{1,3}$"),
-    re.compile(r"^192\.0\.2\.\d{1,3}$"),
-    re.compile(r"^198\.51\.100\.\d{1,3}$"),
-    re.compile(r"^203\.0\.113\.\d{1,3}$"),
-    re.compile(r"^169\.254\.169\.254$"),
-    re.compile(r"^10\.255\.255\.255$"),  # dashboard/backend main.py: the unrouted UDP probe that finds the LAN address
-    re.compile(r"^192\.168\.1\.20$"),  # dashboard/backend tests: the fake phone address
-]
+# IPv4 values that cannot be the twin's or the RSG's public address, and so never block:
+#   loopback 127/8 and 0.0.0.0; RFC 1918 private ranges 10/8, 172.16/12, 192.168/16;
+#   RFC 5737 documentation ranges 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24;
+#   the netmask/broadcast values and the link-local instance metadata address.
+# Any other public IPv4 address blocks. The kit's real host address, if it is among the kit values, blocks by
+# value in the kit-secret check below whatever range it falls in.
+ALLOWED_IPV4_NETWORKS = [ipaddress.ip_network(n) for n in (
+    "127.0.0.0/8", "0.0.0.0/32",
+    "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+    "192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24",
+    "255.255.255.0/32", "255.255.255.255/32", "169.254.169.254/32",
+)]
+
+
+def ipv4_allowed(text: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(text)
+    except ValueError:
+        return False
+    return any(addr in net for net in ALLOWED_IPV4_NETWORKS)
+
+
 # A rule may be waived for one file when the file is known to contain look-alikes. Each entry is (rule, path regex).
 PATH_WAIVERS = [
     # GSMA ot-lite text: 3GPP clause numbers with four dotted parts parse as four octets.
@@ -237,7 +246,7 @@ def scan_content(data: bytes, secrets: dict[bytes, str], path: str = "") -> list
             continue
         for m in rx.finditer(data):
             text = m.group(0)
-            if rule == "IPv4 address" and any(a.match(text.decode()) for a in ALLOWED_IPV4):
+            if rule == "IPv4 address" and ipv4_allowed(text.decode()):
                 continue
             if rule == "12-digit number":
                 if text.decode() in ALLOWED_ACCOUNT_IDS or int(text) < ACCOUNT_ID_FLOOR:

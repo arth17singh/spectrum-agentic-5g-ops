@@ -88,11 +88,35 @@ def test_content_rule_blocks_and_never_prints_the_match(repo, name, content, exp
 
 
 @pytest.mark.parametrize("value", [
-    "127.0.0.1", "0.0.0.0", "10.0.0.5", "10.0.0.200", "192.0.2.1", "198.51.100.9", "203.0.113.4", "255.255.255.255",
+    "127.0.0.1", "127.9.8.7", "0.0.0.0", "255.255.255.255",
+    "192.0.2.1", "198.51.100.9", "203.0.113.4",  # RFC 5737 documentation
+    "10.0.0.5", "10.200.31.7", "172.16.0.1", "172.31.255.254", "192.168.0.9", "192.168.77.3",  # RFC 1918 private
 ])
 def test_allowlisted_ip_values_pass(repo, value):
     commit(repo, {"fixtures/net.json": json.dumps({"ip": value}) + "\n"})
     assert scan(repo, "--refs", "HEAD", "--no-evidence").returncode == 0
+
+
+@pytest.mark.parametrize("parts", [
+    (172, 15, 0, 1), (172, 32, 0, 1), (192, 167, 1, 1), (192, 169, 1, 1), (11, 0, 0, 1), (8, 8, 8, 8), (203, 0, 114, 7), (52, 14, 9, 200),
+])
+def test_public_and_near_miss_ips_block(repo, parts):
+    value = ".".join(map(str, parts))  # built at run time: this file must not hold a public address
+    commit(repo, {"cfg.txt": f"host = {value}\n"})
+    res = scan(repo, "--refs", "HEAD", "--no-evidence")
+    assert res.returncode == 1 and "IPv4 address" in res.stderr and value not in res.stderr + res.stdout
+
+
+def test_kit_host_blocks_by_value_even_inside_a_private_range(repo, tmp_path):
+    kit = make_kit(tmp_path)
+    host = "10.20.30.40." + KIT_SECRET + ".host.example.invalid"  # private IP inside: the IP rule alone would pass it
+    (kit / "kit.json").write_text(json.dumps({"builder_host": host, "name": "team13"}))
+    commit(repo, {"a.txt": "plain private address 10.20.30.40 is fine\n"})
+    assert scan(repo, "--refs", "HEAD", "--no-evidence", kit=kit).returncode == 0
+    commit(repo, {"b.txt": "ssh " + host + "\n"})
+    res = scan(repo, "--refs", "HEAD", "--no-evidence", kit=kit)
+    assert res.returncode == 1 and "kit secret (kit.json:builder_host)" in res.stderr
+    assert host not in res.stderr + res.stdout and KIT_SECRET not in res.stderr + res.stdout
 
 
 def test_version_strings_and_hashes_are_not_ips_or_accounts(repo):
