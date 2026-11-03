@@ -19,6 +19,15 @@ count-weighted mixture CDF = 0.10 by bisection; ``*_bounds`` are the min and max
 Against the exact pooled percentile (``ReplayTwin.exact_kpis()``) over 64 states the mixture had
 SINR p10 max abs error 1.1 dB and RSRP 5.6 dB (tests/test_kpis.py measures the share-weighted
 error too). ``per_cell`` carries the twin's per-cell fields.
+
+Per-cell ``coverage_share`` / ``sla_share`` (for the Twin View): not in the SDK state, which has only
+the network ratios, so ``kpis(state)`` adds them only when the caller passes them in
+(``kpis(state, shares=...)``; ``ReplayTwin.kpis()`` does, from the twin's per-UE arrays). They are
+the share of the cell's served UEs meeting the SDK's own rules, strictly greater: coverage is
+serving RSRP > coverage_rsrp_threshold_dbm (-97 dBm; the SDK's coverage_ratio does NOT also
+require SINR > 0), SLA is SINR > sla_sinr_threshold_db (0 dB). A cell with no UEs gets None.
+Their UE-weighted mean equals the network coverage_ratio / sla_ratio. Hosted adapters give no
+per-UE data, so for them the two keys are absent.
 """
 
 from __future__ import annotations
@@ -77,8 +86,12 @@ def user_share(state: dict[str, Any]) -> np.ndarray:
     return c / c.sum() if c.sum() > 0 else np.full(len(c), 1.0 / len(c))
 
 
-def kpis(state: dict[str, Any]) -> dict[str, Any]:
-    """Headline KPIs of one twin state. See the module docstring for how each is obtained."""
+def kpis(state: dict[str, Any], shares: dict[str, list] | None = None) -> dict[str, Any]:
+    """Headline KPIs of one twin state. See the module docstring for how each is obtained.
+
+    ``shares`` = ``{"coverage_share": [...], "sla_share": [...]}`` per cell (None for empty cells)
+    adds those two keys to every per_cell entry.
+    """
     counts = [int(c) for c in state["ue_count"]]
     n = len(counts)
     w = user_share(state)
@@ -94,6 +107,9 @@ def kpis(state: dict[str, Any]) -> dict[str, Any]:
         for key in _PER_CELL_KEYS:
             if key in state:
                 row[key] = state[key][i]
+        if shares is not None:
+            row["coverage_share"] = shares["coverage_share"][i]
+            row["sla_share"] = shares["sla_share"][i]
         per_cell.append(row)
     return {
         "coverage_ratio": float(state["coverage_ratio"]),

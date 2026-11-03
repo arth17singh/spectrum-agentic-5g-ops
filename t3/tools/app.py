@@ -176,6 +176,76 @@ def check_model_version(args: dict, serving: str, what: str) -> None:
         raise ToolError(f"{what} version {wanted!r} is not being served (serving {serving!r})")
 
 
+CELL_KEYS = ("cell", "power_dbm", "tilt_deg", "ue_count", "coverage_share", "sla_share", "sinr_mean_db",
+             "sinr_p10_db", "rsrp_mean_dbm", "rsrp_p10_dbm", "alarm", "asleep")
+INT_CELL_KEYS = ("cell", "ue_count")
+SHARE_KEYS = ("coverage_share", "sla_share")   # W2 2977a7e, ReplayTwin only
+
+
+def snapshot(step: int, kpis: dict) -> dict:
+    """A TwinSnapshot (W1): {step, coverage_ratio, sla_ratio, per_cell: [CellState]}. Only the
+    contract's cell keys are kept (W2's kpis also carry bounds and method notes)."""
+    cells = []
+    for c in kpis.get("per_cell") or []:
+        # Non-finite twin values (e.g. -inf RSRP of a dark cell) are written as null (W1 cc92085).
+        cell = {k: jsonable(c[k]) for k in CELL_KEYS if k in c}
+        for k in SHARE_KEYS:  # always present: None where the twin cannot tell (hosted adapters, 0 UEs)
+            cell[k] = jsonable(c.get(k))
+        for k in INT_CELL_KEYS:
+            if cell.get(k) is not None:
+                cell[k] = int(cell[k])
+        for k in ("alarm", "asleep"):
+            if cell.get(k) is not None:
+                cell[k] = bool(cell[k])
+        cells.append(cell)
+    h = headline(kpis)
+    return {"step": int(step), "coverage_ratio": h["coverage_ratio"], "sla_ratio": h["sla_ratio"], "per_cell": cells}
+
+
+_DECLARED: dict = {}
+
+
+def declared(model: str, field: str) -> bool:
+    """Does W1's contract declare this optional field? Its models forbid unknown keys, so a field
+    still on its way (twin_state, twin.preset) is written only once declared. Without
+    team13_contracts nothing can validate, so the full shape is written."""
+    key = (model, field)
+    if key not in _DECLARED:
+        try:
+            from team13_contracts import records
+            _DECLARED[key] = field in getattr(records, model).model_fields
+        except ImportError:
+            _DECLARED[key] = True
+        except Exception:  # noqa: BLE001
+            _DECLARED[key] = False
+    return _DECLARED[key]
+
+
+AWS_TIME_SOURCE = "lambda:clock"   # W1 cc92085: what a Lambda stamping its own clock writes
+
+
+def lambda_clock(env: dict) -> Callable[[], tuple[str | None, str | None]]:
+    """aws_time from the Lambda's own clock (inside AWS Lambda only; local runs stay null)."""
+    fn = env.get("AWS_LAMBDA_FUNCTION_NAME")
+
+    def clock():
+        if not fn:
+            return None, None
+        return now_iso(), AWS_TIME_SOURCE
+    return clock
+
+
+def utc_from_epoch(value: Any) -> str | None:
+    """Epoch seconds (the kit's decided_at) -> ISO-8601 UTC ending in Z, as the contract wants."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        ts = dt.datetime.fromtimestamp(float(value), dt.timezone.utc)
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None
+    return ts.isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
 def now_iso() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
@@ -221,6 +291,14 @@ class Deps:
     scales_source: str = "unit"
     synthetic: bool = False
     tool_name_fallback: bool = False
+    # Grounded mode (T3_TRUST_LIVE=1): apply refuses a change it cannot ground, i.e. with no
+    # prediction for the item, a paused response model, a clipped change, or no trust-gate answer.
+    # Lenient mode (0, the default): those changes apply and are recorded unscored or with null trust.
+    strict_grounding: bool = False
+    # When set, a call must carry the Gateway's context marker bedrockAgentCoreGatewayId equal to it.
+    expected_gateway_id: str | None = None
+    # () -> (aws_time, aws_time_source): the Lambda's own clock; (None, None) outside Lambda.
+    aws_clock: Callable[[], tuple] = lambda: (None, None)
     now: Callable[[], str] = now_iso
     twin_cache: dict = dataclasses.field(default_factory=dict)
 
@@ -287,7 +365,10 @@ class Deps:
                       "twin_kind": env.get("T3_TWIN_KIND", "maveric-inprocess")},
             twin_version=version, scales=scales, scales_source=scales_source,
             synthetic=env.get("T3_SYNTHETIC", "0") == "1",
-            tool_name_fallback=env.get("T3_TOOL_NAME_FALLBACK", "0") == "1")
+            tool_name_fallback=env.get("T3_TOOL_NAME_FALLBACK", "0") == "1",
+            strict_grounding=env.get("T3_TRUST_LIVE", "0") == "1",
+            expected_gateway_id=env.get("T3_GATEWAY_ID") or None,
+            aws_clock=lambda_clock(env))
 
 
 # ------------------------------------------------------------------ the tools
@@ -345,29 +426,59 @@ class Tools:
         snapshot, live twin untouched), then applies the change for real to extend the action log.
         Otherwise replays twice: once with an empty change (W2: a no-op step), once with the change.
         """
-        twin, _ = self.replay(case)
+        twin, state = self.replay(case)
+        before = self.state_kpis(twin, state)       # this step, exactly as ran___observe shows it
         cf_fn = getattr(twin, "counterfactual", None)
-        if callable(cf_fn):
-            cf = jsonable(cf_fn(cells))
-            measured = jsonable(self.d.kpis(twin.apply(cells)))
+        cf = jsonable(cf_fn(cells)) if callable(cf_fn) else None   # W2: does not move the live twin
+        if cf is not None and cf.get("after_kpis") and cf.get("baseline_kpis"):
+            # W2 (2977a7e): full kpis() of both futures, per-cell shares included. One replay.
+            after_full, baseline_full = cf["after_kpis"], cf["baseline_kpis"]
+            twin.apply(cells)                                        # the change, applied for real
+        else:
+            baseline_full = jsonable(self.d.kpis(twin.apply([])))   # no-change step
+            twin, _ = self.replay(case)
+            after_full = jsonable(self.d.kpis(twin.apply(cells)))   # the change, applied for real
+        if cf is not None:
             hb, hm = headline(cf["baseline"]), headline(cf["after"])
             d = {k: (None if cf["delta"].get(k) is None else float(cf["delta"][k])) for k in KPI_KEYS}
             clipped, rules, source = bool(cf.get("clamped")), cf.get("rules") or [], "twin.counterfactual"
         else:
-            baseline = jsonable(self.d.kpis(twin.apply([])))
-            twin, _ = self.replay(case)
-            measured = jsonable(self.d.kpis(twin.apply(cells)))
             entry = twin.action_log[-1] if twin.action_log else {}
-            hb, hm = headline(baseline), headline(measured)
+            hb, hm = headline(baseline_full), headline(after_full)
             d = delta(hm, hb)
             clipped, rules, source = bool(entry.get("clamped")), entry.get("rules") or [], "two replays"
         return {"baseline_kpis": hb, "measured_kpis": hm, "measured_delta": d,
-                "measured_per_cell": measured.get("per_cell"), "clipped": clipped, "safety_rules": rules,
-                "counterfactual_source": source, "action_log": jsonable(list(twin.action_log))}
+                "measured_per_cell": after_full.get("per_cell"), "clipped": clipped, "safety_rules": rules,
+                "counterfactual_source": source, "action_log": jsonable(list(twin.action_log)),
+                "before_full": before, "baseline_full": baseline_full, "measured_full": after_full}
+
+    def state_kpis(self, twin: Any, state: Any) -> dict:
+        """KPIs of the twin's current state: W2's ReplayTwin.kpis() (per-cell shares included) when
+        it has it, else twin.kpis(state). Hosted adapters have no per-UE data, so no shares there."""
+        fn = getattr(twin, "kpis", None)
+        if callable(fn):
+            try:
+                return jsonable(fn())
+            except RuntimeError:  # shares rely on ran-rl 1.2.9 internals
+                pass
+        return jsonable(self.d.kpis(state))
+
+    def twin_state(self, cf: dict, step: int) -> dict:
+        """Per-cell twin state for the record: before (this step), after (the change plus one step)
+        and baseline (no change plus one step). 4 cells x 3 snapshots; no address or token."""
+        return {"before": snapshot(step, cf["before_full"]), "after": snapshot(step + 1, cf["measured_full"]),
+                "baseline": snapshot(step + 1, cf["baseline_full"])}
 
     def twin_info(self, case: dict, step: int) -> dict:
         return {"kind": case["twin_kind"], "version": self.d.twin_version, "scenario": case["scenario"],
                 "seed": int(case["seed"]), "step": step}
+
+    def twin_preset(self, case: dict) -> str | None:
+        """The preset the case's twin runs ("official", "viavi-like"): W2's resolved config names it."""
+        cfg = case.get("config")
+        if isinstance(cfg, dict):
+            return cfg.get("preset") or None
+        return cfg if isinstance(cfg, str) and cfg else None
 
     def _remember(self, case: dict, entry: dict) -> None:
         for attempt in range(4):
@@ -383,9 +494,9 @@ class Tools:
     # ---- tools
     def observe(self, args: dict) -> dict:
         case = self.load_case(args)
-        _, state = self.replay(case)
+        twin, state = self.replay(case)
         return {"case_id": case["case_id"], "run_id": case["run_id"],
-                "twin": self.twin_info(case, len(case["action_log"])), "kpis": jsonable(self.d.kpis(state))}
+                "twin": self.twin_info(case, len(case["action_log"])), "kpis": self.state_kpis(twin, state)}
 
     def propose(self, args: dict) -> dict:
         case = self.load_case(args)
@@ -463,13 +574,41 @@ class Tools:
                                                                       ("item_id", "change", "reason")})})
         else:
             status = store.approval_status(key)
-        if status != "APPROVED":
+        if status != "APPROVED":  # the table decides; an `approval` argument is never trusted here
             return self._approval_refusal(key, status)
+        # Who approved: the kit's `approve` stores decided_by (the approver's AWS identity) and
+        # decided_at (epoch s) on the row. Read once, before the gate sees the record.
+        approval = store.approval_item(key) or {}
+        approved_by = approval.get("decided_by") or None
+        approved_at = utc_from_epoch(approval.get("decided_at"))
+        strict = self.d.strict_grounding
+        grounding = "strict" if strict else "lenient"
 
         for attempt in range(4):
             case = self.load_case(args)
             step = len(case["action_log"])
+            prediction, proposal = self._find_prediction(case, item_id, text, strict)
+            if strict:  # every refusal here leaves the approval APPROVED and unused
+                self._require_grounding(prediction, item_id, step)
             cf = self.counterfactual(case, cells)
+            if strict and cf["clipped"]:
+                raise ToolError(f"refused (grounded mode): the safety filter would change this request "
+                                f"({', '.join(cf['safety_rules']) or 'clipped'}), so its effect could not be "
+                                f"compared with the prediction. The approval {key} is unchanged; propose a "
+                                f"smaller change.")
+            record = self._change_record(case, key, item_id, cells, text, step, cf, prediction, proposal)
+            record["approved_by"], record["approved_at"] = approved_by, approved_at  # W1 ChangeRecord (2bf3325)
+            if strict and not record["scored"]:
+                raise ToolError(f"refused (grounded mode): this change cannot be scored "
+                                f"({record['unscored_reason']}). The approval {key} is unchanged.")
+            trust = None
+            if record["scored"]:  # the gate decides before anything is committed
+                trust = self._ask_trust(record, prediction["predictor"]["version"])
+                if strict and (trust.get("note") or trust.get("error") or trust.get("trust_after") is None):
+                    raise ToolError(f"refused (grounded mode): the trust gate did not answer cleanly "
+                                    f"({trust.get('note') or trust.get('error') or 'no trust_after'}). Nothing was "
+                                    f"applied and the approval {key} is unchanged; try again later.")
+                record["trust_before"], record["trust_after"] = trust.get("trust_before"), trust.get("trust_after")
             updated = {**case, "action_log": cf["action_log"]}
             try:
                 applied, seen = store.apply_and_save(key, updated, case.get("version"))
@@ -478,13 +617,62 @@ class Tools:
                     raise
                 continue
             if not applied:
+                if trust is not None:  # the gate scored a change that another call won the race for
+                    audit(record="trust_scored_unapplied", case_id=case["case_id"], approval_id=key, approval=seen)
                 return self._approval_refusal(key, seen)
             break
 
+        result = {"applied": True, "approval_id": key, "case_id": case["case_id"], "run_id": case["run_id"],
+                  "item_id": item_id, "change": text, "step": step, "baseline_kpis": cf["baseline_kpis"],
+                  "measured_kpis": cf["measured_kpis"], "measured_delta": cf["measured_delta"],
+                  # not "error": that key means a refusal to agents and to the handler's ok flag
+                  "predicted_delta": record["predicted_delta"], "prediction_error": record["error"],
+                  "direction_agree": record["direction_agree"], "scored": record["scored"],
+                  "unscored_reason": record["unscored_reason"], "clipped": cf["clipped"],
+                  "safety_rules": cf["safety_rules"], "grounding": grounding, "approved_by": approved_by}
+        if trust is not None:
+            result["trust"] = trust
+        try:
+            result["evidence"] = self.d.writer().put_record(case["run_id"], "change", key, record)
+        except Exception as exc:  # noqa: BLE001 — the change is applied; say the record failed
+            result["evidence_error"] = f"{type(exc).__name__}: {exc}"
+            audit(record="evidence_error", case_id=case["case_id"], run_id=case["run_id"], error=str(exc))
+        audit(record="change_applied", case_id=case["case_id"], run_id=case["run_id"], approval_id=key,
+              change_text=text, item_id=item_id, step=step, scored=record["scored"],
+              unscored_reason=record["unscored_reason"], evidence=result.get("evidence"),
+              trust_after=record["trust_after"], grounding=grounding, approved_by=approved_by,
+              approved_at=approved_at)
+        return result
+
+    def _find_prediction(self, case: dict, item_id: str, text: str, strict: bool) -> tuple[dict | None, dict | None]:
+        """The latest ran___predict output for this change (grounded mode: for this exact item too),
+        and the latest proposal of the same change."""
         preds = [p for p in case.get("predictions") or [] if p.get("change_text") == text]
-        prediction = next((p for p in reversed(preds) if p.get("kind") == "predict" and p.get("item_id") == item_id),
-                          next((p for p in reversed(preds) if p.get("kind") == "predict"), None))
+        same_item = next((p for p in reversed(preds)
+                          if p.get("kind") == "predict" and p.get("item_id") == item_id), None)
+        prediction = same_item if strict else (
+            same_item or next((p for p in reversed(preds) if p.get("kind") == "predict"), None))
         proposal = next((p for p in reversed(preds) if p.get("kind") == "propose"), None)
+        return prediction, proposal
+
+    def _require_grounding(self, prediction: dict | None, item_id: str, step: int) -> None:
+        if prediction is None:
+            raise ToolError(f"refused (grounded mode, T3_TRUST_LIVE=1): there is no ran___predict output for "
+                            f"item {item_id} with this change, so its effect could not be checked. Ask "
+                            f"ran_optimizer to call ran___predict first. If ran___predict is refused, the response "
+                            f"model is paused and no change can be applied until a person resumes it. The approval "
+                            f"is unchanged.")
+        if prediction.get("step") != step:
+            raise ToolError(f"refused (grounded mode): the prediction for item {item_id} was made at step "
+                            f"{prediction.get('step')} but the twin is at step {step}; predict again. "
+                            f"The approval is unchanged.")
+        meta = prediction.get("predictor") or {}
+        if self.d.store.model_paused(str(meta.get("model_id")), str(meta.get("version"))):
+            raise ToolError(f"refused (grounded mode): the response model {meta.get('model_id')}@"
+                            f"{meta.get('version')} is paused, so no prediction can ground this change. "
+                            f"A person must resume it first. The approval is unchanged.")
+
+    def _change_record(self, case, key, item_id, cells, text, step, cf, prediction, proposal) -> dict:
         record = {
             "schema_version": "1", "kind": "change", "run_id": case["run_id"], "team": "team13",
             "created_at": self.d.now(), "aws_time": None, "aws_time_source": None, "synthetic": self.d.synthetic,
@@ -497,6 +685,13 @@ class Tools:
             "error": None, "direction_agree": None, "scored": False, "unscored_reason": None, "probe": False,
             "trust_before": None, "trust_after": None,
         }
+        aws_time, aws_source = self.d.aws_clock()
+        if aws_time:  # inside Lambda: the record carries an AWS-side time and says where it came from
+            record["aws_time"], record["aws_time_source"] = aws_time, aws_source
+        if declared("ChangeTwin", "preset"):
+            record["twin"]["preset"] = self.twin_preset(case)
+        if declared("ChangeRecord", "twin_state"):
+            record["twin_state"] = self.twin_state(cf, step)
         if cf["clipped"]:
             record["unscored_reason"] = "clipped"
         elif prediction is None:
@@ -506,29 +701,7 @@ class Tools:
         else:
             cmp = compare(prediction["predicted_delta"], cf["measured_delta"], self.d.scales)
             record.update(error=cmp["error"], direction_agree=cmp["direction_agree"], scored=True)
-
-        result = {"applied": True, "approval_id": key, "case_id": case["case_id"], "run_id": case["run_id"],
-                  "item_id": item_id, "change": text, "step": step, "baseline_kpis": cf["baseline_kpis"],
-                  "measured_kpis": cf["measured_kpis"], "measured_delta": cf["measured_delta"],
-                  # not "error": that key means a refusal to agents and to the handler's ok flag
-                  "predicted_delta": record["predicted_delta"], "prediction_error": record["error"],
-                  "direction_agree": record["direction_agree"], "scored": record["scored"],
-                  "unscored_reason": record["unscored_reason"], "clipped": cf["clipped"],
-                  "safety_rules": cf["safety_rules"]}
-        if record["scored"]:  # the gate decides before the record is written, so it carries trust
-            result["trust"] = self._ask_trust(record, prediction["predictor"]["version"])
-            record["trust_before"] = result["trust"].get("trust_before")
-            record["trust_after"] = result["trust"].get("trust_after")
-        try:
-            result["evidence"] = self.d.writer().put_record(case["run_id"], "change", key, record)
-        except Exception as exc:  # noqa: BLE001 — the change is applied; say the record failed
-            result["evidence_error"] = f"{type(exc).__name__}: {exc}"
-            audit(record="evidence_error", case_id=case["case_id"], run_id=case["run_id"], error=str(exc))
-        audit(record="change_applied", case_id=case["case_id"], run_id=case["run_id"], approval_id=key,
-              change_text=text, item_id=item_id, step=step, scored=record["scored"],
-              unscored_reason=record["unscored_reason"], evidence=result.get("evidence"),
-              trust_after=record["trust_after"])
-        return result
+        return record
 
     def ask(self, args: dict) -> dict:
         case = self.load_case(args)
@@ -600,6 +773,26 @@ def tool_name(event: dict, context: Any, fallback: bool) -> str | None:
     return None
 
 
+def gateway_marker(context: Any) -> dict:
+    try:
+        custom = context.client_context.custom
+        return custom if isinstance(custom, dict) else {}
+    except AttributeError:
+        return {}
+
+
+def check_gateway(context: Any, expected_gateway_id: str | None) -> None:
+    """Defence in depth against a direct Lambda invoke that skips the checkpoint. The Gateway puts
+    bedrockAgentCoreGatewayId (and the tool name) in the invocation's client context. Anyone allowed
+    to call lambda:InvokeFunction can forge a client context, so this is not proof of origin: IAM
+    (only the Gateway's role may invoke this function) is the real control."""
+    if not expected_gateway_id:
+        return
+    custom = gateway_marker(context)
+    if custom.get("bedrockAgentCoreGatewayId") != expected_gateway_id or not custom.get("bedrockAgentCoreToolName"):
+        raise ToolError("refused: this tool only answers calls that come through the team13 checkpoint")
+
+
 _DEPS: Deps | None = None
 
 
@@ -623,6 +816,7 @@ def handler(event, context):
     name = None
     try:
         deps = get_deps()
+        check_gateway(context, deps.expected_gateway_id)
         name = tool_name(event, context, deps.tool_name_fallback)
         fn = _dispatch_table(Tools(deps)).get(name or "")
         if fn is None:

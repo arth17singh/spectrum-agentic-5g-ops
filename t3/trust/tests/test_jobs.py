@@ -47,15 +47,25 @@ def test_gate_eval_items_and_result_recompute(thresholds):
             assert all(c["synthetic"] is True for c in out["sink"].records["control"])  # dry-run pause
 
 
-def test_ladder_job_items_are_r1_only_and_details_carry_the_shift(thresholds):
-    rungs = [{"name": "maveric", "factory": FakeCFTwin, "scenario": "s", "config": "official", "twin_kind": "maveric-inprocess"},
-             {"name": "rehearsal", "factory": FakeCFTwin, "scenario": "s", "config": "viavi-like", "twin_kind": "maveric-inprocess"}]
-    out = jobs.run_ladder_job(model="healthy", run_id="t3.ladder-test", seeds=[1, 2, 3], rungs=rungs, kpis=fake_kpis,
-                              predictor=FakePredictor("v1"), changes=CHANGES[:5], testset_sha="c" * 64, code_sha=SHA40)
+LADDER_RUNGS = [{"name": "maveric", "factory": FakeCFTwin, "scenario": "s", "config": "official", "twin_kind": "maveric-inprocess"},
+                {"name": "rehearsal", "factory": FakeCFTwin, "scenario": "s", "config": "viavi-like", "twin_kind": "maveric-inprocess"}]
+
+
+def ladder_run(model="healthy"):
+    p = FakePredictor("v1") if model == "healthy" else FakePredictor("v1-bad", -1)
+    return jobs.run_ladder_job(model=model, run_id="t3.ladder-test", seeds=[1, 2, 3], rungs=LADDER_RUNGS, kpis=fake_kpis,
+                               predictor=p, changes=CHANGES[:5], testset_sha="c" * 64, code_sha=SHA40)
+
+
+def test_ladder_job_items_are_one_per_seed_and_details_carry_the_shift(thresholds):
+    out = ladder_run()
     res = out["result"]
     items = out["sink"].records["item"]
-    assert len(items) == 3 and all(i["item_id"].startswith("healthy/R1/") for i in items)
-    assert len(out["sink"].records["ladder_case"]) == 6  # both rungs, every seed
+    assert set(out["sink"].records) == {"item"}  # no extra record kind
+    assert len(items) == 3 and all(i["item_id"].startswith("healthy/seed-") for i in items)
+    for it in items:  # the R1 gain is the score; both rungs' cases ride in extra
+        assert set(it["extra"]["rungs"]) == {"maveric", "rehearsal"}
+        assert it["score"] == it["extra"]["rungs"]["maveric"]["gain"]
     assert res["unit"] == "t3.ladder" and res["metric"] == "mean_score" and res["target"]["op"] == ">"
     assert res["value"] == pytest.approx(evlib.summarize_items(items, "mean_score")) and res["passed"] is True
     d = res["details"]
@@ -108,10 +118,57 @@ def test_templates_are_valid_declarations_once_filled():
         rec["declared_at"] = evlib.utc_now()
         evlib.validate(rec)
         assert rec["n_items"] == 20 and len(rec["test_set_sha256"]) == 64, name
+        cfg = rec["twin"]["config"]
+        assert isinstance(cfg, dict) and cfg["preset"] in ("official", "viavi-like") and cfg["command"].startswith("python -m")
+        assert rec["twin"]["kind"] == "maveric-inprocess"
         if name.startswith("gate_eval"):
-            assert rec["references"]["declaration_commit"] == "ed7d3c4" and "used once before" in rec["note"]
+            assert cfg["references"]["declaration_commit"] == "ed7d3c4" and "used once before" in cfg["note"]
+            assert len(cfg["thresholds_sha256"]) == 64
         else:
-            assert rec["measured_not_targeted"] and rec["target"]["metric"] == "mean_score"
+            assert cfg["measured_not_targeted"] and rec["target"]["metric"] == "mean_score"
+        contracts_validate(rec)
+
+
+def _contracts():
+    """team13_contracts from <repo>/contracts (the job image ships it); None if pydantic is missing."""
+    import importlib
+    import sys
+
+    from .conftest import ROOT
+
+    try:
+        import pydantic  # noqa: F401
+    except ImportError:
+        return None
+    p = str(ROOT / "contracts")
+    if p not in sys.path:
+        sys.path.insert(0, p)
+    return importlib.import_module("team13_contracts")
+
+
+def contracts_validate(rec):
+    tc = _contracts()
+    if tc is not None:
+        tc.validate_record(rec)
+
+
+def test_every_job_record_passes_the_contracts(thresholds):
+    """With team13_contracts importable (as in the job image): change, control, item and result records."""
+    tc = _contracts()
+    if tc is None:
+        pytest.skip("pydantic not installed")
+    for out, run_id in ((gate_run("healthy", thresholds), "t3.gate-test"), (gate_run("degraded", thresholds), "t3.gate-test"),
+                        (ladder_run("healthy"), "t3.ladder-test"), (ladder_run("degraded"), "t3.ladder-test")):
+        n = 0
+        for kind, recs in out["sink"].records.items():
+            for r in recs:
+                tc.validate_record(r)
+                evlib.validate(r)
+                n += 1
+        tc.validate_record(evlib._envelope(dict(out["result"]), "result", run_id))
+        assert n > 0
+    kinds = set(gate_run("degraded", thresholds)["sink"].records)
+    assert kinds == {"change", "control", "item"}
 
 
 def test_cli_needs_a_run_id_unless_dry_run(monkeypatch, capsys):
@@ -123,7 +180,7 @@ def test_cli_needs_a_run_id_unless_dry_run(monkeypatch, capsys):
         job_gate_eval.main(["--version", "v1", "--model", "healthy"])
     assert job_gate_eval.main(["--version", "v2", "--model", "degraded", "--print-declaration", "--run-id", "t3.r1"]) == 0
     decl = json.loads(capsys.readouterr().out)
-    assert decl["run_id"] == "t3.r1" and decl["thresholds_version"] == "v2" and decl["target"]["op"] == ">="
+    assert decl["run_id"] == "t3.r1" and decl["twin"]["config"]["thresholds_version"] == "v2" and decl["target"]["op"] == ">="
     monkeypatch.setenv("RUN_ID", "t3.r2")
     assert job_ladder.main(["--model", "degraded", "--print-declaration"]) == 0
     decl = json.loads(capsys.readouterr().out)

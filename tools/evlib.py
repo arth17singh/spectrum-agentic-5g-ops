@@ -112,17 +112,37 @@ def new_run_id(unit: str = "run") -> str:
     return f"{stem}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{secrets.token_hex(2)}"
 
 
+def _pinned_sha() -> str | None:
+    """Inside a SageMaker job started by tools/sm/run.py the code is `git archive <sha>` (no .git), and the
+    launcher pins that sha in TEAM13_CODE_SHA. Used ONLY when there is no git work tree: in a repo, git wins."""
+    v = os.environ.get("TEAM13_CODE_SHA", "").strip()
+    return v if SHA40.match(v) else None
+
+
 def code_sha(repo: str | os.PathLike | None = None) -> str:
-    """The full commit sha of HEAD in the repo that holds this file (or `repo`)."""
+    """The full commit sha of HEAD in the repo that holds this file (or `repo`); in a runner job without
+    a .git, the commit the launcher packaged (TEAM13_CODE_SHA)."""
     cwd = Path(repo) if repo else Path(__file__).resolve().parent
-    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=cwd, check=True, capture_output=True,
-                          text=True).stdout.strip()
+    try:
+        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=cwd, check=True, capture_output=True,
+                              text=True).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pinned = _pinned_sha()
+        if pinned:
+            return pinned
+        raise
 
 
 def code_dirty(repo: str | os.PathLike | None = None) -> bool:
+    """Uncommitted changes to tracked files. A runner job's archive is the commit itself: never dirty."""
     cwd = Path(repo) if repo else Path(__file__).resolve().parent
-    out = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=cwd, check=True,
-                         capture_output=True, text=True).stdout
+    try:
+        out = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=cwd, check=True,
+                             capture_output=True, text=True).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        if _pinned_sha():
+            return False
+        raise
     return bool(out.strip())
 
 

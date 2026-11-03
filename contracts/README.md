@@ -30,6 +30,7 @@ Every reader (`tools/evlib.py`, the dashboard's `RecordsReader`) merges both lay
 
 The envelope is `schema_version, kind, run_id, team, created_at, aws_time, aws_time_source, synthetic`.
 
+- **`aws_time_source`** is written as `<source>:<detail>`. The sources are `lambda`, `sagemaker`, `cloudwatch`, `s3` and `unknown`. A Lambda stamps `aws_time` from its own clock with `lambda:clock`. The field is a free string, so existing records keep validating.
 - **Timestamps** are ISO-8601 UTC with a trailing `Z`, for example `2026-11-02T21:30:00.123Z`. `+00:00` is rejected, so each instant has one spelling. Use `team13_contracts.utc_iso(dt)` to write them.
 - **Numbers** are JSON numbers. Bools, numeric strings, NaN and Infinity are rejected. Ints stay ints.
 - **Identifiers that become paths** (`run_id`, `model_id`, `version`) match `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`, so they contain no slashes and no leading dot.
@@ -48,6 +49,9 @@ The envelope is `schema_version, kind, run_id, team, created_at, aws_time, aws_t
       - `"clipped"` (A5);
       - `"no_prediction"`: applied while `ran___predict` was paused, so no prediction was stored;
     - cells are unique;
+    - two optional fields describe the twin, both additive, so old records still validate:
+      - `twin_state` = `{before, after, baseline?}` snapshots for the Twin View. `before` is the state at `twin.step`, `after` is the state after the change plus one step, and `baseline` is the no-change counterfactual. Each snapshot holds `{step, coverage_ratio, sla_ratio, per_cell[1..64]}`, and its cells are unique. In `per_cell`, shares are in [0, 1] and `alarm`/`asleep` are bools, as in `ran_rl`. Write non-finite twin values, such as the -inf RSRP of a dark cell, as `null`;
+      - `twin.preset` (for example `"official"` or `"viavi-like"`) tells the R1 records from the R2 records;
   - in `result`:
     - `metric == target.metric`;
     - `passed == (value <op> target.value)`;

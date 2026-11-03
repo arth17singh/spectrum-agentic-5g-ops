@@ -49,6 +49,10 @@ W7d dashboard/backend/spectrum/slices/scorecard/**
 W7d dashboard/backend/tests/slices/scorecard/**
 W7d dashboard/frontend/src/features/scorecard/**
 
+W7e dashboard/backend/spectrum/slices/twinview/**
+W7e dashboard/backend/tests/slices/twinview/**
+W7e dashboard/frontend/src/features/twinview/**
+
 W8 t3/agents/**
 
 W9 t2/**

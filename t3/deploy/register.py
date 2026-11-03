@@ -119,7 +119,7 @@ def _items(response) -> list:
 
 def function_specs(*, team: str, region: str, account: str, image_uri: str, arch: str, bucket: str,
                    gateway_arn: str, engine_id: str, standin: str, nlm_endpoint: str, predictor_path: str,
-                   policy_path: str, trust_live: bool) -> list[dict]:
+                   policy_path: str, trust_live: bool, gateway_id: str = "") -> list[dict]:
     """create_function arguments for our two Lambdas (roles come from iam_cloudshell.sh)."""
     def role(name):
         return f"arn:aws:iam::{account}:role/bb26/{name}"
@@ -130,6 +130,10 @@ def function_specs(*, team: str, region: str, account: str, image_uri: str, arch
                  "T3_TRUST_FUNCTION": f"{team}-trust-gate", "T3_TRUST_TIMEOUT_S": TRUST_TIMEOUT_S,
                  "T1_POLICY_PATH": policy_path, "T2_PREDICTOR_PATH": predictor_path,
                  "NLM_STANDIN_MODEL": standin, "T3_SCENARIO": "nominal", "T3_SEED": "0", "T3_TWIN_CONFIG": "official"}
+    # Grounded mode follows the trust gate: when the gate may pause for real, apply fails closed too.
+    tools_env["T3_TRUST_LIVE"] = "1" if trust_live else "0"
+    if gateway_id and not gateway_id.startswith("<"):  # the Gateway's context marker the tools require
+        tools_env["T3_GATEWAY_ID"] = gateway_id
     if nlm_endpoint:
         tools_env["NLM_ENDPOINT"] = nlm_endpoint
     trust_env = {"T3_TRUST_STORE": f"ddb:{team}-approvals", "T3_TRUST_LIVE": "1" if trust_live else "0",
@@ -332,7 +336,8 @@ def main(argv: list[str] | None = None, client_factory: Callable[[str], Any] | N
     specs = function_specs(team=team, region=region, account=account, image_uri=image_uri, arch=a.arch,
                            bucket=a.evidence_bucket, gateway_arn=gateway_arn, engine_id=engine_id,
                            standin=a.standin_model, nlm_endpoint=a.nlm_endpoint, predictor_path=a.predictor_path,
-                           policy_path=a.policy_path, trust_live=a.trust_live)
+                           policy_path=a.policy_path, trust_live=a.trust_live,
+                           gateway_id=state.get("gateway_id", ""))
     fn_arn = deploy_functions(api, team=team, region=region, account=account, specs=specs, wait=wait, out=out)
     failed = register(api, team=team, fn_arn=fn_arn, gateway_id=state.get("gateway_id", "<gateway_id>"),
                       gateway_arn=gateway_arn, engine_id=engine_id, wait=wait, out=out)

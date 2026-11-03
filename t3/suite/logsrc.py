@@ -114,6 +114,8 @@ Q_CHECKPOINT = ("fields @timestamp, @message, @log, @logStream, @ptr | filter @m
                 "change_applied|approval|model_control|tool_error/ | sort @timestamp asc | limit 10000")
 Q_SPANS = ("fields @timestamp, @message, @log, @logStream, @ptr | filter @message like /authorization_decision/ "
            "| sort @timestamp asc | limit 10000")
+Q_TOOLS = ("fields @timestamp, @message, @log, @logStream, @ptr, @requestId | filter @message like "
+           "/change_applied|ran_tool/ | sort @timestamp asc | limit 10000")
 
 
 def q_case(case_id: str) -> str:

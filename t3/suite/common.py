@@ -68,7 +68,7 @@ def epoch(value) -> float:
 
 
 def code_sha(repo: str | Path | None = None) -> str:
-    """The commit the code runs from: T3_CODE_SHA (set in Lambda), else git HEAD (+'-dirty')."""
+    """The commit the code runs from: T3_CODE_SHA (set in Lambda), else git HEAD (bare hex)."""
     if os.environ.get("T3_CODE_SHA"):
         return os.environ["T3_CODE_SHA"]
     root = Path(repo or Path(__file__).resolve().parents[2])
@@ -77,7 +77,11 @@ def code_sha(repo: str | Path | None = None) -> str:
                              check=True).stdout.strip()
         dirty = subprocess.run(["git", "-C", str(root), "status", "--porcelain", "--", "t3"],
                                capture_output=True, text=True).stdout.strip()
-        return sha + ("-dirty" if dirty else "")
+        if dirty:  # the contracts want a bare hex sha: warn instead of a suffix; commit before a live run
+            import sys
+            print(f"WARNING: uncommitted changes under t3/; code_sha {sha[:12]} does not describe them",
+                  file=sys.stderr)
+        return sha
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
 

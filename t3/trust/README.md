@@ -115,12 +115,12 @@ Every headline number becomes one evidence run that `tools/check_unit.py` can re
 | v2 false groundings | `t3.trust.job_gate_eval --version v2 --model healthy` | 20 | `fail_count <= 2` |
 | degraded caught (v1) | `t3.trust.job_gate_eval --version v1 --model degraded` | 20 | `pass_count >= 19` (paused by change 6) |
 | degraded caught (v2) | `t3.trust.job_gate_eval --version v2 --model degraded` | 20 | `pass_count >= 19` |
-| ladder, healthy | `t3.trust.job_ladder --model healthy` | 20 R1 cases (seeds 3000–3019) | `mean_score > 0`, with the CI lower bound > 0 in `details.declared_ci_condition` |
-| ladder, degraded | `t3.trust.job_ladder --model degraded` | 20 R1 cases | `mean_score < 0` |
+| ladder, healthy | `t3.trust.job_ladder --model healthy` | 20 seeds (3000–3019), score = R1 gain | `mean_score > 0`, with the CI lower bound > 0 in `details.declared_ci_condition` |
+| ladder, degraded | `t3.trust.job_ladder --model degraded` | 20 seeds, score = R1 gain | `mean_score < 0` |
 
 How to read these runs:
 - **Not fresh seeds.** The gate runs re-measure the one-shot evaluation declared in ed7d3c4. Seeds 2000–2019 were used once before, on the laptop (dd15c54), and every declaration and result says so. Likewise the ladder re-measures f4a75a2.
-- **Ladder measurements.** R2 (Rehearsal) and the 0.24× settings shift are measurements, not targets. They are written as `ladder_case` records and in the result's `details.settings_shift`, and retention stays null.
+- **Ladder measurements.** R2 (Rehearsal) and the 0.24× settings shift are measurements, not targets. The R2 case for each seed sits in that seed's item `extra`, the shift is in the result's `details.settings_shift`, and retention stays null.
 - **Pauses are simulated.** Pauses use the dry-run policy client, so control records are `synthetic: true`; all other records are `synthetic: false`.
 - **Storage.** On S3, records are written one object per record, so each gets an AWS time.
 - **Test sets.** `testsets/*.json` are the declared specs; each declaration's `test_set_sha256` is the sha256 of one of these files.
