@@ -67,6 +67,7 @@ def main(argv=None) -> int:
     ap.add_argument("--split", choices=list(sr.SPLITS), default="disjoint")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--print-declaration", action="store_true")
+    ap.add_argument("--declare-only", action="store_true", help="write the declaration via evlib and exit (the runner does this BEFORE launching the job)")
     ap.add_argument("--declare-first", action="store_true")
     a = ap.parse_args(argv)
     run_id = evio.env_run_id() or ("dryrun-t2-compare-" + a.name if (a.dry_run or a.print_declaration) else None)
@@ -83,6 +84,10 @@ def main(argv=None) -> int:
     declared = declaration_for(a.kind, a.name, a.split, run_id, code_sha, xd, yd, len(ids), a.x, a.y)
     if a.print_declaration:
         evio.print_json(declared)
+        return 0
+    if a.declare_only:
+        evio.get_evlib().write_declared(declared)
+        print(f"declared {declared['run_id']} ({declared['unit']})")
         return 0
     if a.declare_first and not a.dry_run:
         evio.declare_first(declared)

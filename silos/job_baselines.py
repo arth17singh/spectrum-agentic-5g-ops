@@ -92,6 +92,7 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--print-declaration", action="store_true")
+    ap.add_argument("--declare-only", action="store_true", help="write the declaration via evlib and exit (the runner does this BEFORE launching the job)")
     ap.add_argument("--declare-first", action="store_true")
     a = ap.parse_args(argv)
     if (a.method == "local") != bool(a.silo):
@@ -105,6 +106,10 @@ def main(argv=None) -> int:
     declared = declaration_for(a.method, a.silo, a.split, run_id, code_sha, manifest, epochs, a.seed)
     if a.print_declaration:
         evio.print_json(declared)
+        return 0
+    if a.declare_only:
+        evio.get_evlib().write_declared(declared)
+        print(f"declared {declared['run_id']} ({declared['unit']})")
         return 0
     if a.declare_first and not a.dry_run:
         evio.declare_first(declared)

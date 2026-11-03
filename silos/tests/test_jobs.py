@@ -270,3 +270,12 @@ def test_dp_accounting_service_vs_standard_counts():
     e_service = dp.service_epsilon(24000, 256, 1.0, 1, 20)
     e_standard = dp.standard_epsilon(24000, 256, 1.0, 1, 20)
     assert 1.5 < e_service < 3.0 < e_standard and dp.delta_for(3000) == pytest.approx(1.11e-7, rel=0.01)
+
+
+def test_declare_only_writes_the_declaration_and_nothing_else(job_env, monkeypatch, capsys):
+    monkeypatch.setenv("RUN_ID", "t2-test-declare-only")
+    assert job_baselines.main(["--method", "central", "--split", "disjoint", "--declare-only"]) == 0
+    ev = evio.get_evlib()
+    d = ev.read_declared("t2-test-declare-only", ev.default_store())
+    assert d["unit"] == "t2.central.disjoint" and d["code_sha"] == CODE_SHA and d["declared_at"]
+    assert ev.read_result("t2-test-declare-only", ev.default_store()) is None and ev.record_kinds("t2-test-declare-only", ev.default_store()) == []

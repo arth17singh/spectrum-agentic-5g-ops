@@ -117,6 +117,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true", help="tiny config; no S3, no evidence writes")
     ap.add_argument("--print-declaration", action="store_true")
+    ap.add_argument("--declare-only", action="store_true", help="write the declaration via evlib and exit (the runner does this BEFORE launching the job)")
     ap.add_argument("--declare-first", action="store_true", help="write the declaration via evlib before running")
     ap.add_argument("--out-dir", default=None)
     ap.add_argument("--workers", type=int, default=None)
@@ -132,6 +133,10 @@ def main(argv=None) -> int:
     declared = declaration_for(cfg, run_id, code_sha)
     if a.print_declaration:
         evio.print_json(declared)
+        return 0
+    if a.declare_only:
+        evio.get_evlib().write_declared(declared)
+        print(f"declared {declared['run_id']} ({declared['unit']})")
         return 0
     if a.declare_first and not a.dry_run:
         evio.declare_first(declared)
