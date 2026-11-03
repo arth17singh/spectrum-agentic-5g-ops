@@ -169,7 +169,8 @@
       "name": "t3 deny: 27 of 27 refused",
       "status": "pending",
       "run_id": null,
-      "waiting_for": "a fresh deny run through the deployed Gateway. The first run t3.deny-20261103T051458Z crashed at item 23 (G-015) and is superseded; its S3 result covers 22 items and is not to be cited"
+      "waiting_for": "the fresh deny run t3.deny-20261103T054914Z (declared; grading under way). The first run t3.deny-20261103T051458Z crashed at item 23 (G-015) and is superseded; its S3 result covers 22 items and is not to be cited",
+      "expected_run_id": "t3.deny-20261103T054914Z"
     },
     {
       "slot": 2,
@@ -269,7 +270,7 @@
       "t1.execution.replay-check-x86-1 (ml.m5.xlarge, against the Mac freeze: 75 of 80)"
     ],
     "superseded runs, not to be used": [
-      "see evidence/superseded.json (includes t3.deny-20261103T051458Z)"
+      "see evidence/superseded.json (the crashed deny run, the T2 compare runs that never ran, the swarm trial before the seed rules, the knowledge parser run, early t3 baselines)"
     ],
     "Track 1 base and tuned runs for the other units": [
       "t1.safety-otel-base-1 (FAIL, 0.097)",
@@ -285,9 +286,6 @@
       "t2.central.disjoint-20261103T041620Z",
       "t2.fedavg_local.disjoint-20261103T041634Z",
       "t2.fl_federated.disjoint-20261103T051311Z (the FL service run; compare runs pending)"
-    ],
-    "swarm trial (3 cases, not the scored run)": [
-      "t3.swarm-trial-20261103T052430Z (0 of 3, FAIL)"
     ]
   },
   "edge_cases": [
