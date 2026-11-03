@@ -26,6 +26,7 @@ Times are Seattle time (PST, UTC−8) with UTC in brackets. Each entry keeps a d
 | [G-016](#g-016) | Declared design | Change records carry the approver's AWS identity (`approved_by`) as audit evidence; the dashboard shows a pseudonym | Track 3 audit: identity is in the evidence store, not on screen | 3 Nov (time TODO) |
 | [G-017](#g-017) | Resolved · deploy script defect | `t3/deploy/register.py` read only the first page of `list_policies`; with 24 rules it tried to create a rule that already existed, exited 1 without a message, and never created the three seed rules | Track 3 checkpoint: the seed rules were missing after the `614fc3b` deploy | 3 Nov (time TODO) |
 | [G-018](#g-018) | Deferred · team decision | Bridge challenge deferred until after the end-to-end pass; no loop code or setup steps, and two different bars | The optional Bridge unit; no Bridge number exists or is claimed yet | 2 Nov 18:00 PST |
+| [G-019](#g-019) | Resolved · runner defect | The runner sent an empty `InputDataConfig` for jobs with no input channels; AWS never saw the request, so 8 declared runs (4 T2 compares, 4 Bedrock CPU runs) never started | The T2 comparisons and the Bedrock baselines until relaunched | 3 Nov (time TODO) |
 
 ### Watching
 
@@ -321,6 +322,22 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - 2 Nov 18:00 PST: watch time passed with no loop code and no confirmed bar.
 - 2 Nov about 22:30 PST: team decision to defer the Bridge, not drop it, until after the end-to-end pass.
 
+<a id="g-019"></a>
+## G-019 · The runner sent an empty InputDataConfig, so eight declared runs never started (fixed)
+
+- **Status:** resolved; the affected runs are listed as not run and were relaunched under new ids.
+- **What happened:** for jobs with no input channels, the runner put an empty `InputDataConfig` into the `CreateTrainingJob` request. The client library (botocore) refused the request before it reached AWS (a `ParamValidationError`), so no job was created. The declaration had already been written to S3 for each of these runs, so eight declarations exist with no job behind them:
+  - four T2 comparisons: `t2.compare.federated_vs_B.disjoint-20261103T054303Z`, `t2.compare.federated_vs_C.disjoint-20261103T054442Z`, `t2.compare.distance_to_central.disjoint-20261103T054624Z`, `t2.compare.federated_vs_localfedavg.disjoint-20261103T054804Z`;
+  - four Bedrock CPU runs: `t1.price_latency-bedrock-gpt-oss-20b-1`, `t1.interface-bedrock-gpt-oss-20b-1`, `t1.price_latency-bedrock-qwen3-32b-1`, `t1.interface-bedrock-qwen3-32b-1` (relaunched as `-2`).
+- **Root cause and fix:** an empty list is not valid for that parameter. The fixes leave the key out when there are no channels: `33c47be` (W12) and `2e8f846` (W11). Offline tests validate the request with botocore's own parameter validation, and every request is now validated before the launch.
+- **Why it is safe to relaunch:** each relaunch takes a new id (`-2` for the Bedrock runs; new ids for the T2 comparisons, to be recorded here when they exist), and the old declarations stay in S3 as "not run" entries in `evidence/superseded.json`.
+- **Limits:** the T2 comparisons (judging slot 9) and the Bedrock baselines (slot 7) waited for the relaunches.
+- **Who we told:** not applicable (our own code).
+
+**Log**
+- 3 Nov (time TODO): launches refused; declarations left without jobs.
+- `33c47be`, `2e8f846`: empty `InputDataConfig` left out; request validation added.
+
 ---
 
 ## Superseded runs (kept in S3 and in history; not used for any claim)
@@ -328,8 +345,12 @@ These become entries if still missing at the time shown (2 Nov, PST).
 | Run | Why it is superseded | Replaced by |
 |---|---|---|
 | `t3.deny-20261103T051458Z` | Crashed at item 23: the Cedar validator rejected the pause-forbid guard form (fixed in `51010f8`, G-015) | `t3.deny-20261103T054914Z` |
-| `t2.compare.federated_vs_B.disjoint-20261103T054303Z`, `t2.compare.federated_vs_C.disjoint-20261103T054442Z`, `t2.compare.distance_to_central.disjoint-20261103T054624Z`, `t2.compare.federated_vs_localfedavg.disjoint-20261103T054804Z` | Declared but never run: the job request was refused on our side before it reached AWS (a `ParamValidationError` from botocore, so no job exists) | the same comparisons relaunched under new ids (TODO) |
+| `t2.compare.federated_vs_B.disjoint-20261103T054303Z`, `t2.compare.federated_vs_C.disjoint-20261103T054442Z`, `t2.compare.distance_to_central.disjoint-20261103T054624Z`, `t2.compare.federated_vs_localfedavg.disjoint-20261103T054804Z` | Declared but never run: the job request was refused on our side before it reached AWS (an empty `InputDataConfig`, a botocore `ParamValidationError`, so no job exists; G-019) | the same comparisons relaunched under new ids (TODO) |
 | `t3.swarm-trial-20261103T052430Z` | A trial run before the seed rules existed (G-017); not a scored run | the scored swarm run (TODO) |
+| `t1.price_latency-bedrock-gpt-oss-20b-1` | Not run: CreateTrainingJob refused before AWS (empty `InputDataConfig`, G-019); the declaration exists, no job | `t1.price_latency-bedrock-gpt-oss-20b-2` |
+| `t1.interface-bedrock-gpt-oss-20b-1` | Not run: CreateTrainingJob refused before AWS (empty `InputDataConfig`, G-019); the declaration exists, no job | `t1.interface-bedrock-gpt-oss-20b-2` |
+| `t1.price_latency-bedrock-qwen3-32b-1` | Not run: CreateTrainingJob refused before AWS (empty `InputDataConfig`, G-019); the declaration exists, no job | `t1.price_latency-bedrock-qwen3-32b-2` |
+| `t1.interface-bedrock-qwen3-32b-1` | Not run: CreateTrainingJob refused before AWS (empty `InputDataConfig`, G-019); the declaration exists, no job | `t1.interface-bedrock-qwen3-32b-2` |
 | `t1.knowledge-otel-base-1` | Harness defect: the JSON-only knowledge parser rejected bare-letter answers (parse_fail 0.90); fixed narrowly in `c4b4b5e` (G-013) | `t1.knowledge-otel-base-2` |
 | `t3.evals.no_action-20261103T023304Z-0cd3` | Failed smoke run on the stand-in twin backend, against the old v2 suite; no result record | `t3.evals.no_action-20261103T032552Z-x86` |
 | `t3.evals.no_action-20261103T024101Z-22ae` | Failed smoke run, same cause; no result record | `t3.evals.no_action-20261103T032552Z-x86` |
