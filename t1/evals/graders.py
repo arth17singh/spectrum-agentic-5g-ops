@@ -49,9 +49,10 @@ def _norm_amount(v: Any) -> float | None | str:
         if s in ("", "null", "none"):
             return None
         try:
-            return float(s)
+            f = float(s)
         except ValueError:
             return "invalid"
+        return f if math.isfinite(f) else "invalid"  # "inf", "nan", "1e999": not an answer, and not JSON
     return "invalid"
 
 

@@ -294,6 +294,18 @@ def breakdown(unit: str, recs: list[dict]) -> dict:
 
 # --------------------------------------------------------------------------- the run
 
+def json_safe(obj: Any) -> Any:
+    """Free-form item details as strict JSON: a non-finite float (inf, nan) becomes the string "inf",
+    "-inf" or "nan", so one odd model answer can never make the evidence writer reject a whole batch."""
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return "nan" if math.isnan(obj) else ("inf" if obj > 0 else "-inf")
+    if isinstance(obj, dict):
+        return {k: json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [json_safe(v) for v in obj]
+    return obj
+
+
 def sha256_text(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
@@ -466,7 +478,7 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
             "extra": {"split": it["split"], "family": it["meta"].get("family"), "config": it["meta"].get("config"),
                       "group": it["meta"].get("group"), "parse_ok": g["parse_ok"], "tokens_in": c.tokens_in,
                       "tokens_out": c.tokens_out, "tokens_estimated": c.tokens_estimated, "error": c.error,
-                      "detail": g["detail"], "call": c.meta},
+                      "detail": json_safe(g["detail"]), "call": json_safe(c.meta)},
         }
         recs.append(rec)
         buf.append(rec)
