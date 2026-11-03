@@ -186,24 +186,50 @@ def test_the_approver_is_recorded(capsys, monkeypatch):
     out = w.call("ran___apply_change", **APPLY)
     assert out["approved_by"].endswith("alex@example.com")
     line = [json.loads(x) for x in capsys.readouterr().out.splitlines() if '"change_applied"' in x][0]
-    assert line["approved_by"].endswith("alex@example.com") and line["approved_at"] == 1793660000
+    assert line["approved_by"].endswith("alex@example.com") and line["approved_at"] == "2026-11-02T22:53:20Z"
 
 
-def test_the_approver_goes_into_the_record_once_the_contract_declares_it(monkeypatch):
-    monkeypatch.setattr(app, "_RECORD_FIELDS", {"approved_by", "approved_at"})
+def test_the_approver_goes_into_the_record():
     w = World()
-    approve(w, APPLY, by="person:alex")
+    approve(w, APPLY, by="person:alex")             # the kit stores decided_by and decided_at (epoch s)
     w.call("ran___apply_change", **APPLY)
     [rec] = w.records()
-    assert rec["approved_by"] == "person:alex" and rec["approved_at"] == 1793660000
+    assert rec["approved_by"] == "person:alex" and rec["approved_at"] == "2026-11-02T22:53:20Z"
 
 
-def test_without_the_contract_field_the_record_stays_contract_valid(monkeypatch):
-    monkeypatch.setattr(app, "_RECORD_FIELDS", set())
-    w = World()
-    approve(w, APPLY)
+def test_records_with_the_approver_validate_against_team13_contracts():
+    """Scored, clipped and unpredicted records, each with approved_by/approved_at, pass W1's model."""
+    contracts = pytest.importorskip("team13_contracts")
+    if "approved_by" not in contracts.ChangeRecord.model_fields:
+        pytest.skip("this team13_contracts predates approved_by (W1 2bf3325)")
+    w = World(run_id="r-approver")
+    w.call("ran___predict", case_id=CASE, item_id="step-0", change=CHANGE)
+    approve(w, APPLY, by="arn:aws:sts::000000000000:assumed-role/Participant/alex@example.com")
     w.call("ran___apply_change", **APPLY)
-    assert "approved_by" not in w.records()[0]
+    big = dict(APPLY, item_id="step-1", change="cell=1;d_power_db=+5.0;d_tilt_deg=+0.0")
+    approve(w, big)
+    w.call("ran___apply_change", **big)
+    recs = w.records()
+    assert [r["unscored_reason"] for r in recs] == [None, "clipped"]
+    for rec in recs:
+        assert rec["approved_at"] == "2026-11-02T22:53:20Z" and rec["approved_by"]
+        contracts.parse_record(rec)
+    with pytest.raises(Exception):
+        contracts.parse_record(dict(recs[0], approved_at=1793660000))   # epoch numbers are not accepted
+
+
+def test_utc_from_epoch():
+    assert app.utc_from_epoch(1793660000) == "2026-11-02T22:53:20Z"
+    assert app.utc_from_epoch("1793660000") == "2026-11-02T22:53:20Z"
+    assert app.utc_from_epoch(None) is None and app.utc_from_epoch("soon") is None and app.utc_from_epoch(True) is None
+
+
+def test_an_unapproved_row_without_decider_records_nulls():
+    w = World()
+    key = w.approved(APPLY)                          # approved without decided_by/decided_at
+    assert w.call("ran___apply_change", **APPLY)["applied"]
+    rec = w.records()[0]
+    assert rec["change_id"] == key and rec["approved_by"] is None and rec["approved_at"] is None
 
 
 # ---------------------------------------------------------------- 4. calls that skip the Gateway

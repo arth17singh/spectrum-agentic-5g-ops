@@ -176,20 +176,15 @@ def check_model_version(args: dict, serving: str, what: str) -> None:
         raise ToolError(f"{what} version {wanted!r} is not being served (serving {serving!r})")
 
 
-_RECORD_FIELDS: set | None = None
-
-
-def record_fields() -> set:
-    """Fields W1's ChangeRecord declares (empty if team13_contracts is not importable). The model
-    forbids unknown keys, so optional extras such as approved_by are written only when declared."""
-    global _RECORD_FIELDS
-    if _RECORD_FIELDS is None:
-        try:
-            from team13_contracts.records import ChangeRecord
-            _RECORD_FIELDS = set(ChangeRecord.model_fields)
-        except Exception:  # noqa: BLE001
-            _RECORD_FIELDS = set()
-    return _RECORD_FIELDS
+def utc_from_epoch(value: Any) -> str | None:
+    """Epoch seconds (the kit's decided_at) -> ISO-8601 UTC ending in Z, as the contract wants."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        ts = dt.datetime.fromtimestamp(float(value), dt.timezone.utc)
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None
+    return ts.isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def now_iso() -> str:
@@ -489,6 +484,11 @@ class Tools:
             status = store.approval_status(key)
         if status != "APPROVED":  # the table decides; an `approval` argument is never trusted here
             return self._approval_refusal(key, status)
+        # Who approved: the kit's `approve` stores decided_by (the approver's AWS identity) and
+        # decided_at (epoch s) on the row. Read once, before the gate sees the record.
+        approval = store.approval_item(key) or {}
+        approved_by = approval.get("decided_by") or None
+        approved_at = utc_from_epoch(approval.get("decided_at"))
         strict = self.d.strict_grounding
         grounding = "strict" if strict else "lenient"
 
@@ -505,6 +505,7 @@ class Tools:
                                 f"compared with the prediction. The approval {key} is unchanged; propose a "
                                 f"smaller change.")
             record = self._change_record(case, key, item_id, cells, text, step, cf, prediction, proposal)
+            record["approved_by"], record["approved_at"] = approved_by, approved_at  # W1 ChangeRecord (2bf3325)
             if strict and not record["scored"]:
                 raise ToolError(f"refused (grounded mode): this change cannot be scored "
                                 f"({record['unscored_reason']}). The approval {key} is unchanged.")
@@ -529,12 +530,6 @@ class Tools:
                 return self._approval_refusal(key, seen)
             break
 
-        approval = store.approval_item(key) or {}
-        approved_by = approval.get("decided_by")
-        approved_at = int(approval["decided_at"]) if approval.get("decided_at") is not None else None
-        if "approved_by" in record_fields():  # only when W1's (strict) ChangeRecord declares it
-            record["approved_by"] = approved_by
-            record["approved_at"] = approved_at
         result = {"applied": True, "approval_id": key, "case_id": case["case_id"], "run_id": case["run_id"],
                   "item_id": item_id, "change": text, "step": step, "baseline_kpis": cf["baseline_kpis"],
                   "measured_kpis": cf["measured_kpis"], "measured_delta": cf["measured_delta"],
