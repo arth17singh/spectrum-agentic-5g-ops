@@ -1,0 +1,10 @@
+{
+  "unit": "t1.curves",
+  "track": "track-1",
+  "target": {"metric": "pass_rate", "op": ">=", "value": 1.0, "unit": "ratio"},
+  "test_set": "t1/curves/sources.json",
+  "n_items": 366,
+  "model_id": "t1-otel-1.7b-lora (SFT run t1.sft.train-20261103T034500Z-9d4f); ppo-cco-reward-v1 (RL run t1.rl.train-20261103T023805Z-a09e); curves only, no model under test",
+  "grader": "t1/curves/job_curves.py:v1 (one item per curve point of three declared series, passed when the value is finite; a series that is missing or has another point count than t1/curves/sources.json declares adds a failing '<series>:incomplete' item. SFT: train_loss 296 steps and dev_loss 4 evaluations from train_metrics.json, sha256-checked against SHA256SUMS. RL: mean_episode_reward 66 PPO rollouts from the training job's CloudWatch METRIC lines. More than 500 points are thinned to 500 real points by uniform stride, first and last kept)",
+  "synthetic": false
+}
