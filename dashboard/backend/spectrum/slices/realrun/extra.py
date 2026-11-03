@@ -72,7 +72,9 @@ def judged(store: Store) -> dict | None:
         st = "missing" if not decl and not res else "declared" if not res else (verdict(store, res, decl) or "inconsistent")
         return {"run_id": rid, "state": st, "why": verdict_why(store, res), "value": num((res or {}).get("value")), "metric": (res or {}).get("metric"),
                 "target": (decl or {}).get("target"), "checked_at": (res or {}).get("checked_at"),
-                "superseded": sup.get(rid), "check": (store.check(rid) or {}).get("exit_code")}
+                "superseded": sup.get(rid), "check": (store.check(rid) or {}).get("exit_code"),
+                "check_parts": {k: v.get("state") for k, v in ((((store.check(rid) or {}).get("summary") or {}).get("parts")) or {}).items()
+                                if isinstance(v, dict)}}
 
     def slot(s: dict) -> dict:
         ids = [x for x in ([s.get("run_id")] + list(s.get("run_ids") or [])) if isinstance(x, str)]

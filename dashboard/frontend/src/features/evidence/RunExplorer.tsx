@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom'
 import { get } from '@/core/api'
 import type { Rec } from '@/core/types'
 import { CodeBlock, Panel } from '@/ui'
+import { checkWords } from './checkWords'
 import { VerifyLive } from './VerifyLive'
 import { JobLine, Superseded, Verdict, type Job, type Overview } from '../scorecard/RealRuns'
 import { num, targetText, utc } from '../scorecard/format'
@@ -127,7 +128,7 @@ function Chain({ id }: { id: string }) {
         <Step n={5} title="Verify: check_unit parts a–e" ok={cu ? cu.exit_code === 0 : null}>
           <div className="mb-2"><VerifyLive runId={id} /></div>
           {cu ? <>
-            <div>exit {cu.exit_code}: {cu.verdict} · cached by the sync {utc(cu.checked_at)} ({cu.elapsed_s} s, read-only AWS)</div>
+            <div>checked by check_unit at {utc(cu.checked_at)}: {checkWords(cu.exit_code, cu.parts)} · cached by the sync ({cu.elapsed_s} s, read-only AWS)</div>
             <ul className="space-y-1" data-testid="check-parts">
               {(cu.parts ?? []).map((p: Rec) => {
                 const s = PART[p.state] ?? PART.SKIP
