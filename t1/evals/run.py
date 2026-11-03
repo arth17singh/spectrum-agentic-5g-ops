@@ -223,7 +223,8 @@ def build_client(a: argparse.Namespace):
     if a.client == "bedrock":
         if not a.model_id:
             raise SystemExit("--model-id is required for bedrock")
-        return BedrockClient(a.model_id, a.region, temperature=a.temperature)
+        return BedrockClient(a.model_id, a.region, temperature=a.temperature,
+                             additional_fields=json.loads(a.bedrock_extra) if a.bedrock_extra else None)
     if not (a.endpoint and a.model_id):
         raise SystemExit("--endpoint and --model-id are required for sagemaker")
     return SageMakerClient(a.endpoint, a.region, a.model_id, schema=a.sm_schema, temperature=a.temperature,
@@ -283,6 +284,9 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
     if a.client == "local-hf" and a.instance_price_per_hour is None:
         raise SystemExit("local-hf needs --instance-price-per-hour (on-demand $/h of the job's instance) "
                          "and --price-source")
+    if a.client == "bedrock" and (a.price_in_per_1m is None or a.price_out_per_1m is None or not a.price_source):
+        raise SystemExit("bedrock needs --price-in-per-1m, --price-out-per-1m and --price-source "
+                         "(python -m t1.evals.bedrock_prices --model-id <id> prints them from the AWS Price List)")
     sha = resolve_code_sha(a.code_sha)
     client = client or build_client(a)
     if client.model_id != fields["model_id"]:
@@ -356,6 +360,10 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
         recs.append(rec)
         buf.append(rec)
         outs.append({"item_id": it["item_id"], "output_sha256": rec["output_sha256"], "output": c.text})
+        if len(recs) == FAIL_FAST_CALLS and all(r["extra"]["error"] for r in recs):
+            flush()  # the failed calls stay on record; no result is written
+            raise SystemExit(f"the first {FAIL_FAST_CALLS} calls all failed ({recs[-1]['extra']['error']}); "
+                             "stopping instead of recording a run of errors")
         if len(buf) >= 25:
             flush()
     flush()
@@ -399,6 +407,9 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
     }
     ev.write_result(result)
     return result
+
+
+FAIL_FAST_CALLS = 3
 
 
 def resolve_code_sha(given: str | None) -> str:
@@ -486,6 +497,8 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--extra-body", help='JSON merged into the SageMaker payload, e.g. '
                                          '\'{"chat_template_kwargs": {"enable_thinking": false}}\'')
     ap.add_argument("--region", default="us-east-2")
+    ap.add_argument("--bedrock-extra", help="bedrock: JSON for additionalModelRequestFields, replacing the per-model "
+                                            "preset in bedrock_prices.DECODING (recorded in decoding)")
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--max-tokens", type=int)
     ap.add_argument("--price-in-per-1m", type=float)
