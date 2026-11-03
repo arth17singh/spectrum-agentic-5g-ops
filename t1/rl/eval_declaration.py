@@ -90,7 +90,7 @@ def unquote(v: Any) -> Any:
 CKPT_STEPS_RE = re.compile(r"_(\d+)_steps\.zip$")
 
 
-def build(aws, sp: dict, bucket: str = smspec.BUCKET, checkpoint_uri: str | None = None,
+def build(aws, sp: dict, bucket: str, checkpoint_uri: str | None = None,
           model_id: str | None = None) -> tuple[dict, dict]:
     """(declaration template for run.py --declaration, facts for the command lines)."""
     region = getattr(aws, "region", None) or smspec.REGION
@@ -263,7 +263,7 @@ def main(argv: list[str] | None = None, aws=None, out=print) -> int:
     ap.add_argument("--token-secret-arn")
     ap.add_argument("--profile", default=os.environ.get("AWS_PROFILE"))
     ap.add_argument("--region", default=smspec.REGION)
-    ap.add_argument("--bucket", default=smspec.BUCKET)
+    ap.add_argument("--bucket", help="data bucket (default: $TEAM13_DATA_BUCKET, else from the STS account)")
     ap.add_argument("--spec", default=str(SPEC_PATH))
     ap.add_argument("--model-id", help="model under test (default: the training declaration's model_id)")
     ap.add_argument("--checkpoint-uri", help="evaluate this SDK checkpoint .zip (s3://.../<algo>_<steps>_steps.zip "
@@ -282,6 +282,8 @@ def main(argv: list[str] | None = None, aws=None, out=print) -> int:
         from tools.sm.run import Aws  # noqa: PLC0415
 
         aws = Aws(a.profile, a.region)
+    a.bucket = a.bucket or smspec.data_bucket(
+        None if os.environ.get(smspec.BUCKET_ENV) else aws.client("sts").get_caller_identity()["Account"])
     try:
         if a.model_id and not evlib.NAME_RE.match(a.model_id):
             raise Refusal(f"--model-id {a.model_id!r} must match {evlib.NAME_RE.pattern}")
