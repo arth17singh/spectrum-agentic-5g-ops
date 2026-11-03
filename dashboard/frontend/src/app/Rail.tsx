@@ -14,7 +14,8 @@ export function Rail() {
   const pending = useLive((s) => (s.oversight.items ?? []).filter((i: any) => i.status === 'pending').length)
   const incident = useLive((s) => s.swarm.incident && s.swarm.incident.status !== 'resolved')
   const items = features.filter((f) => !f.bare && isOn(f.id, flags)).sort((a, b) => a.nav.order - b.nav.order)
-  const badge: Record<string, number | boolean> = { '/oversight': pending, '/swarm': !!incident }
+  // /swarm shows only real records, so a simulated incident never badges it (the simulated twin lives on '/')
+  const badge: Record<string, number | boolean> = { '/oversight': pending, '/': !!incident }
   return (
     <nav
       aria-label="Screens"
@@ -39,7 +40,7 @@ export function Rail() {
               {expanded && f.nav.hotkey && <span className="ml-auto text-micro text-ink-3">g {f.nav.hotkey}</span>}
               {badge[f.route] ? (
                 <span className={clsx('absolute size-2 rounded-full', expanded ? 'right-2' : 'top-2 right-2')}
-                  style={{ background: f.route === '/swarm' ? 'var(--critical)' : 'var(--warn)' }} />
+                  style={{ background: f.route === '/' ? 'var(--critical)' : 'var(--warn)' }} />
               ) : null}
             </>
           )}
