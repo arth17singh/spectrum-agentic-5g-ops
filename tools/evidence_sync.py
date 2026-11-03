@@ -69,6 +69,9 @@ def _bucket_from_sts(profile, region: str) -> str:
 DEFAULT_S3 = _default_s3()
 DEFAULT_DEST = os.environ.get("SPECTRUM_EVIDENCE_DIR") or str(REPO / "dashboard" / ".evidence")
 SKIP_TOP = {"logs"}
+# Only the evidence layout is mirrored. Anything else under the prefix (e.g. endpoint data capture, whose
+# SSE-KMS ETags are not MD5s and whose payloads are not evidence) is listed in the report and skipped.
+LAYOUT_TOP = {"declared", "records", "results", "outputs", "models"}
 RESERVED = {"ledger.jsonl", "anchors.jsonl", "public_keys.json", "README.md"}
 RECORD_OBJ = re.compile(r"^records/[^/]+/[^/]+/([0-9a-f]{24})\.json$")
 ATTEST_MARK = "team13-evidence"
@@ -106,6 +109,7 @@ class Sync:
         self.s3 = sess.client("s3", config=cfg)
         self.sess = sess
         self.problems: list[str] = []
+        self.skipped_tops: set[str] = set()
 
     # ------------------------------------------------------------------ 1-2 mirror
 
@@ -120,7 +124,10 @@ class Sync:
         for page in self.s3.get_paginator("list_objects_v2").paginate(Bucket=self.bucket, Prefix=self.prefix):
             for o in page.get("Contents", []):
                 rel = o["Key"][len(self.prefix):]
-                if not safe_rel(rel) or rel.split("/")[0] in SKIP_TOP or rel in RESERVED or rel.endswith("/"):
+                top = rel.split("/")[0]
+                if "/" in rel and top not in LAYOUT_TOP and top not in SKIP_TOP:
+                    self.skipped_tops.add(top)
+                if not safe_rel(rel) or top in SKIP_TOP or ("/" in rel and top not in LAYOUT_TOP) or rel in RESERVED or rel.endswith("/"):
                     continue
                 out.append({"rel": rel, "etag": o["ETag"].strip('"'), "size": o["Size"],
                             "last_modified": lm_iso(o["LastModified"]), "ts": o["LastModified"].timestamp()})
@@ -160,7 +167,8 @@ class Sync:
                     and p.stat().st_size == o["size"]:
                 continue
             todo.append(o)
-        say(f"S3 lists {len(keys)} evidence objects (logs/ skipped); {len(todo)} new or changed")
+        say(f"S3 lists {len(keys)} evidence objects (logs/ skipped); {len(todo)} new or changed"
+            + (f"; not evidence layout, skipped: {', '.join(sorted(self.skipped_tops))}/" if self.skipped_tops else ""))
         new = dict(old)
         failed = 0
         with ThreadPoolExecutor(self.a.workers) as ex:
