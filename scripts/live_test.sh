@@ -21,6 +21,7 @@
 #   LIVE_TEST_BUDGET_S    total seconds allowed (default 150; --budget overrides it for one run)
 # Exit code: that of check_unit.py (0 all four parts hold, 1 a part failed, 2 could not check); 3 bad usage.
 set -u
+set +m  # no job-control chatter ("Terminated: 15") when a limited command is stopped
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
@@ -69,7 +70,7 @@ run_limited() {
   "$@" > "$LOG" 2>&1 &
   local pid=$! waited=0
   while kill -0 "$pid" 2> /dev/null; do
-    if [ "$waited" -ge "$limit" ]; then kill "$pid" 2> /dev/null; sleep 1; kill -9 "$pid" 2> /dev/null; wait "$pid" 2> /dev/null; return 124; fi
+    if [ "$waited" -ge "$limit" ]; then kill "$pid" 2> /dev/null; sleep 1; kill -9 "$pid" 2> /dev/null; { wait "$pid"; } 2> /dev/null; return 124; fi
     sleep 1; waited=$((waited + 1))
   done
   wait "$pid"
@@ -170,12 +171,12 @@ LEFT=$(( BUDGET - $(elapsed) - 5 ))
 [ "$ITEM" != "" ] && LEFT=$(( LEFT * 2 / 3 ))
 [ "$LEFT" -lt 1 ] && LEFT=1
 T2=$(date +%s)
-run_limited "$LEFT" "$PY" "$REPO/tools/check_unit.py" "$RUN_ID" --s3 "$EVIDENCE_S3"
+run_limited "$LEFT" "$PY" "$REPO/tools/check_unit.py" "$RUN_ID" --s3 "$EVIDENCE_S3" 2> /dev/null
 RC=$?
 TOOK=$(( $(date +%s) - T2 ))
 if [ "$RC" -eq 124 ]; then
   echo "check_unit took ${TOOK}s (over the ${LEFT}s it was given out of the ${BUDGET}s budget) and was stopped. Partial output: $LOG"
-  echo "This run has many records: re-run with a larger budget, e.g.  scripts/live_test.sh $RUN_ID --budget 600"
+  echo "If this run has many records (check_unit reads each one), re-run with a larger budget, e.g.  scripts/live_test.sh $RUN_ID --budget 600"
   RC=2; STOPPED=1
 else
   grep -E '^\[[a-e]\]|^RESULT' "$LOG"
@@ -186,7 +187,7 @@ fi
 if [ -n "$ITEM" ]; then
   rule "3. show_record.py: the item's record and the matching AWS log events"
   LEFT=$(( BUDGET - $(elapsed) - 3 ))
-  run_limited "$LEFT" "$PY" "$REPO/tools/show_record.py" --run-id "$RUN_ID" --item "$ITEM" --s3 "$EVIDENCE_S3"
+  run_limited "$LEFT" "$PY" "$REPO/tools/show_record.py" --run-id "$RUN_ID" --item "$ITEM" --s3 "$EVIDENCE_S3" 2> /dev/null
   SR=$?
   if [ "$SR" -eq 124 ]; then echo "show_record took over ${LEFT}s (over the ${BUDGET}s budget) and was stopped"; else cut -c1-220 "$LOG" | head -60; fi
 fi
