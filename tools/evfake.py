@@ -27,7 +27,7 @@ from pathlib import Path
 
 READ_ONLY_OPS = {"GetObject", "ListObjectsV2", "HeadObject", "StartQuery", "GetQueryResults", "GetItem",
                  "DescribeTrainingJob", "DescribeProcessingJob", "DescribeEndpoint", "FilterLogEvents",
-                 "DescribeLogGroups", "ListTrainingJobs", "GetCallerIdentity"}
+                 "DescribeLogGroups", "ListTrainingJobs", "GetCallerIdentity", "GetRole"}
 
 
 class FakeClientError(Exception):
@@ -324,6 +324,21 @@ class FakeSageMaker:
         return _P()
 
 
+class FakeIAM:
+    """GetRole only (the runner checks the execution role exists before it declares)."""
+
+    def __init__(self, aws: "FakeAws"):
+        self.aws = aws
+
+    def get_role(self, RoleName, **_):
+        self.aws.calls.append(("iam", "GetRole", "global"))
+        if RoleName not in self.aws.roles:
+            raise FakeClientError("NoSuchEntity", f"The role with name {RoleName} cannot be found.", "GetRole", 404)
+        path = self.aws.roles[RoleName]
+        return {"Role": {"RoleName": RoleName, "Path": path,
+                         "Arn": f"arn:aws:iam::000000000000:role{path}{RoleName}"}}
+
+
 class FakeSTS:
     def __init__(self, aws: "FakeAws"):
         self.aws = aws
@@ -375,6 +390,7 @@ class FakeAws:
         self.streams: set = set()
         self.retention: dict = {}
         self.created: list[dict] = []  # CreateTrainingJob requests, as sent
+        self.roles: dict[str, str] = {"bb26-SageMakerExecution": "/"}  # role name -> path (IAM GetRole)
 
     def now(self) -> datetime:
         return self._now or datetime.now(timezone.utc)
@@ -403,8 +419,9 @@ class FakeAws:
         region = region or "us-east-2"
         key = (service, region)
         if key not in self._clients:
-            cls = {"logs": FakeLogs, "sagemaker": FakeSageMaker, "dynamodb": FakeDynamoDB, "sts": FakeSTS}[service]
-            self._clients[key] = cls(self) if cls is FakeSTS else cls(self, region)
+            cls = {"logs": FakeLogs, "sagemaker": FakeSageMaker, "dynamodb": FakeDynamoDB, "sts": FakeSTS,
+                   "iam": FakeIAM}[service]
+            self._clients[key] = cls(self) if cls in (FakeSTS, FakeIAM) else cls(self, region)
         return self._clients[key]
 
     def ops(self) -> set[str]:
