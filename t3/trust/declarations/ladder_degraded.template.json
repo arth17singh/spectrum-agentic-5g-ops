@@ -9,7 +9,7 @@
   "unit": "objective gain on MAVERIC (R1)"
  },
  "n_items": 20,
- "test_set_sha256": "33d582a6a6c44e6075f1a36a74ed6fb89e27bb8bfedbacddf0b1e3c07692063c",
+ "test_set_sha256": "53aabc0633220eb8e4f022424ff1337e96a1400cf80f002c105277cc8c4a06d1",
  "model_id": "t2-response-v0-degraded-tilt-reversed@v0",
  "grader": "t3.trust ladder: objective gain vs exact no-change counterfactual (twin.replay)",
  "code_sha": "<CODE_SHA: 40-hex commit the job image runs>",
@@ -48,8 +48,8 @@
    ],
    "command": "python -m t3.trust.job_ladder --model degraded",
    "references": {
-    "laptop_run_commit": "f4a75a2",
-    "laptop_report": "t3/trust/runs/ladder_report.json"
+    "laptop_report": "t3/trust/runs/ladder_report.json",
+    "laptop_run_commit": "f4a75a2"
    },
    "note": "Re-measurement on AWS of the laptop ladder run in f4a75a2 (t3/trust/runs/ladder_report.json), same seeds 3000-3019 and script; R2 and the settings shift are measurements, not targets."
   }

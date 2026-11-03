@@ -66,13 +66,54 @@ def test_ladder_job_items_are_one_per_seed_and_details_carry_the_shift(threshold
     for it in items:  # the R1 gain is the score; both rungs' cases ride in extra
         assert set(it["extra"]["rungs"]) == {"maveric", "rehearsal"}
         assert it["score"] == it["extra"]["rungs"]["maveric"]["gain"]
-    assert res["unit"] == "t3.ladder" and res["metric"] == "mean_score" and res["target"]["op"] == ">"
-    assert res["value"] == pytest.approx(evlib.summarize_items(items, "mean_score")) and res["passed"] is True
+    assert res["unit"] == "t3.ladder" and res["metric"] == "gain_ci_low" and res["target"]["op"] == ">"
+    g = res["details"]["gain"]
+    assert g["value"] == pytest.approx(evlib.summarize_items(items, "mean_score")) and res["value"] == g["ci_low"]
+    assert res["passed"] is (g["ci_low"] > 0) and g["paired_n"] == 3 and g["method"] == "paired-bootstrap-v1"
     d = res["details"]
     assert d["retention"] is None and d["has_real_viavi"] is False and "NOT retention" in d["settings_shift"]["what"]
-    assert d["settings_shift"]["point"] == pytest.approx(0.5) and d["declared_ci_condition"]["met"] is True
+    assert d["settings_shift"]["point"] == pytest.approx(0.5)
     out["sink"].validate()
     evlib.validate(evlib._envelope(dict(res), "result", "t3.ladder-test"))
+
+
+def test_ladder_interval_is_what_check_unit_replays():
+    """check_unit part e replays details.gain (paired-bootstrap-v1, CI_FIELDS) from the items: same numbers."""
+    import importlib.util
+
+    from .conftest import ROOT
+
+    spec = importlib.util.spec_from_file_location("t5_check_unit", ROOT / "tools" / "check_unit.py")
+    cu = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cu)
+    out = ladder_run()
+    g = out["result"]["details"]["gain"]
+    assert all(k in g for k in cu.CI_FIELDS) and g["method"] == cu.CI_METHOD
+    assert cu.CI_METRIC_RE.search(out["result"]["metric"])
+    items = out["sink"].records["item"]
+    ids = sorted(i["item_id"] for i in items)
+    by = {i["item_id"]: i["score"] for i in items}
+    value, lo, hi, _ = cu.paired_bootstrap_v1([by[i] for i in ids], ids, g["seed"], g["resamples"], g["level"])
+    assert abs(value - g["value"]) <= 1e-9 and abs(lo - g["ci_low"]) <= 1e-9 and abs(hi - g["ci_high"]) <= 1e-9
+
+
+def test_runner_declarations_for_runs_17_to_19():
+    for name, (kind, v, m, ts) in jobs.RUNNER_RUNS.items():
+        doc = json.loads((jobs.DECLARATIONS / f"{name}.json").read_text())
+        want, entry = jobs.runner_declaration(kind, v, m, ts, doc["twin"]["version"])
+        assert doc == want, name
+        assert doc["test_set"] == jobs.rel(ts) and (jobs.HERE.parent.parent / doc["test_set"]).is_file()
+        assert "--testset " + doc["test_set"] in entry and doc["twin"]["config"]["command"] == "python " + entry
+        assert not ({"run_id", "code_sha", "region"} & set(doc))  # the runner adds them
+        seeds = json.loads((jobs.HERE.parent.parent / doc["test_set"]).read_text())["seeds"]
+        assert seeds == (list(range(3000, 3020)) if kind == "gate" else list(range(4000, 4020)))
+        rec = dict(doc)
+        rec.pop("test_set")
+        rec.update({"run_id": "t3.x", "code_sha": SHA40, "region": "us-east-2", "test_set_sha256": "d" * 64})
+        rec = evlib._envelope(rec, "declared", "t3.x")
+        rec["declared_at"] = evlib.utc_now()
+        evlib.validate(rec)
+        contracts_validate(rec)
 
 
 class FakeS3:
@@ -125,7 +166,7 @@ def test_templates_are_valid_declarations_once_filled():
             assert cfg["references"]["declaration_commit"] == "ed7d3c4" and "used once before" in cfg["note"]
             assert len(cfg["thresholds_sha256"]) == 64
         else:
-            assert cfg["measured_not_targeted"] and rec["target"]["metric"] == "mean_score"
+            assert cfg["measured_not_targeted"] and rec["target"]["metric"] == ("gain_ci_low" if "healthy" in name else "mean_score")
         contracts_validate(rec)
 
 

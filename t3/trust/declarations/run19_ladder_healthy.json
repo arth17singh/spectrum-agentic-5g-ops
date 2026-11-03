@@ -1,0 +1,54 @@
+{
+ "unit": "t3.ladder",
+ "track": "track-3",
+ "target": {
+  "metric": "gain_ci_low",
+  "op": ">",
+  "value": 0,
+  "unit": "objective gain on MAVERIC (R1), 95% CI low"
+ },
+ "n_items": 20,
+ "model_id": "t2-response-v0@v0",
+ "grader": "t3.trust ladder: objective gain vs exact no-change counterfactual (twin.replay)",
+ "synthetic": false,
+ "twin": {
+  "kind": "maveric-inprocess",
+  "version": "ran-rl 1.2.9 config eade0c1121d5 (official)",
+  "scenario": "nominal",
+  "seed": 4000,
+  "config": {
+   "preset": "official",
+   "seeds": [
+    4000,
+    4019
+   ],
+   "rungs": {
+    "R1": {
+     "config": "official",
+     "label": "MAVERIC",
+     "name": "maveric",
+     "scenario": "nominal"
+    },
+    "R2": {
+     "config": "viavi-like",
+     "label": "REHEARSAL (Viavi-like Maveric)",
+     "name": "rehearsal",
+     "scenario": "viavi_stationary"
+    }
+   },
+   "steps": 5,
+   "declared_also": "the target is the paired-bootstrap-v1 95 % CI lower bound of the mean R1 gain (spec in details.gain, replayed by check_unit from the items); the mean itself is details.gain.value",
+   "measured_not_targeted": [
+    "R2 (REHEARSAL) gain and CI",
+    "settings shift REHEARSAL / MAVERIC"
+   ],
+   "command": "python -m t3.trust.job_ladder --model healthy --testset t3/trust/testsets/ladder_4000_4019.json",
+   "references": {
+    "laptop_report": "t3/trust/runs/ladder_report.json",
+    "laptop_run_commit": "f4a75a2"
+   },
+   "note": "Fresh ladder seeds 4000-4019: never used by any run (the t2 dataset used 10000-10699, calibration 20000-20039, demos 0 and 1000-1009, gate evaluation 2000-2019, the laptop ladder 3000-3019). Earlier laptop ladder: f4a75a2 / t3/trust/runs/ladder_report.json."
+  }
+ },
+ "test_set": "t3/trust/testsets/ladder_4000_4019.json"
+}

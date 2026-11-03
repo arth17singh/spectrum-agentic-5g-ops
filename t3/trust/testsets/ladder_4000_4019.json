@@ -1,0 +1,61 @@
+{
+ "artifact": "t2/artifacts/t2_response_v0.npz",
+ "artifact_sha256": "39f25386b7797b458e0e6d1e67e1361f3b9e2a10bfde6e3f7902f738334bda38",
+ "models": {
+  "degraded": {
+   "fault": "tilt_reversed",
+   "load": "t2.predict.load_degraded",
+   "model_id": "t2-response-v0-degraded-tilt-reversed@v0"
+  },
+  "healthy": {
+   "fault": null,
+   "load": "t2.predict.load",
+   "model_id": "t2-response-v0@v0"
+  }
+ },
+ "provenance": "Fresh ladder seeds 4000-4019: never used by any run (the t2 dataset used 10000-10699, calibration 20000-20039, demos 0 and 1000-1009, gate evaluation 2000-2019, the laptop ladder 3000-3019). Earlier laptop ladder: f4a75a2 / t3/trust/runs/ladder_report.json.",
+ "references": {
+  "laptop_report": "t3/trust/runs/ladder_report.json",
+  "laptop_run_commit": "f4a75a2"
+ },
+ "rungs": {
+  "R1": {
+   "config": "official",
+   "label": "MAVERIC",
+   "name": "maveric",
+   "scenario": "nominal"
+  },
+  "R2": {
+   "config": "viavi-like",
+   "label": "REHEARSAL (Viavi-like Maveric)",
+   "name": "rehearsal",
+   "scenario": "viavi_stationary"
+  }
+ },
+ "script": "t3/trust/scripted_changes.json",
+ "script_sha256": "bb53f1173c0bd7481226644068a8b72483ec15065469748be00389400f4df842",
+ "seeds": [
+  4000,
+  4001,
+  4002,
+  4003,
+  4004,
+  4005,
+  4006,
+  4007,
+  4008,
+  4009,
+  4010,
+  4011,
+  4012,
+  4013,
+  4014,
+  4015,
+  4016,
+  4017,
+  4018,
+  4019
+ ],
+ "steps": 5,
+ "what": "ladder seeds 4000-4019, fresh"
+}
