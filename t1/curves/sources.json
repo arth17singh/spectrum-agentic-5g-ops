@@ -1,0 +1,30 @@
+{
+  "schema": "t1-curves-sources-v1",
+  "about": "Where the two Track 1 training curves come from. This file is the declared test set of unit t1.curves: its sha256 is declared before the job, and the job refuses to run on a different copy.",
+  "downsample": {
+    "max_points": 500,
+    "rule": "a series of at most 500 points is recorded whole; a longer one is thinned to exactly 500 real points by uniform stride over the index (index round(i*(n-1)/499)), keeping the first and last point; no averaging, no interpolation"
+  },
+  "sft": {
+    "run_id": "t1.sft.train-20261103T034500Z-9d4f",
+    "x": "step",
+    "metrics_key": "models/t1-otel-1.7b-lora/t1.sft.train-20261103T034500Z-9d4f/train_metrics.json",
+    "sums_key": "models/t1-otel-1.7b-lora/t1.sft.train-20261103T034500Z-9d4f/SHA256SUMS",
+    "sha256sums_sha256": "d6cfd0c7f67ad16a5d598553e12b3cb95a16d6125d03e9e4790c1e8b7a8d0f5c",
+    "sums_member": "train_metrics.json",
+    "series": {
+      "train_loss": {"field": "train_loss_curve", "x": "step", "y": "loss"},
+      "dev_loss": {"field": "dev_loss_curve", "x": "step", "y": "loss"}
+    },
+    "expect_points": {"train_loss": 296, "dev_loss": 4}
+  },
+  "rl": {
+    "train_run_id": "t1.rl.train-20261103T023805Z-a09e",
+    "train_job_name": "t1-rl-train-20261103T023805Z-a09e-20261103-023807",
+    "log_group": "/aws/sagemaker/TrainingJobs",
+    "x": "timesteps",
+    "series": {"mean_episode_reward": {"metric": "episode_reward_mean"}},
+    "eval_run_id": "t1.rl.eval-20261103T043115Z-bf52",
+    "expect_points": {"mean_episode_reward": 66}
+  }
+}
