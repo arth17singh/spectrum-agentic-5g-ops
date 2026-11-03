@@ -171,6 +171,26 @@ def test_upload_tree_refuses_to_overwrite_locally(tmp_path):
         common.upload_tree(src, str(tmp_path / "dst"))
 
 
+def test_the_input_must_be_the_declared_test_set():
+    common.check_test_set({"test_set_sha256": "a" * 64}, "a" * 64, "x")
+    with pytest.raises(common.JobError, match="test_set_sha256"):
+        common.check_test_set({"test_set_sha256": "a" * 64}, "b" * 64, "x")
+
+
+def test_build_refuses_eval_items_other_than_the_declared_ones(tmp_path):
+    from t1.sft import build
+
+    d = declare.through_runner(declare.load("build"), run_id="t1.sft.data-ts")
+    d["test_set_sha256"] = "0" * 64
+    p = tmp_path / "d.json"
+    p.write_text(json.dumps(d))
+    a = build.parse_args(["--run-id", "t1.sft.data-ts", "--out", str(tmp_path / "o"), "--evidence-dir",
+                          str(tmp_path / "e"), "--declared", str(p), "--n-execution", "0"])
+    with pytest.raises(common.JobError, match="test_set_sha256"):
+        build.run(a)
+    assert not (tmp_path / "o").exists()
+
+
 def test_stored_declaration_must_name_the_run(tmp_path):
     p = tmp_path / "d.json"
     p.write_text(json.dumps({"run_id": "a"}))
@@ -205,7 +225,8 @@ def _manifest(run_id="t1.sft.data-x"):
 
 def test_train_declaration_is_filled_from_the_dataset_manifest():
     d = declare.train_declaration("t1.sft.stage-x", "t1.sft.data-x", _manifest(), "e" * 64)
-    assert d["n_items"] == 421 and d["test_set_sha256"] == "d" * 64 and d["baseline_run_id"] == "t1.sft.stage-x"
+    assert d["n_items"] == 421 and d["test_set_sha256"] == "d" * 64 and "baseline_run_id" not in d
+    assert d["decoding"]["inputs"]["base_run_id"] == "t1.sft.stage-x"  # the base weights' run, not an eval baseline
     assert "subset" not in d and d["decoding"]["inputs"]["data_manifest_sha256"] == "e" * 64
     r = declare.through_runner(d)
     assert r["target"]["metric"] == "mean_score"

@@ -315,6 +315,9 @@ def run(a: argparse.Namespace) -> dict[str, Any]:
     K.check_run_id(a.run_id)
     a.code_sha = K.code_sha_from_env(a.code_sha)
     decl = None if a.dry_run else K.stored_declaration(a.run_id, a.declared)  # the target comes from here
+    if decl is not None:  # before any work: the eval items this run is checked against are the declared ones
+        K.check_test_set(decl, K.sha256_file(Path(a.items_dir or items_dir()) / "MANIFEST.json"),
+                         "t1/evals/items/MANIFEST.json")
     work = Path(a.workdir or tempfile.mkdtemp(prefix="sft-build-"))
     out_dir = work / "out"
     out_dir.mkdir(parents=True, exist_ok=False)

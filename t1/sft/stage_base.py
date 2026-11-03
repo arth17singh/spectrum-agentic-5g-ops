@@ -281,6 +281,7 @@ def run(a: argparse.Namespace) -> dict[str, Any]:
     if listing is None and a.src_uri:
         listing = K.list_s3(a.src_uri, region=a.region)
     K.log(f"source at {src_dir} ({'downloaded' if K.is_s3(a.src) else 'local/channel'})")
+    K.check_test_set(decl, K.sha256_file(src_dir / INDEX), INDEX)
     timings: dict[str, float] = {"inputs_s": round(time.time() - t_start, 1)}
 
     t = time.time()
@@ -350,17 +351,7 @@ def run(a: argparse.Namespace) -> dict[str, Any]:
         K.upload_tree(summary_dir, a.dst, region=a.region)  # beside the model, outside SHA256SUMS
     K.copy_to(a.summary_dir, summary_dir / "stage_summary.json")
 
-    if summary["uploaded"]:
-        store = K.model_store(a.model_evidence)
-        if store is None:
-            K.log("no model evidence store (EVIDENCE_S3 unset, no --model-evidence): model record not written")
-        else:
-            from tools import evlib
-
-            rec = model_record(run_id, a.dst, artifact_sha, summary, aws_time)
-            rec["metrics"]["summary_sha256"] = summary_sha
-            K.log(f"model record: {evlib.write_model(rec, store=store)}")
-
+    # items and result first: if anything after this fails, the runner still has the evidence to collect
     backend = f"{os.environ.get('SM_CURRENT_INSTANCE_TYPE', 'local')}; transformers save_pretrained safetensors bf16"
     items = item_records(ver, backend)
     res = K.write_evidence(a.evidence_dir, decl, items, "t1/sft/stage_base.py", code_sha,
@@ -370,6 +361,20 @@ def run(a: argparse.Namespace) -> dict[str, Any]:
     K.log(f"result: {res['metric']} = {res['value']} (target {res['target']['op']} {res['target']['value']}) "
           f"-> {'PASSED' if res['passed'] else 'MISSED'}; {len(items)} item records in {a.evidence_dir}")
     summary["result"] = {k: res[k] for k in ("metric", "value", "passed", "n_items")}
+
+    if summary["uploaded"]:
+        store = K.model_store(a.model_evidence)
+        if store is None:
+            K.log("no model evidence store (EVIDENCE_S3 unset, no --model-evidence): model record not written")
+        else:
+            from tools import evlib
+
+            rec = model_record(run_id, a.dst, artifact_sha, summary, aws_time)
+            rec["metrics"]["summary_sha256"] = summary_sha
+            try:
+                K.log(f"model record: {evlib.write_model(rec, store=store)}")
+            except Exception as e:  # noqa: BLE001 - the result is already written; say so, do not lose it
+                K.log(f"model record NOT written ({type(e).__name__}: {e}); the items and result stand")
     return summary
 
 

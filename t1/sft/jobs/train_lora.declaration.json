@@ -2,7 +2,6 @@
   "unit": "t1.sft.train",
   "track": "track-1",
   "target": {"metric": "mean_score", "op": "<=", "value": 0.5, "unit": "ratio"},
-  "baseline_run_id": "{{stage_run_id}}",
   "n_items": "{{n_dev}}",
   "subset": "{{subset}}",
   "test_set_sha256": "{{dev_jsonl_sha256}}",

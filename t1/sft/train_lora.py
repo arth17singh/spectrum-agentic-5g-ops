@@ -272,6 +272,7 @@ def train(a: argparse.Namespace) -> dict[str, Any]:
     data_dir, _ = K.materialise(a.data, work, "data", channel_env="SM_CHANNEL_DATA", region=a.region)
     base_sums_sha, base_files = verify_sums(base_dir)
     data_sums_sha, _ = verify_sums(data_dir)
+    K.check_test_set(decl, K.sha256_file(data_dir / "dev.jsonl"), "dev.jsonl")
     timings = {"inputs_s": round(time.time() - t_start, 1)}
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type != "cuda" and not a.allow_cpu:

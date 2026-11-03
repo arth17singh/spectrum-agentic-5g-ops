@@ -294,6 +294,14 @@ def stored_declaration(run_id: str, path: str | None = None) -> dict[str, Any]:
     return d
 
 
+def check_test_set(decl: dict[str, Any], actual_sha256: str, what: str) -> None:
+    """The input this job is about to grade is the test set the declaration names (by sha256)."""
+    want = decl.get("test_set_sha256")
+    if want != actual_sha256:
+        raise JobError(f"{what} has sha256 {actual_sha256}, the declaration's test_set_sha256 is {want}")
+    log(f"test set {what} sha256 {actual_sha256} = declared")
+
+
 def write_evidence(evidence_dir: str | os.PathLike, decl: dict[str, Any], items: list[dict[str, Any]],
                    script: str, code_sha: str | None, details: dict[str, Any]) -> dict[str, Any]:
     """Item records + the result computed from them (evlib.make_result: the same metric check_unit

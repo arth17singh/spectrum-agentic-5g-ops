@@ -143,6 +143,32 @@ def test_an_overlap_that_reaches_the_files_fails_the_items_and_is_not_uploaded(t
     assert sorted(it["item_id"] for it in items if not it["passed"]) == sorted(f"safety/{it['item_id']}" for it in ev)
 
 
+def test_spawn_pool_works_when_started_the_way_the_runner_starts_modules(tmp_path):
+    """tools/sm/entry.py runs the module with runpy.run_module(..., alter_sys=True); the build's spawn
+    pool must still find its worker function (a fake labeller, two workers, a fresh interpreter)."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    run_id = "t1.sft.data-runpy"
+    decl = _declared(tmp_path, run_id)
+    drive = tmp_path / "drive.py"
+    drive.write_text(
+        "import runpy, sys\n"
+        f"sys.argv = ['t1.sft.build', '--run-id', {run_id!r}, '--out', {str(tmp_path / 'out')!r}, '--workdir', "
+        f"{str(tmp_path / 'work')!r}, '--evidence-dir', {str(tmp_path / 'ev')!r}, '--declared', {decl!r}, "
+        "'--n-execution', '6', '--n-interface', '6', '--n-safety', '7', '--workers', '2', "
+        "'--labeler', 't1.sft.testing:fake_reference']\n"
+        "runpy.run_module('t1.sft.build', run_name='__main__', alter_sys=True)\n")
+    repo = Path(build.__file__).resolve().parents[2]
+    env = {"PYTHONPATH": f"{repo / 'contracts'}:{repo}", "PATH": "/usr/bin:/bin"}
+    p = subprocess.run([sys.executable, str(drive)], cwd=repo, env=env, capture_output=True, text=True, timeout=300)
+    assert p.returncode == 0, p.stdout[-2000:] + p.stderr[-2000:]
+    m = json.loads((tmp_path / "out" / "manifest.json").read_text())
+    assert m["execution"]["generation"]["workers"] == 2 and m["counts"]["written"]["by_unit"]["execution"] == 6
+    assert evlib.read_result(run_id, evlib.LocalStore(tmp_path / "ev"))["passed"] is True
+
+
 def test_check_row_rejects_bad_targets():
     ex = templates.safety_examples(7)[0]
     row = to_row(ex, "train")
