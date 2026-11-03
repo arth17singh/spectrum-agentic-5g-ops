@@ -260,6 +260,28 @@ def dry_run_parts(out: list[str]) -> tuple[dict, dict]:
     return req, decl
 
 
+def botocore_problems(req: dict) -> str:
+    """What botocore's own parameter validator says about a CreateTrainingJob request (no AWS call)."""
+    from botocore.session import get_session
+    from botocore.validate import ParamValidator
+
+    shape = get_session().get_service_model("sagemaker").operation_model("CreateTrainingJob").input_shape
+    return ParamValidator().validate(req, shape).generate_report()
+
+
+@pytest.mark.parametrize("extra", [("--no-sdk",), (), ("--no-sdk", "--inputs", "data=s3://some-bucket/some/prefix/")])
+def test_every_request_shape_passes_botocore_validation(clean_tree, extra):
+    """A job with no input channel (--no-sdk, no --inputs) used to send InputDataConfig: [] and CreateTrainingJob refused it
+    before AWS saw it (min length 1). The field is now omitted when there is no channel."""
+    out: list[str] = []
+    assert runner.main(base_args("t.sm-valid", "--dry-run", *extra), aws=FakeAws(now=T0), out=out.append) == 0
+    req, _ = dry_run_parts(out)
+    req["Environment"] = {k: "x" for k in req["Environment"]}   # the dry run prints them redacted
+    assert botocore_problems(req) == ""
+    assert ("InputDataConfig" in req) == bool(extra and "--inputs" in extra or "--no-sdk" not in extra)
+    assert len(req["TrainingJobName"]) <= 63
+
+
 def test_role_defaults_to_the_organisers_role(clean_tree):
     out: list[str] = []
     assert runner.main(base_args("t.sm-role0", "--dry-run"), aws=FakeAws(now=T0), out=out.append) == 0
