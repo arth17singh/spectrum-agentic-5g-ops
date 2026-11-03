@@ -37,7 +37,15 @@ One Lambda (`t3.tools.app.handler`, image, 3008 MB, 120 s) serves every tool. Th
    - A clipped change is recorded with `scored: false, unscored_reason: "clipped"` (lenient mode only).
    - A change with no prediction is recorded with `unscored_reason: "no_prediction"` (lenient mode only).
    - Neither unscored case calls the gate.
-   - The approver comes from the kit's approval row: `decided_by` (the approver's AWS identity) and `decided_at`. They go into the result as `approved_by` and into the log line. They go into the record only once W1's `ChangeRecord` declares `approved_by` and `approved_at`, because the model forbids unknown keys.
+   - The approver comes from the kit's approval row. The record sets `approved_by` to the row's `decided_by` (the approver's AWS identity) and `approved_at` to its `decided_at` as UTC ending in `Z`. Both also appear in the result and the log line.
+   - `twin_state` (W1 cc92085, for the Twin View) holds three snapshots, each `{step, coverage_ratio, sla_ratio, per_cell}`:
+     - `before`: `twin.step`, exactly as `ran___observe` shows it;
+     - `after`: the change plus one step;
+     - `baseline`: no change plus one step.
+   - The after and baseline snapshots come from W2's `counterfactual()` (`after_kpis`, `baseline_kpis`, 2977a7e).
+   - Each `per_cell` entry keeps only the contract's cell keys. `coverage_share` and `sla_share` are always present and are null when the twin cannot tell (a cell with 0 UEs, or a hosted adapter). Non-finite values are written as null, and `alarm`/`asleep` are booleans. With 4 cells × 3 snapshots a record is about 6 KB.
+   - `twin.preset` names the preset of the case's resolved config, for example `official`.
+   - Inside Lambda, `aws_time` is the function's own clock and `aws_time_source` is `lambda:clock`. Local runs leave both null.
 6. It prints a `{"record": "change_applied", case_id, run_id, approval_id, change_text, grounding, approved_by, approved_at, …}` line.
 
 **Grounding mode** follows `T3_TRUST_LIVE`, set per run by `register.py --trust-live`. The answer's `grounding` field and the log line state which mode was used, and the run's declaration should state it too.

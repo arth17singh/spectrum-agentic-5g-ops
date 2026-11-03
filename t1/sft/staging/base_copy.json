@@ -1,0 +1,183 @@
+{
+  "what": "Server-side S3 copy of the event base model OTel-LLM-1.7B-IT from the organisers' CHEDDAR bucket (us-east-1, read-only) to the team bucket (us-east-2), so training jobs can read it in their own Region. No bytes passed through the laptop.",
+  "model": {
+    "hf_repo": "farbodtavakkoli/OTel-LLM-1.7B-IT",
+    "revision": "2a2d417b4c84d7ea609d6026a864cdf666ab1491",
+    "revision_source": "base-model/otel_model_revision.txt in the CHEDDAR bucket",
+    "architecture": "Qwen3ForCausalLM",
+    "saved_with": "transformers 4.57.6",
+    "weights": "2 pickle shards (pytorch_model-0000{1,2}-of-00002.bin), 6,882,299,904 bytes of tensors per the index (fp32-sized for 1.7B params; config.json says bfloat16)"
+  },
+  "source": "s3://<cheddar-bucket>/base-model/otel-llm-1.7b-it/ (us-east-1)",
+  "destination": "s3://<team-bucket>/models/base/otel-llm-1.7b-it/ (us-east-2)",
+  "redaction": "bucket names are placeholders: the repo never holds the account id; the real names are in the job configuration",
+  "commands": [
+    {
+      "started": "2026-11-03T01:57:10Z",
+      "ended": "2026-11-03T01:57:12Z",
+      "exit": 1,
+      "cmd": "aws s3 cp --recursive s3://<cheddar-bucket>/base-model/otel-llm-1.7b-it/ s3://<team-bucket>/models/base/otel-llm-1.7b-it/ --source-region us-east-1 --region us-east-2 --profile fyuz --no-progress",
+      "outcome": "11 small objects copied; the 3 multipart objects (two .bin shards, tokenizer.json) failed: AccessDenied on s3:GetObjectTagging (the source bucket policy does not allow it; the CLI reads tags to copy them)"
+    },
+    {
+      "started": "2026-11-03T01:57:23Z",
+      "ended": "2026-11-03T02:00:00Z",
+      "exit": 0,
+      "cmd": "aws s3 cp --recursive s3://<cheddar-bucket>/base-model/otel-llm-1.7b-it/ s3://<team-bucket>/models/base/otel-llm-1.7b-it/ --exclude '*' --include '*.bin' --include tokenizer.json --copy-props none --source-region us-east-1 --region us-east-2 --profile fyuz --no-progress",
+      "outcome": "the 3 remaining objects copied (no tag/metadata copy)"
+    }
+  ],
+  "verification": {
+    "method": "s3api list-objects-v2 on both prefixes after the copy (single page each, not truncated)",
+    "listed_at": "2026-11-03T02:00Z",
+    "object_count_source": 14,
+    "object_count_destination": 14,
+    "total_bytes_source": 6898325612,
+    "total_bytes_destination": 6898325612,
+    "all_sizes_equal": true,
+    "all_etags_equal": true,
+    "etag_caveat": "ETags are MD5-based. For the multipart objects (suffix -N) they are an MD5 of part MD5s; equal ETags with equal part counts mean equal bytes for every part, but they are NOT sha256 content hashes. The sha256 of every file is computed by the stage job (t1/sft/stage_base.py) from the copied bytes and written to its model record."
+  },
+  "objects": [
+    {
+      "name": ".gitattributes",
+      "size": 1570,
+      "src_etag": "8d7980b323a68da5c6043ee051d5ba8e",
+      "dst_etag": "8d7980b323a68da5c6043ee051d5ba8e",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:12Z",
+      "size_equal": true,
+      "etag_equal": true
+    },
+    {
+      "name": "README.md",
+      "size": 8510,
+      "src_etag": "bf6485db433be68c858d8af0b5883858",
+      "dst_etag": "bf6485db433be68c858d8af0b5883858",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:12Z",
+      "size_equal": true,
+      "etag_equal": true
+    },
+    {
+      "name": "added_tokens.json",
+      "size": 707,
+      "src_etag": "4e6d7381b084bb04b0d35f8fd4b0d185",
+      "dst_etag": "4e6d7381b084bb04b0d35f8fd4b0d185",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:12Z",
+      "size_equal": true,
+      "etag_equal": true
+    },
+    {
+      "name": "chat_template.jinja",
+      "size": 4168,
+      "src_etag": "ae518d20e400c6e67716982491e5c37d",
+      "dst_etag": "ae518d20e400c6e67716982491e5c37d",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:12Z",
+      "size_equal": true,
+      "etag_equal": true
+    },
+    {
+      "name": "config.json",
+      "size": 1361,
+      "src_etag": "3117e608621bf21216043fba0f0f732e",
+      "dst_etag": "3117e608621bf21216043fba0f0f732e",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:12Z",
+      "size_equal": true,
+      "etag_equal": true
+    },
+    {
+      "name": "generation_config.json",
+      "size": 188,
+      "src_etag": "75d12f223507225854ca84c1cbc5b6c2",
+      "dst_etag": "75d12f223507225854ca84c1cbc5b6c2",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:12Z",
+      "size_equal": true,
+      "etag_equal": true
+    },
+    {
+      "name": "merges.txt",
+      "size": 1671853,
+      "src_etag": "72dacf1de43bc354dc3c521e44ed0b24",
+      "dst_etag": "72dacf1de43bc354dc3c521e44ed0b24",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:12Z",
+      "size_equal": true,
+      "etag_equal": true
+    },
+    {
+      "name": "pytorch_model-00001-of-00002.bin",
+      "size": 4969247421,
+      "src_etag": "315220401cc11e8e76e5d450e8537435-593",
+      "dst_etag": "315220401cc11e8e76e5d450e8537435-593",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:25Z",
+      "size_equal": true,
+      "etag_equal": true
+    },
+    {
+      "name": "pytorch_model-00002-of-00002.bin",
+      "size": 1913158707,
+      "src_etag": "5d1865e8c2a0576c0b4b974dda711232-229",
+      "dst_etag": "5d1865e8c2a0576c0b4b974dda711232-229",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:25Z",
+      "size_equal": true,
+      "etag_equal": true
+    },
+    {
+      "name": "pytorch_model.bin.index.json",
+      "size": 25605,
+      "src_etag": "7342420fae3dc0dd8d0a257f1587038f",
+      "dst_etag": "7342420fae3dc0dd8d0a257f1587038f",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:12Z",
+      "size_equal": true,
+      "etag_equal": true
+    },
+    {
+      "name": "special_tokens_map.json",
+      "size": 613,
+      "src_etag": "5708ee87a0925280424b5caa0906752f",
+      "dst_etag": "5708ee87a0925280424b5caa0906752f",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:12Z",
+      "size_equal": true,
+      "etag_equal": true
+    },
+    {
+      "name": "tokenizer.json",
+      "size": 11422654,
+      "src_etag": "9966ff12a3059290a94ee0fafb250e80-2",
+      "dst_etag": "9966ff12a3059290a94ee0fafb250e80-2",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:25Z",
+      "size_equal": true,
+      "etag_equal": true
+    },
+    {
+      "name": "tokenizer_config.json",
+      "size": 5422,
+      "src_etag": "b4ddece7cffa000c0a824adb73512c33",
+      "dst_etag": "b4ddece7cffa000c0a824adb73512c33",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:12Z",
+      "size_equal": true,
+      "etag_equal": true
+    },
+    {
+      "name": "vocab.json",
+      "size": 2776833,
+      "src_etag": "613b8e4a622c4a2c90e9e1245fc540d6",
+      "dst_etag": "613b8e4a622c4a2c90e9e1245fc540d6",
+      "src_last_modified": "2026-10-13T13:52:59Z",
+      "dst_last_modified": "2026-11-03T01:57:12Z",
+      "size_equal": true,
+      "etag_equal": true
+    }
+  ]
+}

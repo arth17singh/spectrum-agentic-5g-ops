@@ -176,6 +176,65 @@ def check_model_version(args: dict, serving: str, what: str) -> None:
         raise ToolError(f"{what} version {wanted!r} is not being served (serving {serving!r})")
 
 
+CELL_KEYS = ("cell", "power_dbm", "tilt_deg", "ue_count", "coverage_share", "sla_share", "sinr_mean_db",
+             "sinr_p10_db", "rsrp_mean_dbm", "rsrp_p10_dbm", "alarm", "asleep")
+INT_CELL_KEYS = ("cell", "ue_count")
+SHARE_KEYS = ("coverage_share", "sla_share")   # W2 2977a7e, ReplayTwin only
+
+
+def snapshot(step: int, kpis: dict) -> dict:
+    """A TwinSnapshot (W1): {step, coverage_ratio, sla_ratio, per_cell: [CellState]}. Only the
+    contract's cell keys are kept (W2's kpis also carry bounds and method notes)."""
+    cells = []
+    for c in kpis.get("per_cell") or []:
+        # Non-finite twin values (e.g. -inf RSRP of a dark cell) are written as null (W1 cc92085).
+        cell = {k: jsonable(c[k]) for k in CELL_KEYS if k in c}
+        for k in SHARE_KEYS:  # always present: None where the twin cannot tell (hosted adapters, 0 UEs)
+            cell[k] = jsonable(c.get(k))
+        for k in INT_CELL_KEYS:
+            if cell.get(k) is not None:
+                cell[k] = int(cell[k])
+        for k in ("alarm", "asleep"):
+            if cell.get(k) is not None:
+                cell[k] = bool(cell[k])
+        cells.append(cell)
+    h = headline(kpis)
+    return {"step": int(step), "coverage_ratio": h["coverage_ratio"], "sla_ratio": h["sla_ratio"], "per_cell": cells}
+
+
+_DECLARED: dict = {}
+
+
+def declared(model: str, field: str) -> bool:
+    """Does W1's contract declare this optional field? Its models forbid unknown keys, so a field
+    still on its way (twin_state, twin.preset) is written only once declared. Without
+    team13_contracts nothing can validate, so the full shape is written."""
+    key = (model, field)
+    if key not in _DECLARED:
+        try:
+            from team13_contracts import records
+            _DECLARED[key] = field in getattr(records, model).model_fields
+        except ImportError:
+            _DECLARED[key] = True
+        except Exception:  # noqa: BLE001
+            _DECLARED[key] = False
+    return _DECLARED[key]
+
+
+AWS_TIME_SOURCE = "lambda:clock"   # W1 cc92085: what a Lambda stamping its own clock writes
+
+
+def lambda_clock(env: dict) -> Callable[[], tuple[str | None, str | None]]:
+    """aws_time from the Lambda's own clock (inside AWS Lambda only; local runs stay null)."""
+    fn = env.get("AWS_LAMBDA_FUNCTION_NAME")
+
+    def clock():
+        if not fn:
+            return None, None
+        return now_iso(), AWS_TIME_SOURCE
+    return clock
+
+
 def utc_from_epoch(value: Any) -> str | None:
     """Epoch seconds (the kit's decided_at) -> ISO-8601 UTC ending in Z, as the contract wants."""
     if value is None or isinstance(value, bool):
@@ -238,6 +297,8 @@ class Deps:
     strict_grounding: bool = False
     # When set, a call must carry the Gateway's context marker bedrockAgentCoreGatewayId equal to it.
     expected_gateway_id: str | None = None
+    # () -> (aws_time, aws_time_source): the Lambda's own clock; (None, None) outside Lambda.
+    aws_clock: Callable[[], tuple] = lambda: (None, None)
     now: Callable[[], str] = now_iso
     twin_cache: dict = dataclasses.field(default_factory=dict)
 
@@ -306,7 +367,8 @@ class Deps:
             synthetic=env.get("T3_SYNTHETIC", "0") == "1",
             tool_name_fallback=env.get("T3_TOOL_NAME_FALLBACK", "0") == "1",
             strict_grounding=env.get("T3_TRUST_LIVE", "0") == "1",
-            expected_gateway_id=env.get("T3_GATEWAY_ID") or None)
+            expected_gateway_id=env.get("T3_GATEWAY_ID") or None,
+            aws_clock=lambda_clock(env))
 
 
 # ------------------------------------------------------------------ the tools
@@ -364,29 +426,59 @@ class Tools:
         snapshot, live twin untouched), then applies the change for real to extend the action log.
         Otherwise replays twice: once with an empty change (W2: a no-op step), once with the change.
         """
-        twin, _ = self.replay(case)
+        twin, state = self.replay(case)
+        before = self.state_kpis(twin, state)       # this step, exactly as ran___observe shows it
         cf_fn = getattr(twin, "counterfactual", None)
-        if callable(cf_fn):
-            cf = jsonable(cf_fn(cells))
-            measured = jsonable(self.d.kpis(twin.apply(cells)))
+        cf = jsonable(cf_fn(cells)) if callable(cf_fn) else None   # W2: does not move the live twin
+        if cf is not None and cf.get("after_kpis") and cf.get("baseline_kpis"):
+            # W2 (2977a7e): full kpis() of both futures, per-cell shares included. One replay.
+            after_full, baseline_full = cf["after_kpis"], cf["baseline_kpis"]
+            twin.apply(cells)                                        # the change, applied for real
+        else:
+            baseline_full = jsonable(self.d.kpis(twin.apply([])))   # no-change step
+            twin, _ = self.replay(case)
+            after_full = jsonable(self.d.kpis(twin.apply(cells)))   # the change, applied for real
+        if cf is not None:
             hb, hm = headline(cf["baseline"]), headline(cf["after"])
             d = {k: (None if cf["delta"].get(k) is None else float(cf["delta"][k])) for k in KPI_KEYS}
             clipped, rules, source = bool(cf.get("clamped")), cf.get("rules") or [], "twin.counterfactual"
         else:
-            baseline = jsonable(self.d.kpis(twin.apply([])))
-            twin, _ = self.replay(case)
-            measured = jsonable(self.d.kpis(twin.apply(cells)))
             entry = twin.action_log[-1] if twin.action_log else {}
-            hb, hm = headline(baseline), headline(measured)
+            hb, hm = headline(baseline_full), headline(after_full)
             d = delta(hm, hb)
             clipped, rules, source = bool(entry.get("clamped")), entry.get("rules") or [], "two replays"
         return {"baseline_kpis": hb, "measured_kpis": hm, "measured_delta": d,
-                "measured_per_cell": measured.get("per_cell"), "clipped": clipped, "safety_rules": rules,
-                "counterfactual_source": source, "action_log": jsonable(list(twin.action_log))}
+                "measured_per_cell": after_full.get("per_cell"), "clipped": clipped, "safety_rules": rules,
+                "counterfactual_source": source, "action_log": jsonable(list(twin.action_log)),
+                "before_full": before, "baseline_full": baseline_full, "measured_full": after_full}
+
+    def state_kpis(self, twin: Any, state: Any) -> dict:
+        """KPIs of the twin's current state: W2's ReplayTwin.kpis() (per-cell shares included) when
+        it has it, else twin.kpis(state). Hosted adapters have no per-UE data, so no shares there."""
+        fn = getattr(twin, "kpis", None)
+        if callable(fn):
+            try:
+                return jsonable(fn())
+            except RuntimeError:  # shares rely on ran-rl 1.2.9 internals
+                pass
+        return jsonable(self.d.kpis(state))
+
+    def twin_state(self, cf: dict, step: int) -> dict:
+        """Per-cell twin state for the record: before (this step), after (the change plus one step)
+        and baseline (no change plus one step). 4 cells x 3 snapshots; no address or token."""
+        return {"before": snapshot(step, cf["before_full"]), "after": snapshot(step + 1, cf["measured_full"]),
+                "baseline": snapshot(step + 1, cf["baseline_full"])}
 
     def twin_info(self, case: dict, step: int) -> dict:
         return {"kind": case["twin_kind"], "version": self.d.twin_version, "scenario": case["scenario"],
                 "seed": int(case["seed"]), "step": step}
+
+    def twin_preset(self, case: dict) -> str | None:
+        """The preset the case's twin runs ("official", "viavi-like"): W2's resolved config names it."""
+        cfg = case.get("config")
+        if isinstance(cfg, dict):
+            return cfg.get("preset") or None
+        return cfg if isinstance(cfg, str) and cfg else None
 
     def _remember(self, case: dict, entry: dict) -> None:
         for attempt in range(4):
@@ -402,9 +494,9 @@ class Tools:
     # ---- tools
     def observe(self, args: dict) -> dict:
         case = self.load_case(args)
-        _, state = self.replay(case)
+        twin, state = self.replay(case)
         return {"case_id": case["case_id"], "run_id": case["run_id"],
-                "twin": self.twin_info(case, len(case["action_log"])), "kpis": jsonable(self.d.kpis(state))}
+                "twin": self.twin_info(case, len(case["action_log"])), "kpis": self.state_kpis(twin, state)}
 
     def propose(self, args: dict) -> dict:
         case = self.load_case(args)
@@ -593,6 +685,13 @@ class Tools:
             "error": None, "direction_agree": None, "scored": False, "unscored_reason": None, "probe": False,
             "trust_before": None, "trust_after": None,
         }
+        aws_time, aws_source = self.d.aws_clock()
+        if aws_time:  # inside Lambda: the record carries an AWS-side time and says where it came from
+            record["aws_time"], record["aws_time_source"] = aws_time, aws_source
+        if declared("ChangeTwin", "preset"):
+            record["twin"]["preset"] = self.twin_preset(case)
+        if declared("ChangeRecord", "twin_state"):
+            record["twin_state"] = self.twin_state(cf, step)
         if cf["clipped"]:
             record["unscored_reason"] = "clipped"
         elif prediction is None:

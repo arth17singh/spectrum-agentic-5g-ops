@@ -1,0 +1,6 @@
+#!/bin/sh
+# team13 pre-push guard. Enable once per clone with:  git config core.hooksPath scripts/hooks
+# Scans every commit being pushed plus evidence/ (see scripts/hooks/prepush_scan.py and README.md there).
+# git passes "<remote> <url>" as arguments and "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin.
+here="$(cd "$(dirname "$0")" && pwd)"
+exec python3 -I "$here/prepush_scan.py" --hook "$@"

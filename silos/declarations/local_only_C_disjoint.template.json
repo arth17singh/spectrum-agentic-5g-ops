@@ -1,0 +1,33 @@
+{
+ "architecture": "MLP 38-128-128-4, Huber loss, Adam 1e-3, batch 256",
+ "code_sha": "<CODE_SHA: 40-hex commit the job was packaged from>",
+ "entry": "python -m silos.job_baselines --method local --silo C --split disjoint",
+ "epochs": 20,
+ "grader": "silos.nn_core: per-row scaled MAE (declared scales) on the shared test set",
+ "method": "local",
+ "model_id": "t2-response-local-c-disjoint@v1",
+ "n_items": 10000,
+ "note": "Local-only control: trained on ONE simulated silo's training file only. A measurement of that silo's model on the shared test set; no pass bar.",
+ "population": "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data",
+ "region": "<AWS_REGION>",
+ "run_id": "<RUN_ID>",
+ "score_scale": [
+  0.02,
+  0.03,
+  0.5,
+  0.35
+ ],
+ "seed": 0,
+ "silo": "C",
+ "split": "disjoint",
+ "synthetic": false,
+ "target": {
+  "metric": "n_items",
+  "op": ">=",
+  "unit": "shared-test rows scored (a measurement: the MAE is in the result details, there is no pass bar)",
+  "value": 10000
+ },
+ "test_set_sha256": "<sha256 of the shared test file in the AWS-generated data tree (manifest.json of silos.job_data)>",
+ "track": "track-2",
+ "unit": "t2.local_only.C.disjoint"
+}
