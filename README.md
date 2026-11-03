@@ -8,7 +8,7 @@ Team code `team13`. Hand-in: 12:00 Seattle time, 3 Nov 2026. Primary track: the 
 2. So we put a small team of agents in front of a network twin. Every tool call crosses one policy checkpoint (Cedar decision, guardrails, an audit record with one trace id), and a person approves every state change.
 3. A model is pulled out of service automatically when its predictions stop matching what the network does. Every number we report opens to a record you can read with read-only AWS calls, and the console's signed evidence ledger re-verifies from the team's evidence mirror (see [Rebuild](#rebuild-no-aws-access)).
 
-## Architecture
+## Architecture (only multiagent swarm shown here) live presentation for rest. 
 
 Short version: this section is the architecture.
 
