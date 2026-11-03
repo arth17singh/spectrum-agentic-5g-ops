@@ -36,7 +36,24 @@ const change: ChangeRecord = {
   probe: true,
   approved_by: "person:op-blue",
   approved_at: "2026-11-02T21:29:58.000Z",
+  twin_state: {
+    before: {
+      step: 3,
+      coverage_ratio: 0.86,
+      sla_ratio: 0.8,
+      per_cell: [{ cell: 0, power_dbm: 40, tilt_deg: 6, ue_count: 12, coverage_share: 0.9, alarm: false }],
+    },
+    after: {
+      step: 4,
+      coverage_ratio: 0.88,
+      sla_ratio: 0.8,
+      per_cell: [{ cell: 0, power_dbm: 39, tilt_deg: 6.5, ue_count: 12, rsrp_p10_dbm: null }],
+    },
+    baseline: null,
+  },
 };
+const cellAlarm: boolean | null | undefined = change.twin_state?.before.per_cell[0]?.alarm;
+const preset: string | null | undefined = change.twin.preset;
 
 // decision is v0: extra keys allowed.
 const decision: DecisionRecord = {
@@ -75,4 +92,4 @@ function byKind<K extends RecordKind>(k: K, r: RecordByKind[K]): string {
 // @ts-expect-error: numbers are numbers, not strings
 const bad: ResultRecord["value"] = "0.9";
 
-export const out = [kinds, v, describe(change), describe(decision), byKind("change", change), bad];
+export const out = [kinds, v, cellAlarm, preset, describe(change), describe(decision), byKind("change", change), bad];

@@ -114,7 +114,10 @@ def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
 
 
 def git_state() -> tuple[str, bool]:
-    """(HEAD commit, working tree of silos/ is dirty)."""
+    """(HEAD commit, working tree of silos/ is dirty). Inside a job there is no git history: CODE_SHA names the commit."""
+    env_sha = os.environ.get("CODE_SHA", "").strip().lower()
+    if len(env_sha) == 40 and all(c in "0123456789abcdef" for c in env_sha):
+        return env_sha, False
     try:
         head = subprocess.check_output(["git", "-C", str(HERE), "rev-parse", "HEAD"], text=True).strip()
         dirty = bool(

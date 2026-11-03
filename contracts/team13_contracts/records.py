@@ -88,7 +88,11 @@ class Envelope(Strict):
     )
     aws_time_source: Optional[NonEmptyStr] = Field(
         default=None,
-        description="Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime.",
+        description=(
+            "Where aws_time came from, as <source>:<detail> with source one of lambda, sagemaker, cloudwatch, s3, "
+            "unknown; e.g. lambda:clock (a Lambda's own clock), cloudwatch:/team13/checkpoint, s3:last_modified, "
+            "sagemaker:CreationTime."
+        ),
     )
     synthetic: StrictBool = Field(description="True for fixtures, dry runs and anything not measured on a real system.")
 
@@ -125,6 +129,53 @@ class ChangeTwin(Strict):
     scenario: NonEmptyStr
     seed: NonNegInt
     step: NonNegInt = Field(description="Twin step at which the change was applied.")
+    preset: Optional[NonEmptyStr] = Field(
+        default=None, description='Twin config preset name, e.g. "official" or "viavi-like" (tells R1 from R2).'
+    )
+
+
+Share = num(ge=0, le=1, description="A share in [0, 1].")
+
+
+class CellState(Strict):
+    """One cell's state in a twin snapshot. Non-finite twin values (e.g. -inf RSRP of a dark cell) go as null."""
+
+    cell: NonNegInt = Field(description="Cell index (0-based).")
+    power_dbm: Number
+    tilt_deg: Number
+    ue_count: NonNegInt
+    coverage_share: Optional[Share] = None
+    sla_share: Optional[Share] = None
+    sinr_mean_db: Optional[Number] = None
+    sinr_p10_db: Optional[Number] = None
+    rsrp_mean_dbm: Optional[Number] = None
+    rsrp_p10_dbm: Optional[Number] = None
+    alarm: Optional[StrictBool] = Field(default=None, description="The twin's per-cell alarm (bool in ran_rl).")
+    asleep: Optional[StrictBool] = None
+
+
+class TwinSnapshot(Strict):
+    step: NonNegInt
+    coverage_ratio: Ratio
+    sla_ratio: Ratio
+    per_cell: list[CellState] = Field(min_length=1, max_length=64)
+
+    @model_validator(mode="after")
+    def _unique_cells(self) -> "TwinSnapshot":
+        cells = [c.cell for c in self.per_cell]
+        if len(set(cells)) != len(cells):
+            raise ValueError(f"per_cell lists a cell twice: {cells}")
+        return self
+
+
+class TwinState(Strict):
+    """Per-cell twin state around a change, for the Twin View."""
+
+    before: TwinSnapshot = Field(description="State the agents observed at twin.step.")
+    after: TwinSnapshot = Field(description="State after the change plus one step.")
+    baseline: Optional[TwinSnapshot] = Field(
+        default=None, description="No-change counterfactual at the same step as after."
+    )
 
 
 class CellChange(Strict):
@@ -300,6 +351,9 @@ class ChangeRecord(Envelope):
     )
     approved_at: Optional[UtcTimestamp] = Field(
         default=None, description="When the approval was decided (decided_at), UTC."
+    )
+    twin_state: Optional[TwinState] = Field(
+        default=None, description="Per-cell twin state before and after the change, and the no-change baseline."
     )
 
     @model_validator(mode="after")

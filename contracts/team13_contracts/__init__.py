@@ -10,6 +10,7 @@ from .records import (
     SCHEMA_VERSION,
     TEAM,
     CellChange,
+    CellState,
     ChangeRecord,
     ChangeTwin,
     Checker,
@@ -28,6 +29,8 @@ from .records import (
     ModelRef,
     ResultRecord,
     Target,
+    TwinSnapshot,
+    TwinState,
 )
 from .types import utc_iso
 
@@ -39,6 +42,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "TEAM",
     "CellChange",
+    "CellState",
     "ChangeRecord",
     "ChangeTwin",
     "Checker",
@@ -57,6 +61,8 @@ __all__ = [
     "ModelRef",
     "ResultRecord",
     "Target",
+    "TwinSnapshot",
+    "TwinState",
     "UnknownKind",
     "canonical_json",
     "change",
