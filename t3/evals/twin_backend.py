@@ -1,21 +1,33 @@
-"""Which twin the evals run on: W2's ``twin.replay`` when importable, else the labelled stand-in.
+"""Which twin the evals run on: W2's ``twin.replay`` (the real one), else the labelled stand-in.
 
-Everything in ``t3/evals`` imports ``ReplayTwin``, ``kpis`` and ``headline`` from here, so the swap at
-merge is automatic. ``BACKEND`` names the one in use and is written into every item record.
+Everything in ``t3/evals`` imports ``ReplayTwin``, ``kpis`` and ``headline`` from here. ``BACKEND``
+names the one in use and is written into every item record. The stand-in is used ONLY when the
+``twin`` package is absent from the path; if ``twin.replay`` exists but fails to import, the error is
+raised (never a silent fall-back), and ``twin_standin`` itself refuses to load when ``twin.replay`` is
+present.
 """
 
 from __future__ import annotations
 
 import importlib.metadata
+import importlib.util
 import math
 from typing import Any
 
-try:  # stream W2 (merged)
+
+def _real_twin_present() -> bool:
+    try:
+        return importlib.util.find_spec("twin.replay") is not None
+    except ModuleNotFoundError:  # no "twin" package at all
+        return False
+
+
+if _real_twin_present():  # stream W2 (merged)
     from twin.kpis import headline, kpis  # type: ignore[import-not-found]
     from twin.replay import ReplayTwin  # type: ignore[import-not-found]
 
     BACKEND = "maveric-inprocess"
-except ImportError:  # not merged yet: same interface, see twin_standin.py
+else:  # pre-merge only: same interface, see twin_standin.py
     from t3.evals.twin_standin import ReplayTwin, headline, kpis  # noqa: F401
 
     BACKEND = "maveric-inprocess-standin"

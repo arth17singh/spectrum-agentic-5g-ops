@@ -91,39 +91,64 @@ def test_swarm_adapter_speaks_canonical_strings_and_records_cases():
     client = DryRunSwarmClient()
     op = SwarmOperator(client, run_id="t3.evals.test")
     item = R.run_incident(INC, op, T, run_id="t3.evals.test")
-    steps = item["extra"]["operator_extra"]["swarm_steps"]
-    assert item["extra"]["operator_extra"]["case_id"].startswith("case-dryrun-")
-    assert all(s["change_text"] == "" or s["change_text"].startswith("cell=") for s in steps)
+    ox = item["extra"]["operator_extra"]
+    assert item["extra"]["mode"] == "proposal" and ox["mode"] == "proposal"
+    assert len(ox["case_ids"]) == T["episode"]["operator_steps"]  # one front-door case per step
+    assert all(c.startswith("case-dryrun-") for c in ox["case_ids"])
+    assert all(s["change_text"] == "" or s["change_text"].startswith("cell=") for s in ox["swarm_steps"])
     assert op.synthetic is True
     assert "run_id=t3.evals.test" in task_text(INC, "t3.evals.test")
     assert "cell" not in task_text(INC, "x").split("dB.")[0].lower()  # symptoms only, no fault cell
 
 
-def test_swarm_refused_step_is_no_change():
-    class Refusing:
-        synthetic = True
+class Recorder:
+    """Proposes +6 dB on cell 0 every time; never applies (apply is refused pending approval)."""
 
-        def open_case(self, case):
-            assert case["start_action_log"] == [INC["commissioning"], INC["fault"]]
-            return "case-x"
+    synthetic = True
 
-        def step(self, case_id, state, history):
-            return {"change_text": "cell=0;d_power_db=+6.0;d_tilt_deg=+0.0", "applied": False}
+    def __init__(self):
+        self.opened = []
 
-    item = R.run_incident(INC, SwarmOperator(Refusing()), T)
+    def open_case(self, case):
+        self.opened.append(case)
+        return f"case-{len(self.opened)}"
+
+    def step(self, case_id, state, history):
+        return {"change_text": "cell=0;d_power_db=+6.0;d_tilt_deg=+0.0", "applied": False, "refused": True,
+                "approval_id": "chg-abc"}
+
+
+def test_full_mode_refused_step_is_no_change():
+    rec = Recorder()
+    item = R.run_incident(INC, SwarmOperator(rec, mode="full"), T)
+    assert rec.opened[0]["start_action_log"] == [INC["commissioning"], INC["fault"]]
+    assert len(rec.opened) == 1
+    assert item["extra"]["mode"] == "full"
     assert item["extra"]["changes_used"] == 0
     assert item["score"] == pytest.approx(0.0, abs=1e-6)
 
 
+def test_proposal_mode_grades_the_refused_proposal_on_our_twin():
+    rec = Recorder()
+    item = R.run_incident(INC, SwarmOperator(rec, mode="proposal", proposal_steps=2), T)
+    assert item["extra"]["mode"] == "proposal"
+    assert item["extra"]["changes_used"] == 2  # third step is past proposal_steps: no case, no change
+    assert len(rec.opened) == 2
+    # each case starts at the harness state: commissioning, fault, then the earlier proposals
+    assert rec.opened[0]["start_action_log"] == [INC["commissioning"], INC["fault"]]
+    assert rec.opened[1]["start_action_log"][-1] == [{"cell": 0, "d_power_db": 6.0, "d_tilt_deg": 0.0}]
+    assert all(s["refused"] and s["approval_id"] == "chg-abc" for s in item["extra"]["operator_extra"]["swarm_steps"])
+
+
 def test_end_to_end_run_writes_declared_items_result_and_gain(tmp_path):
     base = R.run("no_action", tmp_path, [], allow_dirty=True, run_id="t-noact")
-    cand = R.run("swarm", tmp_path, ["t-noact"], allow_dirty=True, run_id="t-swarm")
-    decl = json.loads((tmp_path / "declared" / "t-swarm.json").read_text())
+    cand = R.run("config_revert", tmp_path, ["t-noact"], allow_dirty=True, run_id="t-cfg")
+    decl = json.loads((tmp_path / "declared" / "t-cfg.json").read_text())
     assert decl["test_set_sha256"] == DIGEST and decl["n_items"] == len(INCS)
-    assert decl["synthetic"] is True and decl["baseline_run_id"] == "t-noact"
-    items = [json.loads(x) for x in (tmp_path / "records" / "t-swarm" / "item.jsonl").read_text().splitlines()]
-    assert len(items) == len(INCS) and all(i["run_id"] == "t-swarm" for i in items)
-    res = json.loads((tmp_path / "results" / "t-swarm.json").read_text())
+    assert decl["baseline_run_id"] == "t-noact" and "subset" not in decl
+    items = [json.loads(x) for x in (tmp_path / "records" / "t-cfg" / "item.jsonl").read_text().splitlines()]
+    assert len(items) == len(INCS) and all(i["run_id"] == "t-cfg" for i in items)
+    res = json.loads((tmp_path / "results" / "t-cfg.json").read_text())
     g = res["details"]["gain"]
     assert set(g) == {"value", "ci_low", "ci_high", "baseline_run_id", "paired_n"}
     assert g["paired_n"] == len(INCS) and g["baseline_run_id"] == "t-noact"
@@ -131,6 +156,29 @@ def test_end_to_end_run_writes_declared_items_result_and_gain(tmp_path):
     assert g["value"] == pytest.approx(cand["details"]["mean_recovery"] - base["details"]["mean_recovery"])
     with pytest.raises(FileExistsError):
         R.run("no_action", tmp_path, [], allow_dirty=True, run_id="t-noact")
+
+    # the swarm unit: masked subset, proposal mode, gain over config_revert, secondary vs rule_baseline
+    R.run("rule_baseline", tmp_path, ["t-noact"], allow_dirty=True, run_id="t-rule")
+    with pytest.raises(SystemExit):
+        R.run("swarm", tmp_path, ["t-noact"], allow_dirty=True, run_id="t-sw0", subset="masked")
+    R.run("swarm", tmp_path, ["t-cfg", "t-rule"], allow_dirty=True, run_id="t-sw", subset="masked")
+    masked = [i for i in INCS if i["tier"] == "masked"]
+    d = json.loads((tmp_path / "declared" / "t-sw.json").read_text())
+    assert d["subset"] == "tier=masked" and d["n_items"] == len(masked)
+    assert d["twin"]["config"]["eval"]["mode"] == "proposal"
+    assert len(d["twin"]["config"]["eval"]["targets_sha256"]) == 64
+    assert d["target"]["metric"] == "gain_ci_low_vs_config_revert_masked"
+    items = [json.loads(x) for x in (tmp_path / "records" / "t-sw" / "item.jsonl").read_text().splitlines()]
+    assert {i["item_id"] for i in items} == {i["incident_id"] for i in masked}
+    assert all(i["extra"]["mode"] == "proposal" for i in items)
+    res = json.loads((tmp_path / "results" / "t-sw.json").read_text())
+    pg = res["details"]["primary_gain"]
+    assert pg["baseline_run_id"] == "t-cfg" and pg["tier"] == "masked" and pg["paired_n"] == len(masked)
+    # the fake swarm IS config_revert, so the gain is exactly zero and the unit fails
+    assert pg["value"] == pytest.approx(0.0, abs=1e-9) and res["passed"] is False
+    assert res["value"] == pytest.approx(pg["ci_low"])
+    sec = res["details"]["secondary"]
+    assert sec["rule_baseline"] == "t-rule" and isinstance(sec["wrong_cell_not_worse_than_rule"], bool)
 
 
 def test_swarm_measured_kpis_that_disagree_with_our_twin_are_recorded():
