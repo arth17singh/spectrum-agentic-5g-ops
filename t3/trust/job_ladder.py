@@ -25,12 +25,13 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", choices=["healthy", "degraded"], required=True)
     ap.add_argument("--run-id", default=None, help="default: $RUN_ID or $EVIDENCE_RUN_ID")
+    ap.add_argument("--testset", default=None, help="repo path of the declared test-set spec (default: the re-measurement set)")
     ap.add_argument("--dry-run", action="store_true", help="first two seeds, in memory; writes nothing")
     ap.add_argument("--print-declaration", action="store_true")
     ap.add_argument("--declare-first", action="store_true")
     a = ap.parse_args(argv)
 
-    testset, testset_sha = jobs.load_testset(jobs.LADDER_TESTSET)
+    testset, testset_sha = jobs.load_testset(jobs.testset_path(a.testset, jobs.LADDER_TESTSET))
     run_id = a.run_id or jobs.env_run_id() or (
         f"dryrun-t3.ladder-{a.model}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}" if a.dry_run else None)
     if not run_id:
@@ -60,7 +61,7 @@ def main(argv=None) -> int:
     seeds = testset["seeds"][:2] if a.dry_run else testset["seeds"]
     out = jobs.run_ladder_job(model=a.model, run_id=run_id, seeds=seeds, rungs=rungs, kpis=headline,
                               predictor=predictor, changes=changes[: testset["steps"]], testset_sha=testset_sha,
-                              code_sha=sha)
+                              code_sha=sha, provenance=testset.get("provenance"))
     return jobs.finish(run_id=run_id, declaration=decl, out=out, dry_run=a.dry_run, declare_first_done=a.declare_first)
 
 
