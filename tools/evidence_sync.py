@@ -50,17 +50,20 @@ REPO = Path(__file__).resolve().parents[1]
 
 
 def _default_s3() -> str:
+    """$EVIDENCE_S3, else $TEAM13_DATA_BUCKET's evidence/ prefix, else "" (resolved from STS at run time, the
+    same rule as tools/sm/spec.py: the bucket name holds the account id, so it is never written into the repo)."""
     if os.environ.get("EVIDENCE_S3"):
         return os.environ["EVIDENCE_S3"]
-    try:  # the team bucket is defined once, in tools/sm/spec.py
-        sys.path.insert(0, str(REPO / "tools"))
-        from sm.spec import BUCKET  # noqa: PLC0415
+    if os.environ.get("TEAM13_DATA_BUCKET"):
+        return f"s3://{os.environ['TEAM13_DATA_BUCKET']}/evidence/"
+    return ""
 
-        return f"s3://{BUCKET}/evidence/"
-    except Exception:  # noqa: BLE001
-        return ""
-    finally:
-        sys.path.pop(0)
+
+def _bucket_from_sts(profile, region: str) -> str:
+    import boto3
+
+    acct = boto3.Session(profile_name=profile or None, region_name=region).client("sts").get_caller_identity()["Account"]
+    return f"s3://bb26-p-team13-data-{acct}-use2/evidence/"
 
 
 DEFAULT_S3 = _default_s3()
@@ -347,6 +350,23 @@ class Sync:
                     say(f"  check_unit failed: {type(e).__name__}: {e}")
 
 
+def copy_handin(ref: str, dest: Path) -> None:
+    """Copy the hand-in files the dashboard reads (judging.json, evidence/superseded.json) from a git ref into
+    DEST, read with `git show` (the working tree is not touched)."""
+    for src, name in (("judging.json", "judging.json"), ("evidence/superseded.json", "superseded.json")):
+        p = subprocess.run(["git", "show", f"{ref}:{src}"], cwd=REPO, capture_output=True)
+        if p.returncode != 0:
+            say(f"  hand-in {ref}:{src}: not found")
+            continue
+        try:
+            json.loads(p.stdout)
+        except ValueError:
+            say(f"  hand-in {ref}:{src}: not valid JSON, skipped")
+            continue
+        (dest / name).write_bytes(p.stdout)
+        say(f"  hand-in {ref}:{src} -> {dest / name}")
+
+
 def _find_jobs(d) -> list[tuple[str, str]]:
     """Job names in a job-map: any *job_name / TrainingJobName / ProcessingJobName string, or a 'jobs' list."""
     out = []
@@ -385,12 +405,20 @@ def main(argv=None) -> int:
     ap.add_argument("--attest", action="store_true", help="compare sha256 with the job log's team13-evidence lines")
     ap.add_argument("--check", action="store_true", help="cache check_unit --json per run (slow)")
     ap.add_argument("--run", action="append", help="limit --check to these run ids")
+    ap.add_argument("--handin", default=os.environ.get("HANDIN"),
+                    help="git ref of the hand-in branch: copy its judging.json and evidence/superseded.json into DEST")
     a = ap.parse_args(argv)
     if not a.s3:
-        ap.error("--s3 or EVIDENCE_S3 is required")
+        try:
+            a.s3 = _bucket_from_sts(a.profile, a.region)
+        except Exception as e:  # noqa: BLE001
+            say(f"AWS could not be read (STS, to name the team bucket): {type(e).__name__}: {e}")
+            return 2
     try:
         s = Sync(a)
         manifest = s.mirror()
+        if a.handin:
+            copy_handin(a.handin, s.dest)
         if a.jobs or a.attest:
             s.describe_jobs()
         mism = s.attest(manifest) if a.attest else 0
