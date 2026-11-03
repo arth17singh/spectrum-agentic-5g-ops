@@ -64,6 +64,8 @@ W11 silos/**
 
 W12 t1/evals/**
 
+LLM t1/sft/**
+
 lead **
 
 nobody evidence/public_keys.json
