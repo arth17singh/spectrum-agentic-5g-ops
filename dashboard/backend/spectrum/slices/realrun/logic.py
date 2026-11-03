@@ -194,7 +194,18 @@ def verdict(store: Store, result: dict | None, declared: dict | None) -> str | N
         return "incomplete"
     if failed_parts(store, result.get("run_id")):
         return "check failed"
+    if part_c_not_pass(store, result.get("run_id")):
+        return "unverified"
     return base
+
+
+def part_c_not_pass(store: Store, run: str | None) -> str | None:
+    """check_unit part c (records keyed to the run, times agree with AWS) cached and not PASS -> its first line."""
+    c = store.check(run) if isinstance(run, str) else None
+    p = ((((c or {}).get("summary") or {}).get("parts")) or {}).get("c")
+    if not isinstance(p, dict) or p.get("state") == "PASS":
+        return None
+    return f"[c] {p.get('state')}: {(p.get('lines') or [''])[-1]}"
 
 
 def verdict_why(store: Store, result: dict | None) -> list[str]:
@@ -204,6 +215,9 @@ def verdict_why(store: Store, result: dict | None) -> list[str]:
     if ((result.get("details") or {}).get("complete")) is False:
         why.append("the result says complete: false (the run did not finish its declared items)")
     why += [f"check_unit {x}" for x in failed_parts(store, result.get("run_id"))]
+    c = part_c_not_pass(store, result.get("run_id"))
+    if c and not any(w.startswith("check_unit [c]") for w in why):
+        why.append(f"UNVERIFIED: check_unit {c}")
     return why
 
 

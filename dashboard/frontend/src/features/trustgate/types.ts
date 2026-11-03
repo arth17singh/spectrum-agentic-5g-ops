@@ -87,7 +87,9 @@ export interface ModelSummary {
 
 export interface ModelDetail extends ModelSummary { rows: ChangeRow[] }
 
-export interface ModelsResponse { source: unknown; error: string | null; models: ModelSummary[]; probes: ChangeRow[] }
+/** check_unit governs "verified" for the runs behind the screen; synthetic counts describe the inputs. */
+export interface Verification { state: string; label: string; note: string; runs: string[]; n_synthetic_inputs: number; detail?: string[] }
+export interface ModelsResponse { source: unknown; error: string | null; models: ModelSummary[]; probes: ChangeRow[]; verification?: Verification }
 export interface ChangesResponse extends ModelDetail { source: unknown; error: string | null }
 
 export type RungLabel = 'MAVERIC' | 'REHEARSAL (Viavi-like Maveric)' | 'VIAVI'

@@ -53,15 +53,15 @@ export default function TrustGatePage() {
     <div>
       <PageHeader title={manifest.title} description={manifest.description} tracks={manifest.tracks}
         actions={<>
-          {synthetic
-            ? <SyntheticTag />
-            : <RealChip title="Every number on this screen is read from the evidence records. Nothing is simulated." />}
+          {models?.verification?.label === 'VERIFIED'
+            ? <RealChip title={models.verification.note} />
+            : <SyntheticTag what={models?.verification?.label ?? 'NOT YET CHECKED'} />}
           <Button icon={<RefreshCw size={14} className={clsx(busy && 'animate-spin')} />} disabled={busy} onClick={refresh}>Refresh</Button>
         </>} />
       {synthetic && (
         <div className="mb-4 flex items-start gap-2 rounded-md border border-warn/50 bg-warn/10 px-3 py-2 text-cap text-warn-ink" role="note">
           <TriangleAlert size={14} className="mt-0.5 shrink-0" aria-hidden />
-          Some records on this screen are marked synthetic: fixtures that were not measured on any twin. They are not evidence.
+          Inputs: {models?.verification?.n_synthetic_inputs ?? 'some'} records on this screen are marked synthetic (fixtures, e.g. a dry-run policy client). That describes the inputs; whether the runs are verified is check_unit's verdict: {models?.verification?.label ?? 'not yet checked'}.
         </div>
       )}
       {(fail || models?.error) && (

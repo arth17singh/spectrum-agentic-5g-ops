@@ -59,6 +59,7 @@ const STATE: Record<string, { Icon: typeof CircleCheck; color: string; word: str
   inconsistent: { Icon: TriangleAlert, color: 'var(--warn-ink)', word: 'INCONSISTENT' },
   incomplete: { Icon: TriangleAlert, color: 'var(--warn-ink)', word: 'INCOMPLETE' },
   'check failed': { Icon: CircleX, color: 'var(--critical-ink)', word: 'FAIL (check_unit)' },
+  unverified: { Icon: TriangleAlert, color: 'var(--warn-ink)', word: 'UNVERIFIED' },
 }
 /** A status. `why` (from the server) explains an override: complete:false or a failed check_unit part. */
 export const Verdict = ({ s, why }: { s: string; why?: string[] }) => {

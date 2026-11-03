@@ -32,6 +32,17 @@ def _load() -> tuple[list[dict], list[dict], list[dict], Any]:
     return list(r.all_records("decision")), list(r.all_records("change")), list(r.all_records("control")), src
 
 
+def _govern_listing(out: dict) -> dict:
+    """check_unit governs "verified": each case's provenance by its run, the listing's by all runs shown."""
+    from spectrum.slices._shared.verified import govern
+
+    for c in out.get("cases") or []:
+        if isinstance(c, dict):
+            c["provenance"] = govern(c.get("provenance"), [c.get("run_id")])
+    out["provenance"] = govern(out.get("provenance"), [c.get("run_id") for c in out.get("cases") or [] if isinstance(c, dict)])
+    return out
+
+
 def _unavailable(e: Exception) -> JSONResponse:
     return JSONResponse({"detail": f"records unavailable: {type(e).__name__}: {e}"}, status_code=503)
 
@@ -44,8 +55,8 @@ def cases():
         return _unavailable(e)
     ov = logic.build_overview(decisions, changes, controls)
     rows = ov["cases"]
-    return {"cases": rows, "n_cases": len(rows), "n_records": len(decisions) + len(changes) + len(controls),
-            "provenance": ov["provenance"], "source": src}
+    return _govern_listing({"cases": rows, "n_cases": len(rows), "n_records": len(decisions) + len(changes) + len(controls),
+                            "provenance": ov["provenance"], "source": src})
 
 
 @router.get("/case/{case_id}")
@@ -57,4 +68,7 @@ def case(case_id: str, run_id: str | None = None):
     out = logic.build_case(case_id, decisions, changes, controls, run_id)
     if out is None:
         return JSONResponse({"detail": f"unknown case: {case_id}"}, status_code=404)
+    from spectrum.slices._shared.verified import govern
+
+    out["provenance"] = govern(out.get("provenance"), [out.get("run_id")])
     return {**out, "source": src}
