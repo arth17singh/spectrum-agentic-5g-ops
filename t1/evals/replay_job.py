@@ -168,7 +168,8 @@ def refreeze(ev, run_id: str, out_dir: Path) -> dict:
                "n_not_kept_by_filter_here": sum(not r["extra"]["kept_by_filter_here"] for r in recs),
                "next": "copy execution.jsonl and price_latency.jsonl into t1/evals/items/, run "
                        "`python -m t1.evals.freeze --units` (rewrites MANIFEST.json), add the old hashes to "
-                       "freeze.SUPERSEDED, commit; declarations then carry the new test_set_sha256"}
+                       "items/superseded.json (python -m t1.evals.adopt_refreeze does all of this), commit; "
+                       "declarations then carry the new test_set_sha256"}
     (out_dir / "refreeze-summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
     return {"value": float(len(recs)), "details": summary}
 

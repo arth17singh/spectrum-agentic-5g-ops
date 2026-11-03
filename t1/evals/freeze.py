@@ -104,6 +104,7 @@ def unit_manifest(unit: str) -> dict:
         entry["twin"] = {"kind": "maveric-inprocess", "config": "official", "kpi": "+".join(E.KPI_KEYS),
                          "seed_base_reserved": E.SEED_BASE, "min_oracle_gain": E.MIN_ORACLE_GAIN,
                          "sdk_version": items[0]["meta"]["twin"]["sdk_version"] if items else None}
+        entry["frozen_on"] = frozen_on()
     return entry
 
 
@@ -115,28 +116,25 @@ def write_unit(unit: str, items: list[dict]) -> None:
     items_path(unit).write_text("".join(dumps(it) + "\n" for it in items), encoding="utf-8")
 
 
-# Hashes frozen at commit 2959c9b and replaced before any model ran on them. Why: the execution
-# items were built on a local stand-in twin (W2's twin.replay was not merged yet), and change
-# strings followed a local canon that dropped zero-change cells; both now come from W2's ReplayTwin
-# and W1's team13_contracts.change. Never declare a run against these.
-SUPERSEDED = {
-    "commit": "2959c9b",
-    "reason": "built on twin_standin.py and a local canonical-change fallback; re-frozen on W2 "
-              "twin.replay.ReplayTwin and W1 team13_contracts.change before any model was run. Same "
-              "80 item ids, specs and prompt text; the reference values (noop_kpi, rule/oracle/"
-              "constant gain) are now stored unrounded (they were rounded to 6 decimals, so they "
-              "differed from the replay by up to 3.3e-7) and meta.twin names the W2 replay",
-    "units": {
-        "execution": {"sha256": "4686121964eaf4811fec665ac73927af8ee8f32ffe5375e3c4074f87dc80b72c",
-                      "test_sha256": "8ac4c54536f8affdfdc75bccbed02f4d0ece78ad81e6ef0d93e44e858cdc0feb"},
-    },
-}
+SUPERSEDED_FILE = ITEMS_DIR / "superseded.json"
+PLATFORM_FILE = ITEMS_DIR / "execution.platform.json"
+
+
+def load_superseded() -> list[dict]:
+    """Every replaced freeze, oldest first: {commit|run_id, reason, units: {unit: {sha256, test_sha256}}}.
+    Never declare a run against these hashes."""
+    return json.loads(SUPERSEDED_FILE.read_text(encoding="utf-8")) if SUPERSEDED_FILE.is_file() else []
+
+
+def frozen_on() -> dict | None:
+    """The platform the execution items were frozen on (their twin values replay exactly only there)."""
+    return json.loads(PLATFORM_FILE.read_text(encoding="utf-8")) if PLATFORM_FILE.is_file() else None
 
 
 def build_manifest() -> dict:
     return {
         "manifest_version": 2,
-        "superseded": SUPERSEDED,
+        "superseded": load_superseded(),
         "split": {"salt": common.SPLIT_SALT, "dev_fraction": common.DEV_FRACTION,
                   "rule": "dev if sha256(unit, item_id, salt)[:8] % 10000 < dev_fraction * 10000"},
         "prompt": {"file": "t1/evals/prompt.txt", "sha256": prompt_sha256()},

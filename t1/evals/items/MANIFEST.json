@@ -11,16 +11,18 @@
     "rule": "dev if sha256(unit, item_id, salt)[:8] % 10000 < dev_fraction * 10000",
     "salt": "t1-split-v1"
   },
-  "superseded": {
-    "commit": "2959c9b",
-    "reason": "built on twin_standin.py and a local canonical-change fallback; re-frozen on W2 twin.replay.ReplayTwin and W1 team13_contracts.change before any model was run. Same 80 item ids, specs and prompt text; the reference values (noop_kpi, rule/oracle/constant gain) are now stored unrounded (they were rounded to 6 decimals, so they differed from the replay by up to 3.3e-7) and meta.twin names the W2 replay",
-    "units": {
-      "execution": {
-        "sha256": "4686121964eaf4811fec665ac73927af8ee8f32ffe5375e3c4074f87dc80b72c",
-        "test_sha256": "8ac4c54536f8affdfdc75bccbed02f4d0ece78ad81e6ef0d93e44e858cdc0feb"
+  "superseded": [
+    {
+      "commit": "2959c9b",
+      "reason": "built on twin_standin.py and a local canonical-change fallback; re-frozen on W2 twin.replay.ReplayTwin and W1 team13_contracts.change before any model was run. Same 80 item ids, specs and prompt text; the reference values (noop_kpi, rule/oracle/constant gain) are now stored unrounded (they were rounded to 6 decimals, so they differed from the replay by up to 3.3e-7) and meta.twin names the W2 replay",
+      "units": {
+        "execution": {
+          "sha256": "4686121964eaf4811fec665ac73927af8ee8f32ffe5375e3c4074f87dc80b72c",
+          "test_sha256": "8ac4c54536f8affdfdc75bccbed02f4d0ece78ad81e6ef0d93e44e858cdc0feb"
+        }
       }
     }
-  },
+  ],
   "units": {
     "execution": {
       "families": {
@@ -31,6 +33,29 @@
         "tilt_misconfig": 16
       },
       "file": "t1/evals/items/execution.jsonl",
+      "frozen_on": {
+        "frozen_on": {
+          "machine": "arm64",
+          "python": "3.12.7",
+          "system": "Darwin",
+          "versions": {
+            "gpytorch": "1.15.2",
+            "linear-operator": "0.6.1",
+            "numpy": "2.5.4",
+            "ran-rl": "1.2.9",
+            "torch": "2.15.0"
+          }
+        },
+        "how": "python -m t1.evals.freeze on the team Mac (commit f1d3deb)",
+        "replay_checks": [
+          {
+            "n_drifted": 5,
+            "pass_rate": 0.9375,
+            "platform": "Linux x86_64, torch 2.9.0+cpu (pytorch-training 2.9.0 cpu DLC, ml.m5.xlarge)",
+            "run_id": "t1.execution.replay-check-x86-1"
+          }
+        ]
+      },
       "generator": "t1/evals/gen_execution.py",
       "n_items": 80,
       "sha256": "63d04053892d118721eed5c40460c9ae0c878043d464db7b9edc10e2223efd74",

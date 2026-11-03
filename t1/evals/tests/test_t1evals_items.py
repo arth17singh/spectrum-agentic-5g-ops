@@ -9,6 +9,14 @@ import pytest
 from t1.evals import common, freeze, gen_interface, gen_price_latency, gen_safety
 from t1.evals.common import dumps
 
+from t1.evals.twin_access import on_freezing_platform  # noqa: E402
+
+# Exact twin values replay only on the platform the execution items were frozen on
+# (items/execution.platform.json); elsewhere `python -m t1.evals.replay_job check` measures the drift.
+FROZEN_HERE = pytest.mark.skipif(not on_freezing_platform(),
+                                 reason="execution items were frozen on another platform (see items/execution.platform.json)")
+
+
 
 def _frozen(unit):
     return freeze.read_lines(unit)
@@ -51,6 +59,7 @@ def test_split_is_stable_and_order_free():
     assert s == {"dev", "test"}
 
 
+@FROZEN_HERE
 def test_execution_sample_regenerates_identically():
     pytest.importorskip("ran_rl")
     from t1.evals import gen_execution as E
@@ -74,6 +83,7 @@ def test_execution_uses_the_real_twin():
     assert not (pkg.REPO_ROOT / "t1" / "evals" / "twin_standin.py").exists()
 
 
+@FROZEN_HERE
 def test_counterfactual_equals_fresh_replay():
     pytest.importorskip("ran_rl")
     from t1.evals import canon as C
@@ -90,6 +100,7 @@ def test_counterfactual_equals_fresh_replay():
     assert o["noop"] == T.kpi(noop) == it["expected"]["noop_kpi"]
 
 
+@FROZEN_HERE
 def test_no_twin_drift_on_any_execution_item():
     """Every frozen execution item replays to its frozen no-op KPI, rule gain and best-of-K gain."""
     pytest.importorskip("ran_rl")

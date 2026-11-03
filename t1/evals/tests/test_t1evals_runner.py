@@ -13,6 +13,14 @@ from t1.evals import run as R
 from team13_contracts import validate_record  # noqa: E402
 from tools import evlib  # noqa: E402
 
+from t1.evals.twin_access import on_freezing_platform  # noqa: E402
+
+# Exact twin values replay only on the platform the execution items were frozen on
+# (items/execution.platform.json); elsewhere `python -m t1.evals.replay_job check` measures the drift.
+FROZEN_HERE = pytest.mark.skipif(not on_freezing_platform(),
+                                 reason="execution items were frozen on another platform (see items/execution.platform.json)")
+
+
 
 def _few(monkeypatch, n=3):
     lines = freeze.read_lines("execution")[:n]
@@ -31,6 +39,7 @@ def _validate_run(root, run_id):
     return recs
 
 
+@FROZEN_HERE
 def test_replay_check_job_writes_valid_records(tmp_path, monkeypatch):
     pytest.importorskip("ran_rl")
     _few(monkeypatch)
@@ -41,6 +50,7 @@ def test_replay_check_job_writes_valid_records(tmp_path, monkeypatch):
     assert set(items[0]["extra"]["frozen"]) == set(J.KEYS) and res["details"]["platform"]["machine"]
 
 
+@FROZEN_HERE
 def test_replay_check_reports_drift(tmp_path, monkeypatch):
     pytest.importorskip("ran_rl")
     lines = _few(monkeypatch, 2)
@@ -55,6 +65,7 @@ def test_replay_check_reports_drift(tmp_path, monkeypatch):
     assert "refreeze" in res["details"]["verdict"]
 
 
+@FROZEN_HERE
 def test_refreeze_is_a_fixed_point_on_the_freezing_platform(tmp_path, monkeypatch):
     pytest.importorskip("ran_rl")
     lines = _few(monkeypatch, 2)
@@ -67,6 +78,7 @@ def test_refreeze_is_a_fixed_point_on_the_freezing_platform(tmp_path, monkeypatc
     _validate_run(tmp_path / "ev", "t1.rf-test")
 
 
+@FROZEN_HERE
 def test_twin_drift_names_the_value_and_the_difference():
     pytest.importorskip("ran_rl")
     from t1.evals.graders import grade_execution

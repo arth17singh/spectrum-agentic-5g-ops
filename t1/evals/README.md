@@ -133,12 +133,16 @@ python -m tools.sm.run --run-id t1.execution.replay-check-x86-1 --declaration /t
 ```
 
 - There is one item record per execution item, with the frozen and replayed `noop_kpi`, `rule_gain`, `oracle_gain` and `constant_gain` and each |difference|. The result's `pass_rate == 1.0` means no drift, and `details.max_abs_diff` and `details.platform` are reported.
-- **Only if it drifts**, re-freeze on the same platform:
-  - Run `replay_job refreeze` the same way, adding `--output-dir {output_dir}`.
-  - It rebuilds every item from its own spec (same ids, seeds, prefixes and candidates) and writes `execution.jsonl`, a regenerated `price_latency.jsonl` and `refreeze-summary.json` (new hashes, counts of what changed).
-  - Copy the two files into `items/`, run `python -m t1.evals.freeze --units` (rewrites MANIFEST), add the old hashes to `freeze.SUPERSEDED`, and commit.
-  - Declarations then carry the new `test_set_sha256`.
+- **Only if it drifts**, re-freeze on the platform the execution evals run on (the GPU image, ml.g5.2xlarge):
+  - Run `replay_job refreeze` the same way, with `--gpu --instance-type ml.g5.2xlarge` and `--output-dir {output_dir}`. Print its declaration with `refreeze --print-declaration`.
+  - It rebuilds every item from its own spec (same ids, seeds, prefixes and candidates) and writes `execution.jsonl`, a regenerated `price_latency.jsonl` and `refreeze-summary.json` to `{output_dir}`, which SageMaker uploads as `jobs/<run_id>/output/<job>/output/output.tar.gz`. The summary has the new hashes and how many items changed values, state text, best-of-K or rule choice, or would now fail the item filter.
+  - Adopt it with `python -m t1.evals.adopt_refreeze <extracted dir> --run-id <run id>`. It refuses output from other items or with changed identities. It records the old hashes in `items/superseded.json` and the job platform in `items/execution.platform.json`, copies the files and rewrites MANIFEST. Then commit.
+  - Declarations then carry the new `test_set_sha256`. Run `replay_job check` once more on the GPU image to confirm `pass_rate == 1.0` there.
 - On the Mac, `refreeze` reproduces the committed files byte for byte, so the re-freeze path is a fixed point on the platform that froze them.
+- The tests that need exact twin values (`FROZEN_HERE`) run only on the platform recorded in `items/execution.platform.json`. Elsewhere they skip, and `replay_job check` on that platform is the check.
+- **First x86 check** (`t1.execution.replay-check-x86-1`, CPU DLC, torch 2.9.0+cpu): 75 of 80 items reproduced exactly.
+  - In 5 items, one value moved by one user's worth (1/200 to 1/300 of a ratio): ex-outage-006 `constant_gain` 5.0e-3, ex-power_drop-009 `rule_gain` 1.67e-2, ex-tilt_misconfig-001 `oracle_gain` 3.3e-3, ex-tilt_misconfig-009 and -013 `constant_gain` 5.0e-3.
+  - `noop_kpi` never moved.
 
 ### Which units depend on platform numerics
 

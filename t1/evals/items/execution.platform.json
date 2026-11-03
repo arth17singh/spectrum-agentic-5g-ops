@@ -1,0 +1,23 @@
+{
+  "frozen_on": {
+    "machine": "arm64",
+    "python": "3.12.7",
+    "system": "Darwin",
+    "versions": {
+      "gpytorch": "1.15.2",
+      "linear-operator": "0.6.1",
+      "numpy": "2.5.4",
+      "ran-rl": "1.2.9",
+      "torch": "2.15.0"
+    }
+  },
+  "how": "python -m t1.evals.freeze on the team Mac (commit f1d3deb)",
+  "replay_checks": [
+    {
+      "n_drifted": 5,
+      "pass_rate": 0.9375,
+      "platform": "Linux x86_64, torch 2.9.0+cpu (pytorch-training 2.9.0 cpu DLC, ml.m5.xlarge)",
+      "run_id": "t1.execution.replay-check-x86-1"
+    }
+  ]
+}

@@ -11,6 +11,14 @@ from t1.evals.clients import BedrockClient, Completion, Pricing, SageMakerClient
 from team13_contracts import validate_record
 from tools import evlib
 
+from t1.evals.twin_access import on_freezing_platform  # noqa: E402
+
+# Exact twin values replay only on the platform the execution items were frozen on
+# (items/execution.platform.json); elsewhere `python -m t1.evals.replay_job check` measures the drift.
+FROZEN_HERE = pytest.mark.skipif(not on_freezing_platform(),
+                                 reason="execution items were frozen on another platform (see items/execution.platform.json)")
+
+
 
 def check(rec):
     """Both validators the evidence chain uses: W1's pydantic contract and W6's evlib checks."""
@@ -55,6 +63,7 @@ def test_dry_run_records_valid(tmp_path, unit):
         assert result["metric"] == "p95_latency_ms" and "cost_per_1k_usd" in result["details"]["breakdown"]
 
 
+@FROZEN_HERE
 def test_dry_run_execution_with_gain(tmp_path):
     pytest.importorskip("ran_rl")
     base = R.run(_args(tmp_path, "--unit", "execution", "--client", "fake", "--fake-profile", "base",

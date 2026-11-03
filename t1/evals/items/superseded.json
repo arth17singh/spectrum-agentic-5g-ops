@@ -1,0 +1,12 @@
+[
+  {
+    "commit": "2959c9b",
+    "reason": "built on twin_standin.py and a local canonical-change fallback; re-frozen on W2 twin.replay.ReplayTwin and W1 team13_contracts.change before any model was run. Same 80 item ids, specs and prompt text; the reference values (noop_kpi, rule/oracle/constant gain) are now stored unrounded (they were rounded to 6 decimals, so they differed from the replay by up to 3.3e-7) and meta.twin names the W2 replay",
+    "units": {
+      "execution": {
+        "sha256": "4686121964eaf4811fec665ac73927af8ee8f32ffe5375e3c4074f87dc80b72c",
+        "test_sha256": "8ac4c54536f8affdfdc75bccbed02f4d0ece78ad81e6ef0d93e44e858cdc0feb"
+      }
+    }
+  }
+]
