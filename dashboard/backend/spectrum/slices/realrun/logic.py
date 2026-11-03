@@ -280,6 +280,7 @@ def run_summary(store: Store, run: str) -> dict:
             "metric": r.get("metric"), "value": num(r.get("value")), "n_items": r.get("n_items"),
             "checked_at": r.get("checked_at"), "stored_passed": r.get("passed"),
             "recomputed": verdict(store, r, d) if d else None, "why": verdict_why(store, r),
+            "target_met": (recompute(r, d) == "pass") if recompute(r, d) else None,
             "s3_time": store.s3_time(f"results/{run}.json")},
         "jobs": jobs,
         "cost_usd": sum(j["cost_usd"] for j in jobs if j.get("cost_usd") is not None) if any(j.get("cost_usd") is not None for j in jobs) else None,

@@ -122,7 +122,13 @@ function Chain({ id }: { id: string }) {
           {d.result ? <>
             <div className="flex flex-wrap items-baseline gap-2"><Verdict s={d.result.recomputed ?? 'inconsistent'} why={d.result.why} /><span className="tnum text-cap text-ink-1">{num(d.result.value)} {d.result.metric}</span><span>n = {d.result.n_items}</span></div>
             <div>checked_at (our clock) <span className="mono">{utc(d.result.checked_at)}</span> · stored in S3 <span className="mono">{utc(d.result.s3_time)}</span></div>
-            {d.result.stored_passed !== (d.result.recomputed === 'pass') && d.result.recomputed && <div className="text-warn-ink">stored passed={String(d.result.stored_passed)} disagrees with the recomputed verdict</div>}
+            {d.result.target_met != null && d.result.stored_passed !== d.result.target_met && <div className="text-warn-ink">stored passed={String(d.result.stored_passed)} disagrees with the target recomputed from the value ({d.result.target_met ? 'met' : 'not met'})</div>}
+            {d.result.target_met === true && d.result.stored_passed === true && d.result.recomputed && d.result.recomputed !== 'pass' && (
+              <div className="text-ink-2" data-testid="result-vs-check">
+                The run’s own result says the target was met ({d.result.metric === 'n_items' && (d.result.n_items ?? d.n_items_declared) != null ? `${num(d.result.value)} of ${d.result.n_items ?? d.n_items_declared} steps` : `${num(d.result.value)} ${d.result.metric}`}).
+                {cu ? ` Overall, check_unit says: ${checkWords(cu.exit_code, cu.parts)}.` : ` Overall it is shown as ${d.result.recomputed}: ${(d.result.why ?? []).join('; ') || 'a check is outstanding'}.`}
+              </div>
+            )}
           </> : <div>No result yet.</div>}
         </Step>
         <Step n={5} title="Verify: check_unit parts a–e" ok={cu ? cu.exit_code === 0 : null}>

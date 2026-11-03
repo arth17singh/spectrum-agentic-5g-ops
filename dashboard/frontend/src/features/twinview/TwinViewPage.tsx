@@ -23,11 +23,12 @@ export default function TwinViewPage() {
   const [cases, setCases] = useState<Load<Rec>>({ state: 'loading' })
   const [cons, setCons] = useState<Load<Rec>>({ state: 'loading' })
   const [busy, setBusy] = useState(false)
+  const [showSup, setShowSup] = useState(false)
 
   const fetchAll = useCallback(() => Promise.all([
-    get<Rec>('/api/twinview/cases').then((data) => setCases({ state: 'ok', data })).catch((e) => setCases({ state: 'error', message: String(e?.message ?? e) })),
+    get<Rec>(`/api/twinview/cases${showSup ? '?show_superseded=true' : ''}`).then((data) => setCases({ state: 'ok', data })).catch((e) => setCases({ state: 'error', message: String(e?.message ?? e) })),
     get<Rec>('/api/twinview/consortium').then((data) => setCons({ state: 'ok', data })).catch((e) => setCons({ state: 'error', message: String(e?.message ?? e) })),
-  ]), [])
+  ]), [showSup])
   const refresh = () => { setBusy(true); fetchAll().finally(() => setBusy(false)) }
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function TwinViewPage() {
   }, [fetchAll])
 
   const cur = mode === 'cells' ? cases : cons
+  const nSup: number = cases.state === 'ok' ? cases.data.n_superseded ?? 0 : 0
   const prov = cases.state === 'ok' && (cases.data.cases ?? []).length > 0 ? cases.data.provenance : null
 
   return (
@@ -46,6 +48,11 @@ export default function TwinViewPage() {
           <Segmented ariaLabel="Mode" value={mode} onChange={setMode}
             options={[{ value: 'cells', label: 'Cells', title: 'One case: the 4 cells window by window' }, { value: 'consortium', label: 'Consortium', title: 'The operator silos behind the shared response model' }, { value: 'viavi', label: 'Viavi sites', title: 'Viavi RSG scenarios and their sites, for context' }]} />
           {mode === 'cells' && prov && <ProvenanceChip p={prov} />}
+          {mode === 'cells' && nSup > 0 && (
+            <Button onClick={() => setShowSup(!showSup)} title="Runs withdrawn in superseded.json (a crashed or replaced attempt). Hidden by default.">
+              {showSup ? 'Hide superseded runs' : `Show ${nSup} superseded run${nSup === 1 ? '' : 's'}`}
+            </Button>
+          )}
           <Button icon={<RefreshCw size={14} className={clsx(busy && 'animate-spin')} />} disabled={busy} onClick={refresh}>Refresh</Button>
         </>} />
       {mode === 'cells' && prov && <Banner p={prov} extra="Per-cell coverage and SLA shares are a proposed field (twin_state) the tools do not write yet." />}

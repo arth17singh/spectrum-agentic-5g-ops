@@ -46,7 +46,7 @@ def test_case_windows_carry_four_cells_before_and_after(monkeypatch):
     assert sources == ["change.approved_by", "item.extra.approval", "decision"]
     assert j["windows"][0]["approval"]["by"] == "person:navigator-1" and j["windows"][0]["approval"]["at"]
     assert j["windows"][2]["approval"]["by"] is None and j["windows"][2]["approval"]["allowed_at"]
-    assert j["provenance"]["state"] == "synthetic" and j["provenance"]["n_records"] == 7
+    assert j["provenance"]["state"] == "synthetic" and j["provenance"]["n_records"] == 6  # the 3 windows and the 3 records that name their approvers; the declaration is no row here
     assert any(m["field"] == "approved_by" for m in j["missing"])
 
 

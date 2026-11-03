@@ -26,7 +26,7 @@ const delta = (v: unknown) => {
 const caseKey = (c: Rec) => `${c.run_id ?? ''}\u0000${c.case_id}`
 
 type AwsSummary = { n: number; k: number; text: string; by_source: Record<string, number> }
-type Prov = { state: 'empty' | 'real' | 'synthetic' | 'mixed' | 'unverified'; label: string; note: string; claim: string; n_records: number; n_synthetic: number; n_unverified: number; aws_time_summary?: AwsSummary; unverified_reasons?: { reason: string; n: number }[] }
+type Prov = { state: 'empty' | 'real' | 'synthetic' | 'mixed' | 'unverified' | 'superseded'; label: string; note: string; claim: string; n_records: number; n_synthetic: number; n_unverified: number; aws_time_summary?: AwsSummary; unverified_reasons?: { reason: string; n: number }[] }
 
 /** REAL (green) only when every displayed record has an AWS time and none is synthetic; anything else is amber. */
 function ProvenanceChip({ p }: { p: Prov }) {
@@ -37,7 +37,7 @@ function ProvenanceChip({ p }: { p: Prov }) {
       className="flex items-center gap-1 rounded border px-1.5 py-0.5 text-micro font-semibold tracking-[0.04em]"
       style={{ color: 'var(--warn-ink)', borderColor: 'color-mix(in oklab, var(--warn) 55%, transparent)', background: 'color-mix(in oklab, var(--warn) 10%, transparent)' }}>
       <FlaskConical size={11} aria-hidden className="shrink-0" />
-      {p.label}{p.state === 'mixed' || p.state === 'unverified' ? ` · ${p.note.replace(/\.$/, '')}` : ''}
+      {p.label}{p.state === 'mixed' || p.state === 'unverified' || p.state === 'superseded' ? ` · ${p.note.replace(/\.$/, '')}` : ''}
     </span>
   )
 }
@@ -48,11 +48,12 @@ export default function TracePage() {
   const [cases, setCases] = useState<Load<Rec>>({ state: 'loading' })
   const [sel, setSel] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [showSup, setShowSup] = useState(false)
 
   const fetchCases = useCallback(() =>
-    get<Rec>('/api/trace/cases')
+    get<Rec>(`/api/trace/cases${showSup ? '?show_superseded=true' : ''}`)
       .then((data) => setCases({ state: 'ok', data }))
-      .catch((e) => setCases({ state: 'error', message: String(e?.message ?? e) })), [])
+      .catch((e) => setCases({ state: 'error', message: String(e?.message ?? e) })), [showSup])
   const refresh = () => { setBusy(true); fetchCases().finally(() => setBusy(false)) }
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export default function TracePage() {
   const rows: Rec[] = cases.state === 'ok' ? cases.data.cases ?? [] : []
   const picked = rows.find((c) => caseKey(c) === sel) ?? rows[0]
   const prov: Prov | null = cases.state === 'ok' && rows.length > 0 ? cases.data.provenance ?? null : null
+  const nSup: number = cases.state === 'ok' ? cases.data.n_superseded ?? 0 : 0
 
   return (
     <div>
@@ -71,6 +73,11 @@ export default function TracePage() {
         description={prov?.claim ? `${manifest.description} ${prov.claim}` : manifest.description}
         actions={<>
           {prov && <ProvenanceChip p={prov} />}
+          {nSup > 0 && (
+            <Button onClick={() => setShowSup(!showSup)} title="Runs withdrawn in superseded.json (a crashed or replaced attempt). Hidden by default.">
+              {showSup ? 'Hide superseded runs' : `Show ${nSup} superseded run${nSup === 1 ? '' : 's'}`}
+            </Button>
+          )}
           <Button icon={<RefreshCw size={14} className={clsx(busy && 'animate-spin')} />} disabled={busy} onClick={refresh}>Refresh</Button>
         </>} />
       {prov && prov.state !== 'real' && prov.state !== 'empty' && (

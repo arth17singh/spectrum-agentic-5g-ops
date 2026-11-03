@@ -10,7 +10,7 @@ export function ProvenanceChip({ p, tag }: { p: Prov; tag?: string }) {
     <span data-provenance={p.state} title={p.note}
       className="flex min-w-0 items-center gap-1 rounded border px-1.5 py-0.5 text-micro font-semibold tracking-[0.04em]" style={amber}>
       <FlaskConical size={11} aria-hidden className="shrink-0" />
-      <span className="truncate">{tag ? `${tag} ` : ''}{p.label}</span>
+      <span className="truncate">{tag ? `${tag} ` : ''}{p.label}{p.state === 'superseded' ? ` · ${p.note.replace(/\.$/, '')}` : ''}</span>
     </span>
   )
 }
