@@ -175,6 +175,19 @@ def test_kit_example_tool_rows_are_listed_as_non_canonical(tmp_path, monkeypatch
     assert r["canonical"] is False and r["change_text"] == "setting=6" and r["cells"] is None
 
 
+def test_fixture_mode_is_labelled_and_never_live(tmp_path, monkeypatch):
+    from pathlib import Path
+    from spectrum.slices.kitapprovals.routes import Service
+    monkeypatch.setenv("APPROVALS_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("KITAPPROVALS_FIXTURE", str(Path(__file__).parent / "fixtures" / "demo.json"))
+    svc = Service(offline=None)
+    c = client(svc)
+    p = c.get("/api/kitapprovals/pending").json()
+    assert p["label"] == "FIXTURE" and len(p["rows"]) == 4 and p["rows"][0]["status"] == "PENDING"
+    s = c.get("/api/kitapprovals/status").json()
+    assert s["label"] == "FIXTURE" and "FIXTURE" in s["approver"]["aws_session"]
+
+
 def test_display_who_never_shows_an_email_or_arn():
     assert logic.display_who("person:team13-op1") == "person:team13-op1"
     for v in (MARK_ARN, "marker@example.com", "a.rivera"):

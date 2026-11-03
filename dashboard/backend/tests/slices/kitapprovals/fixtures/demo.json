@@ -1,0 +1,22 @@
+{
+  "_note": "FIXTURE rows for KITAPPROVALS_FIXTURE (screenshots, UI check). Made up; shaped like the kit's rows (KIT L294-297). Times <= 0 are seconds before now.",
+  "items": [
+    {"pk": "chg-3f9a1c2b7d10", "status": "PENDING", "agent": "noc_lead", "case_id": "case-1a2b3c4d", "created_at": -412,
+     "change": "{\"item_id\": \"step-0\", \"change\": \"cell=2;d_power_db=-1.0;d_tilt_deg=+1.0\", \"reason\": \"cell 2 overshoots into cell 1; trade power for tilt\"}"},
+    {"pk": "t3-case-1a2b3c4d", "run_id": "adhoc-case-1a2b3c4d", "version": 4,
+     "doc": {"case_id": "case-1a2b3c4d", "run_id": "adhoc-case-1a2b3c4d", "twin": {"kind": "maveric"}, "action_log": [],
+             "predictions": [{"kind": "predict", "change_text": "cell=2;d_power_db=-1.0;d_tilt_deg=+1.0", "item_id": "step-0", "step": 0,
+                              "predicted_delta": {"coverage_ratio": 0.012, "sla_share": 0.004},
+                              "predictor": {"model_id": "t2-response-mlp", "version": "v1"}}]}},
+    {"pk": "t3-trust#t2-response-mlp@v1", "gate_status": "active", "trust": 0.91, "n": 7},
+    {"pk": "chg-8b2e44d0a1c5", "status": "APPROVED", "agent": "noc_lead", "case_id": "case-5e6f7a8b", "created_at": -2400,
+     "decided_by": "person:team13-op1", "decided_at": -2100, "decision_reason": "checked: coverage gain predicted, trust 0.91",
+     "change": "{\"item_id\": \"step-1\", \"change\": \"cell=0;d_power_db=+1.0;d_tilt_deg=+0.0\", \"reason\": \"weak edge coverage\"}"},
+    {"pk": "chg-c71d09e5f2ab", "status": "APPLIED", "agent": "noc_lead", "case_id": "case-9c0d1e2f", "created_at": -5400,
+     "decided_by": "person:team13-op1", "decided_at": -5200, "applied_at": -5100, "decision_reason": "rehearsal approve",
+     "change": "{\"item_id\": \"step-0\", \"change\": \"cell=3;d_power_db=+0.0;d_tilt_deg=-2.0\", \"reason\": \"uptilt cell 3\"}"},
+    {"pk": "chg-04e6b9a8d3f7", "status": "REJECTED", "agent": "noc_lead", "case_id": "case-smoke001", "created_at": -7200,
+     "decided_by": "person:team13-op1", "decided_at": -7000, "decision_reason": "smoke cleanup",
+     "change": "{\"item_id\": \"item-1\", \"change\": \"setting=6\", \"reason\": \"kit example\"}"}
+  ]
+}

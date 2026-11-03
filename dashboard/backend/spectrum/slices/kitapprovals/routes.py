@@ -202,7 +202,8 @@ async def status(request: Request, svc: Service = Depends(get_service)):
     except Exception as exc:  # noqa: BLE001
         mode = awsmod.classify(exc)
         return JSONResponse({**out, "mode": mode, "message": awsmod.MESSAGES[mode]}, headers=NO_STORE)
-    out["approver"] = {"pseudonym": svc.pseudonym_for(arn), "aws_session": "AWS SSO session OK"}
+    session = "AWS SSO session OK" if svc.label == "LIVE" else "FIXTURE: fake table and logs, nothing is sent to AWS"
+    out["approver"] = {"pseudonym": svc.pseudonym_for(arn), "aws_session": session}
     if out["audit_outbox"] and svc.clock() - svc._last_drain > 30:
         svc._last_drain = svc.clock()
         try:
