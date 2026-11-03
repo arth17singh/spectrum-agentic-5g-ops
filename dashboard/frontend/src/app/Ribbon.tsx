@@ -9,7 +9,7 @@ import { useSimNow, useUi } from '@/core/ui-store'
 // The Lifecycle Ribbon: the one bold element. Five planes side by side form a literal spectrum;
 // pulses travel between segments when an artefact moves through the lifecycle.
 
-const ROUTES: Record<string, string> = { learn: '/federation', verify: '/proving', release: '/release', operate: '/swarm', prove: '/audit' }
+const ROUTES: Record<string, string> = { learn: '/federation', verify: '/proving', release: '/release', operate: '/', prove: '/audit' }
 
 export function Ribbon() {
   const navigate = useNavigate()

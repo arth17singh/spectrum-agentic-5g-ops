@@ -39,15 +39,15 @@ BEATS = [
     {"n": 6, "title": "Shadow, then canary", "route": "/release", "spotlight": ["rollout", "targets"], "dur": 25,
      "note": "It ships to four targets across two vendors from one signed manifest, shadow first, then 10% canary "
              "with guard metrics."},
-    {"n": 7, "title": "Incident hits", "route": "/swarm", "spotlight": ["twin", "swarm"], "dur": 30,
+    {"n": 7, "title": "Incident hits", "route": "/", "spotlight": ["mini-twin", "critical"], "dur": 30,
      "note": "Saturday night. The concert just ended, and fibre T3 is cut. Watch the swarm wake up."},
-    {"n": 8, "title": "Agents negotiate", "route": "/swarm", "spotlight": ["negotiation", "plan"], "dur": 30,
+    {"n": 8, "title": "Agents negotiate", "route": "/", "spotlight": ["mini-twin"], "dur": 30,
      "note": "Energy and Experience disagree. The coordinator brokers a compromise, and the twin predicts the "
              "outcome before anything touches the network."},
     {"n": 9, "title": "Human approval", "route": "/oversight", "spotlight": ["decision"], "dur": 25,
      "note": "Twelve percent of cells is above the 5% rule, so a human decides with the plan, the predicted impact, "
              "and the dissent."},
-    {"n": 10, "title": "Prompt-injection attack", "route": "/swarm", "spotlight": ["swarm", "messages"], "dur": 40,
+    {"n": 10, "title": "Prompt-injection attack", "route": "/", "spotlight": ["critical"], "dur": 40,
      "note": "Someone plants an instruction in a syslog line. The site agent is fooled, but policy blocks it, its "
              "messages are rejected, and it is quarantined."},
     {"n": 11, "title": "Provenance", "route": "/audit", "spotlight": ["provenance"], "dur": 30,

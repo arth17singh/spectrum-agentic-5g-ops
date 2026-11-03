@@ -27,8 +27,8 @@ const TOAST_TYPES: Record<string, string> = {
   'evidence.status': 'Open',
 }
 const TOAST_ROUTE: Record<string, string> = {
-  'approval.requested': '/oversight', escalation: '/oversight', 'attack.denied': '/swarm', 'identity.revoked': '/swarm',
-  'fl.poison': '/federation', 'ledger.verify': '/audit', 'incident.opened': '/swarm', 'eval.gate': '/proving',
+  'approval.requested': '/oversight', escalation: '/oversight', 'attack.denied': '/', 'identity.revoked': '/',
+  'fl.poison': '/federation', 'ledger.verify': '/audit', 'incident.opened': '/', 'eval.gate': '/proving',
   'guardrail.block': '/trust', 'fl.budget': '/federation',
   'evidence.status': '/evidence',
 }

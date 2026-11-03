@@ -1,6 +1,5 @@
 import { scaleLinear } from 'd3-scale'
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Tooltip, useSize, useThemeKey } from '@/charts/common'
 import { cssVar } from '@/core/palette'
 import { useLive, EMPTY } from '@/core/store'
@@ -13,7 +12,6 @@ const SQ3 = Math.sqrt(3)
 
 export function MiniTwin({ height = 250 }: { height?: number }) {
   const { ref, width } = useSize()
-  const navigate = useNavigate()
   const sites: Rec[] = useLive((s) => s.twin.sites ?? EMPTY)
   const state: any[] = useLive((s) => s.twin.state ?? EMPTY)
   const layout = useLive((s) => s.twin.layout) ?? { cols: 8, rows: 5 }
@@ -45,7 +43,7 @@ export function MiniTwin({ height = 250 }: { height?: number }) {
   return (
     <div ref={ref} className="relative" style={{ height }}>
       {width > 0 && r > 0 && (
-        <svg width={width} height={height} role="img" aria-label="Network twin: load per cell site" className="cursor-pointer" onClick={() => navigate('/swarm')}>
+        <svg width={width} height={height} role="img" aria-label="Network twin: load per cell site" >
           {sites.map((s) => {
             const st = byId.get(s.id)
             const prb = st?.[1] ?? 0

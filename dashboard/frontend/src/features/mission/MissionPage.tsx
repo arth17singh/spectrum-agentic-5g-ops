@@ -225,7 +225,7 @@ function PlaneTiles() {
         trend: frames.slice(-60).map((fr) => fr.golden?.release?.p95 ?? 0), trendLabel: 'p95 latency, last minute',
       },
       {
-        plane: 'operate', route: '/swarm',
+        plane: 'operate', route: '/',
         rows: [
           ['Agents', `${agents.length - quarantined} active`, quarantined ? `${quarantined} quarantined` : 'none quarantined'],
           ['Incident', incActive ? inc.id : 'none', incActive ? `${duration(now - simOf(inc.started_at))} elapsed` : lastResolved ? `last MTTR ${duration(lastResolved.mttr_s)}` : 'nominal'],

@@ -268,7 +268,7 @@ function Workspace({ a }: { a: Approval }) {
       <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-cap">
         <span className="text-ink-3">Evidence</span>
         {requestSeq && <button type="button" className="flex items-center gap-1 text-ink-1 hover:underline" onClick={() => inspect({ kind: 'ledger', id: String(requestSeq) })}>request record #{requestSeq} <ArrowUpRight size={12} /></button>}
-        {a.incident && <button type="button" className="flex items-center gap-1 text-ink-1 hover:underline" onClick={() => navigate('/swarm')}>{a.incident} in Swarm Tower <ArrowUpRight size={12} /></button>}
+        {a.incident && <button type="button" className="flex items-center gap-1 text-ink-1 hover:underline" onClick={() => navigate('/')}>{a.incident} (simulated, on Mission Control) <ArrowUpRight size={12} /></button>}
         {a.incident && incident?.trace_id && <button type="button" className="flex items-center gap-1 text-ink-1 hover:underline" onClick={() => navigate('/observability')}>trace {incident.trace_id.slice(0, 8)} <ArrowUpRight size={12} /></button>}
         <button type="button" className="flex items-center gap-1 text-ink-1 hover:underline" onClick={() => inspect({ kind: 'approval', id: a.id, title: a.title, data: a })}>raw request <ArrowUpRight size={12} /></button>
       </div>
