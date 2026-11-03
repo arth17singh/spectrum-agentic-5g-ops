@@ -69,8 +69,9 @@ def epoch(value) -> float:
 
 def code_sha(repo: str | Path | None = None) -> str:
     """The commit the code runs from: T3_CODE_SHA (set in Lambda), else git HEAD (bare hex)."""
-    if os.environ.get("T3_CODE_SHA"):
-        return os.environ["T3_CODE_SHA"]
+    for name in ("T3_CODE_SHA", "TEAM13_CODE_SHA", "CODE_SHA"):   # Lambda / SageMaker job: no git
+        if os.environ.get(name):
+            return os.environ[name]
     root = Path(repo or Path(__file__).resolve().parents[2])
     try:
         sha = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True,
@@ -214,6 +215,19 @@ def parse_mcp(raw: str):
 
 
 # ---------- evidence (W6's tools/evlib.py, injected so tests can use a fake) ----------
+CALLS_DIR = Path(os.environ.get("T3_CALLS_DIR") or Path.home() / ".team13" / "t3-calls")
+
+
+def calls_path(run_id: str) -> Path:
+    """Where a live run keeps its client-view call log on this machine (never in the repo)."""
+    return CALLS_DIR / f"{run_id}.jsonl"
+
+
+def calls_rel(run_id: str) -> str:
+    """The same log, stored next to the run's evidence (evlib layout outputs/<run_id>/...)."""
+    return f"outputs/{run_id}/calls.jsonl"
+
+
 def load_evlib():
     import importlib
     return importlib.import_module("tools.evlib")

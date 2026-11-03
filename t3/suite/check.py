@@ -144,7 +144,7 @@ def parse_span(row) -> dict | None:
 
 # ---------- matching ----------
 def runner_items(records) -> list[dict]:
-    items = [r for r in records if r.get("kind", "item") == "item"
+    items = [r for r in records if r.get("kind", "item") in ("item", "call")
              and (r.get("extra") or {}).get("view") == "client" and not (r.get("extra") or {}).get("setup")]
     return sorted(items, key=lambda r: r["extra"]["seq"])
 
@@ -273,6 +273,11 @@ def require_applied(results, items, tool_rows) -> None:
 
 
 # ---------- records ----------
+def _holds(value: float, target: dict) -> bool:
+    return {">=": value >= target["value"], "<=": value <= target["value"], "==": value == target["value"],
+            ">": value > target["value"], "<": value < target["value"]}[target["op"]]
+
+
 def build_records(run_id, results, declared, n_suite, code_sha, synthetic=False, unit_key=None):
     decisions, items = [], []
     for r in results:
@@ -306,14 +311,14 @@ def build_records(run_id, results, declared, n_suite, code_sha, synthetic=False,
         c["n"] += 1
         c["matched"] += int(r["passed"])
     value = n_pass / len(results) if results else 0.0
-    target = (declared or {}).get("target") or {"metric": "decision_agreement", "op": "==", "value": 1.0,
-                                               "unit": "ratio"}
+    target = (declared or {}).get("target") or {"metric": "pass_rate", "op": ">=", "value": 1.0, "unit": "ratio"}
     complete = len(results) == n_suite and (declared is None or declared.get("n_items") == n_suite)
     result = envelope(
         "result", run_id, synthetic=synthetic,
         unit=units.UNITS[unit_key]["unit"] if unit_key else (declared or {}).get("unit"),
         metric=target["metric"], value=value, target=target,
-        passed=bool(results) and complete and n_pass == len(results), n_items=len(results), checked_at=utc_now_iso(),
+        # as tools/check_unit.py recomputes it from the item records (an incomplete run fails on n_items there)
+        passed=bool(results) and _holds(value, target), n_items=len(results), checked_at=utc_now_iso(),
         checker={"script": SCRIPT, "code_sha": code_sha},
         details={"subset": units.UNITS[unit_key]["subset"] if unit_key else None, "by_expect": by_expect,
                  "by_rule_class": by_class, "unit_items": n_suite,
@@ -343,6 +348,32 @@ def read_records(run_id, kind, ev_dir) -> list[dict]:
     if folder.is_dir():
         recs += [json.loads(p.read_text(encoding="utf-8")) for p in sorted(folder.glob("*.json"))]
     return recs
+
+
+def load_calls(run_id, path=None, ev_dir=None) -> list[dict]:
+    """The runner's client-view call log: an explicit file, else this machine's copy (common.calls_path),
+    else the copy stored with the evidence (outputs/<run_id>/calls.jsonl), else old runs' item records."""
+    if path:
+        return read_jsonl(path)
+    local = common.calls_path(run_id)
+    if local.exists():
+        return read_jsonl(local)
+    try:
+        ev = common.load_evlib()
+        body = ev.default_store().get(common.calls_rel(run_id))
+        if body:
+            return [json.loads(line) for line in body.decode().splitlines() if line.strip()]
+    except Exception:  # noqa: BLE001 - no store configured: fall through
+        pass
+    return read_records(run_id, "item", ev_dir) if ev_dir else []
+
+
+def _store_declared(run_id) -> dict | None:
+    """The declaration in the configured evidence store (EVIDENCE_S3 / EVIDENCE_DIR), if any."""
+    try:
+        return common.load_evlib().read_declared(run_id)
+    except Exception:  # noqa: BLE001 - no store configured
+        return None
 
 
 def read_declared(run_id, ev_dir) -> dict | None:
@@ -417,7 +448,7 @@ def main(argv=None) -> int:
 
 def check_run(run_id, key, a) -> int:
     ev_dir = evidence_dir(a.evidence_dir)
-    records = read_jsonl(a.runner_records) if a.runner_records else read_records(run_id, "item", ev_dir)
+    records = load_calls(run_id, a.runner_records, ev_dir)
     items = runner_items(records)
     if not items:
         print(f"no runner records for {run_id}")
@@ -443,7 +474,7 @@ def check_run(run_id, key, a) -> int:
             (out / "tools.json").write_text(json.dumps(tool_rows, indent=1))
     evlib = None if a.no_write else common.load_evlib()
     return check(run_id, records, cp_rows, span_rows, suite_path=a.suite,
-                 declared=read_declared(run_id, ev_dir), spans_mode=a.spans, evlib=evlib,
+                 declared=read_declared(run_id, ev_dir) or _store_declared(run_id), spans_mode=a.spans, evlib=evlib,
                  synthetic=a.synthetic, unit=key, tool_rows=tool_rows)
 
 

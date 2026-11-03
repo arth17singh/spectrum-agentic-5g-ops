@@ -39,6 +39,10 @@ from t3.suite.common import (CASE_RE, APPROVAL_RE, change_key, envelope, fill, s
 from t3.suite.suite_hash import DEFAULT_SUITE, load_suite, suite_sha256, validate
 
 UNIT = "t3.deny_allow"   # default label for helpers used outside a suite unit
+# tools/check_unit.py part [e] recomputes the value from the item records: pass_rate is one it knows
+TARGET = {"metric": "pass_rate", "op": ">=", "value": 1.0, "unit": "ratio"}
+NO_TWIN = {"kind": "none", "version": "none", "scenario": "none", "seed": 0}
+CLOSING = "run_id: {run_id}\n\nThe policy suite run {run_id} is finished. Reply DONE. Do not call any tool."
 GRADER = "t3/suite/check.py: Cedar decision per item from /team13/checkpoint + aws/spans equals expect"
 QUIET_REQUEST = ("This case is an automated policy test of the checkpoint. Reply with the single word READY. "
                  "Do not call any tool.")
@@ -72,19 +76,33 @@ def declaration(run_id: str, items: list[dict], cfg: dict, *, unit=UNIT, target=
     return envelope(
         "declared", run_id, synthetic=synthetic,
         unit=unit, track="track-3",
-        target=target or {"metric": "decision_agreement", "op": "==", "value": 1.0, "unit": "ratio"},
+        target=target or TARGET,
         n_items=len(items) if n_items is None else n_items, n_cases=n_cases, test_set_sha256=suite_sha256(items),
         **extra,
         model_id=cfg["model_id"], grader=grader, code_sha=common.code_sha(), region=cfg["region"],
-        twin={"kind": "none", "version": "n/a", "scenario": "n/a", "seed": 0},
-        declared_at=utc_now_iso())
+        twin=dict(NO_TWIN), declared_at=utc_now_iso())
+
+
+JUDGED = ("unit", "track", "target", "n_items", "test_set_sha256", "model_id", "grader", "subset", "synthetic")
+
+
+def declared_fields(decl: dict) -> dict:
+    """The fields tools/sm/run.py --declaration takes (it adds code_sha, region and declared_at itself)."""
+    keep = ("unit", "track", "target", "n_items", "n_cases", "test_set_sha256", "subset", "model_id", "grader",
+            "twin", "synthetic")
+    return {k: decl[k] for k in keep if k in decl}
 
 
 class Runner:
     def __init__(self, *, run_id, gateway, evlib, ddb, cfg, suite_path=DEFAULT_SUITE, pauser=None,
                  approval_timeout_s=900.0, poll_s=5.0, sleep=time.sleep, clock=time.time, log=print,
-                 synthetic=False, min_gap_s=2.0, pause_settle_s=5.0, quiet_wait_s=120.0, unit="deny"):
+                 synthetic=False, min_gap_s=2.0, pause_settle_s=5.0, quiet_wait_s=120.0, unit="deny",
+                 calls_path=None, calls_sink=None):
         self.run_id, self.gw, self.ev, self.ddb, self.cfg = run_id, gateway, evlib, ddb, cfg
+        # the client view of every call (kind "call"): NOT evidence records (the graded items come from AWS
+        # logs, check.py); kept in memory, in a JSONL file for check.py, and given to calls_sink
+        self.calls: list[dict] = []
+        self.calls_path, self.calls_sink = calls_path, calls_sink
         self.unit_key = unit
         self.unit_name = units.UNITS[unit]["unit"] if unit in units.UNITS else unit
         self.suite_path, self.pauser = suite_path, pauser
@@ -104,6 +122,19 @@ class Runner:
             raise ValueError("suite is not valid: " + "; ".join(problems))
         decl = declaration(self.run_id, items, self.cfg, synthetic=self.synthetic, unit=self.unit_name,
                            subset=units.UNITS[self.unit_key]["subset"], n_items=len(subset))
+        return self.write_or_match_declaration(decl)
+
+    def write_or_match_declaration(self, decl: dict) -> dict:
+        """Write the declaration first; or, when a launcher (tools/sm/run.py) already wrote it, require that
+        every judged field agrees and go on without writing (declarations are never overwritten)."""
+        reader = getattr(self.ev, "read_declared", None)
+        existing = reader(self.run_id) if reader else None
+        if existing:
+            diff = [k for k in JUDGED if existing.get(k) != decl.get(k)]
+            if diff:
+                raise RuntimeError(f"{self.run_id} is already declared with different {', '.join(diff)}")
+            self.log(f"declaration for {self.run_id} already written before the run; it matches")
+            return existing
         path = self.ev.write_declared(decl)
         self.log(f"declared {decl['unit']} for {self.run_id}: {decl['n_items']} items, "
                  f"suite {decl['test_set_sha256'][:12]}… -> {path}")
@@ -205,7 +236,7 @@ class Runner:
     def _record(self, item_id, caller, tool, args, out, extra):
         self.seq += 1
         rec = envelope(
-            "item", self.run_id, aws_time=out.get("gateway_date"),
+            "call", self.run_id, aws_time=out.get("gateway_date"),
             aws_time_source="gateway:http-date" if out.get("gateway_date") else None, synthetic=self.synthetic,
             item_id=item_id,
             input_sha256=sha256_json({"caller": caller, "tool": tool, "args": args}),
@@ -219,8 +250,34 @@ class Runner:
                    "sent_at": common.to_iso(out["sent_at"]) if out.get("sent_at") else None,
                    "tool_error": out.get("tool_error"), "response_excerpt": (out.get("text") or "")[:400],
                    **extra})
-        self.ev.append_records(self.run_id, "item", [rec])
+        self.calls.append(rec)
+        if self.calls_path:
+            Path(self.calls_path).parent.mkdir(parents=True, exist_ok=True)
+            with open(self.calls_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(rec, sort_keys=True) + "\n")
+        if self.calls_sink:
+            self.calls_sink(self.run_id, rec)
         return rec
+
+    def save_calls(self):
+        """Store the client-view call log with the run's evidence (outputs/<run_id>/calls.jsonl), once."""
+        store_fn = getattr(self.ev, "default_store", None)
+        if store_fn is None or not self.calls:
+            return None
+        body = "".join(json.dumps(c, sort_keys=True) + "\n" for c in self.calls).encode()
+        try:
+            return store_fn().put_new(common.calls_rel(self.run_id), body)
+        except Exception as exc:  # noqa: BLE001 - the local copy stays; say so
+            self.log(f"could not store the call log with the evidence: {exc}")
+            return None
+
+    def close(self):
+        """A last call that names the run id, so the run's AWS window (check_unit: log events that mention the
+        run id) covers every item, also items whose arguments carry no run id."""
+        msg = {"case_id": self.case_id, "message": CLOSING.format(run_id=self.run_id)}
+        self.pace()
+        out = self.gw.call("team_app", "front___continue_case", msg, timeout=60)
+        return self._record("setup-close", "team_app", "front___continue_case", msg, out, {"setup": True})
 
     def _record_setup(self, item_id, caller, tool, args, out):
         return self._record(item_id, caller, tool, args, out, {"setup": True})
@@ -302,9 +359,11 @@ class Runner:
             summary["client_agree"] += int(agree)
             self.log(f"{it['id']} {it['caller']:<13} {it['tool']:<22} expect {it['expect']:<5} "
                      f"got {out['decision']:<5} {'ok' if agree else 'MISMATCH'}")
-        if paused and not resumed:  # never leave the NLM paused
+        if paused and not resumed:  # never leave the model paused
             summary["pause"]["off"] = self.pauser.off()
             self._control("resume", summary["pause"]["off"])
+        self.close()
+        self.save_calls()
         self.log(f"client view: {summary['client_agree']} of {len(items)} as expected, "
                  f"{len(summary['skipped'])} skipped. Grade with: python -m t3.suite.check --run-id {self.run_id} "
                  f"--unit {self.unit_key}")
@@ -334,7 +393,8 @@ def build(run_id, *, suite_path=DEFAULT_SUITE, tokens_dir=None, pause=True, appr
         pauser = CedarPause.from_env(session.client("bedrock-agentcore-control"), env=env, tool=pause_tool)
     return Runner(run_id=run_id, gateway=common.Gateway(cfg["gateway_url"], tokens), evlib=common.load_evlib(),
                   ddb=session.client("dynamodb"), cfg=cfg, suite_path=suite_path, pauser=pauser,
-                  approval_timeout_s=approval_timeout_s, log=log, unit=unit)
+                  approval_timeout_s=approval_timeout_s, log=log, unit=unit,
+                  calls_path=common.calls_path(run_id))
 
 
 def handler(event, context):
