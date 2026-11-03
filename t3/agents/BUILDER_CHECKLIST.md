@@ -45,7 +45,7 @@ For each:
 
 ## 6. Check
 - [ ] `python checkpoint_kit.py check --full`: every line PASS. Save the output to `evidence/logs/<run_id>/kit-check.txt` (the organisers' check is our independent grader, contract decision 6).
-- [ ] Agent Chat (`https://chat.<host>`): pick `noc_lead`, ask "Cell 2 has poor coverage. Find the cause and propose a fix." It must ask the students, call apply_change and stop with an approval id.
+- [ ] Agent Chat (`https://chat.<host>`): pick `noc_lead`, ask "Cell 2 has poor coverage. Find the cause and propose a fix." It must ask the students, call ran___apply_change and stop with an approval id. After pasting changed prompts, re-run this.
 - [ ] Smoke test from the laptop: `python -m t3.agents.brain_smoke` (dry run), then with `--live`.
 
 ## Never
