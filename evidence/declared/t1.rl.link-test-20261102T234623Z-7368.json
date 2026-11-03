@@ -1,0 +1,81 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "425521f23a47bd9e8320cf62615d91d22ee14b0a",
+  "created_at": "2026-11-02T23:46:23.266Z",
+  "declared_at": "2026-11-02T23:46:23.266Z",
+  "grader": "ran-rl evaluate 1.2.9 (five gates)",
+  "kind": "declared",
+  "model_id": "ppo-link-2048",
+  "n_items": 2,
+  "region": "us-east-2",
+  "run_id": "t1.rl.link-test-20261102T234623Z-7368",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "pass_rate",
+    "op": ">=",
+    "unit": "ratio",
+    "value": 1.0
+  },
+  "team": "team13",
+  "test_set_sha256": "d40ab78c931c43b38c4aed09277c9c2a2173942704718cf9dd92343b580f1632",
+  "track": "track-1",
+  "twin": {
+    "config": {
+      "adapter_image": "ran-rl-twin-adapter:latest, built on the host from twin-host-source.tar.gz",
+      "description": "team-hosted Maveric twin (staging guide 1.2.9), http backend",
+      "evaluation": {
+        "command": "make evaluate, on the twin host, on the model fetched by make download",
+        "episodes": "20 (nominal, congestion, interference, outage x 5 seeds), model and rule baseline",
+        "gate_note": "the five gates are reported as measured and are not part of the target; UPLIFT is expected to FAIL at 2,048 steps and is advisory",
+        "gates": [
+          "SAFETY",
+          "SERVICE",
+          "UPLIFT",
+          "REPEAT",
+          "TRACE"
+        ],
+        "scenario_set": "config/eval_scenarios.yaml",
+        "scenario_set_sha256": "d40ab78c931c43b38c4aed09277c9c2a2173942704718cf9dd92343b580f1632",
+        "scenario_set_version": "2026-10-v1",
+        "twin": "ran_rl LocalDigitalTwin, in-process (starter config/env.yaml twin.backend: local)"
+      },
+      "items": {
+        "evaluation-report-written": "passed when make evaluate on the downloaded SageMaker model writes reports/evaluation.json and reports/evaluation.md and evaluation.json holds all five gates",
+        "sagemaker-job-completed": "passed when DescribeTrainingJob reports TrainingJobStatus Completed"
+      },
+      "sdk": {
+        "name": "ran-rl",
+        "starter_zip_sha256": "8925cb95994e473e738e9ac72acd7fc9e9e9a9b93ffa0ca54189158297f7d988",
+        "version": "1.2.9",
+        "wheel_sha256": "9b2978a25bb950f9d0703457537e04403763043349c0976809ea495ca0099fcf"
+      },
+      "topology": "sim_tilt_sweep_4cell (4 cells)",
+      "training": {
+        "algorithm": "ppo",
+        "command": "make train-sagemaker TIMESTEPS=2048 (on the Mac; the job runs on SageMaker)",
+        "env_config_sha256": "71bf97b343ad784dc46df87353dd8807b81f0f6f33e29accb88f14b250b64efa",
+        "framework": "SageMaker PyTorch 2.3.0 py311",
+        "instance_type": "ml.c5.2xlarge",
+        "job_name_pattern": "ran-rl-team13-<UTC yyyymmdd-HHMMSS>",
+        "max_run_s": 10800,
+        "reward_config_sha256": "da1356756aec2d0c172ce48bb117c69cf569bbe32666e92f4adba8ec2f9107e2",
+        "s3_prefix": "teams/team13/",
+        "spot": true,
+        "team_code": "team13 (RAN_RL_TEAM)",
+        "team_rewards_sha256": "50071a16bb70f497a1b182d4b0e03cfadbd55ca8afd4576ee4d321d9fa8e0c00",
+        "timesteps": 2048,
+        "train_config_sha256": "e67477d6ae153656e22bbcedd547d44a0ed514c10632810e9766e4d1d4232ed9",
+        "twin_backend": "http"
+      },
+      "twin_host": "team13 EC2 c5.4xlarge i-0acf4648786c5adf7 (us-east-2), adapter-team1 on port 8001 (TEAM_NO=1), bearer token; address and token are not recorded here",
+      "twin_host_source_sha256": "a306ac0eb152dcabb2d4bb6f462a68c77b4e1b358ba91b85cffb9fec7fe32091"
+    },
+    "kind": "maveric-hosted",
+    "scenario": "nominal,congestion,outage",
+    "seed": 42,
+    "version": "1.2.9"
+  },
+  "unit": "t1.rl.link-test"
+}

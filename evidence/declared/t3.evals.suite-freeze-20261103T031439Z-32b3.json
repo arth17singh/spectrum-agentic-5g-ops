@@ -1,0 +1,71 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "4539d59c453d09c511f8fdc629c31f53ff6c7eb3",
+  "created_at": "2026-11-03T03:14:43.598Z",
+  "declared_at": "2026-11-03T03:14:43.598Z",
+  "grader": "t3/evals/incidents.py:v4 (twin replay; kept iff no_action fails the tolerance at the grade step and the safety filter clipped nothing)",
+  "kind": "declared",
+  "model_id": "none (data generation: twin replay only, no model)",
+  "n_items": 84,
+  "region": "us-east-2",
+  "run_id": "t3.evals.suite-freeze-20261103T031439Z-32b3",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "n_items",
+    "op": "==",
+    "unit": "count",
+    "value": 84
+  },
+  "team": "team13",
+  "test_set_sha256": "38b12e6ceae350bf9aee93ab95bba2c35bfb4b6d414618af1f538e7fbe07a705",
+  "track": "track-3",
+  "twin": {
+    "config": {
+      "backend": "maveric-inprocess",
+      "evidence_writer": "tools/evlib.py: a local store in the job, uploaded and attested by tools/sm/entry.py",
+      "executed": "SageMaker training job started by tools/sm/run.py on ml.m5.xlarge (x86_64): the platform of record for the suite; in-process twin (twin/, W2), no network twin",
+      "input": "t3/evals/suite/candidates.jsonl: the 84 candidate specs (test_set_sha256 is its sha256); seeds 4100-4183, one per candidate",
+      "output": "{output_dir}/suite: incidents-test.jsonl, incidents-dev.jsonl, incidents-test.sha256, incidents-meta.json (in the job's output.tar.gz)",
+      "records": "one item per candidate (input = canonical candidate spec, output = canonical incident or drop record) and a result with n_items == 84",
+      "runner": {
+        "allow_dirty": false,
+        "archive_bytes": 640848,
+        "archive_sha256": "dc32c027da8fd33e6063bbd0c1d5a566fe9743dfc159747994bfa22b641f8e56",
+        "entry": [
+          "-m",
+          "t3.evals.incidents",
+          "--out",
+          "{output_dir}/suite",
+          "--evidence-dir",
+          "{evidence_dir}",
+          "--run-id",
+          "{run_id}"
+        ],
+        "files": 309,
+        "image": "763104351884.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0-cpu-py312-ubuntu22.04-sagemaker-v2.2",
+        "instance_type": "ml.m5.xlarge",
+        "job_name": "t3-evals-suite-freeze-20261103T031439Z-32b3-b31cff",
+        "launcher": "tools/sm/run.py",
+        "max_run_s": 1800,
+        "pathspec": [
+          "contracts",
+          "t3",
+          "tools",
+          "twin"
+        ],
+        "requirements_sha256": "f7633e7cdc8bd444559ada594f9e463b3118c511ac014215b12c931371c820ae",
+        "shipped": "the committed tree at code_sha only (git archive); uncommitted changes never reach the job",
+        "source_uri": "s3://bb26-p-team13-data-483598626742-use2/jobs/t3.evals.suite-freeze-20261103T031439Z-32b3/source/sourcedir.tar.gz",
+        "tree_dirty_at_launch": false
+      },
+      "suite_version": "t3-incidents-v4"
+    },
+    "kind": "maveric-inprocess",
+    "scenario": "incident-suite",
+    "seed": 4100,
+    "version": "ran-rl-1.2.9"
+  },
+  "unit": "t3.evals.suite-freeze"
+}

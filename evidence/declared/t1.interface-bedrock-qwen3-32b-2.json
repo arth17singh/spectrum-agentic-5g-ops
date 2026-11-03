@@ -1,0 +1,110 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "baseline_run_id": "t1.interface-otel-base-1",
+  "code_sha": "33c47be5b3a273eb6d978fe751e95e1b160310a1",
+  "created_at": "2026-11-03T06:20:05.399Z",
+  "declared_at": "2026-11-03T06:20:05.399Z",
+  "decoding": {
+    "secondary_checks": [
+      {
+        "metric": "pass_rate",
+        "name": "pass rate >= 0.90",
+        "op": ">=",
+        "value": 0.9
+      },
+      {
+        "metric": "gain_value",
+        "name": ">= base - 0.02",
+        "op": ">=",
+        "value": -0.02
+      }
+    ]
+  },
+  "grader": "t1-graders-v2: exact match of {intent, cells, parameter, direction, amount, kpi} on the first JSON object",
+  "kind": "declared",
+  "model_id": "qwen.qwen3-32b-v1:0",
+  "n_items": 261,
+  "parser": "t1-parse-v1",
+  "prompt_sha256": "bca9ecf54c3b9ac64c4f3a3d036e427f95605cf40c344b3357379c5a20a0629f",
+  "region": "us-east-2",
+  "run_id": "t1.interface-bedrock-qwen3-32b-2",
+  "schema_version": "1",
+  "subset": "split=test",
+  "synthetic": false,
+  "target": {
+    "metric": "pass_rate",
+    "op": ">=",
+    "unit": "ratio",
+    "value": 0.9
+  },
+  "team": "team13",
+  "test_set_sha256": "3f93b103c637244f808cd242c86dcb2181797cd63d76b7bfac19a4e9028f4449",
+  "track": "track-1",
+  "twin": {
+    "config": {
+      "runner": {
+        "allow_dirty": false,
+        "archive_bytes": 2818740,
+        "archive_sha256": "4986576b4e5951ff401e90c8cdddfa288faa938f5801a349c793c6504b2c4240",
+        "entry": [
+          "-m",
+          "t1.evals.run",
+          "--unit",
+          "interface",
+          "--client",
+          "bedrock",
+          "--model-id",
+          "qwen.qwen3-32b-v1:0",
+          "--max-tokens",
+          "2048",
+          "--price-in-per-1m",
+          "0.15",
+          "--price-out-per-1m",
+          "0.6",
+          "--price-source",
+          "AWS Price List API, AmazonBedrock, us-east-2, standard on-demand, usagetypes USE2-Qwen3-32B-input-tokens / USE2-Qwen3-32B-output-tokens, effective 2026-10-01, read 2026-11-02",
+          "--target-metric",
+          "pass_rate",
+          "--target-op",
+          ">=",
+          "--target-value",
+          "0.90",
+          "--target-unit",
+          "ratio",
+          "--baseline-run-id",
+          "t1.interface-otel-base-1",
+          "--run-id",
+          "{run_id}",
+          "--evidence-dir",
+          "{evidence_dir}"
+        ],
+        "files": 449,
+        "image": "763104351884.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0-cpu-py312-ubuntu22.04-sagemaker-v2.2",
+        "instance_type": "ml.m5.xlarge",
+        "job_name": "t1-interface-bedrock-qwen3-32b-2-50b335",
+        "launcher": "tools/sm/run.py",
+        "max_run_s": 18000,
+        "pathspec": [
+          "contracts",
+          "silos",
+          "t1",
+          "t2",
+          "t3",
+          "tools",
+          "twin"
+        ],
+        "requirements_sha256": "9f75594350889dff6a1804bcb925d897a0c5fb3ae44bb18527f0dcb2838b57dd",
+        "role": "bb26/team13-sm-bedrock-eval",
+        "shipped": "the committed tree at code_sha only (git archive); uncommitted changes never reach the job",
+        "source_uri": "s3://bb26-p-team13-data-483598626742-use2/jobs/t1.interface-bedrock-qwen3-32b-2/source/sourcedir.tar.gz",
+        "tree_dirty_at_launch": false
+      }
+    },
+    "kind": "none",
+    "scenario": "none",
+    "seed": 0,
+    "version": "none"
+  },
+  "unit": "t1.interface"
+}

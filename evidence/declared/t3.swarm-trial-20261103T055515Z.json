@@ -1,0 +1,54 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "614fc3b373de6bdb45c8f387cece49708403d988",
+  "created_at": "2026-11-03T05:55:16.161Z",
+  "declared_at": "2026-11-03T05:55:16.161Z",
+  "grader": "t3/evals/live_swarm.py: one item per (incident, step) case; passed = the case ran to the lead's answer and the proposal was read from the checkpoint (a timed-out or refused case fails). Scored later by t3/evals/run.py on x86 with t3/evals/recorded_client.py.",
+  "kind": "declared",
+  "model_id": "noc_lead=openai.gpt-oss-120b-1:0;students=openai.gpt-oss-20b-1:0",
+  "n_cases": 3,
+  "n_items": 3,
+  "region": "us-east-2",
+  "run_id": "t3.swarm-trial-20261103T055515Z",
+  "schema_version": "1",
+  "subset": "tier=masked",
+  "synthetic": false,
+  "target": {
+    "metric": "pass_rate",
+    "op": ">=",
+    "unit": "ratio",
+    "value": 1.0
+  },
+  "team": "team13",
+  "test_set_sha256": "128b229489d3b1e050223a03c7a23bb2e0bec995cb480a6e44552d2d51984638",
+  "track": "track-3",
+  "twin": {
+    "config": {
+      "approval_policy": "proposal-only: no change is approved; the proposal is read from the approval refusal",
+      "operator_steps": 3,
+      "served_models": {
+        "agents": "noc_lead=openai.gpt-oss-120b-1:0;students=openai.gpt-oss-20b-1:0",
+        "policy": {
+          "artifact": "t1/rl/artifacts/ppo_sm_50k.zip",
+          "model_id": "t1-ppo-cco-sm",
+          "version": "50k-a09e"
+        },
+        "predictor": {
+          "artifact": "t2/artifacts/t2_response_federated_v1.npz",
+          "model_id": "t2-response-federated-disjoint",
+          "version": "v1-5fb29b2d"
+        }
+      },
+      "suite": "t3/evals/suite/incidents-test.jsonl",
+      "suite_version": "t3-incidents-v4",
+      "tier": "masked",
+      "twin_host": "team13-ran-tools Lambda (arm64 in-process replay); the score is computed on x86 by the scoring run"
+    },
+    "kind": "maveric-inprocess",
+    "scenario": "incident-suite",
+    "seed": 4102,
+    "version": "ran-rl-1.2.9"
+  },
+  "unit": "t3.evals.swarm-proposals"
+}

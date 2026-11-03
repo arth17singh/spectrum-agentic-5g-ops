@@ -1,0 +1,59 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "a4c9c1fca4ce22d5898c8e28d29a64e65f1cc6c1",
+  "created_at": "2026-11-03T07:53:51.725Z",
+  "declared_at": "2026-11-03T07:53:51.725Z",
+  "grader": "measure-only: ran_rl.operate (RAN RL SDK 1.2.9, organisers' code, `make operate`) plays one 5-step episode of the PPO policy on the team's Viavi RSG twin; record_viavi_operate.py (team13 wrapper, scratch, not yet committed) turns reports/operate.json into one item per step (requested action, action after the SDK safety filter, rules fired, objective, KPIs) and counts the steps; no KPI gate",
+  "kind": "declared",
+  "model_id": "t1-ppo-cco-sm",
+  "n_items": 5,
+  "region": "us-east-2",
+  "run_id": "t1.rl.viavi_operate-20261103T075351Z-25c0",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "n_items",
+    "op": "==",
+    "unit": "count",
+    "value": 5
+  },
+  "team": "team13",
+  "test_set_sha256": "7ff6170d8da07c8023a840cd711c526d4cc42d6998a4dcf1f86077cd701e091b",
+  "track": "track-1",
+  "twin": {
+    "config": {
+      "aws": "no AWS job and no AWS-written log: check_unit part c has no AWS window for this run (expected CANNOT CHECK, not a pass); region is the team's default, required by the schema",
+      "env_config_sha256": "386f1f065739703886ef80b7a379ceb0fb7cb76e154e65e2f87ec1eb98116bcc",
+      "episode": {
+        "policy": "deterministic (ran_rl.evaluation.evaluate.load_policy)",
+        "seed": 0,
+        "step_seconds": 60.0,
+        "steps": 5,
+        "use_case": "cco"
+      },
+      "items_rule": "one item per entry of reports/operate.json steps[]; item_id step-<n>; value = number of items; passed iff value == 5",
+      "model": {
+        "alias": "same artifact as ppo-cco-reward-v1-ckpt50k in t1.rl.eval-20261103T043115Z-bf52",
+        "artifact": "int/v4:t1/rl/artifacts/ppo_sm_50k.zip",
+        "artifact_sha256": "e04d8c907ca30fd3c876121b924c2836157cb546b1890a984184bb52f37484c1",
+        "evaluated_by_run": "t1.rl.eval-20261103T043115Z-bf52",
+        "model_id": "t1-ppo-cco-sm",
+        "provenance": "int/v4:t1/rl/artifacts/ppo_sm_50k.provenance.json",
+        "trained_by_run": "t1.rl.train-20261103T023805Z-a09e",
+        "version": "50k-a09e"
+      },
+      "purpose": "Track 1 RL stage 6 (operate): the served PPO policy acts on the Viavi RSG, a stand-in for a production network it was never trained on (trained and scored on Maveric)",
+      "reward_config_sha256": "da1356756aec2d0c172ce48bb117c69cf569bbe32666e92f4adba8ec2f9107e2",
+      "route": "team's signed-in browser session: local MCP relay (same-origin fetch to the RSG's /mcp in the Viavi app tab) -> organisers' adapter (python -m ran_rl_host.adapter.serve --backend viavi_rsg) on the team's Mac -> make operate (RAN_RL_VIAVI_TWIN_URL). RSG host, URL, IPs, cookies and tokens are not recorded",
+      "rsg_config_sha256": "886212ca2995e8ea3e30c60458321266f6f2ab4f5a85e816ad8cb355ac0c8e06",
+      "scenario_file": "twin-source/config/viavi_scenarios/maveric_4cell.json (organisers' twin-host source 1.2.9; saved on the RSG by make create-viavi-scenario); its sha256 is test_set_sha256",
+      "sdk_wheel_sha256": "9b2978a25bb950f9d0703457537e04403763043349c0976809ea495ca0099fcf"
+    },
+    "kind": "viavi",
+    "scenario": "ran-rl-maveric-4cell",
+    "seed": 0,
+    "version": "Viavi RSG ai-rsg 1.0 via ran_rl_host viavi_rsg adapter (SDK 1.2.9)"
+  },
+  "unit": "t1.rl.viavi_operate"
+}

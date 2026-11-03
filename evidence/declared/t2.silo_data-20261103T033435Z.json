@@ -1,0 +1,66 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "9f8de8b2a8f95d65ba7ed27901dec5261f93873c",
+  "created_at": "2026-11-03T03:34:39.910Z",
+  "declared_at": "2026-11-03T03:34:39.910Z",
+  "grader": "silos.checks (schema, ranges, seeds, proportional rows, operating points) + SHA-256 read-back from S3",
+  "kind": "declared",
+  "model_id": "t2-simulated-silos@v1",
+  "n_items": 14,
+  "region": "us-east-2",
+  "run_id": "t2.silo_data-20261103T033435Z",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "pass_count",
+    "op": ">=",
+    "unit": "files (checked, uploaded, SHA-256 verified)",
+    "value": 14
+  },
+  "team": "team13",
+  "test_set_sha256": "ecf8b521a9e4b9a658d5a71d9614abfc67b3f2c7cc21b19850da6dd65258dc42",
+  "track": "track-2",
+  "twin": {
+    "config": {
+      "details": {
+        "entry": "python -m silos.job_data",
+        "note": "Provenance of the simulated-silo datasets. test_set_sha256 is the sha256 of the generator config (silos/config.yaml, canonical JSON). The comparison with the earlier laptop copy is a measurement, not a target.",
+        "population": "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data"
+      },
+      "runner": {
+        "allow_dirty": false,
+        "archive_bytes": 2780730,
+        "archive_sha256": "fc37467f2be7180e5b60a43246889f93fe5f1c7aa38fa504f2f2d43e38f62cfe",
+        "entry": [
+          "-m",
+          "silos.job_data"
+        ],
+        "files": 434,
+        "image": "763104351884.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0-cpu-py312-ubuntu22.04-sagemaker-v2.2",
+        "instance_type": "ml.m5.4xlarge",
+        "job_name": "t2-silo-data-20261103T033435Z-e4262d",
+        "launcher": "tools/sm/run.py",
+        "max_run_s": 3600,
+        "pathspec": [
+          "contracts",
+          "silos",
+          "t1",
+          "t2",
+          "t3",
+          "tools",
+          "twin"
+        ],
+        "requirements_sha256": "1fc9c42dd8e6bc7aecead79722510f2f4ed9ae424030f413527abbc113160259",
+        "shipped": "the committed tree at code_sha only (git archive); uncommitted changes never reach the job",
+        "source_uri": "s3://bb26-p-team13-data-483598626742-use2/jobs/t2.silo_data-20261103T033435Z/source/sourcedir.tar.gz",
+        "tree_dirty_at_launch": false
+      }
+    },
+    "kind": "maveric-inprocess",
+    "scenario": "silo-generator",
+    "seed": 0,
+    "version": "ran-rl 1.2.9"
+  },
+  "unit": "t2.silo_data"
+}

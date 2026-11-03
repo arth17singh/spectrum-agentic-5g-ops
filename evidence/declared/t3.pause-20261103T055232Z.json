@@ -1,0 +1,32 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "614fc3b373de6bdb45c8f387cece49708403d988",
+  "created_at": "2026-11-03T05:52:33.082Z",
+  "declared_at": "2026-11-03T05:52:34.307Z",
+  "grader": "t3/suite/pause_floor.py: 5 + 4 items, each pass/fail from the Gateway's answer (HTTP Date = AWS time): the call before the pause is allowed; the first ran___predict call after the forbid is ACTIVE (GetPolicy) is refused; the first refusal is <= 60 s after the forbid's createdAt; the 5 calls after the first refusal are refused; the call after the resume is allowed",
+  "kind": "declared",
+  "model_id": "t2-response-federated-disjoint:v1-5fb29b2d",
+  "n_cases": 1,
+  "n_items": 9,
+  "region": "us-east-2",
+  "run_id": "t3.pause-20261103T055232Z",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "pass_rate",
+    "op": ">=",
+    "unit": "ratio",
+    "value": 1.0
+  },
+  "team": "team13",
+  "test_set_sha256": "f7bbe945d4877e7dd3b26fae2f175ab3c1cc9db6b725abaf3ea7653f38a04984",
+  "track": "track-3",
+  "twin": {
+    "kind": "none",
+    "scenario": "none",
+    "seed": 0,
+    "version": "none"
+  },
+  "unit": "t3.pause"
+}

@@ -1,0 +1,68 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "ada9eab5bf5e270189cd311b5c9cc16931c6d52a",
+  "created_at": "2026-11-03T06:48:58.750Z",
+  "declared_at": "2026-11-03T06:48:58.750Z",
+  "grader": "t1/curves/job_curves.py:v1 (one item per curve point of three declared series, passed when the value is finite; a series that is missing or has another point count than t1/curves/sources.json declares adds a failing '<series>:incomplete' item. SFT: train_loss 296 steps and dev_loss 4 evaluations from train_metrics.json, sha256-checked against SHA256SUMS. RL: mean_episode_reward 66 PPO rollouts from the training job's CloudWatch METRIC lines. More than 500 points are thinned to 500 real points by uniform stride, first and last kept)",
+  "kind": "declared",
+  "model_id": "t1-otel-1.7b-lora (SFT run t1.sft.train-20261103T034500Z-9d4f); ppo-cco-reward-v1 (RL run t1.rl.train-20261103T023805Z-a09e); curves only, no model under test",
+  "n_items": 366,
+  "region": "us-east-2",
+  "run_id": "t1.curves-20261103T064853Z-8aca",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "pass_rate",
+    "op": ">=",
+    "unit": "ratio",
+    "value": 1.0
+  },
+  "team": "team13",
+  "test_set_sha256": "0ecf6372da045897d42e718033af05f10c344a5d47d59bddc39c82510ce62e72",
+  "track": "track-1",
+  "twin": {
+    "config": {
+      "runner": {
+        "allow_dirty": false,
+        "archive_bytes": 168449,
+        "archive_sha256": "4050af142035babe254a14b3fc79227b8236d373e013deb209740e9013817be3",
+        "entry": [
+          "-m",
+          "t1.curves.job_curves",
+          "--run-id",
+          "{run_id}",
+          "--sft-metrics",
+          "{channel:sft_metrics}",
+          "--sft-sums",
+          "{channel:sft_sums}",
+          "--evidence-dir",
+          "{evidence_dir}",
+          "--summary-dir",
+          "{output_dir}"
+        ],
+        "files": 140,
+        "image": "763104351884.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0-cpu-py312-ubuntu22.04-sagemaker-v2.2",
+        "instance_type": "ml.m5.xlarge",
+        "job_name": "t1-curves-20261103T064853Z-8aca-e24718",
+        "launcher": "tools/sm/run.py",
+        "max_run_s": 1800,
+        "pathspec": [
+          "contracts",
+          "tools",
+          "t1/curves"
+        ],
+        "requirements_sha256": "fd95fc3b2db0f90b4f0c9900db0412190114be1fe4c2b94732021ca37ff57d9b",
+        "role": "bb26-SageMakerExecution",
+        "shipped": "the committed tree at code_sha only (git archive); uncommitted changes never reach the job",
+        "source_uri": "s3://bb26-p-team13-data-483598626742-use2/jobs/t1.curves-20261103T064853Z-8aca/source/sourcedir.tar.gz",
+        "tree_dirty_at_launch": false
+      }
+    },
+    "kind": "none",
+    "scenario": "none",
+    "seed": 0,
+    "version": "none"
+  },
+  "unit": "t1.curves"
+}

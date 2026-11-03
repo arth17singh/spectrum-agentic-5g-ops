@@ -1,0 +1,80 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "5ccfd49f522132de1bf720f1cb30d548903d294d",
+  "created_at": "2026-11-03T04:56:29.925Z",
+  "declared_at": "2026-11-03T04:56:29.925Z",
+  "grader": "t3.trust gate rule (A6) replayed on twin.replay; per-seed pause index",
+  "kind": "declared",
+  "model_id": "t2-response-v0@v0",
+  "n_items": 20,
+  "region": "us-east-2",
+  "run_id": "t3.trust.gate_v1_healthy-20261103T045624Z",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "fail_count",
+    "op": "<=",
+    "unit": "runs (healthy model paused)",
+    "value": 2
+  },
+  "team": "team13",
+  "test_set_sha256": "86c1b3fb4ab83b06d99df476fbcd9719203fd06c8d7f0a53e93a689b70f65fb5",
+  "track": "track-3",
+  "twin": {
+    "config": {
+      "command": "python -m t3.trust.job_gate_eval --version v1 --model healthy --testset t3/trust/testsets/gate_eval_3000_3019.json",
+      "note": "Fresh for the trust gate: twin seeds 3000-3019 have never been through the gate (calibration used 20000-20039, the demos 0 and 1000-1009, the v2 evaluation 2000-2019). They were used by the laptop LADDER runs (f4a75a2), which choose changes with the predictors but never run the gate rule; no threshold was chosen on them. Thresholds v1 as declared (sha256 d051c1e0...), untouched since 2c8a57c.",
+      "preset": "official",
+      "references": {
+        "laptop_v2_eval": "t3/trust/runs/v2_eval.json",
+        "thresholds_v1_commit": "2c8a57c",
+        "v2_declaration_commit": "ed7d3c4"
+      },
+      "runner": {
+        "allow_dirty": false,
+        "archive_bytes": 2240637,
+        "archive_sha256": "130252e7c67c8554b60324d4af40113495f03902f185cb34395474b61a85ca26",
+        "entry": [
+          "-m",
+          "t3.trust.job_gate_eval",
+          "--version",
+          "v1",
+          "--model",
+          "healthy",
+          "--testset",
+          "t3/trust/testsets/gate_eval_3000_3019.json"
+        ],
+        "files": 336,
+        "image": "763104351884.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0-cpu-py312-ubuntu22.04-sagemaker-v2.2",
+        "instance_type": "ml.m5.xlarge",
+        "job_name": "t3-trust-gate-v1-healthy-20261103T045624Z-b67fd7",
+        "launcher": "tools/sm/run.py",
+        "max_run_s": 1800,
+        "pathspec": [
+          "contracts",
+          "t2",
+          "t3",
+          "tools",
+          "twin"
+        ],
+        "requirements_sha256": "f7633e7cdc8bd444559ada594f9e463b3118c511ac014215b12c931371c820ae",
+        "role": "bb26-SageMakerExecution",
+        "shipped": "the committed tree at code_sha only (git archive); uncommitted changes never reach the job",
+        "source_uri": "s3://bb26-p-team13-data-483598626742-use2/jobs/t3.trust.gate_v1_healthy-20261103T045624Z/source/sourcedir.tar.gz",
+        "tree_dirty_at_launch": false
+      },
+      "seeds": [
+        3000,
+        3019
+      ],
+      "thresholds_sha256": "d051c1e05efbca5491fd90741ea835a3c83d0ba55ef320dfaf76cc24df4af74b",
+      "thresholds_version": "v1"
+    },
+    "kind": "maveric-inprocess",
+    "scenario": "nominal",
+    "seed": 3000,
+    "version": "ran-rl 1.2.9 config eade0c1121d5 (official)"
+  },
+  "unit": "t3.trust_gate.v1.healthy"
+}

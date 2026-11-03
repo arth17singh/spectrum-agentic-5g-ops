@@ -107,3 +107,15 @@ python3 -I scripts/hooks/prepush_scan.py --refs HEAD --no-evidence   # audit a w
 ```
 
 Details are in [`scripts/hooks/README.md`](scripts/hooks/README.md).
+
+## Clean-up
+
+One line per item: what, who, when. "Lead" is the Team13 lead (main session). Times are 3 Nov, PST.
+
+- **Keep until judging ends:** the team data bucket (`evidence/`, `judging/`), CloudWatch logs, the DynamoDB table `team13-approvals`, the AgentCore Gateway, its Cedar policies, and the Lambdas `team13-ran-tools` and `team13-trust-gate`. The judges' live test reads S3, Logs Insights and DynamoDB, read-only. Who: nobody touches them. When: the organisers make the account read-only at 18:00.
+- **SageMaker endpoint `team13-otel-nlm`** (ml.g6.xlarge, about $1.13/h), with its endpoint config and model. Who: lead. When: delete right after the demo; the organisers delete endpoints at 18:05 in any case.
+- **EC2 `team13-agentbuilder`** (the Agent Builder host where `noc_lead` runs; Ask the NOC depends on it). Who: lead. When: terminate (not stop) after the demo.
+- **The twin host EC2** (security group `ran-rl-staging-twin`; the Viavi adapter container runs on it). Who: lead. When: after the demo, shut it down per Part F of the ran-rl staging guide (close the ports, stop; full teardown terminates it and deletes the security group and key pair).
+- **SageMaker notebook `team13-gpu-g5-4xl`.** Held on the organisers' instruction. Who: lead. When: stop only when the organisers say. The three stopped notebooks (`team13-gpu-g6-2xl`, `team13-gpu-g5-2xl`, `team13-gpu-g6-xl`) keep their disks; delete only on the user's say.
+- **Laptop processes:** the Viavi relay and adapter (`tools/viavi_bridge`, ports 8790 and 8791) and the dashboard servers. Who: whoever started them. When: stop after the demo.
+- **Twin API token.** Who: lead. When: rotate after the demo. Its value is never written anywhere.

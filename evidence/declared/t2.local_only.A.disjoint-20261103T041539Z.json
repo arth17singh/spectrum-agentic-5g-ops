@@ -1,0 +1,89 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "46b4fa380bc01339d987eadb0a13a01eea7f56b3",
+  "created_at": "2026-11-03T04:15:46.712Z",
+  "declared_at": "2026-11-03T04:15:46.712Z",
+  "grader": "silos.nn_core: per-row scaled MAE (declared scales) on the shared test set",
+  "kind": "declared",
+  "model_id": "t2-response-local-a-disjoint@v1",
+  "n_items": 10000,
+  "region": "us-east-2",
+  "run_id": "t2.local_only.A.disjoint-20261103T041539Z",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "n_items",
+    "op": ">=",
+    "unit": "shared-test rows scored (a measurement: the MAE is in the result details, there is no pass bar)",
+    "value": 10000
+  },
+  "team": "team13",
+  "test_set_sha256": "0ea3ff5dff6a7dc6f66eb8b91456db43607e55a2b047760905396c52f07296b9",
+  "track": "track-2",
+  "twin": {
+    "config": {
+      "details": {
+        "architecture": "MLP 38-128-128-4, Huber loss, Adam 1e-3, batch 256",
+        "entry": "python -m silos.job_baselines --method local --silo A --split disjoint",
+        "epochs": 20,
+        "method": "local",
+        "note": "Local-only control: trained on ONE simulated silo's training file only. A measurement of that silo's model on the shared test set; no pass bar.",
+        "population": "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data",
+        "score_scale": [
+          0.02,
+          0.03,
+          0.5,
+          0.35
+        ],
+        "seed": 0,
+        "silo": "A",
+        "split": "disjoint"
+      },
+      "runner": {
+        "allow_dirty": false,
+        "archive_bytes": 2791196,
+        "archive_sha256": "0f7355af54bfb683e4e27f3e9566eaa56632f1f3878d8e565484d9a968f2a2c7",
+        "entry": [
+          "-m",
+          "silos.job_baselines",
+          "--method",
+          "local",
+          "--silo",
+          "A",
+          "--split",
+          "disjoint",
+          "--epochs",
+          "20",
+          "--data-dir",
+          "{channel:data}"
+        ],
+        "files": 435,
+        "image": "763104351884.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0-cpu-py312-ubuntu22.04-sagemaker-v2.2",
+        "instance_type": "ml.m5.2xlarge",
+        "job_name": "t2-local-only-A-disjoint-20261103T041539Z-d42616",
+        "launcher": "tools/sm/run.py",
+        "max_run_s": 3600,
+        "pathspec": [
+          "contracts",
+          "silos",
+          "t1",
+          "t2",
+          "t3",
+          "tools",
+          "twin"
+        ],
+        "requirements_sha256": "fd95fc3b2db0f90b4f0c9900db0412190114be1fe4c2b94732021ca37ff57d9b",
+        "role": "bb26-SageMakerExecution",
+        "shipped": "the committed tree at code_sha only (git archive); uncommitted changes never reach the job",
+        "source_uri": "s3://bb26-p-team13-data-483598626742-use2/jobs/t2.local_only.A.disjoint-20261103T041539Z/source/sourcedir.tar.gz",
+        "tree_dirty_at_launch": false
+      }
+    },
+    "kind": "none",
+    "scenario": "none",
+    "seed": 0,
+    "version": "none"
+  },
+  "unit": "t2.local_only.A.disjoint"
+}
