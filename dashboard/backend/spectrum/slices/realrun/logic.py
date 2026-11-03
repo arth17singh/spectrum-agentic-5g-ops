@@ -207,6 +207,14 @@ def verdict_why(store: Store, result: dict | None) -> list[str]:
     return why
 
 
+_REPO_NAME = re.compile(r"(is (?:not )?a commit) in \S+")
+
+
+def _clean_line(s: str) -> str:
+    """check_unit names the local checkout it ran in ("is a commit in <dir>"); show the commit only."""
+    return _REPO_NAME.sub(r"\1 in the team repo", s)
+
+
 def check_parts(store: Store, run: str) -> dict | None:
     c = store.check(run)
     if not isinstance(c, dict):
@@ -217,7 +225,7 @@ def check_parts(store: Store, run: str) -> dict | None:
     for k, p in (raw.items() if isinstance(raw, dict) else []):
         if isinstance(p, dict):
             lines = p.get("lines") if isinstance(p.get("lines"), list) else []
-            parts.append({"id": k, "state": p.get("state"), "title": p.get("title"), "lines": [str(x) for x in lines[:14]],
+            parts.append({"id": k, "state": p.get("state"), "title": p.get("title"), "lines": [_clean_line(str(x)) for x in lines[:14]],
                           "more_lines": max(0, len(lines) - 14)})
     return {"exit_code": c.get("exit_code"), "checked_at": c.get("checked_at"), "elapsed_s": c.get("elapsed_s"),
             "verdict": {0: "all parts passed", 1: "a part failed", 2: "nothing failed, a part could not be checked"}.get(c.get("exit_code"), "unknown"),
