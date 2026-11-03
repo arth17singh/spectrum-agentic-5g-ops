@@ -89,7 +89,22 @@ export function ConvergenceChart({ c }: { c: Rec | null | undefined }) {
 }
 
 /** Scorecard: SFT loss per step and RL reward per timestep. */
-export function TrainingCurves({ c }: { c: Rec | null | undefined }) {
+/** Why the training reward and the evaluation objective differ, with the numbers from the records. */
+function RewardVsObjective({ rl }: { rl: Rec | null | undefined }) {
+  const up: Rec | undefined = (rl?.items ?? []).find((i: Rec) => i.id === 'UPLIFT')
+  const m: Rec | undefined = up?.measured
+  if (!rl || !up) return null
+  const f2 = (v: unknown) => (isNum(v) ? v.toFixed(2) : '?')
+  return (
+    <div className="mt-1 text-micro text-ink-2" data-testid="reward-vs-objective">
+      Training reward is the shaped reward the policy optimised on the hosted twin. The evaluation objective is the SDK's score on fixed seeds
+      against the rule-based baseline{m ? ` (model ${f2(m.model)} vs baseline ${f2(m.baseline)}; UPLIFT needs ${f2(m.needed)})` : ''}. They are different
+      measures. On the evaluation the policy {up.passed ? 'beat' : 'did not beat'} the baseline (UPLIFT gate {up.passed ? 'passed' : 'missed'}).
+    </div>
+  )
+}
+
+export function TrainingCurves({ c, rlEval }: { c: Rec | null | undefined; rlEval?: Rec | null }) {
   const d: Rec = c?.details ?? {}
   const sft: Rec | null = c ? d.sft ?? null : null
   const rl: Rec | null = c ? d.rl ?? null : null
@@ -133,6 +148,7 @@ export function TrainingCurves({ c }: { c: Rec | null | undefined }) {
                 {rl!.served_checkpoint ? ` · ◆ served checkpoint ${rl!.served_checkpoint}` : ''}
                 {rl!.train_run_id ? <> · <RunLink id={rl!.train_run_id} /></> : null}{rl!.eval_run_id ? <> · eval <RunLink id={rl!.eval_run_id} /></> : null}
               </div>
+              <RewardVsObjective rl={rlEval} />
             </>
           ) : <Empty what={`RL: no reward values recorded${rl!.reason ?? Object.values(rl!.series_reasons ?? {})[0] ? ` (${rl!.reason ?? Object.values(rl!.series_reasons ?? {})[0]})` : ''}`} />}
         </div>
