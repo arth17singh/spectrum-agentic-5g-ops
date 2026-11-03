@@ -7,6 +7,7 @@ import { Button, CodeBlock, CopyText, EmptyState, PageHeader, Panel, RealChip } 
 import { gainText, human, stateAttr, targetText, utc, value } from './format'
 import manifest from './manifest'
 import RealRuns from './RealRuns'
+import Track1Card from './Track1Card'
 
 // Everything here is read from the declared/ and results/ records through GET /api/scorecard/units.
 // The server recomputes pass/fail from the measured value and the DECLARED target; a stored
@@ -118,6 +119,7 @@ export default function ScorecardPage() {
       )}
 
       {!card && !err && <div className="text-cap text-ink-3">Loading the scorecard…</div>}
+      <Track1Card />
       {card && <Summary card={card} />}
       <RealRuns />
       {card && card.empty && (
