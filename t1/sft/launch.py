@@ -22,8 +22,9 @@ from pathlib import Path
 from t1.sft import common as K
 
 REPO = Path(__file__).resolve().parents[2]
-DECL = {"stage_base": REPO / "t1/sft/jobs/stage_base.declaration.json",
-        "build": REPO / "t1/sft/jobs/build.declaration.json"}
+# repo-relative: run the printed commands from the root of the checkout whose HEAD is to ship
+DECL = {"stage_base": "t1/sft/jobs/stage_base.declaration.json",
+        "build": "t1/sft/jobs/build.declaration.json"}
 UNITS = {"stage_base": "t1.sft.stage", "build": "t1.sft.data", "train_lora": "t1.sft.train"}
 BASE_SRC = "models/base/otel-llm-1.7b-it/"
 BASE_BF16 = "models/base/otel-llm-1.7b-it-bf16/"
@@ -105,9 +106,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"# launch (declares to S3 first, then CreateTrainingJob):\n{shell(args, '--no-wait')}\n")
     print(f"# later:\npython -m tools.sm.run --finish {run_id} --profile {a.profile}")
     if a.dry_run:
+        import os
+
         from tools.sm import run as R
 
         print("\n# ---- runner dry run ----", flush=True)
+        os.chdir(REPO)  # the declaration paths are repo-relative
         return R.main([*args, "--dry-run"])
     return 0
 

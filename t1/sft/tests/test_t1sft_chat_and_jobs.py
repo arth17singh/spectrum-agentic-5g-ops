@@ -221,9 +221,11 @@ def test_train_declaration_is_filled_from_the_dataset_manifest():
 
 
 @pytest.mark.parametrize("job", ["stage_base", "build", "train_lora"])
-def test_runner_plans_each_job_offline(job, tmp_path, clean_tree):
+def test_runner_plans_each_job_offline(job, tmp_path, clean_tree, monkeypatch):
     from tools.sm import run as R
     from tools.sm import spec
+
+    monkeypatch.chdir(launch.REPO)  # the printed declaration paths are repo-relative
 
     decl = None
     if job == "train_lora":
