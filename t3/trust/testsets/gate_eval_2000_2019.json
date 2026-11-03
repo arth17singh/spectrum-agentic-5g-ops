@@ -1,0 +1,52 @@
+{
+ "artifact": "t2/artifacts/t2_response_v0.npz",
+ "artifact_sha256": "39f25386b7797b458e0e6d1e67e1361f3b9e2a10bfde6e3f7902f738334bda38",
+ "changes": 24,
+ "config": "official",
+ "models": {
+  "degraded": {
+   "fault": "tilt_reversed",
+   "load": "t2.predict.load_degraded",
+   "model_id": "t2-response-v0-degraded-tilt-reversed@v0"
+  },
+  "healthy": {
+   "fault": null,
+   "load": "t2.predict.load",
+   "model_id": "t2-response-v0@v0"
+  }
+ },
+ "scenario": "nominal",
+ "script": "t3/trust/scripted_changes.json",
+ "script_sha256": "bb53f1173c0bd7481226644068a8b72483ec15065469748be00389400f4df842",
+ "seeds": [
+  2000,
+  2001,
+  2002,
+  2003,
+  2004,
+  2005,
+  2006,
+  2007,
+  2008,
+  2009,
+  2010,
+  2011,
+  2012,
+  2013,
+  2014,
+  2015,
+  2016,
+  2017,
+  2018,
+  2019
+ ],
+ "success_bar": {
+  "degraded_paused_by_change_6_min": 19,
+  "healthy_false_pauses_max": 2
+ },
+ "thresholds": {
+  "v1": "d051c1e05efbca5491fd90741ea835a3c83d0ba55ef320dfaf76cc24df4af74b",
+  "v2": "395ed282e042b4c365f6ad2d92f5b8e560511df1cfc6b572d3aed369a7fef852"
+ },
+ "what": "trust-gate evaluation seeds (fresh for v2; used once before on the laptop, dd15c54)"
+}

@@ -5,7 +5,12 @@
     python -m t1.evals.run --unit interface --client fake --fake-profile tuned --evidence-dir /tmp/ev \
         --baseline-run-id <base run id>
 
-    # real runs (the lead): base model, then tuned with --baseline-run-id <base run id>
+    # real runs, inside a SageMaker GPU job (see README "Running as a SageMaker job"):
+    python -m t1.evals.run --unit <u> --client local-hf --model-dir $SM_CHANNEL_MODEL \
+        [--adapter-dir $SM_CHANNEL_ADAPTER] --model-id <label> --instance-price-per-hour <USD/h> \
+        --price-source "<src>" [--baseline-run-id <base run id>]
+
+    # other transports: base model, then tuned with --baseline-run-id <base run id>
     python -m t1.evals.run --unit execution --client sagemaker --endpoint <name> --model-id <id> \
         --region us-east-2 --instance-price-per-hour <USD> --price-source "<where the price came from>"
     python -m t1.evals.run --unit safety --client bedrock --model-id openai.gpt-oss-20b-1:0 \
@@ -29,6 +34,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import random
 import sys
 from typing import Any, Callable
@@ -206,6 +212,14 @@ def new_run_id(unit: str, model_tag: str) -> str:
 def build_client(a: argparse.Namespace):
     if a.client == "fake":
         return FakeClient(a.fake_profile, a.fake_seed)
+    if a.client == "local-hf":
+        if not (a.model_dir and a.model_id):
+            raise SystemExit("--model-dir (or SM_CHANNEL_MODEL) and --model-id are required for local-hf")
+        from t1.evals.local_hf import LocalHFClient
+
+        return LocalHFClient(a.model_dir, a.model_id, adapter_dir=a.adapter_dir or None,
+                             merge_adapter=not a.no_merge_adapter, dtype=a.dtype, warmup=a.warmup,
+                             instance_type=a.instance_type)
     if a.client == "bedrock":
         if not a.model_id:
             raise SystemExit("--model-id is required for bedrock")
@@ -222,13 +236,17 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
     errs = freeze.verify_unit(unit)
     if errs and not a.allow_unfrozen:
         raise SystemExit(f"items for {unit} do not match MANIFEST.json: {errs}")
-    group = a.group if unit == "knowledge" else None
+    group = None if (unit != "knowledge" or a.group == "all") else a.group
     items, test_sha = freeze.select(unit, a.split, group)
     if a.limit:
         items = items[: a.limit]
         test_sha = freeze.lines_sha256([dumps(it) for it in items])
     if not items:
         raise SystemExit("no items selected")
+    if a.client == "local-hf" and a.instance_price_per_hour is None:
+        raise SystemExit("local-hf needs --instance-price-per-hour (on-demand $/h of the job's instance) "
+                         "and --price-source")
+    sha = resolve_code_sha(a.code_sha)
     client = client or build_client(a)
     synthetic = a.client == "fake" or a.synthetic
     max_tokens = a.max_tokens or MAX_TOKENS[unit]
@@ -248,6 +266,11 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
         for k, mine in (("test_set_sha256", test_sha), ("prompt_sha256", prompt_sha256()), ("parser", PARSER_VERSION)):
             if baseline.get(k) != mine:
                 raise SystemExit(f"baseline {k} {baseline.get(k)} != this run's {mine}: not the same items/prompt/parser")
+        mine_dec = client.decoding(MAX_TOKENS[unit])
+        for k in ("chat_template_sha256", "chat_template_kwargs", "do_sample", "temperature"):
+            theirs = (baseline.get("decoding") or {}).get(k)
+            if k in mine_dec and theirs is not None and theirs != mine_dec[k]:
+                raise SystemExit(f"baseline decoding.{k} {theirs!r} != this run's {mine_dec[k]!r}: not the same prompt format")
     run_id = a.run_id or new_run_id(unit, client.model_id)
     twin = None
     if unit == "execution":
@@ -261,17 +284,22 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
     subset = f"split={a.split}" + (f";group={group}" if group else "") + (f";first={a.limit}" if a.limit else "")
     decoding = dict(client.decoding(max_tokens))
     decoding["harness"] = {"items_file": f"t1/evals/items/{unit}.jsonl", "manifest": "t1/evals/items/MANIFEST.json",
-                           "backend": client.backend, "pricing": pricing.declared(), "code_dirty": code_dirty(),
+                           "backend": client.backend, "pricing": pricing.declared(), "code_dirty": safe_dirty(),
                            "evidence_writer": EVIDENCE_SOURCE}
     declared = {
         "run_id": run_id, "unit": f"t1.{unit}", "track": TRACK, "target": target,
         "baseline_run_id": a.baseline_run_id, "n_items": len(items), "test_set_sha256": test_sha,
         "subset": subset, "prompt_sha256": prompt_sha256(), "parser": PARSER_VERSION, "decoding": decoding,
         "model_id": client.model_id, "grader": f"{GRADER_VERSION}: {GRADER_TEXT[unit]}",
-        "code_sha": code_sha(), "region": a.region, "twin": twin, "synthetic": synthetic,
+        "code_sha": sha, "region": a.region, "twin": twin, "synthetic": synthetic,
     }
     declared_path = ev.write_declared(declared)
     sections = load_sections()
+    if hasattr(client, "file_manifests") and client.file_manifests():
+        ev.store.put_new(f"outputs/{run_id}/model_files.json",
+                         json.dumps(client.file_manifests(), indent=2, sort_keys=True).encode("utf-8"))
+    if hasattr(client, "warmup"):
+        client.warmup(sections["system"])  # after the declaration; warm-up calls are not items
     grader_name = f"{GRADER_VERSION}:{unit}"
     recs: list[dict] = []
     buf: list[dict] = []
@@ -293,6 +321,7 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
                  "detail": {"call_error": c.error}}
         else:
             g = grade(it, c.text)
+        c.latency_ms = round(c.latency_ms, 3)  # the recorded value; cost is derived from exactly it
         cost = pricing.cost(c) if not c.error else None
         rec = {
             "item_id": it["item_id"], "input_sha256": input_sha256(system, user),
@@ -335,27 +364,100 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
     }
     if unit != "price_latency":
         details["mean_score"] = metric_value("mean_score", [r["score"] for r in recs])
-    if baseline is not None:
-        base_recs = ev.read_records(a.baseline_run_id, "item")
+    details["latency_and_price"] = latency_and_price(recs, pricing, client)
+    base_recs = ev.read_records(a.baseline_run_id, "item") if baseline is not None else None
+    if base_recs is not None:
         g = paired_bootstrap(recs, base_recs, metric, a.bootstrap_resamples)
         g["baseline_run_id"] = a.baseline_run_id
         details["gain"] = g
+    if unit == "knowledge":
+        details["groups"] = group_details(recs, base_recs, a.bootstrap_resamples, a.baseline_run_id)
     result = {
         "run_id": run_id, "unit": f"t1.{unit}", "metric": metric, "value": value, "target": target,
         "passed": passed, "n_items": len(recs), "checked_at": utc_now(),
-        "checker": {"script": "t1/evals/run.py", "code_sha": code_sha()}, "details": details,
+        "checker": {"script": "t1/evals/run.py", "code_sha": sha}, "details": details,
         "synthetic": synthetic,
     }
     ev.write_result(result)
     return result
 
 
+def resolve_code_sha(given: str | None) -> str:
+    """--code-sha, else $CODE_SHA (a SageMaker job has no .git), else git rev-parse HEAD."""
+    import os
+    import re
+
+    sha = given or os.environ.get("CODE_SHA")
+    if sha is None:
+        try:
+            sha = code_sha()
+        except Exception as e:  # noqa: BLE001
+            raise SystemExit(f"no git checkout here: pass --code-sha or set CODE_SHA ({e})") from None
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise SystemExit(f"code sha must be 40 lowercase hex characters, got {sha!r}")
+    return sha
+
+
+def safe_dirty() -> bool | None:
+    try:
+        return code_dirty()
+    except Exception:  # noqa: BLE001 - no git in a SageMaker job
+        return None
+
+
+def latency_and_price(recs: list[dict], pricing: Pricing, client: Any) -> dict:
+    """Per-call latency on this instance and the price per 1,000 calls derived from it."""
+    lat = [r["latency_ms"] for r in recs if r.get("latency_ms") is not None and not r["extra"].get("error")]
+    out: dict[str, Any] = {"n_calls": len(lat), "percentile_method": "nearest-rank: sorted[ceil(p*n)-1]",
+                           "latency_scope": "wall clock per call as the client measures it (see declared decoding)"}
+    if lat:
+        out.update(p50_ms=metric_value("p50_latency_ms", lat), p95_ms=metric_value("p95_latency_ms", lat),
+                   mean_ms=sum(lat) / len(lat), max_ms=max(lat))
+    cost = [r["cost_usd"] for r in recs if r.get("cost_usd") is not None]
+    out["pricing"] = pricing.declared()
+    out["instance_type"] = getattr(client, "instance_type", None)
+    if cost:
+        out["cost_per_1k_usd"] = sum(cost) / len(cost) * 1000
+        out["cost_method"] = ("instance $/h x per-call latency / 3600, mean over calls x 1000 (calls served "
+                              "one at a time)" if pricing.instance_per_hour is not None
+                              else "per-token price x tokens, mean over calls x 1000")
+    warm = getattr(client, "warmup_ms", None)
+    if warm:
+        out["warmup_ms_excluded"] = [round(x, 3) for x in warm]
+    return out
+
+
+def group_details(recs: list[dict], base_recs: list[dict] | None, resamples: int, baseline_run_id: str | None) -> dict:
+    """Knowledge: pass rate per group (core, telelogs, telemath), with a paired gain when a baseline exists."""
+    out = {}
+    for g in sorted({r["extra"].get("group") for r in recs}):
+        mine = [r for r in recs if r["extra"].get("group") == g]
+        d: dict[str, Any] = {"n": len(mine), "pass_rate": metric_value("pass_rate", [r["passed"] is True for r in mine]),
+                             "parse_fail_rate": sum(1 for r in mine if not r["extra"]["parse_ok"]) / len(mine)}
+        if base_recs is not None:
+            gain = paired_bootstrap(mine, [r for r in base_recs if r["extra"].get("group") == g], "pass_rate", resamples)
+            gain["baseline_run_id"] = baseline_run_id
+            d["gain"] = gain
+        out[g] = d
+    return out
+
+
 def parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--unit", required=True, choices=list(MAX_TOKENS))
     ap.add_argument("--split", default="test", choices=["test", "dev", "all"])
-    ap.add_argument("--group", default="core", help="knowledge only: core | telelogs | telemath")
-    ap.add_argument("--client", default="fake", choices=["fake", "bedrock", "sagemaker"])
+    ap.add_argument("--group", default="all", choices=["all", "core", "telelogs", "telemath"],
+                    help="knowledge only; default all: one run, per-group results in result.details.groups")
+    ap.add_argument("--client", default="fake", choices=["fake", "local-hf", "bedrock", "sagemaker"])
+    ap.add_argument("--model-dir", default=os.environ.get("SM_CHANNEL_MODEL"),
+                    help="local-hf: model directory (default $SM_CHANNEL_MODEL)")
+    ap.add_argument("--adapter-dir", default=os.environ.get("SM_CHANNEL_ADAPTER"),
+                    help="local-hf: LoRA adapter directory (default $SM_CHANNEL_ADAPTER; none = base model)")
+    ap.add_argument("--no-merge-adapter", action="store_true", help="local-hf: keep the adapter unmerged")
+    ap.add_argument("--dtype", default="auto", help="local-hf: auto (bf16 on GPU) | float32 | bfloat16 | float16")
+    ap.add_argument("--warmup", type=int, default=3, help="local-hf: warm-up calls before the first item (not recorded)")
+    ap.add_argument("--instance-type", help="local-hf: instance type (default: read from the SageMaker container)")
+    ap.add_argument("--code-sha", help="commit of this code (default $CODE_SHA, else git rev-parse HEAD)")
     ap.add_argument("--fake-profile", default="base")
     ap.add_argument("--fake-seed", type=int, default=0)
     ap.add_argument("--model-id")

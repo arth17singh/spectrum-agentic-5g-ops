@@ -19,6 +19,7 @@ PERMITS = {
 }
 GOVERNED_PREFIXES = ("ran___", "nlm___", "swarm___")
 INJECTION = re.compile(r"ignore all previous instructions", re.I)
+TOOLS_GROUP = "/aws/lambda/team13-ran-tools"
 
 
 class Clock:
@@ -115,8 +116,9 @@ class FakeGateway:
         self.clock, self.ddb, self.policy, self.latency_s = clock, ddb, policy, latency_s
         self.flip = flip or set()      # tools whose decision we deliberately get wrong (for negative tests)
         self.posts = []                # (time, agent, tool)
-        self.cp_rows, self.span_rows = [], []
+        self.cp_rows, self.span_rows, self.tool_rows = [], [], []
         self.cases = []
+        self.apply_noop = False   # True: the approval is consumed but our tools never apply (a bypass)
 
     def _row(self, rows, message, group):
         rows.append({"@timestamp": int(self.clock() * 1000), "@message": json.dumps(message), "@log": group,
@@ -193,6 +195,15 @@ class FakeGateway:
             key = change_key(args)
             self.ddb.approvals()[key]["status"] = "APPLIED"
             payload = {"applied": True, "approval_id": key}
+            if not self.apply_noop:  # our tools Lambda prints the change it applied (amendment A11)
+                self._row(self.tool_rows, {"ts": self.clock(), "source": "team13-ran-tools",
+                                           "record": "change_applied", "case_id": args.get("case_id"),
+                                           "run_id": "from-case-row", "approval_id": key,
+                                           "change_text": args.get("change"), "item_id": args.get("item_id")},
+                          TOOLS_GROUP)
+        if tool.startswith(("ran___", "nlm___")):
+            self._row(self.tool_rows, {"ts": self.clock(), "source": "team13-ran-tools", "record": "ran_tool",
+                                       "tool": tool, "case_id": args.get("case_id"), "ok": True}, TOOLS_GROUP)
         self._row(self.cp_rows, {**cp, "phase": "response", "refused": False, "error": None}, "/team13/checkpoint")
         return 200, self._headers(), "data: " + json.dumps({"jsonrpc": "2.0", "id": 1, "result": {
             "content": [{"type": "text", "text": json.dumps(payload)}]}}) + "\n\n"

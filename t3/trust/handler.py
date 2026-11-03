@@ -35,7 +35,8 @@ class _EvlibWriter:
     existing key means the identical record is already there: treat it as written."""
 
     def append_records(self, run_id, kind, records):
-        from tools import evlib  # W6
+        from ._evlib import get_evlib
+        evlib = get_evlib()  # W6
 
         store = evlib.default_store()
         if not isinstance(store, evlib.S3Store):
