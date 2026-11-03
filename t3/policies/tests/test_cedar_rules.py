@@ -84,7 +84,7 @@ def test_pause_rules():
     assert r["name"] == "team13_ranpause_predict_t2_response_v0_degraded" and r["mode"] == g.LOOSE
     assert r["statement"] == (
         'forbid (principal, action == AgentCore::Action::"ran___predict", resource == @GW@)\n'
-        'when { !(context.input has model_version) || context.input.model_version == "v0-degraded" };')
+        'unless { context.input has model_version && context.input.model_version != "v0-degraded" };')
     assert not r["name"].startswith("team13_pause_nlm")  # the kit's `resume nlm` deletes that prefix
     nlm_pause = g.pause_rule("otel-nlm", "v0")
     assert nlm_pause["actions"] == ["nlm___ask", "nlm___ask_nlm"]   # M2: both names reach our NLM

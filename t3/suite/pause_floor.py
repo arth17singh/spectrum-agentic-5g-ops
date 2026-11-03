@@ -77,8 +77,9 @@ class CedarPause:
                 f'resource == AgentCore::Gateway::"{self.gw_arn}")')
         if not self.version:  # the whole tool
             return head + ";"
-        return (head + ' when { !(context.input has model_version) || '
-                f'context.input.model_version == "{self.version}" }};')
+        # the conjunction form: AgentCore's validator rejects `when { !(has) || == }` (CREATE_FAILED)
+        return (head + ' unless { context.input has model_version && '
+                f'context.input.model_version != "{self.version}" }};')
 
     def request(self, reason="") -> dict:
         """Create the forbid; do not wait. Returns the AWS creation time when the API gives one."""

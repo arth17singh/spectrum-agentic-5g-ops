@@ -211,7 +211,7 @@ def pause_rule(model_id: str, version: str, team: str = "team13", suffix: str = 
     name = safe_name(f"{team}_ranpause", tool.split("___", 1)[1], model_id, version, suffix)
     return {"name": name, "mode": LOOSE, "actions": tools, "model_id": model_id, "version": version,
             "statement": f"forbid (principal, {scope}, resource == @GW@)\n"
-                         f"when {{ !(context.input has model_version) || context.input.model_version == "
+                         f"unless {{ context.input has model_version && context.input.model_version != "
                          f"{json.dumps(version)} }};"}
 
 

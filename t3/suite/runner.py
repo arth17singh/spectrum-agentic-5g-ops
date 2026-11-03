@@ -302,6 +302,7 @@ class Runner:
         self.wait_quiet()
         approvals: dict[str, dict] = {}   # suite approval group -> {"approval_id", "decision"}
         paused = resumed = False
+        pause_error = None
         summary = {"run_id": self.run_id, "unit": self.unit_name, "case_id": self.case_id,
                    "n_items": len(items), "client_agree": 0,
                    "skipped": [], "approval": None, "pause": None}
@@ -314,8 +315,22 @@ class Runner:
                     self._skip(it, args, "no policy client: pause window not run", {"pause_window": window})
                     summary["skipped"].append(it["id"])
                     continue
+                if window == "inside" and pause_error:
+                    self._skip(it, args, f"the pause could not be put in place: {pause_error}",
+                               {"pause_window": window})
+                    summary["skipped"].append(it["id"])
+                    continue
                 if window == "inside" and not paused:
-                    summary["pause"] = {"on": self.pauser.on(reason=f"suite run {self.run_id}")}
+                    try:
+                        summary["pause"] = {"on": self.pauser.on(reason=f"suite run {self.run_id}")}
+                    except Exception as exc:  # noqa: BLE001 - e.g. CREATE_FAILED: record it, run the other items
+                        pause_error = f"{type(exc).__name__}: {str(exc)[:300]}"
+                        self.log(f"PAUSE FAILED ({pause_error}); its item is recorded as not run")
+                        self._skip(it, args, f"the pause could not be put in place: {pause_error}",
+                                   {"pause_window": window})
+                        summary["skipped"].append(it["id"])
+                        summary["pause"] = {"error": pause_error}
+                        continue
                     self._control("pause", summary["pause"]["on"])
                     paused = True
                     self.sleep(self.pause_settle_s)
@@ -345,7 +360,12 @@ class Runner:
                         summary["skipped"].append(it["id"])
                         continue
             self.pace()
-            out = self.gw.call(it["caller"], it["tool"], args)
+            try:
+                out = self.gw.call(it["caller"], it["tool"], args)
+            except Exception as exc:  # noqa: BLE001 - one item's failure must not lose the rest of the run
+                self._skip(it, args, f"the call failed on our side: {type(exc).__name__}: {str(exc)[:300]}", extra)
+                summary["skipped"].append(it["id"])
+                continue
             if step:
                 m = APPROVAL_RE.search(out.get("text") or "")
                 if m:

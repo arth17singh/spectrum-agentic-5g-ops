@@ -105,7 +105,7 @@ The files keep `@GW@` in place of the Gateway ARN.
 | `team13_ran_require_case_id` | loose | Forbid all six tools, and `nlm___ask_nlm`, unless `case_id like "case-*"` |
 | `team13_ran_nlm_kit_name_explainer_only` | loose | Forbid `nlm___ask_nlm` for noc_lead, ran_monitor and ran_optimizer. The kit's own permit lets any team agent use that name (with the prompt-attack guardrail), and after the takeover it reaches our NLM; only ran_explainer may, as with `nlm___ask` |
 | `team13_ran_require_human_approval` | loose | Forbid `ran___apply_change` for noc_lead unless `approval == "APPROVED"`. The kit's interceptor rewrites the refusal only when the Cedar error contains `require_human_approval` (314) |
-| `team13_ranpause_<tool>_<model>_<version>` | loose | Pause template (A8): `forbid … when { !(context.input has model_version) \|\| context.input.model_version == "<v>" }`. The tools refuse a `model_version` they do not serve, so naming another version cannot reach a paused model. The NLM pause covers both `nlm___ask` and `nlm___ask_nlm`. Never prefix a rule `team13_pause_nlm`: the kit's `resume nlm` deletes everything with that prefix |
+| `team13_ranpause_<tool>_<model>_<version>` | loose | Pause template (A8): `forbid … unless { context.input has model_version && context.input.model_version != "<v>" }` (the validator rejects the `when { !(has) \|\| == }` form). The tools refuse a `model_version` they do not serve, so naming another version cannot reach a paused model. The NLM pause covers both `nlm___ask` and `nlm___ask_nlm`. Never prefix a rule `team13_pause_nlm`: the kit's `resume nlm` deletes everything with that prefix |
 
 ## Deploy order
 
