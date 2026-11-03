@@ -162,7 +162,18 @@ def test_trust_live_is_opt_in_per_run(kit_dir):
     rc, log = run_apply(kit_dir, make_world(), "--trust-live")
     assert rc == 0
     trust = next(p for _, op, p in log if op == "create_function" and p["FunctionName"] == "team13-trust-gate")
+    tools = next(p for _, op, p in log if op == "create_function" and p["FunctionName"] == "team13-ran-tools")
     assert trust["Environment"]["Variables"]["T3_TRUST_LIVE"] == "1"
+    assert tools["Environment"]["Variables"]["T3_TRUST_LIVE"] == "1"   # grounded mode follows the gate
+    rc, log = run_apply(kit_dir, make_world())
+    tools = next(p for _, op, p in log if op == "create_function" and p["FunctionName"] == "team13-ran-tools")
+    assert tools["Environment"]["Variables"]["T3_TRUST_LIVE"] == "0"
+
+
+def test_tools_require_the_kit_gateways_context_marker(kit_dir):
+    rc, log = run_apply(kit_dir, make_world())
+    tools = next(p for _, op, p in log if op == "create_function" and p["FunctionName"] == "team13-ran-tools")
+    assert tools["Environment"]["Variables"]["T3_GATEWAY_ID"] == "team13-checkpoint-abc123"
 
 
 def test_apply_makes_valid_calls_in_order(kit_dir):
