@@ -93,8 +93,8 @@ async def remote_flags():
 
 @app.get("/api/snapshot")
 async def snapshot():
-    evidence.check_disk(force=True)  # the evidence part is re-read and re-verified from disk, as /api/evidence is
-    return {**engine.snapshot(), "evidence": evidence.snapshot()}
+    _evidence_fresh()  # the evidence part is re-checked against disk, as /api/evidence is
+    return {**engine.snapshot(), "evidence": _evidence_snapshot()}
 
 
 # --------------------------------------------------------------------------- simulation
@@ -361,10 +361,36 @@ async def dossier(incident: str):
 
 # --------------------------------------------------------------------------- evidence (REAL, persisted)
 
+REVERIFY_S = float(os.environ.get("SPECTRUM_EVIDENCE_REVERIFY_S") or 30)
+_last_reverify = [0.0]
+_snap_cache: dict = {}
+
+
+def _evidence_fresh() -> None:
+    """Every read re-checks the ledger files' size and mtime against disk (any write is caught); a full
+    re-read and signature re-verify of every record runs at most every REVERIFY_S seconds here (the background
+    scan and every ingest also force one), because at ~66k records it takes ~3.5 s per call."""
+    now = time.monotonic()
+    force = now - _last_reverify[0] >= REVERIFY_S
+    evidence.check_disk(force=force)
+    if force:
+        _last_reverify[0] = now
+
+
+def _evidence_snapshot() -> dict:
+    """evidence.snapshot(), cached until the ledger head, its length or its verified state changes."""
+    recs = evidence.ledger.records
+    key = (len(recs), recs[-1].get("hash") if recs else None, evidence.state, bool(evidence.verify_result.get("ok")),
+           json.dumps(evidence.last_scan, sort_keys=True, default=str))
+    if _snap_cache.get("key") != key:
+        _snap_cache.update(key=key, value=evidence.snapshot())
+    return _snap_cache["value"]
+
+
 @app.get("/api/evidence")
 async def evidence_snapshot():
-    evidence.check_disk(force=True)  # re-read and re-verify from disk on every read, never trust a cache
-    return evidence.snapshot()
+    _evidence_fresh()
+    return _evidence_snapshot()
 
 
 @app.get("/api/evidence/chain")
@@ -374,11 +400,13 @@ async def evidence_chain():
 
 
 @app.get("/api/evidence/runs/{run_id}")
-async def evidence_run(run_id: str):
+async def evidence_run(run_id: str, offset: int = 0, limit: int = 300):
     d = evidence.run_detail(run_id)
     if d is None:
         raise HTTPException(404, f"no evidence for run {run_id!r}")
-    return d
+    recs = d["records"]  # a 10k-item run has ~10k ledger records (8 MB): page them
+    offset, limit = max(0, offset), max(1, min(limit, 2000))
+    return {**d, "records": recs[offset:offset + limit], "total_records": len(recs), "offset": offset, "limit": limit}
 
 
 @app.post("/api/evidence/scan")
