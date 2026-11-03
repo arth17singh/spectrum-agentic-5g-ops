@@ -52,7 +52,7 @@ export function StreamDrawer() {
   }, [stream])
 
   return (
-    <section aria-label="Live stream" className={clsx('shrink-0 border-t border-line bg-page transition-[height] duration-200', open ? 'h-[280px]' : 'h-8')}>
+    <section aria-label="Live stream" className={clsx('shrink-0 overflow-x-hidden border-t border-line bg-page transition-[height] duration-200', open ? 'h-[280px]' : 'h-8')}>
       <div className="flex h-8 items-center gap-3 px-3 text-cap">
         <button type="button" onClick={() => set({ streamOpen: !open })} className="flex items-center gap-1.5 font-medium text-ink-1">
           {open ? <ChevronDown size={14} /> : <ChevronUp size={14} />} Live stream

@@ -59,7 +59,7 @@ export function Ribbon() {
   }
 
   return (
-    <div className="flex h-9 shrink-0 border-b border-line bg-page">
+    <div className="flex h-9 shrink-0 overflow-x-auto border-b border-line bg-page">
     <span className="flex shrink-0 items-center bg-warn/15 px-2.5 text-micro font-semibold tracking-wide text-warn"
       title="Every figure in this strip comes from the built-in simulator, not from measurements">SIMULATED</span>
     <nav aria-label="Lifecycle (simulated)" data-panel="ribbon" data-lit={lit ? 'true' : 'false'} className="relative flex h-9 min-w-0 flex-1" style={{ ['--lit-color' as string]: 'var(--ink-1)' }}>
