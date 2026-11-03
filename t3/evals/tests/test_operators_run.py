@@ -150,7 +150,7 @@ def test_end_to_end_run_writes_declared_items_result_and_gain(tmp_path):
     assert len(items) == len(INCS) and all(i["run_id"] == "t-cfg" for i in items)
     res = json.loads((tmp_path / "results" / "t-cfg.json").read_text())
     g = res["details"]["gain"]
-    assert set(g) == {"value", "ci_low", "ci_high", "baseline_run_id", "paired_n"}
+    assert {"value", "ci_low", "ci_high", "baseline_run_id", "paired_n", "method", "seed"} <= set(g)
     assert g["paired_n"] == len(INCS) and g["baseline_run_id"] == "t-noact"
     assert g["ci_low"] <= g["value"] <= g["ci_high"]
     assert g["value"] == pytest.approx(cand["details"]["mean_recovery"] - base["details"]["mean_recovery"])

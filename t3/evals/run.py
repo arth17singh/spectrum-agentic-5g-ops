@@ -46,7 +46,7 @@ from t3.evals.changes import canon, nonzero
 from t3.evals.evshim import EVLIB, Evidence, code_dirty, code_sha, new_run_id, utc_now
 from t3.evals.graders import GRADER_ID, TARGETS_PATH, action_stats, grade_kpis, load_targets
 from t3.evals.operators import make
-from t3.evals.stats import paired_bootstrap
+from t3.evals.stats import ci_spec, paired_bootstrap
 from t3.evals.twin_backend import BACKEND, ReplayTwin, graded, twin_version
 
 DEFAULT_EVIDENCE = Path(__file__).with_name("evidence")
@@ -209,8 +209,9 @@ def gains_against(ev: Evidence, items: list[dict[str, Any]], baseline_ids: list[
         g = paired_bootstrap(cand, {b["item_id"]: b["score"] for b in base}, boot["resamples"], boot["seed"], boot["ci"])
         gs = paired_bootstrap(cand_s, {b["item_id"]: float(b["passed"]) for b in base}, boot["resamples"],
                               boot["seed"], boot["ci"])
-        out.append({**g, "baseline_run_id": bid, "baseline_model_id": decl.get("model_id"),
-                    "metric": "recovery", "success_rate_gain": gs})
+        mid = decl.get("model_id")
+        out.append({**ci_spec(boot, bid, mid, "score"), **g, "metric": "recovery",
+                    "success_rate_gain": None if gs is None else {**ci_spec(boot, bid, mid, "passed"), **gs}})
     return out
 
 
@@ -231,7 +232,7 @@ def baseline_by_model(ev: Evidence, baseline_ids: list[str], pred) -> tuple[str,
 
 
 def swarm_primary(ev: Evidence, items: list[dict[str, Any]], baseline_ids: list[str],
-                  boot: dict[str, Any], tier: str = "masked") -> dict[str, Any]:
+                  boot: dict[str, Any], tier: str = "masked", run_subset: str | None = None) -> dict[str, Any]:
     """Paired recovery gain over config_revert on one tier, plus the declared secondary numbers."""
     found = baseline_by_model(ev, baseline_ids, lambda m: m == CONFIG_REVERT_MODEL)
     if found is None:
@@ -257,8 +258,12 @@ def swarm_primary(ev: Evidence, items: list[dict[str, Any]], baseline_ids: list[
         rw = sum(b["extra"]["wrong_cell_actions"] for b in ritems if b["item_id"] in ids)
         secondary.update(rule_baseline=rid, rule_baseline_wrong_cell_actions=rw,
                          wrong_cell_not_worse_than_rule=secondary["wrong_cell_actions"] <= rw)
-    return {"gain": {**g, "baseline_run_id": bid, "baseline_model_id": CONFIG_REVERT_MODEL, "tier": tier},
-            "secondary": secondary}
+    # The interval is over this run's items of one tier. If the run already holds only that tier
+    # (--subset masked), the replay needs no filter; otherwise it filters on the item's tier.
+    spans_tiers = run_subset is None
+    subset_spec = {"field": "extra.incident.tier", "equals": tier} if spans_tiers else None
+    spec = ci_spec(boot, bid, (ev.read_declared(bid) or {}).get("model_id", CONFIG_REVERT_MODEL), "score", subset_spec)
+    return {"gain": {**spec, **g, "tier": tier}, "secondary": secondary}
 
 
 def compare(value: float, op: str, target: float) -> bool:
@@ -374,12 +379,15 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
         if not na:
             raise SystemExit(f"{operator}'s target needs a no_action baseline: pass --baseline-run-id <no_action run>")
         value = na[0]["ci_low"]
+        target_gain = na[0]
     elif metric == "gain_ci_low_vs_config_revert_masked":
-        sp = swarm_primary(bev, items, baseline_run_ids, targets["bootstrap"])
+        sp = swarm_primary(bev, items, baseline_run_ids, targets["bootstrap"], run_subset=subset)
         value = sp["gain"]["ci_low"]
     else:
         raise SystemExit(f"unknown target metric {metric}")
     primary = gains[0] if gains else None
+    if metric == "gain_ci_low_vs_no_action":
+        primary = target_gain  # details.gain is the interval the target's value comes from
     extra_details: dict[str, Any] = {"subset": SUBSETS.get(subset) if subset else None,
                                      "mode": getattr(op, "mode", None)}
     if metric == "gain_ci_low_vs_config_revert_masked":
@@ -402,8 +410,7 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
             "model_id": op.model_id,
             "test_set_sha256": digest,
             "wall_s": round(time.time() - t0, 3),
-            "gain": None if primary is None else {k: primary[k] for k in
-                                                  ("value", "ci_low", "ci_high", "baseline_run_id", "paired_n")},
+            "gain": None if primary is None else {k: v for k, v in primary.items() if k != "success_rate_gain"},
             "gains": gains,
             **extra_details,
         },
