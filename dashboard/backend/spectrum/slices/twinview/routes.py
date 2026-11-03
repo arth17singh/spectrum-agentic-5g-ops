@@ -10,6 +10,8 @@ from typing import Any
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
+from spectrum.slices._shared import awstime
+
 from . import consortium, logic
 
 router = APIRouter(prefix="/api/twinview")
@@ -50,15 +52,30 @@ def _unavailable(e: Exception) -> JSONResponse:
     return JSONResponse({"detail": f"records unavailable: {type(e).__name__}: {e}"}, status_code=503)
 
 
+def _records(r, kind: str) -> list[dict]:
+    """The records of a kind; each one read from its own object carries, in a private field no response outputs, the
+    S3 LastModified AWS assigned when it stored that object (the fallback AWS time). A reader without that method
+    (a test double) just gives the records."""
+    stored = getattr(r, "all_records_stored", None)
+    if stored is None:
+        return list(r.all_records(kind))
+    return [{**rec, awstime.STORED_KEY: at} if at else rec for rec, at in stored(kind)]
+
+
 def _declared(r, run_ids) -> dict:
-    return {rid: r.declared(rid) for rid in sorted({x for x in run_ids if isinstance(x, str) and x})}
+    out = {}
+    for rid in sorted({x for x in run_ids if isinstance(x, str) and x}):
+        d = r.declared(rid)
+        at = r.declared_stored(rid) if isinstance(d, dict) and hasattr(r, "declared_stored") else None
+        out[rid] = {**d, awstime.STORED_KEY: at} if at else d
+    return out
 
 
 @router.get("/cases")
 def cases():
     try:
         r = _reader()
-        changes = list(r.all_records("change"))
+        changes = _records(r, "change")
         decl = _declared(r, [c.get("run_id") for c in changes])
     except Exception as e:  # noqa: BLE001 - shown as an error, never as "no records"
         return _unavailable(e)
@@ -71,8 +88,8 @@ def cases():
 def case(case_id: str, run_id: str | None = None):
     try:
         r = _reader()
-        changes = list(r.all_records("change"))
-        decisions = list(r.all_records("decision"))
+        changes = _records(r, "change")
+        decisions = _records(r, "decision")
         case_runs = sorted({c.get("run_id") for c in changes if c.get("case_id") == case_id and isinstance(c.get("run_id"), str)})
         items = [x for rid in case_runs for x in r.records(rid, "item")]
         decl = _declared(r, case_runs)

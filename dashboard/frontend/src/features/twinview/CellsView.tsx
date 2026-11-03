@@ -3,7 +3,7 @@ import { ArrowDown, ArrowRight, ArrowUp, CircleAlert, RotateCcw, RotateCw, Trian
 import { useEffect, useState } from 'react'
 import { get } from '@/core/api'
 import type { Rec } from '@/core/types'
-import { CodeBlock, CopyText, EmptyState, Panel, Segmented, StatusPill } from '@/ui'
+import { AwsTime, AwsTimeSummary, CodeBlock, CopyText, EmptyState, Panel, Segmented, StatusPill } from '@/ui'
 import { fixed, pct, signed, utc, type Load } from './format'
 import { ProvenanceChip } from './shared'
 
@@ -95,6 +95,7 @@ function CaseDetail({ summary }: { summary: Rec }) {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <RungBadge r={c.rung} />
           {c.provenance && <ProvenanceChip p={c.provenance} />}
+          <AwsTimeSummary s={c.provenance?.aws_time_summary} />
           <span className="min-w-0 text-micro text-ink-3">{c.rung?.basis}</span>
         </div>
         <Timeline windows={ws} index={wi} onPick={setWi} />
@@ -126,7 +127,8 @@ function Timeline({ windows, index, onPick }: { windows: Rec[]; index: number; o
           {w.gap_steps > 0 && <span className="text-micro text-ink-3" title="steps with no change applied; no record was written for them">+{w.gap_steps} step{w.gap_steps === 1 ? '' : 's'} idle</span>}
           <button type="button" onClick={() => onPick(i)} aria-pressed={i === index}
             className={clsx('flex min-w-0 flex-col rounded-md border px-2 py-1 text-left', i === index ? 'border-focus bg-s2' : 'border-line hover:bg-s2/60')}>
-            <span className="tnum text-micro text-ink-3">step {w.step ?? '?'} → {w.after?.step ?? (typeof w.step === 'number' ? w.step + 1 : '?')} · {utc(w.time)}</span>
+            <span className="tnum text-micro text-ink-3">step {w.step ?? '?'} → {w.after?.step ?? (typeof w.step === 'number' ? w.step + 1 : '?')}</span>
+            <AwsTime aws={w.aws_time} source={w.aws_time_source} runner={w.runner_time} compact />
             <span className="flex flex-wrap items-center gap-1 text-cap text-ink-1">
               {(w.cells as Rec[]).map((x) => <span key={x.cell} className="mono">{x.name}</span>)}
               {w.probe && <StatusPill status="neutral" size="sm">probe</StatusPill>}
@@ -247,6 +249,7 @@ function ChangePanel({ w }: { w: Rec }) {
         <div className="min-w-0 flex-1"><CodeBlock code={w.change_text ?? '—'} lang="text" className="!py-1.5 whitespace-pre-wrap break-all" /></div>
         {w.change_id && <span className="mono shrink-0 text-micro text-ink-3">{w.change_id}</span>}
       </div>
+      <div className="mt-1.5"><AwsTime aws={w.aws_time} source={w.aws_time_source} runner={w.runner_time} withDate /></div>
       <table className="mt-3 w-full table-fixed text-cap">
         <thead>
           <tr className="text-left text-micro text-ink-3">

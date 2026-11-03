@@ -5,7 +5,7 @@ import {
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { get } from '@/core/api'
 import type { Rec } from '@/core/types'
-import { Button, CodeBlock, CopyText, EmptyState, PageHeader, Panel, RealChip, StatusPill } from '@/ui'
+import { AwsTime, AwsTimeSummary, Button, CodeBlock, CopyText, EmptyState, PageHeader, Panel, RealChip, StatusPill } from '@/ui'
 import manifest from './manifest'
 
 // Everything here is read from GET /api/trace/cases and /api/trace/case/{id}, which rebuild the cases from the
@@ -25,7 +25,8 @@ const delta = (v: unknown) => {
 
 const caseKey = (c: Rec) => `${c.run_id ?? ''}\u0000${c.case_id}`
 
-type Prov = { state: 'empty' | 'real' | 'synthetic' | 'mixed' | 'unverified'; label: string; note: string; claim: string; n_records: number; n_synthetic: number; n_unverified: number }
+type AwsSummary = { n: number; k: number; text: string; by_source: Record<string, number> }
+type Prov = { state: 'empty' | 'real' | 'synthetic' | 'mixed' | 'unverified'; label: string; note: string; claim: string; n_records: number; n_synthetic: number; n_unverified: number; aws_time_summary?: AwsSummary }
 
 /** REAL (green) only when every displayed record has an AWS time and none is synthetic; anything else is amber. */
 function ProvenanceChip({ p }: { p: Prov }) {
@@ -96,7 +97,7 @@ export default function TracePage() {
       {cases.state === 'ok' && rows.length > 0 && (
         <div className="grid grid-cols-12 items-start gap-4">
           <div className="col-span-12 min-w-0 xl:col-span-5">
-            <CaseList rows={rows} selected={picked ? caseKey(picked) : null} onSelect={setSel} total={cases.data.provenance?.n_records ?? cases.data.n_records} />
+            <CaseList rows={rows} selected={picked ? caseKey(picked) : null} onSelect={setSel} total={cases.data.provenance?.n_records ?? cases.data.n_records} summary={cases.data.provenance?.aws_time_summary} />
           </div>
           <div className="col-span-12 min-w-0 xl:col-span-7">
             {picked && <CaseDetail summary={picked} />}
@@ -109,9 +110,10 @@ export default function TracePage() {
 
 // ------------------------------------------------------------------ case list
 
-function CaseList({ rows, selected, onSelect, total }: { rows: Rec[]; selected: string | null; onSelect: (k: string) => void; total?: number }) {
+function CaseList({ rows, selected, onSelect, total, summary }: { rows: Rec[]; selected: string | null; onSelect: (k: string) => void; total?: number; summary?: AwsSummary }) {
   return (
     <Panel id="trace-cases" plane="operate" title="Cases" subtitle={`${rows.length} case${rows.length === 1 ? '' : 's'} from ${total ?? '?'} records`} flush>
+      {summary && <div className="border-b border-line px-3 py-1.5"><AwsTimeSummary s={summary} /></div>}
       <table className="w-full table-fixed text-cap">
         <thead>
           <tr className="border-b border-line text-left text-micro text-ink-3">
@@ -174,6 +176,7 @@ function CaseDetail({ summary }: { summary: Rec }) {
       <Panel id="trace-timeline" plane="operate" title={<span className="mono">{c.case_id}</span>}
         subtitle={`${c.timeline.length} events, ${utc(c.first_time, true)} to ${utc(c.last_time)}`}
         actions={c.provenance ? <ProvenanceChip p={c.provenance} /> : undefined}>
+        <div className="mb-3"><AwsTimeSummary s={c.provenance?.aws_time_summary} /></div>
         <ol className="relative" aria-label="Timeline">
           {c.timeline.map((e: Rec, i: number) => <TimelineRow key={i} e={e} last={i === c.timeline.length - 1} />)}
         </ol>
@@ -242,7 +245,7 @@ function TimelineRow({ e, last }: { e: Rec; last: boolean }) {
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span className="tnum mono text-cap text-ink-3" title={e.time ?? ''}>{utc(e.time)}</span>
+          <AwsTime aws={e.aws_time} source={e.aws_time_source} runner={e.runner_time} />
           <span className="mono text-body font-medium text-ink-1">{e.tool ?? '—'}</span>
           <span className="rounded-[4px] px-1 text-micro font-semibold" style={{ color: cat.ink, background: `color-mix(in oklab, ${cat.color} 14%, transparent)` }}>{word}</span>
           {approved && <span className="inline-flex items-center gap-1 rounded-[4px] px-1 text-micro font-semibold" style={{ color: 'var(--good-ink)', background: 'color-mix(in oklab, var(--good) 14%, transparent)' }}><UserCheck size={11} aria-hidden />approved by a person</span>}

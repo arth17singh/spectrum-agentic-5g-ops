@@ -8,7 +8,10 @@ Nothing here reads a file or calls AWS, and nothing is filled in. In particular:
   - the rung is R3 only for twin kind `viavi`, R2 only when the preset (twin.preset) is `viavi-like`, R1 only
     when it is known to be another Maveric config; an unknown preset is said to be unknown;
   - an approver is shown only when a record names one; a decision ALLOW gives the time, not the person;
-  - provenance is REAL only if every record shown is not synthetic and has an AWS time.
+  - provenance is REAL only if every record shown is not synthetic and has a time AWS recorded for the event;
+  - every window and case also carries `aws_time` + `aws_time_source` (cloudwatch | s3_stored | policy_createdAt |
+    gateway_date | none, see `_shared/awstime.py`) and `runner_time`, kept apart: a runner or Lambda clock is never
+    reported as AWS time. `time` stays the sort key it was.
 """
 
 from __future__ import annotations
@@ -17,6 +20,8 @@ import re
 import shlex
 from datetime import datetime, timezone
 from typing import Any, Iterable
+
+from spectrum.slices._shared import awstime
 
 Rec = dict[str, Any]
 
@@ -94,13 +99,22 @@ def pseudonym(who: Any) -> str | None:
 
 
 def prov(rec: Rec) -> Rec:
+    """Synthetic / real flags by the older rule: any `aws_time` counts. Kept as it was for the Consortium view, whose
+    result records carry a SageMaker or FL-service time. The case views use `case_prov`."""
     synthetic = rec.get("synthetic") is True
     return {"synthetic": synthetic, "real": (not synthetic) and bool(rec.get("aws_time"))}
 
 
-def provenance(records: Iterable[Rec]) -> Rec:
-    """Same rule as the trace view: REAL only when every record shown has an AWS time and none is synthetic."""
-    ps = [prov(r) for r in records]
+def case_prov(rec: Rec) -> Rec:
+    """Synthetic / real flags plus the record's AWS time, its source and its runner clock (see awstime.resolve).
+    `real` needs a time AWS recorded for the event (CloudWatch, policy createdAt, Gateway Date): the S3 stored
+    time alone does not make a record real, and a Lambda clock is not AWS time at all."""
+    synthetic = rec.get("synthetic") is True
+    t = awstime.resolve(rec)
+    return {"synthetic": synthetic, "real": (not synthetic) and t["aws_time_source"] in awstime.EVENT_SOURCES, **t}
+
+
+def _provenance(ps: list[Rec], what: str = "an AWS time") -> Rec:
     n = len(ps)
     n_syn = sum(1 for p in ps if p["synthetic"])
     n_unv = sum(1 for p in ps if not p["synthetic"] and not p["real"])
@@ -109,14 +123,29 @@ def provenance(records: Iterable[Rec]) -> Rec:
     elif n_syn == n:
         state, label, note = "synthetic", "SYNTHETIC", "Synthetic records (test fixtures): not a real run."
     elif n_syn == 0 and n_unv == 0:
-        state, label, note = "real", "REAL", "Every record shown has an AWS time and is not marked synthetic."
+        state, label, note = "real", "REAL", f"Every record shown has {what} and is not marked synthetic."
     elif n_syn == 0:
         state, label = "unverified", "UNVERIFIED"
-        note = f"{n_unv} of {n} records have no AWS time, so they are not shown as real."
+        note = f"{n_unv} of {n} records have no {what.removeprefix('an ').removeprefix('a ')}, so they are not shown as real."
     else:
         state, label = "mixed", "MIXED"
-        note = f"{n_syn} of {n} records synthetic" + (f"; {n_unv} more have no AWS time." if n_unv else ".")
+        note = f"{n_syn} of {n} records synthetic" + (f"; {n_unv} more have no {what.removeprefix('an ').removeprefix('a ')}." if n_unv else ".")
     return {"state": state, "label": label, "note": note, "n_records": n, "n_synthetic": n_syn, "n_unverified": n_unv}
+
+
+def provenance(records: Iterable[Rec]) -> Rec:
+    """Same rule as the trace view: REAL only when every record shown has an AWS time and none is synthetic.
+    (The older `prov` rule, used by the Consortium view.)"""
+    return _provenance([prov(r) for r in records])
+
+
+def case_provenance(records: Iterable[Rec]) -> Rec:
+    """REAL only when every record shown has a time AWS recorded for the event and none is synthetic.
+    `aws_time_summary` is "AWS time on k of n (cloudwatch a, S3 stored b, ...)" over the same records."""
+    ps = [case_prov(r) for r in records]
+    out = _provenance(ps, "an AWS-recorded event time")
+    out["aws_time_summary"] = awstime.summary(ps)
+    return out
 
 
 # ---------------------------------------------------------------------------------------------- rung
@@ -288,7 +317,7 @@ def window(rec: Rec, decisions: list[Rec], items: list[Rec]) -> tuple[Rec, list[
         "unscored_reason": rec.get("unscored_reason"), "probe": rec.get("probe") is True,
         "predictor": rec.get("predictor"), "policy": rec.get("policy"),
         "trust_before": _num(rec.get("trust_before")), "trust_after": _num(rec.get("trust_after")),
-        "approval": approval, **prov(rec),
+        "approval": approval, **case_prov(rec),
     }
     return w, used
 
@@ -306,7 +335,7 @@ def summarize(run_id: str, case_id: str, rows: list[Rec], declared: Rec | None) 
         "rung": rung((first.get("twin") or {}).get("kind"), preset, src), "twin_kinds": kinds,
         "scenario": (first.get("twin") or {}).get("scenario"), "seed": (first.get("twin") or {}).get("seed"),
         "first_time": times[0] if times else None, "last_time": times[-1] if times else None,
-        "provenance": provenance(shown),
+        "provenance": case_provenance(shown),
     }
 
 
@@ -315,7 +344,7 @@ def build_overview(changes: list[Rec], declared: dict[str, Rec | None]) -> Rec:
     rows = [summarize(k[0], k[1], v, declared.get(k[0])) for k, v in groups.items()]
     rows.sort(key=lambda r: r["last_time"] or "", reverse=True)
     shown = [r for v in groups.values() for r in v] + [d for rid, d in declared.items() if d and any(k[0] == rid for k in groups)]
-    return {"cases": rows, "provenance": provenance(shown)}
+    return {"cases": rows, "provenance": case_provenance(shown)}
 
 
 def build_case(case_id: str, changes: list[Rec], decisions: list[Rec], items: list[Rec],
@@ -356,7 +385,7 @@ def build_case(case_id: str, changes: list[Rec], decisions: list[Rec], items: li
     if head["rung"]["code"] is None:
         missing.append({"field": "twin.preset", "effect": head["rung"]["basis"]})
     return {
-        **head, "windows": windows, "provenance": provenance(shown), "missing": missing, "field_spec": FIELD_SPEC,
+        **head, "windows": windows, "provenance": case_provenance(shown), "missing": missing, "field_spec": FIELD_SPEC,
         "cell_names": list(CELL_NAMES), "other_runs": [k[0] for k in keys if k != key],
         "show_record": f"python3 tools/show_record.py --run-id {shlex.quote(key[0])} --item {shlex.quote(case_id)}",
     }
