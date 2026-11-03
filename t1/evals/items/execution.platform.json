@@ -1,23 +1,46 @@
 {
+  "changes": {
+    "n_changed": 45,
+    "n_changes_changed": 0,
+    "n_not_kept_by_filter_here": 0,
+    "n_state_text_changed": 43
+  },
   "frozen_on": {
-    "machine": "arm64",
-    "python": "3.12.7",
-    "system": "Darwin",
+    "machine": "x86_64",
+    "python": "3.12.10",
+    "system": "Linux",
     "versions": {
       "gpytorch": "1.15.2",
       "linear-operator": "0.6.1",
-      "numpy": "2.5.4",
+      "numpy": "2.5.3",
       "ran-rl": "1.2.9",
-      "torch": "2.15.0"
+      "torch": "2.9.0+cu130"
     }
   },
-  "how": "python -m t1.evals.freeze on the team Mac (commit f1d3deb)",
-  "replay_checks": [
+  "how": "python -m t1.evals.replay_job refreeze, run t1.execution.refreeze-x86-1",
+  "previous": [
     {
-      "n_drifted": 5,
-      "pass_rate": 0.9375,
-      "platform": "Linux x86_64, torch 2.9.0+cpu (pytorch-training 2.9.0 cpu DLC, ml.m5.xlarge)",
-      "run_id": "t1.execution.replay-check-x86-1"
+      "frozen_on": {
+        "machine": "arm64",
+        "python": "3.12.7",
+        "system": "Darwin",
+        "versions": {
+          "gpytorch": "1.15.2",
+          "linear-operator": "0.6.1",
+          "numpy": "2.5.4",
+          "ran-rl": "1.2.9",
+          "torch": "2.15.0"
+        }
+      },
+      "how": "python -m t1.evals.freeze on the team Mac (commit f1d3deb)",
+      "replay_checks": [
+        {
+          "n_drifted": 5,
+          "pass_rate": 0.9375,
+          "platform": "Linux x86_64, torch 2.9.0+cpu (pytorch-training 2.9.0 cpu DLC, ml.m5.xlarge)",
+          "run_id": "t1.execution.replay-check-x86-1"
+        }
+      ]
     }
   ]
 }
