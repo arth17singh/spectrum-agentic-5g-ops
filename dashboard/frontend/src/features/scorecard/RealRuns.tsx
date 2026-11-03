@@ -1,11 +1,10 @@
 import clsx from 'clsx'
 import { CircleCheck, CircleDashed, CircleX, ExternalLink, TriangleAlert } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { get } from '@/core/api'
 import type { Rec } from '@/core/types'
 import { Panel } from '@/ui'
 import { num, targetText, utc, value } from './format'
+import { shortReason, useOverview } from './overview'
 
 // Real runs, read from the local byte-exact mirror of the S3 evidence prefix (make evidence-sync) through
 // GET /api/realrun/overview. Every number links to its run id in the Evidence explorer. A cell with no run
@@ -21,6 +20,7 @@ interface Cell {
   p50_ms: number | null; p95_ms: number | null; cost_per_1k_usd: number | null; instance_type?: string; price_source?: string
   cost_method?: string; ci: Rec | null; checked_at?: string; declared_at?: string; declared_s3_time?: string; result_s3_time?: string
   jobs: Job[]; other_runs: string[]; secondary: Rec[]
+  superseded_runs?: { run_id: string; reason: string; by: string[]; value: number | null }[]
 }
 export interface Overview {
   source: Rec
@@ -28,7 +28,10 @@ export interface Overview {
   t1: { columns: { variant: string; label: string; seen: boolean }[]; units: { unit: string; cells: Record<string, Cell | null> }[]; bar: Rec[] }
   rl: Rec | null
   t3: Rec[]
+  t3_live: Rec[]
   t2: Rec[]
+  t2_consortium: Rec
+  judged: Rec | null
   empty: boolean
 }
 
@@ -64,13 +67,9 @@ const NotRun = ({ what = 'not run yet' }: { what?: string }) => (
   <div className="flex h-full min-h-16 items-center justify-center rounded-md border border-dashed border-line px-2 text-micro text-ink-3">{what}</div>
 )
 
-function useOverview() {
-  const [ov, setOv] = useState<Overview | null>(null)
-  const [err, setErr] = useState<string | null>(null)
-  const load = useCallback(() => get<Overview>('/api/realrun/overview').then((o) => { setOv(o); setErr(null) }).catch((e) => setErr(String(e))), [])
-  useEffect(() => { load(); const t = setInterval(load, 15_000); return () => clearInterval(t) }, [load])
-  return { ov, err }
-}
+export const Superseded = ({ reason, by }: { reason: string; by?: string[] }) => (
+  <span className="text-micro text-warn-ink" title={reason}>superseded: {shortReason(reason)}{by?.length ? ` (by ${by.join(', ')})` : ''}</span>
+)
 
 export default function RealRuns() {
   const { ov, err } = useOverview()
@@ -89,6 +88,7 @@ export default function RealRuns() {
         <div className="col-span-12 xl:col-span-5"><Bar t1={ov.t1} /></div>
         <div className="col-span-12 xl:col-span-7">{ov.rl ? <RL rl={ov.rl} /> : <Panel title="Track 1 RL gate"><NotRun /></Panel>}</div>
       </div>
+      <Track3Live rows={ov.t3_live ?? []} />
       <Track3 rows={ov.t3} />
       {ov.t2.length > 0 && <Track2 rows={ov.t2} />}
     </div>
@@ -100,7 +100,20 @@ export default function RealRuns() {
 function Track1({ t1 }: { t1: Overview['t1'] }) {
   return (
     <Panel id="realrun-t1" plane="verify" title="Track 1: base vs tuned vs Bedrock" subtitle="latest run per unit and model · target declared before the run · PASS/MISS recomputed here" flush>
-      <div className="overflow-x-auto">
+      <div className="divide-y divide-line md:hidden" data-testid="t1-cards">
+        {t1.units.map((u) => (
+          <div key={u.unit} className="space-y-2 px-3 py-3">
+            <div className="text-cap font-medium text-ink-1">{u.unit.replace('t1.', '')}</div>
+            {t1.columns.map((c) => (
+              <div key={c.variant}>
+                <div className="mb-0.5 text-micro text-ink-3">{c.label}</div>
+                {u.cells[c.variant] ? <T1Cell c={u.cells[c.variant]!} /> : <NotRun />}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[760px] text-cap" data-testid="t1-matrix">
           <thead>
             <tr className="border-b border-line text-left text-micro text-ink-3">
@@ -140,6 +153,12 @@ function T1Cell({ c }: { c: Cell }) {
       {c.jobs.map((j) => <JobLine key={j.name} j={j} />)}
       <RunLink id={c.run_id} />
       {c.other_runs.length > 0 && <div className="text-micro text-ink-3">also: {c.other_runs.map((r) => <RunLink key={r} id={r} className="mr-2" />)}</div>}
+      {(c.superseded_runs ?? []).map((x) => (
+        <div key={x.run_id} className="mt-1 rounded border border-dashed border-line px-2 py-1 opacity-60" data-superseded={x.run_id}>
+          <div className="tnum text-micro text-ink-2 line-through">{value(x.value, unit)}</div>
+          <Superseded reason={x.reason} /> <RunLink id={x.run_id} />
+        </div>
+      ))}
     </div>
   )
 }
@@ -238,7 +257,7 @@ function Track3({ rows }: { rows: Rec[] }) {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.run_id} className={clsx('border-b border-line/60 align-top', !r.current && 'opacity-60')}>
-                  <td className="px-3 py-2"><div className="font-medium text-ink-1">{r.model_id}{r.mode === 'masked' || /masked/.test(r.run_id) ? ' (masked)' : ''}</div><RunLink id={r.run_id} />{!r.current && <div className="text-micro text-ink-3">earlier run of the same policy</div>}</td>
+                  <td className="px-3 py-2"><div className="font-medium text-ink-1">{r.model_id}{r.mode === 'masked' || /masked/.test(r.run_id) ? ' (masked)' : ''}</div><RunLink id={r.run_id} />{r.superseded ? <div><Superseded reason={r.superseded.reason} /></div> : !r.current && <div className="text-micro text-ink-3">earlier run of the same policy</div>}</td>
                   <td className="px-3 py-2"><Verdict s={r.recomputed ?? 'inconsistent'} /><div className="tnum text-micro text-ink-3">{r.metric} {targetText(r.target)}</div></td>
                   <td className="tnum px-3 py-2 text-ink-1">{num(r.mean_recovery)}</td>
                   <td className="tnum px-3 py-2 text-ink-2">{pct(r.success_rate)}</td>
@@ -249,6 +268,34 @@ function Track3({ rows }: { rows: Rec[] }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+function Track3Live({ rows }: { rows: Rec[] }) {
+  return (
+    <Panel id="realrun-t3-live" plane="operate" title="Track 3 live units" subtitle="through the deployed checkpoint and Gateway · every t3 unit that is not an offline eval" flush>
+      {rows.length === 0 ? <div className="p-4"><NotRun /></div> : (
+        <div className="divide-y divide-line" data-testid="t3-live">
+          {rows.map((r) => (
+            <div key={r.run_id} className={clsx('grid gap-2 px-4 py-3 md:grid-cols-[220px_1fr]', r.superseded && 'opacity-60')}>
+              <div>
+                <div className="font-medium text-ink-1">{r.unit}</div>
+                <Verdict s={r.state} /> <span className="tnum text-cap text-ink-1">{num(r.value)} {r.metric}</span>
+                <div className="tnum text-micro text-ink-3">target {targetText(r.target)} · n = {r.n_items ?? '—'}{r.n_declared != null && r.n_declared !== r.n_items ? ` of ${r.n_declared} declared` : ''}</div>
+                <RunLink id={r.run_id} />
+                {r.superseded && <div><Superseded reason={r.superseded.reason} /></div>}
+              </div>
+              <div className="min-w-0 text-micro text-ink-2">
+                <div className="text-ink-3">{r.model_id} · checked {utc(r.checked_at)}{r.synthetic ? ' · SYNTHETIC' : ''}</div>
+                <ul className="mt-1 space-y-0.5">{(r.facts ?? []).map((f: string) => <li key={f} className="mono break-all">{f}</li>)}</ul>
+                {r.ci && <div className="mt-1"><CIBar ci={r.ci} /></div>}
+                {(r.jobs ?? []).map((j: Job) => <JobLine key={j.name} j={j} />)}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </Panel>

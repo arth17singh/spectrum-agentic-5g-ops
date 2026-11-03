@@ -12,6 +12,7 @@ import type { LedgerRecord, Rec } from '@/core/types'
 import { toast } from '@/core/ui-store'
 import { Button, CodeBlock, Hash, PageHeader, Panel, RealChip, StatusPill } from '@/ui'
 import manifest from './manifest'
+import JudgedRuns from './JudgedRuns'
 import RunExplorer from './RunExplorer'
 import { useBrowserVerify, type BrowserVerify } from './verify'
 
@@ -80,6 +81,7 @@ export default function EvidencePage() {
       {state !== 'ok' && <ProblemBanner st={st} />}
       <StatusStrip st={st} />
       {bv.phase !== 'idle' && <BrowserResult bv={bv} fp={st.key?.fingerprint} server={st} />}
+      <JudgedRuns />
       <RunExplorer />
 
       <Panel id="runs" plane="prove" className="mt-4" title="Runs" subtitle={runs.length ? `${runs.length} run id${runs.length === 1 ? '' : 's'} in the ledger${ev.judged?.length ? `, ${ev.judged.length} listed in judging.json` : ''}` : 'none yet'}
