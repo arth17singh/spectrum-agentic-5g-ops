@@ -72,7 +72,7 @@ def test_strict_refuses_when_the_gate_fails(mode):
     w.call("ran___predict", case_id=CASE, item_id="step-0", change=CHANGE)
     key = approve(w, APPLY)
     out = w.call("ran___apply_change", **APPLY)
-    assert "trust gate did not answer" in out["error"] and key in out["error"]
+    assert "trust gate did not answer cleanly" in out["error"] and key in out["error"]
     assert_nothing_applied(w, key)
 
 
@@ -80,7 +80,7 @@ def test_strict_refuses_when_no_gate_is_configured():
     w = strict_world(trust=False)
     w.call("ran___predict", case_id=CASE, item_id="step-0", change=CHANGE)
     key = approve(w, APPLY)
-    assert "trust gate did not answer" in w.call("ran___apply_change", **APPLY)["error"]
+    assert "trust gate did not answer cleanly" in w.call("ran___apply_change", **APPLY)["error"]
     assert_nothing_applied(w, key)
 
 
@@ -129,6 +129,42 @@ def test_strict_mode_comes_from_t3_trust_live(tmp_path):
     base = {"T3_STORE": f"local:{tmp_path}", "T3_EVIDENCE": f"local:{tmp_path}"}
     assert app.Deps.from_env({**base, "T3_TRUST_LIVE": "1"}).strict_grounding is True
     assert app.Deps.from_env(base).strict_grounding is False
+
+
+def test_strict_mode_with_w5s_real_gate_handler(monkeypatch):
+    """W5's handler, in memory and dry run, as the invoker: it reads our {record, model_version}
+    payload and answers trust_after for every scored change, so grounded applies go through."""
+    trust_handler = pytest.importorskip("t3.trust.handler")
+    for var in ("T3_TRUST_LIVE", "EVIDENCE_S3", "EVIDENCE_DIR", "T3_TRUST_THRESHOLDS"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("T3_TRUST_STORE", "memory")
+    gate = trust_handler._build_gate()
+    answers = []
+
+    def invoke(payload):
+        answers.append(trust_handler.handle(gate, json.loads(json.dumps(payload))))
+        return answers[-1]
+
+    w = strict_world(predictor=FakePredictor(bias=0.001))
+    w.trust = invoke
+    for i, d in enumerate((1.0, -1.0, 2.0, -1.0)):
+        args = dict(APPLY, item_id=f"step-{i}", change=f"cell=2;d_power_db={d:+.1f};d_tilt_deg=+0.0")
+        w.call("ran___predict", case_id=CASE, item_id=args["item_id"], change=args["change"])
+        approve(w, args)
+        out = w.call("ran___apply_change", **args)
+        assert out["applied"] is True, out
+        assert answers[-1]["trust_after"] is not None and "error" not in answers[-1]
+        assert "model_version_mismatch" not in answers[-1]
+    assert [r["trust_after"] for r in w.records()] == [a["trust_after"] for a in answers]
+
+
+def test_strict_refuses_when_the_gate_reports_an_error():
+    w = strict_world()
+    w.trust = lambda payload: {"trust_before": 0.9, "trust_after": 0.8, "error": "ClientError: create_policy failed"}
+    w.call("ran___predict", case_id=CASE, item_id="step-0", change=CHANGE)
+    key = approve(w, APPLY)
+    assert "trust gate did not answer cleanly" in w.call("ran___apply_change", **APPLY)["error"]
+    assert_nothing_applied(w, key)
 
 
 # ---------------------------------------------------------------- 3. approval spoofing, approver

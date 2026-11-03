@@ -511,10 +511,10 @@ class Tools:
             trust = None
             if record["scored"]:  # the gate decides before anything is committed
                 trust = self._ask_trust(record, prediction["predictor"]["version"])
-                if strict and (trust.get("note") or trust.get("trust_after") is None):
-                    raise ToolError(f"refused (grounded mode): the trust gate did not answer "
-                                    f"({trust.get('note') or 'no trust_after'}). Nothing was applied and the "
-                                    f"approval {key} is unchanged; try again later.")
+                if strict and (trust.get("note") or trust.get("error") or trust.get("trust_after") is None):
+                    raise ToolError(f"refused (grounded mode): the trust gate did not answer cleanly "
+                                    f"({trust.get('note') or trust.get('error') or 'no trust_after'}). Nothing was "
+                                    f"applied and the approval {key} is unchanged; try again later.")
                 record["trust_before"], record["trust_after"] = trust.get("trust_before"), trust.get("trust_after")
             updated = {**case, "action_log": cf["action_log"]}
             try:
