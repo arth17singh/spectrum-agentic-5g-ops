@@ -27,6 +27,8 @@ Times are Seattle time (PST, UTC−8) with UTC in brackets. Each entry keeps a d
 | [G-017](#g-017) | Resolved · deploy script defect | `t3/deploy/register.py` read only the first page of `list_policies`; with 24 rules it tried to create a rule that already existed, exited 1 without a message, and never created the three seed rules | Track 3 checkpoint: the seed rules were missing after the `614fc3b` deploy | 3 Nov (time TODO) |
 | [G-018](#g-018) | Deferred · team decision | Bridge challenge deferred until after the end-to-end pass; no loop code or setup steps, and two different bars | The optional Bridge unit; no Bridge number exists or is claimed yet | 2 Nov 18:00 PST |
 | [G-019](#g-019) | Resolved · runner defect | The runner sent an empty `InputDataConfig` for jobs with no input channels; AWS never saw the request, so 8 declared runs (4 T2 compares, 4 Bedrock CPU runs) never started | The T2 comparisons and the Bedrock baselines until relaunched | 3 Nov (time TODO) |
+| [G-020](#g-020) | Resolved · harness defects | Two harness defects found by the first comparison and Bedrock runs: a missed target made the T2 compare job exit 1 (result never attested), and a non-finite model answer was stored as `inf` and crashed a Bedrock knowledge run | T2 compare federated_vs_B and Bedrock knowledge (gpt-oss-20b): both relaunched | 3 Nov (time TODO) |
+| [G-021](#g-021) | Resolved · checker false positive | `check_unit` part d (ledger comparison) reported a false positive that depended on the order in which the ledger ingested files; fixed in `06ddb9f` | Part d on runs checked against a ledger | 3 Nov (time TODO) |
 
 ### Watching
 
@@ -338,6 +340,28 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - 3 Nov (time TODO): launches refused; declarations left without jobs.
 - `33c47be`, `2e8f846`: empty `InputDataConfig` left out; request validation added.
 
+<a id="g-020"></a>
+## G-020 · Two harness defects found by the first comparison and Bedrock runs (fixed)
+
+- **Status:** resolved; both affected runs are superseded and relaunched under new ids.
+- **A missed target made a job exit 1.** The T2 compare job `t2.compare.federated_vs_B.disjoint-20261103T061155Z` finished its measurement, wrote its result, and then exited 1 because the declared target was missed (the interval's lower bound was not above zero). The platform counts that as a failed job, so the result was never attested by the job. Commit `538dc66` makes a missed target a normal result with exit 0; only a real error fails a job. The run was relaunched as `t2.compare.federated_vs_B.disjoint-20261103T063916Z`. The missed target itself is a finding and stays reported (judging slot 9).
+- **A non-finite answer crashed a run.** `t1.knowledge-bedrock-gpt-oss-20b-2`: a model's telemath answer was a non-finite string, which was stored as `inf` in an item's details. The record contract allows finite numbers only, so it rejected the item batch and `run.py` exited before writing a result (`ExecuteUserScriptError`, exit 1). Commit `8ca61a4` fixes the handling; the run was relaunched as `t1.knowledge-bedrock-gpt-oss-20b-3`.
+- **Limits:** none left once the relaunches have results. No score was changed by either fix; the first run had no attested result and the second had no result at all.
+- **Who we told:** not applicable (our own code).
+
+**Log**
+- 3 Nov (time TODO): both defects found while the runs were being checked.
+- `538dc66`, `8ca61a4`: fixes.
+
+<a id="g-021"></a>
+## G-021 · A false positive in check_unit part d (fixed)
+
+- **Status:** resolved.
+- **What:** part d of `tools/check_unit.py` compares each evidence file with what the evidence ledger recorded for it. The result depended on the order in which the ledger had ingested the files, so it could report a mismatch for a file that had not changed.
+- **Fix:** commit `06ddb9f`.
+- **Limits:** part d needs a ledger, so the judges' live test on a machine without one skips it (the rehearsals above show "SKIP: no ledger"). The false positive could only make a check look worse, never better.
+- **Who we told:** not applicable (our own code).
+
 ---
 
 ## Superseded runs (kept in S3 and in history; not used for any claim)
@@ -345,7 +369,12 @@ These become entries if still missing at the time shown (2 Nov, PST).
 | Run | Why it is superseded | Replaced by |
 |---|---|---|
 | `t3.deny-20261103T051458Z` | Crashed at item 23: the Cedar validator rejected the pause-forbid guard form (fixed in `51010f8`, G-015) | `t3.deny-20261103T054914Z` |
-| `t2.compare.federated_vs_B.disjoint-20261103T054303Z`, `t2.compare.federated_vs_C.disjoint-20261103T054442Z`, `t2.compare.distance_to_central.disjoint-20261103T054624Z`, `t2.compare.federated_vs_localfedavg.disjoint-20261103T054804Z` | Declared but never run: the job request was refused on our side before it reached AWS (an empty `InputDataConfig`, a botocore `ParamValidationError`, so no job exists; G-019) | the same comparisons relaunched under new ids (TODO) |
+| `t2.compare.federated_vs_B.disjoint-20261103T054303Z` | Not run: CreateTrainingJob refused before AWS (empty `InputDataConfig`, G-019); the declaration exists, no job | `t2.compare.federated_vs_B.disjoint-20261103T061155Z` |
+| `t2.compare.federated_vs_C.disjoint-20261103T054442Z` | Not run: CreateTrainingJob refused before AWS (empty `InputDataConfig`, G-019); the declaration exists, no job | `t2.compare.federated_vs_C.disjoint-20261103T061346Z` |
+| `t2.compare.distance_to_central.disjoint-20261103T054624Z` | Not run: CreateTrainingJob refused before AWS (empty `InputDataConfig`, G-019); the declaration exists, no job | `t2.compare.distance_to_central.disjoint-20261103T061541Z` |
+| `t2.compare.federated_vs_localfedavg.disjoint-20261103T054804Z` | Not run: CreateTrainingJob refused before AWS (empty `InputDataConfig`, G-019); the declaration exists, no job | `t2.compare.federated_vs_localfedavg.disjoint-20261103T061725Z` |
+| `t2.compare.federated_vs_B.disjoint-20261103T061155Z` | Failed: the job exited 1 on a missed target, so the result was written but never attested; fixed in `538dc66` (G-020) | `t2.compare.federated_vs_B.disjoint-20261103T063916Z` |
+| `t1.knowledge-bedrock-gpt-oss-20b-2` | Failed, no result: a non-finite telemath answer was stored as `inf` and the contract rejected the item batch; fixed in `8ca61a4` (G-020) | `t1.knowledge-bedrock-gpt-oss-20b-3` |
 | `t3.swarm-trial-20261103T052430Z` | A trial run before the seed rules existed (G-017); not a scored run | the scored swarm run (TODO) |
 | `t1.price_latency-bedrock-gpt-oss-20b-1` | Not run: CreateTrainingJob refused before AWS (empty `InputDataConfig`, G-019); the declaration exists, no job | `t1.price_latency-bedrock-gpt-oss-20b-2` |
 | `t1.interface-bedrock-gpt-oss-20b-1` | Not run: CreateTrainingJob refused before AWS (empty `InputDataConfig`, G-019); the declaration exists, no job | `t1.interface-bedrock-gpt-oss-20b-2` |

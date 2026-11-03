@@ -52,18 +52,6 @@
     },
     {
       "run_ids": [
-        "t2.compare.federated_vs_B.disjoint-20261103T054303Z",
-        "t2.compare.federated_vs_C.disjoint-20261103T054442Z",
-        "t2.compare.distance_to_central.disjoint-20261103T054624Z",
-        "t2.compare.federated_vs_localfedavg.disjoint-20261103T054804Z"
-      ],
-      "reason": "not run: CreateTrainingJob refused before AWS (empty InputDataConfig, a botocore ParamValidationError); relaunched under new ids. The declarations exist on S3 but no job was created. See GAPS.md G-019.",
-      "superseded_by": {
-        "run_ids": []
-      }
-    },
-    {
-      "run_ids": [
         "t3.swarm-trial-20261103T052430Z"
       ],
       "reason": "trial before the seed rules existed (G-017); not a scored run",
@@ -112,6 +100,72 @@
       "superseded_by": {
         "run_ids": [
           "t1.interface-bedrock-qwen3-32b-2"
+        ]
+      }
+    },
+    {
+      "run_ids": [
+        "t2.compare.federated_vs_B.disjoint-20261103T054303Z"
+      ],
+      "reason": "not run: CreateTrainingJob refused before AWS (empty InputDataConfig, a botocore ParamValidationError); relaunched under a new id. The declaration exists on S3 but no job was created. See GAPS.md G-019.",
+      "superseded_by": {
+        "run_ids": [
+          "t2.compare.federated_vs_B.disjoint-20261103T061155Z"
+        ]
+      }
+    },
+    {
+      "run_ids": [
+        "t2.compare.federated_vs_C.disjoint-20261103T054442Z"
+      ],
+      "reason": "not run: CreateTrainingJob refused before AWS (empty InputDataConfig, a botocore ParamValidationError); relaunched under a new id. The declaration exists on S3 but no job was created. See GAPS.md G-019.",
+      "superseded_by": {
+        "run_ids": [
+          "t2.compare.federated_vs_C.disjoint-20261103T061346Z"
+        ]
+      }
+    },
+    {
+      "run_ids": [
+        "t2.compare.distance_to_central.disjoint-20261103T054624Z"
+      ],
+      "reason": "not run: CreateTrainingJob refused before AWS (empty InputDataConfig, a botocore ParamValidationError); relaunched under a new id. The declaration exists on S3 but no job was created. See GAPS.md G-019.",
+      "superseded_by": {
+        "run_ids": [
+          "t2.compare.distance_to_central.disjoint-20261103T061541Z"
+        ]
+      }
+    },
+    {
+      "run_ids": [
+        "t2.compare.federated_vs_localfedavg.disjoint-20261103T054804Z"
+      ],
+      "reason": "not run: CreateTrainingJob refused before AWS (empty InputDataConfig, a botocore ParamValidationError); relaunched under a new id. The declaration exists on S3 but no job was created. See GAPS.md G-019.",
+      "superseded_by": {
+        "run_ids": [
+          "t2.compare.federated_vs_localfedavg.disjoint-20261103T061725Z"
+        ]
+      }
+    },
+    {
+      "run_ids": [
+        "t2.compare.federated_vs_B.disjoint-20261103T061155Z"
+      ],
+      "reason": "failed: the job exited 1 on a missed target, so its result was written but never attested. Fixed in 538dc66 (a missed target is now a result with exit 0, not a job failure). Relaunched under a new id. See GAPS.md G-020.",
+      "superseded_by": {
+        "run_ids": [
+          "t2.compare.federated_vs_B.disjoint-20261103T063916Z"
+        ]
+      }
+    },
+    {
+      "run_ids": [
+        "t1.knowledge-bedrock-gpt-oss-20b-2"
+      ],
+      "reason": "failed, no result: harness defect. A telemath answer given as a non-finite string was stored as inf in an item's details; the contract (finite numbers only) rejected the item batch and run.py exited before writing a result (ExecuteUserScriptError, exit 1). Fixed in 8ca61a4; relaunched as -3. See GAPS.md G-020.",
+      "superseded_by": {
+        "run_ids": [
+          "t1.knowledge-bedrock-gpt-oss-20b-3"
         ]
       }
     }

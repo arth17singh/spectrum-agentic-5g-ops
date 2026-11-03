@@ -21,7 +21,11 @@
     "t1.interface-otel-tuned-1",
     "t3.allow-20261103T052448Z",
     "t3.pause-20261103T055232Z",
-    "t3.deny-20261103T054914Z"
+    "t3.deny-20261103T054914Z",
+    "t1.execution-bedrock-gpt-oss-20b-1",
+    "t2.compare.federated_vs_C.disjoint-20261103T061346Z",
+    "t2.compare.federated_vs_B.disjoint-20261103T063916Z",
+    "t3.evals.swarm-masked-20261103T064410Z-x86"
   ],
   "run_ids_comment": [
     "A curated set: ten slots and two edge cases (the layout is in `slots` and `edge_cases`), not twenty runs.",
@@ -193,6 +197,90 @@
       "passed": true,
       "n_items": 27,
       "checked_at": "2026-11-03T06:01:28.685Z"
+    },
+    {
+      "run_id": "t1.execution-bedrock-gpt-oss-20b-1",
+      "unit": "t1.execution",
+      "metric": "mean_score",
+      "value": 0.2308382456256315,
+      "target": {
+        "metric": "mean_score",
+        "op": ">=",
+        "unit": "score",
+        "value": 0.149
+      },
+      "passed": true,
+      "n_items": 63,
+      "checked_at": "2026-11-03T06:06:55.714Z",
+      "gain": {
+        "value": 0.5040788931592108,
+        "ci_low": 0.3018483739085224,
+        "ci_high": 0.7007804703292353,
+        "baseline_run_id": "t1.execution-otel-base-1"
+      }
+    },
+    {
+      "run_id": "t2.compare.federated_vs_C.disjoint-20261103T061346Z",
+      "unit": "t2.compare.federated_vs_C.disjoint",
+      "metric": "score_gain_ci_low",
+      "value": 0.04147420493816014,
+      "target": {
+        "metric": "score_gain_ci_low",
+        "op": ">",
+        "unit": "scaled-MAE units: lower bound of the 95 % paired-bootstrap interval of the mean per-row difference (y minus x; positive = x better)",
+        "value": 0
+      },
+      "passed": true,
+      "n_items": 10000,
+      "checked_at": "2026-11-03T06:18:14.095Z",
+      "gain": {
+        "value": 0.13459521602850424,
+        "ci_low": 0.04147420493816014,
+        "ci_high": 0.25538940361275625,
+        "baseline_run_id": null
+      }
+    },
+    {
+      "run_id": "t2.compare.federated_vs_B.disjoint-20261103T063916Z",
+      "unit": "t2.compare.federated_vs_B.disjoint",
+      "metric": "score_gain_ci_low",
+      "value": -0.04070347860954887,
+      "target": {
+        "metric": "score_gain_ci_low",
+        "op": ">",
+        "unit": "scaled-MAE units: lower bound of the 95 % paired-bootstrap interval of the mean per-row difference (y minus x; positive = x better)",
+        "value": 0
+      },
+      "passed": false,
+      "n_items": 10000,
+      "checked_at": "2026-11-03T06:43:31.870Z",
+      "gain": {
+        "value": 0.023881727251803517,
+        "ci_low": -0.04070347860954887,
+        "ci_high": 0.1017447411773088,
+        "baseline_run_id": null
+      }
+    },
+    {
+      "run_id": "t3.evals.swarm-masked-20261103T064410Z-x86",
+      "unit": "t3.evals.swarm-vs-heuristic",
+      "metric": "gain_ci_low_vs_config_revert_masked",
+      "value": 0.03398156290194016,
+      "target": {
+        "metric": "gain_ci_low_vs_config_revert_masked",
+        "op": ">",
+        "unit": "recovery",
+        "value": 0.0
+      },
+      "passed": true,
+      "n_items": 18,
+      "checked_at": "2026-11-03T06:46:37.617Z",
+      "gain": {
+        "value": 0.2964693655628771,
+        "ci_low": 0.03398156290194016,
+        "ci_high": 0.5778072077014449,
+        "baseline_run_id": "t3.evals.config_revert-masked-20261103T035108Z-x86"
+      }
     }
   ],
   "slots": [
@@ -221,12 +309,11 @@
     {
       "slot": 4,
       "name": "swarm incident eval: masked-tier gain over config_revert",
-      "status": "pending",
-      "run_id": null,
+      "status": "filled",
       "bar_run_id": "t3.evals.config_revert-masked-20261103T035108Z-x86",
       "bar": "the bar is config_revert on the masked tier: gain over no_action 0.468, ci_low 0.167",
-      "waiting_for": "the scored swarm run t3.swarm-live-20261103T060140Z (running)",
-      "expected_run_id": "t3.swarm-live-20261103T060140Z"
+      "run_id": "t3.evals.swarm-masked-20261103T064410Z-x86",
+      "note": "Scored on the live proposal-only swarm run t3.swarm-live-20261103T060140Z (54 cases, 23 proposals): gain over config_revert on the masked tier +0.296, 95% CI [0.034, 0.578] over 18 incidents, so the lower bound +0.034 passes the target (> 0). Not a large margin. Secondary, reported only: gain over the SDK rule baseline +0.196, CI [-0.04, 0.43], not significant; over no_action +0.764, CI [0.60, 0.91]; success 13 of 18; 64 cell-level actions on cells the fault did not touch. check_unit parts a, b, c and e pass."
     },
     {
       "slot": 5,
@@ -247,10 +334,9 @@
     {
       "slot": 7,
       "name": "t1 execution, Bedrock general model (reproduces the paper's bar)",
-      "status": "pending",
-      "run_id": null,
-      "expected_run_id": "t1.execution-bedrock-gpt-oss-20b-1",
-      "waiting_for": "the Bedrock baseline run under the team role (G-010); not declared yet"
+      "status": "filled",
+      "run_id": "t1.execution-bedrock-gpt-oss-20b-1",
+      "note": "openai.gpt-oss-20b-1:0 on Bedrock, the same 63 items, prompt and parser as the OTel runs: mean score 0.231 against the declared 0.149: PASS (check_unit parts a, b, c and e pass). The other general model, qwen3-32b, scores 0.047 and misses (supporting runs)."
     },
     {
       "slot": 8,
@@ -262,10 +348,12 @@
     {
       "slot": 9,
       "name": "t2 federated vs local-only: gain for silos B and C, with CI bound",
-      "status": "pending",
-      "run_id": null,
-      "waiting_for": "the comparison runs. The FL service ran: t2.fl_federated.disjoint-20261103T051311Z exists on S3 (G-005). The compare runs against local-only B and C are pending",
-      "federated_run_id": "t2.fl_federated.disjoint-20261103T051311Z"
+      "status": "filled",
+      "run_ids": [
+        "t2.compare.federated_vs_C.disjoint-20261103T061346Z",
+        "t2.compare.federated_vs_B.disjoint-20261103T063916Z"
+      ],
+      "note": "The FL service run t2.fl_federated.disjoint-20261103T051311Z against the local-only models, on the shared test set, with a paired bootstrap: silo C: gain CI low +0.041 (target > 0): PASS. Silo B: gain +0.024, CI low -0.041: MISSED, reported as such. Distance to central and the comparison with local FedAvg are under supporting runs (federated is 0.083 below central; against local FedAvg the gain is -0.008, CI [-0.023, +0.005], not significant)."
     },
     {
       "slot": 10,
@@ -303,12 +391,13 @@
       "t1.execution.replay-check-x86-1 (ml.m5.xlarge, against the Mac freeze: 75 of 80)"
     ],
     "superseded runs, not to be used": [
-      "see evidence/superseded.json (the crashed deny run, the T2 compare runs that never ran, the swarm trial before the seed rules, the knowledge parser run, early t3 baselines)"
+      "see evidence/superseded.json (crashed and never-started runs, the knowledge parser run, early baselines, the swarm trial before the seed rules)"
     ],
     "Track 1 base and tuned runs for the other units": [
       "t1.safety-otel-base-1 (FAIL, 0.097)",
       "t1.safety-otel-tuned-1 (gain_ci_low_vs_base +0.672: PASS)",
       "t1.price_latency-otel-base-1 (PASS, p95 2,384 ms)",
+      "t1.price_latency-otel-tuned-1 (PASS, p95 2,780 ms)",
       "t1.knowledge-otel-base-2 (0.358 against 0.70: FAIL; supersedes t1.knowledge-otel-base-1, a parser defect; see evidence/superseded.json and G-013)"
     ],
     "Track 2, simulated silos and the federated run (G-005)": [
@@ -318,10 +407,27 @@
       "t2.local_only.C.disjoint-20261103T041606Z",
       "t2.central.disjoint-20261103T041620Z",
       "t2.fedavg_local.disjoint-20261103T041634Z",
-      "t2.fl_federated.disjoint-20261103T051311Z (the FL service run; compare runs pending)"
+      "t2.fl_federated.disjoint-20261103T051311Z (the FL service run)",
+      "t2.compare.distance_to_central.disjoint-20261103T061541Z (federated 0.083 below central, CI [0.062, 0.111])",
+      "t2.compare.federated_vs_localfedavg.disjoint-20261103T061725Z (gain -0.008, CI [-0.023, +0.005], not significant)"
     ],
     "swarm trial (not scored)": [
       "t3.swarm-trial-20261103T055515Z (one incident, three proposal steps, 3 of 3; the first trial with the seed rules in place; a trial, not the scored run)"
+    ],
+    "swarm: the live run that slot 4 scores": [
+      "t3.swarm-live-20261103T060140Z (54 cases, 23 proposals, proposal-only; its own pass rate 0.852 counts cases that timed out waiting for the lead; slot 4 is scored on its proposals)",
+      "t3.swarm-trial-20261103T055515Z (one incident, 3 of 3; the first trial with the seed rules; a trial, not scored)"
+    ],
+    "Bedrock general models (slot 7's family; the same items, prompt and parser)": [
+      "t1.execution-bedrock-qwen3-32b-1 (0.047 against 0.149: FAIL)",
+      "t1.interface-bedrock-gpt-oss-20b-2 (1.000 against 0.90: PASS)",
+      "t1.interface-bedrock-qwen3-32b-2 (0.927 against 0.90: PASS)",
+      "t1.safety-bedrock-gpt-oss-20b-2 (0.836 against 0.95: FAIL)",
+      "t1.safety-bedrock-qwen3-32b-2 (0.918 against 0.95: FAIL)",
+      "t1.price_latency-bedrock-gpt-oss-20b-2 (p95 1,540 ms: PASS)",
+      "t1.price_latency-bedrock-qwen3-32b-2 (p95 751 ms: PASS)",
+      "t1.knowledge-bedrock-qwen3-32b-2 (0.512 against 0.70: FAIL)",
+      "t1.knowledge-bedrock-gpt-oss-20b-3 (relaunch after a harness defect, G-020; result pending)"
     ]
   },
   "edge_cases": [
