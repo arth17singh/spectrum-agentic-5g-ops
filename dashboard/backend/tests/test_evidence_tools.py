@@ -46,7 +46,7 @@ def service(d: Path, tmp_path: Path) -> EvidenceService:
     (f"results/{R}.json", ("result", R)),
     ("models/t2-response/v0.json", ("model", "")),
     (f"records/{R}/item.jsonl", ("record", R)),
-    (f"records/{R}/change/8cfc0123935380633813c44d.json", ("record", R)),  # amendment A11: one object per record
+    (f"records/{R}/change/56c1b2e4bdfaf2528ad680e2.json", ("record", R)),  # amendment A11: one object per record
     (f"declared/{R}.json", ("declaration", R)),
 ])
 def test_classify_new_homes(path, want):

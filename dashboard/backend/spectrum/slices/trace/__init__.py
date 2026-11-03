@@ -42,8 +42,10 @@ def cases():
         decisions, changes, controls, src = _load()
     except Exception as e:  # noqa: BLE001 - reported to the page, which shows it as an error, not as "no records"
         return _unavailable(e)
-    rows = logic.build_cases(decisions, changes, controls)
-    return {"cases": rows, "n_cases": len(rows), "n_records": len(decisions) + len(changes) + len(controls), "source": src}
+    ov = logic.build_overview(decisions, changes, controls)
+    rows = ov["cases"]
+    return {"cases": rows, "n_cases": len(rows), "n_records": len(decisions) + len(changes) + len(controls),
+            "provenance": ov["provenance"], "source": src}
 
 
 @router.get("/case/{case_id}")

@@ -59,6 +59,13 @@ def test_ladder_returns_both_rungs_sets():
     assert all(l["synthetic"] for l in j["ladders"])
 
 
+def test_synthetic_viavi_fixture_is_not_a_real_viavi_result():
+    ls = client(FakeReader()).get("/api/trustgate/ladder").json()["ladders"]
+    assert not any(l["real_viavi"] for l in ls)
+    v = next(l for l in ls if l["top_label"] == "VIAVI")
+    assert v["has_viavi"] is True and v["synthetic"] is True
+
+
 def test_no_viavi_run_means_no_viavi_ladder():
     j = client(FakeReader(only_runs={"t3-ladder-rehearsal-20261102-a"})).get("/api/trustgate/ladder").json()
     assert [l["top_label"] for l in j["ladders"]] == ["REHEARSAL (Viavi-like Maveric)"]

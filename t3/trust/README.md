@@ -83,6 +83,26 @@ The outputs are in `runs/` and `calibration.json`.
   - Healthy gain is +0.0154 [0.0098, 0.0213] on MAVERIC and +0.0037 [0.0003, 0.0076] on REHEARSAL.
   - Retention is null because there is no VIAVI rung.
 
+## Thresholds v2 (declared, evaluated once, FAILED its criterion)
+
+v2 was chosen on calibration data only: twin seeds 20000–20039, 960 changes. It was declared before any evaluation in commit ed7d3c4, 2026-11-02T13:26:06-08:00, as `thresholds_v2.json`, sha256 `395ed282e042b4c365f6ad2d92f5b8e560511df1cfc6b572d3aed369a7fef852`.
+
+Settings: residual-p90 scales 0.0333 / 0.0391 / 0.8046 dB, α 0.10, pause line 0.50, τ 1.10. The A6 rule itself is unchanged. The procedure is in the `calibrate_v2.py` docstring.
+
+- **Forecast from calibration:** healthy false-pause rate 14% per run, degraded paused by change 6 in 93%, P(pass) 0.27. The same estimator gave v1 38%, matching v1's observed held-out rate of 4 in 11.
+- **Criterion** (seeds 2000–2019, 24-change script): healthy false pauses ≤ 2 of 20, and the degraded model paused by change 6 in ≥ 19 of 20 runs.
+
+One-shot result (`runs/v2_eval.json`):
+
+| Thresholds | Healthy false pauses | Degraded paused by change 6 | Criterion |
+|---|---|---|---|
+| v2 (395ed282) | 6/20 (5 at change 3, 1 at 20) | 20/20, all at change 3 | **failed** |
+| v1 (d051c1e0), same seeds, for reference | 8/20 (at 3, 3, 4, 15, 15, 19, 19, 24) | 20/20, at 3–4 | failed |
+
+v1's original results (seeds 0 and 1000–1009) stay as recorded above.
+
+Five of v2's six false pauses fire on the EWMA line at change 3, the first change where a decision is allowed. They come on the script's opening two-cell changes; calibration showed that change type has 3.5× the exceedance rate. The handler still defaults to v1 (`T3_TRUST_THRESHOLDS` selects the version).
+
 ## Commands
 
 ```

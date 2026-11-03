@@ -24,10 +24,26 @@ reports only per-cell percentiles), so grades do not shift when W2's module repl
 from __future__ import annotations
 
 import copy
+import importlib.util
 import math
 from typing import Any
 
 import numpy as np
+
+
+def _refuse_if_real_twin_present() -> None:
+    try:
+        present = importlib.util.find_spec("twin.replay") is not None
+    except ModuleNotFoundError:
+        present = False
+    if present:
+        raise ImportError(
+            "t3.evals.twin_standin was imported while the real twin (twin.replay, stream W2) is importable; "
+            "use t3.evals.twin_backend, which picks the real twin"
+        )
+
+
+_refuse_if_real_twin_present()
 
 OFFICIAL = "official"
 VIAVI_LIKE = "viavi-like"

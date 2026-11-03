@@ -24,6 +24,7 @@ import hashlib
 import json
 import platform
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +43,18 @@ DEV_PATH = SUITE_DIR / "incidents-dev.jsonl"
 HASH_PATH = SUITE_DIR / "incidents-test.sha256"
 META_PATH = SUITE_DIR / "incidents-meta.json"
 
-SUITE_VERSION = "t3-incidents-v2"
+SUITE_VERSION = "t3-incidents-v3"
+# Earlier frozen test sets this one replaces (never reuse them for scoring).
+SUPERSEDES = [
+    {"suite": "t3-incidents-v1", "test_sha256": "c0846996a08357836efcc7af1b7ab285d63b8c3622a846a580661d7bef388f0a",
+     "twin_backend": "maveric-inprocess-standin",
+     "reason": "every cell started identical, so a config-diff heuristic solved it; replaced by the masked tier"},
+    {"suite": "t3-incidents-v2", "test_sha256": "20f9013399da360b26214e11de15c9f9edbb8dcb9bcc4cf1d89fb7e194d3dd12",
+     "twin_backend": "maveric-inprocess-standin",
+     "reason": "frozen on t3/evals' stand-in twin; the twin backend changed to W2's twin.replay over ran-rl 1.2.9's "
+               "Maveric twin (user-share-weighted pooled p10 KPIs), so the frozen KPIs no longer replay. Re-frozen "
+               "once, before any swarm or model run used the suite."},
+]
 SEED_BASE = 4100
 N_CANDIDATES = 84
 SPLIT_SALT = "t3-evals-split-v1"
@@ -225,8 +237,11 @@ def main(argv: list[str] | None = None) -> int:
         SUITE_DIR.mkdir(exist_ok=True)
         TEST_PATH.write_bytes(test_bytes)
         DEV_PATH.write_bytes(to_bytes(out["dev"]))
+        if BACKEND != "maveric-inprocess":
+            raise SystemExit(f"refusing to freeze on twin backend {BACKEND!r}: the real twin (twin.replay) is required")
         HASH_PATH.write_text(f"{digest}  incidents-test.jsonl\n")
         META_PATH.write_text(json.dumps({
+            "frozen_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "supersedes": SUPERSEDES,
             "suite": SUITE_VERSION, "candidates": N_CANDIDATES, "seed_base": SEED_BASE, "split_salt": SPLIT_SALT,
             "templates": [t[0] for t in TEMPLATES], "presets": list(PRESETS), "tiers": list(TIERS),
             "counts": {"test": len(out["test"]), "dev": len(out["dev"]), "dropped": len(out["dropped"])},

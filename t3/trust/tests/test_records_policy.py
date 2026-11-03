@@ -45,7 +45,7 @@ def test_change_record_has_a15_fields_and_exact_error():
 
 
 def test_probe_and_clipped_records_are_unscored():
-    base = dict(run_id="r1", case_id="case-1", item_id="step-0", change=[], twin={}, baseline_kpis=K,
+    base = dict(run_id="r1", case_id="case-1", item_id="step-0", change=[{"cell": 0, "d_power_db": -1.0, "d_tilt_deg": 0.0}], twin={}, baseline_kpis=K,
                 measured_kpis=K, synthetic=True)
     probe = make_change_record(probe=True, **base)
     assert probe["probe"] and probe["scored"] is False and probe["unscored_reason"] == "probe"

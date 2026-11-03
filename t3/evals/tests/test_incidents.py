@@ -8,7 +8,23 @@ from t3.evals.graders import load_targets
 from t3.evals.twin_backend import ReplayTwin, graded
 
 T = load_targets()
-FROZEN_SHA = "20f9013399da360b26214e11de15c9f9edbb8dcb9bcc4cf1d89fb7e194d3dd12"
+FROZEN_SHA = "485b3bde1dc974a07e5950115e1fc1a8fa0dd2cb6cfc88e377a4ac7a01588a63"
+
+
+def test_real_twin_is_used_and_the_standin_refuses_to_load_beside_it():
+    import importlib.util
+
+    from t3.evals import twin_backend
+
+    if importlib.util.find_spec("twin.replay") is None:
+        pytest.skip("W2's twin is not on the path")
+    assert twin_backend.BACKEND == "maveric-inprocess"
+    assert twin_backend.ReplayTwin.__module__ == "twin.replay"
+    with pytest.raises(ImportError, match="real twin"):
+        import t3.evals.twin_standin  # noqa: F401
+    meta = json.loads(I.META_PATH.read_text())
+    assert meta["twin_backend"] == "maveric-inprocess" and meta["test_sha256"] == FROZEN_SHA
+    assert "20f9013399da360b26214e11de15c9f9edbb8dcb9bcc4cf1d89fb7e194d3dd12" in {s["test_sha256"] for s in meta["supersedes"]}
 
 
 def test_frozen_hash_is_stable_and_recorded():

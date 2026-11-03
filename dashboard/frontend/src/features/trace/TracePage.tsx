@@ -25,6 +25,22 @@ const delta = (v: unknown) => {
 
 const caseKey = (c: Rec) => `${c.run_id ?? ''}\u0000${c.case_id}`
 
+type Prov = { state: 'empty' | 'real' | 'synthetic' | 'mixed' | 'unverified'; label: string; note: string; claim: string; n_records: number; n_synthetic: number; n_unverified: number }
+
+/** REAL (green) only when every displayed record has an AWS time and none is synthetic; anything else is amber. */
+function ProvenanceChip({ p }: { p: Prov }) {
+  if (p.state === 'empty') return null
+  if (p.state === 'real') return <RealChip title={`${p.note} Read from the persisted evidence records.`} />
+  return (
+    <span data-provenance={p.state} title={p.note}
+      className="flex items-center gap-1 rounded border px-1.5 py-0.5 text-micro font-semibold tracking-[0.04em]"
+      style={{ color: 'var(--warn-ink)', borderColor: 'color-mix(in oklab, var(--warn) 55%, transparent)', background: 'color-mix(in oklab, var(--warn) 10%, transparent)' }}>
+      <FlaskConical size={11} aria-hidden className="shrink-0" />
+      {p.label}{p.state === 'mixed' || p.state === 'unverified' ? ` · ${p.note.replace(/\.$/, '')}` : ''}
+    </span>
+  )
+}
+
 type Load<T> = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ok'; data: T }
 
 export default function TracePage() {
@@ -46,16 +62,23 @@ export default function TracePage() {
 
   const rows: Rec[] = cases.state === 'ok' ? cases.data.cases ?? [] : []
   const picked = rows.find((c) => caseKey(c) === sel) ?? rows[0]
-  const anySynthetic = rows.some((c) => c.synthetic)
+  const prov: Prov | null = cases.state === 'ok' && rows.length > 0 ? cases.data.provenance ?? null : null
 
   return (
     <div>
-      <PageHeader title={manifest.title} description={manifest.description} tracks={manifest.tracks}
+      <PageHeader title={manifest.title} tracks={manifest.tracks}
+        description={prov?.claim ? `${manifest.description} ${prov.claim}` : manifest.description}
         actions={<>
-          {anySynthetic && <span className="flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-micro font-semibold tracking-[0.04em] text-ink-2" title="Some records are marked synthetic: fixtures or dry runs, not a judged run."><FlaskConical size={11} aria-hidden />SYNTHETIC RECORDS</span>}
-          <RealChip title="Every row is read from the persisted evidence records. Nothing on this screen is simulated." />
+          {prov && <ProvenanceChip p={prov} />}
           <Button icon={<RefreshCw size={14} className={clsx(busy && 'animate-spin')} />} disabled={busy} onClick={refresh}>Refresh</Button>
         </>} />
+      {prov && prov.state !== 'real' && prov.state !== 'empty' && (
+        <div className="mb-4 flex items-start gap-2 rounded-md border px-4 py-2.5 text-cap text-ink-1" role="status" data-provenance={prov.state}
+          style={{ borderColor: 'color-mix(in oklab, var(--warn) 55%, transparent)', background: 'color-mix(in oklab, var(--warn) 10%, transparent)' }}>
+          <FlaskConical size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--warn-ink)' }} aria-hidden />
+          <span><span className="font-medium">{prov.note}</span> Do not read these numbers as a measured result.</span>
+        </div>
+      )}
 
       {cases.state === 'loading' && <div className="text-cap text-ink-3">Loading the Track 3 records…</div>}
       {cases.state === 'error' && (
@@ -73,7 +96,7 @@ export default function TracePage() {
       {cases.state === 'ok' && rows.length > 0 && (
         <div className="grid grid-cols-12 items-start gap-4">
           <div className="col-span-12 xl:col-span-5">
-            <CaseList rows={rows} selected={picked ? caseKey(picked) : null} onSelect={setSel} total={cases.data.n_records} />
+            <CaseList rows={rows} selected={picked ? caseKey(picked) : null} onSelect={setSel} total={cases.data.provenance?.n_records ?? cases.data.n_records} />
           </div>
           <div className="col-span-12 min-w-0 xl:col-span-7">
             {picked && <CaseDetail summary={picked} />}
@@ -104,7 +127,7 @@ function CaseList({ rows, selected, onSelect, total }: { rows: Rec[]; selected: 
                   className={clsx('cursor-pointer border-b border-line/60', selected === k ? 'bg-s2' : 'hover:bg-s2/60')}>
                   <td className="px-3 py-2">
                     <div className="mono whitespace-nowrap text-ink-1">{c.case_id}</div>
-                    <div className="mono text-micro text-ink-3">{c.run_id ?? 'no run id'}{c.synthetic ? ' · synthetic' : ''}</div>
+                    <div className="mono text-micro text-ink-3">{c.run_id ?? 'no run id'}{c.provenance?.state && c.provenance.state !== 'real' ? ` · ${String(c.provenance.label).toLowerCase()}` : ''}</div>
                   </td>
                   <td className="tnum mono px-3 whitespace-nowrap text-ink-3" title={c.first_time ?? ''}>{utc(c.first_time, true)}</td>
                   <td className="tnum px-3 text-right text-ink-1">{c.n_events}</td>
@@ -112,7 +135,7 @@ function CaseList({ rows, selected, onSelect, total }: { rows: Rec[]; selected: 
                   <td className="tnum px-3 text-right" style={{ color: c.allows ? 'var(--good-ink)' : 'var(--ink-3)' }}>{c.allows}</td>
                   <td className="tnum px-3 text-right" style={{ color: c.pauses ? 'var(--warn-ink)' : 'var(--ink-3)' }}>{c.pauses}</td>
                   <td className="tnum px-3 text-right text-ink-1">{c.applied}</td>
-                  <td className="px-3">{c.check_passed ? <StatusPill status="passed" size="sm">complete</StatusPill> : <StatusPill status="warning" size="sm">incomplete</StatusPill>}</td>
+                  <td className="px-3">{c.check_passed ? (c.provenance?.state === 'real' ? <StatusPill status="passed" size="sm">complete</StatusPill> : <StatusPill status="warning" size="sm" title="The sequence is complete, but these records are not verified as a real run">complete, not real</StatusPill>) : <StatusPill status="warning" size="sm">incomplete</StatusPill>}</td>
                 </tr>
               )
             })}
@@ -147,7 +170,7 @@ function CaseDetail({ summary }: { summary: Rec }) {
       <SequenceCheck c={c} />
       <Panel id="trace-timeline" plane="operate" title={<span className="mono">{c.case_id}</span>}
         subtitle={`${c.timeline.length} events, ${utc(c.first_time, true)} to ${utc(c.last_time)}`}
-        actions={c.synthetic ? <StatusPill status="simulated" size="sm" title="Records marked synthetic: fixtures or dry runs">synthetic</StatusPill> : undefined}>
+        actions={c.provenance ? <ProvenanceChip p={c.provenance} /> : undefined}>
         <ol className="relative" aria-label="Timeline">
           {c.timeline.map((e: Rec, i: number) => <TimelineRow key={i} e={e} last={i === c.timeline.length - 1} />)}
         </ol>
@@ -161,7 +184,7 @@ function SequenceCheck({ c }: { c: Rec }) {
   const cmd: string = c.show_record
   return (
     <Panel id="trace-check" plane="operate" title="Expected sequence" subtitle="case opened, agents asked, tools called, approval, change applied, observe"
-      actions={k.passed ? <StatusPill status="passed">Sequence complete</StatusPill> : <StatusPill status="blocked">{k.order_ok ? 'Sequence incomplete' : 'Out of order'}</StatusPill>}>
+      actions={k.passed ? (c.provenance?.state === 'real' ? <StatusPill status="passed">Sequence complete</StatusPill> : <StatusPill status="warning" title="The sequence is complete, but these records are not verified as a real run">Complete, not a real run</StatusPill>) : <StatusPill status="blocked">{k.order_ok ? 'Sequence incomplete' : 'Out of order'}</StatusPill>}>
       <div data-state={k.passed ? 'pass' : 'fail'} className="flex flex-wrap items-center gap-1.5">
         {(k.steps as Rec[]).map((s, i) => {
           const missing = s.required && !s.present

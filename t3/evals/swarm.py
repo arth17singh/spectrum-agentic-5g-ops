@@ -1,22 +1,36 @@
 """The ``swarm`` operator: drives the live governed system through the checkpoint's front door.
 
-The harness keeps its own twin and grades on it. The swarm runs its own case (in the cases table,
-replayed from ``(scenario, seed, config, action_log)``), so the adapter opens each case at the
-post-fault state by handing over the fault step as the case's starting action log. Each harness step
-asks the client for the swarm's next decision and gets back the change it actually got APPLIED via
-``ran___apply_change`` (after Cedar, the students and the human approval), as the canonical A2
-string. Refused, unapproved or timed-out steps come back as no change. The harness then applies the
-same requested change on its own twin; both twins are deterministic replays, so they land on the same
-state (``measured_kpis`` from the client, when given, are compared and any mismatch is recorded).
+The harness keeps its own twin and grades on it; the swarm runs its own cases (replayed from
+``(scenario, seed, config, action_log)``). Two modes:
+
+``proposal`` (the scored mode; no person approves anything)
+    Every harness step opens ONE front-door case at the harness's current state: its
+    ``start_action_log`` is every change applied so far (commissioning, fault, earlier proposals).
+    The swarm works the case up to the checkpoint's approval refusal on ``ran___apply_change`` and
+    STOPS there. The client returns the PROPOSED canonical change string (and the refusal's approval
+    id). The harness grades that proposal with its own twin replay; it never goes through the
+    governed apply tool. ``proposal_steps`` (default 3, the episode length) caps the cases per
+    incident; later steps are no-ops.
+
+``full`` (2-3 demo cases with real approvals)
+    One case per incident, opened at the post-fault state. Each step returns the change the swarm got
+    APPLIED via ``ran___apply_change`` after Cedar, the students and the human approval; refused,
+    unapproved or timed-out steps count as no change. The harness re-applies it on its own twin.
+
+In both modes, ``measured_kpis`` from the client (if given) are compared with the harness twin and any
+mismatch is recorded on the item (``extra.kpi_mismatch``). Every item carries ``extra.mode``.
 
 Client protocol (the lead implements it over the runner; ``DryRunSwarmClient`` is a fake):
 
     client.open_case(case: dict) -> case_id
-        case = {incident_id, run_id, scenario, seed, preset, start_action_log: [commissioning, fault],
-                task_text}
+        case = {incident_id, run_id, mode, step, scenario, seed, preset,
+                start_action_log: [[change], ...], task_text}
     client.step(case_id, state, history) -> {
-        "change_text": "cell=1;d_power_db=+0.0;d_tilt_deg=-5.0" | "" | None,   # what was applied
-        "applied": bool, "approval_id": str | None, "decisions": [...]?, "measured_kpis": {...}? }
+        "change_text": "cell=1;d_power_db=+0.0;d_tilt_deg=-5.0" | "" | None,
+                       # full: what was applied; proposal: what was proposed before the refusal
+        "applied": bool,              # full mode
+        "refused": bool,              # proposal mode: apply was refused pending approval
+        "approval_id": str | None, "decisions": [...]?, "measured_kpis": {...}? }
     client.close_case(case_id)                       # optional
 
 Load a real client with ``--swarm-client module:factory`` (``factory()`` returns the client; it reads
@@ -52,52 +66,88 @@ def task_text(incident: dict[str, Any], run_id: str) -> str:
     )
 
 
+MODES = ("proposal", "full")
+
+
 class SwarmOperator:
     name = "swarm"
 
-    def __init__(self, client: Any, run_id: str = "adhoc") -> None:
+    def __init__(self, client: Any, run_id: str = "adhoc", mode: str = "proposal", proposal_steps: int = 3) -> None:
+        if mode not in MODES:
+            raise ValueError(f"mode must be one of {MODES}, got {mode!r}")
         self.client = client
         self.run_id = run_id
+        self.mode = mode
+        self.proposal_steps = proposal_steps
         self.synthetic = bool(getattr(client, "synthetic", False))
         self.model_id = getattr(client, "model_id", "team13-swarm")
         self.case_id: str | None = None
+        self.case_ids: list[str] = []
         self.trace: list[dict[str, Any]] = []
+
+    def _open(self, start_log: list[list[dict[str, Any]]], step: int) -> str:
+        cid = self.client.open_case({
+            "incident_id": self.incident["incident_id"],
+            "run_id": self.run_id,
+            "mode": self.mode,
+            "step": step,
+            "scenario": self.incident["scenario"],
+            "seed": self.incident["seed"],
+            "preset": self.incident["preset"],
+            "start_action_log": start_log,
+            "task_text": task_text(self.incident, self.run_id),
+        })
+        self.case_ids.append(cid)
+        return cid
 
     def begin(self, incident: dict[str, Any], ctx: dict[str, Any]) -> None:
         self.run_id = ctx.get("run_id", self.run_id)
+        self.incident = incident
+        self.twin = ctx.get("twin")
         self.trace = []
-        self.case_id = self.client.open_case({
-            "incident_id": incident["incident_id"],
-            "run_id": self.run_id,
-            "scenario": incident["scenario"],
-            "seed": incident["seed"],
-            "preset": incident["preset"],
-            "start_action_log": [incident.get("commissioning", []), incident["fault"]],
-            "task_text": task_text(incident, self.run_id),
-        })
+        self.case_ids = []
+        self.case_id = None
+        if self.mode == "full":
+            self.case_id = self._open([incident.get("commissioning", []), incident["fault"]], 0)
 
     def act(self, state: dict[str, Any], history: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+        if self.mode == "proposal":
+            if len(history) >= self.proposal_steps:
+                return []
+            start_log = [e["change"] for e in self.twin.action_log] if self.twin is not None else []
+            self.case_id = self._open(start_log, len(history))
         out = self.client.step(self.case_id, state, history) or {}
         text = out.get("change_text") or ""
-        applied = bool(out.get("applied")) and bool(text)
-        change = nonzero(parse(text)) if applied else []
+        if self.mode == "full":
+            take = bool(out.get("applied")) and bool(text)
+        else:
+            take = bool(text)  # the proposal itself; nothing was applied by the governed tool
+        change = nonzero(parse(text)) if take else []
         self.trace.append({
+            "mode": self.mode,
             "case_id": self.case_id,
             "change_text": canon(change) if change else "",
-            "applied": applied,
+            "applied": bool(out.get("applied")),
+            "refused": bool(out.get("refused")),
             "approval_id": out.get("approval_id"),
             "measured_kpis": out.get("measured_kpis"),
             "n_decisions": len(out.get("decisions") or []),
         })
+        if self.mode == "proposal":
+            self._close(self.case_id)
         return change
 
-    def end(self) -> None:
+    def _close(self, cid: str | None) -> None:
         close = getattr(self.client, "close_case", None)
-        if callable(close) and self.case_id:
-            close(self.case_id)
+        if callable(close) and cid:
+            close(cid)
+
+    def end(self) -> None:
+        if self.mode == "full":
+            self._close(self.case_id)
 
     def extra(self) -> dict[str, Any]:
-        return {"case_id": self.case_id, "swarm_steps": self.trace}
+        return {"mode": self.mode, "case_ids": list(self.case_ids), "swarm_steps": self.trace}
 
 
 class DryRunSwarmClient:
@@ -122,9 +172,13 @@ class DryRunSwarmClient:
         from t3.evals.operators import ConfigRevert
 
         change = ConfigRevert().act(state, history)
+        mode = self.cases[case_id].get("mode", "full")
         if not change:
-            return {"change_text": "", "applied": False, "approval_id": None}
-        return {"change_text": canon(change), "applied": True, "approval_id": f"chg-dryrun-{case_id}-{len(history)}"}
+            return {"change_text": "", "applied": False, "refused": False, "approval_id": None}
+        aid = f"chg-dryrun-{case_id}-{len(history)}"
+        if mode == "proposal":  # the real checkpoint refuses apply pending approval; we stop there
+            return {"change_text": canon(change), "applied": False, "refused": True, "approval_id": aid}
+        return {"change_text": canon(change), "applied": True, "refused": False, "approval_id": aid}
 
     def close_case(self, case_id: str) -> None:
         self.cases.pop(case_id, None)

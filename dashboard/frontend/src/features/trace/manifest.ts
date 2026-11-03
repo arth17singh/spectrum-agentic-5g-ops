@@ -11,7 +11,7 @@ export default defineFeature({
   route: '/trace',
   nav: { label: 'Trace', icon: Route, plane: 'operate', order: 5.5 },
   title: 'Trace',
-  description: 'Each Track 3 case rebuilt from the persisted Cedar decisions, model pauses and applied changes, and checked against the declared sequence: case opened, agents asked, tools called, approval, change applied, observe. Nothing here is simulated.',
+  description: 'Each Track 3 case rebuilt from the persisted Cedar decisions, model pauses and applied changes, and checked against the declared sequence: case opened, agents asked, tools called, approval, change applied, observe.',
   tracks: ['T3'],
   component: lazy(() => import('./TracePage')),
   preload: () => import('./TracePage'),

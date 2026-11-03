@@ -1,0 +1,90 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "checked_at": "2026-11-02T21:21:20.926Z",
+  "checker": {
+    "code_sha": "fff024e57314a81a05a9cbe16d090e726b221324",
+    "script": "t3/evals/run.py"
+  },
+  "created_at": "2026-11-02T21:21:20.926Z",
+  "details": {
+    "by_group": {
+      "masked": {
+        "mean_recovery": 0.46791712746184505,
+        "n": 18,
+        "success_rate": 0.3333333333333333
+      },
+      "official": {
+        "mean_recovery": 0.7691127399948987,
+        "n": 15,
+        "success_rate": 0.7333333333333333
+      },
+      "viavi-like": {
+        "mean_recovery": 0.6603231762655998,
+        "n": 18,
+        "success_rate": 0.5555555555555556
+      },
+      "visible": {
+        "mean_recovery": 0.9999999985594044,
+        "n": 15,
+        "success_rate": 1.0
+      }
+    },
+    "gain": {
+      "baseline_run_id": "t3.evals.no_action-20261102T212105Z-c5e6",
+      "ci_high": 0.8696759118864406,
+      "ci_low": 0.5183380153154251,
+      "paired_n": 33,
+      "value": 0.7097729780306097
+    },
+    "gains": [
+      {
+        "baseline_model_id": "no_action",
+        "baseline_run_id": "t3.evals.no_action-20261102T212105Z-c5e6",
+        "ci_high": 0.8696759118864406,
+        "ci_low": 0.5183380153154251,
+        "excludes_zero": true,
+        "metric": "recovery",
+        "paired_n": 33,
+        "success_rate_gain": {
+          "ci_high": 0.7878787878787878,
+          "ci_low": 0.45454545454545453,
+          "excludes_zero": true,
+          "paired_n": 33,
+          "value": 0.6363636363636364
+        },
+        "value": 0.7097729780306097
+      }
+    ],
+    "items_clamped": 0,
+    "items_with_wrong_cell_action": 18,
+    "mean_changes_used": 2.1515151515151514,
+    "mean_recovery": 0.7097729779607357,
+    "mode": null,
+    "model_id": "config-revert-median-v1",
+    "n_items": 33,
+    "operator": "config_revert",
+    "subset": null,
+    "success_count": 21,
+    "success_rate": 0.6363636363636364,
+    "test_set_sha256": "485b3bde1dc974a07e5950115e1fc1a8fa0dd2cb6cfc88e377a4ac7a01588a63",
+    "wall_s": 1.641,
+    "wrong_cell_actions_total": 34
+  },
+  "kind": "result",
+  "metric": "gain_ci_low_vs_no_action",
+  "n_items": 33,
+  "passed": true,
+  "run_id": "t3.evals.config_revert-20261102T212119Z-cab1",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "gain_ci_low_vs_no_action",
+    "op": ">",
+    "unit": "recovery",
+    "value": 0.0
+  },
+  "team": "team13",
+  "unit": "t3.evals.recovery",
+  "value": 0.5183380153154251
+}
