@@ -18,6 +18,9 @@ and refused unless they scored the same shared test (same test_set_sha256) and t
            the item records; the same spec is recorded for a `measure` run, where the interval is only a note.
   measure  declared target: n_items >= rows (a report, no pass bar); the mean diff and its interval are in the details.
 
+Exit code: 0 whenever the comparison ran and its result was written, INCLUDING a missed `beats` target (passed=false in the
+result record, printed as TARGET MISSED); non-zero only for a real error. The job runner attests the evidence of exit-0 jobs only.
+
 Environment: RUN_ID, CODE_SHA, EVIDENCE_S3 (or EVIDENCE_DIR), AWS_REGION.
 """
 
@@ -128,7 +131,9 @@ def main(argv=None) -> int:
     r = out["result"]
     print(json.dumps({"run_id": run_id, "unit": r["unit"], "mean_diff": boot["mean"], "ci95": [boot["ci_lo"], boot["ci_hi"]], "ci_lower_gt0": details["ci_lower_gt0"],
                       "verdict": details.get("verdict"), "passed": r["passed"], "n_items": r["n_items"]}, indent=1))
-    return 0 if (r["passed"] and details.get("verdict", True)) else 1
+    if not r["passed"]:  # a declared target that is MISSED is a result, not an error: it is written and attested like any other
+        print(f"TARGET MISSED: {r['metric']} = {r['value']:.6g} is not {r['target']['op']} {r['target']['value']} (the result record says passed=false)", file=sys.stderr)
+    return 0  # only a real error (an exception, a refused input) exits non-zero; the job runner attests the evidence of exit-0 jobs only
 
 
 if __name__ == "__main__":

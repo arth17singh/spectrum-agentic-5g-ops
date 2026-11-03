@@ -185,10 +185,12 @@ def test_evaluate_then_compare_beats_and_measure(job_env, monkeypatch, tmp_path,
     rc2 = job_compare.main(["--kind", "beats", "--x", "t2-test-init", "--y", "t2-test-trained", "--name", "b_vs_a", "--split", "disjoint", "--declare-first"])
     out2 = json.loads(capsys.readouterr().out)
     assert out2["mean_diff"] == pytest.approx(-out1["mean_diff"])
-    # the declaration can fail: the target is the interval's lower bound above zero, and at most one direction can pass
-    assert rc1 == (0 if out1["ci_lower_gt0"] else 1)
-    assert rc2 == (0 if out2["ci_lower_gt0"] else 1)
-    assert not (rc1 == 0 and rc2 == 0)
+    # the declaration can fail (the target is the interval's lower bound above zero, and at most one direction can pass),
+    # but a MISSED target is a result, not an error: the job exits 0 and the result record carries passed=false
+    res2 = ev.read_result("t2-test-cmp2", ev.default_store())
+    assert rc1 == 0 and rc2 == 0
+    assert res["passed"] == out1["ci_lower_gt0"] and res2["passed"] == out2["ci_lower_gt0"]
+    assert not (res["passed"] and res2["passed"])
     # a measurement never fails on the sign
     monkeypatch.setenv("RUN_ID", "t2-test-cmp3")
     assert job_compare.main(["--kind", "measure", "--x", "t2-test-init", "--y", "t2-test-trained", "--name", "m", "--split", "disjoint", "--declare-first"]) == 0
@@ -378,3 +380,33 @@ def test_check_unit_part_e_replays_the_compare_bound_from_our_own_producer(job_e
     ck.load()
     ck.part_e()
     assert ck.parts["e"].state == "FAIL"
+
+
+def test_a_missed_beats_target_writes_its_result_and_exits_zero(job_env, monkeypatch, capsys):
+    """federated_vs_B on AWS missed its bound (lower bound -0.04): the job exited 1, so the runner never attested its evidence.
+    A missed target must be written, printed and returned as exit 0; only a real error is non-zero."""
+    import runpy
+    import sys
+
+    ev = evio.get_evlib()
+    monkeypatch.setenv("RUN_ID", "t2-ms-x")
+    assert job_baselines.main(["--method", "local", "--silo", "B", "--split", "disjoint", "--epochs", "30", "--declare-first"]) == 0
+    w = job_env.parent / "init2.safetensors"
+    w.write_bytes(nn.safetensors_dumps(nn.init_params(7)))
+    monkeypatch.setenv("RUN_ID", "t2-ms-y")
+    assert job_evaluate.main(["--label", "federated", "--split", "disjoint", "--weights", str(w), "--declare-first"]) == 0
+    capsys.readouterr()
+    # the trained model as X and the untrained one as Y, and the reverse: one of the two directions misses its bound
+    codes, passed = [], []
+    for run, x, y in (("t2-ms-fwd", "t2-ms-x", "t2-ms-y"), ("t2-ms-rev", "t2-ms-y", "t2-ms-x")):
+        monkeypatch.setenv("RUN_ID", run)
+        monkeypatch.setattr(sys, "argv", ["silos.job_compare", "--kind", "beats", "--x", x, "--y", y, "--name", "ms", "--split", "disjoint", "--declare-first"])
+        with pytest.raises(SystemExit) as e:   # exactly how tools/sm/entry.py runs the module
+            runpy.run_module("silos.job_compare", run_name="__main__", alter_sys=True)
+        codes.append(e.value.code)
+        res = ev.read_result(run, ev.default_store())
+        assert res is not None and res["metric"] == "score_gain_ci_low"   # the result is written whether or not the bound is met
+        passed.append(res["passed"])
+    out = capsys.readouterr().err
+    assert codes == [0, 0] and not all(passed)
+    assert ("TARGET MISSED" in out) == (not all(passed))
