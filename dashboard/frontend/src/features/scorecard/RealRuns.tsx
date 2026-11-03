@@ -5,6 +5,7 @@ import type { Rec } from '@/core/types'
 import { Panel } from '@/ui'
 import { num, targetText, utc, value } from './format'
 import { shortReason, useOverview } from './overview'
+import { TrainingCurves } from './Curves'
 
 // Real runs, read from the local byte-exact mirror of the S3 evidence prefix (make evidence-sync) through
 // GET /api/realrun/overview. Every number links to its run id in the Evidence explorer. A cell with no run
@@ -32,6 +33,7 @@ export interface Overview {
   t2: Rec[]
   t2_consortium: Rec
   judged: Rec | null
+  curves?: { t2_convergence: Rec | null; t1: Rec | null }
   empty: boolean
 }
 
@@ -97,6 +99,7 @@ export default function RealRuns() {
         <div className="col-span-12 xl:col-span-5"><Bar t1={ov.t1} /></div>
         <div className="col-span-12 xl:col-span-7">{ov.rl ? <RL rl={ov.rl} /> : <Panel title="Track 1 RL gate"><NotRun /></Panel>}</div>
       </div>
+      <TrainingCurves c={ov.curves?.t1} />
       <Track3Live rows={ov.t3_live ?? []} />
       <Track3 rows={ov.t3} />
       {ov.t2.length > 0 && <Track2 rows={ov.t2} />}
@@ -318,6 +321,7 @@ function t2Method(r: Rec): string {
   if (k === 'local_only') return `local-only (silo ${p[2] ?? '?'})`
   if (k === 'central') return 'central (pooled reference)'
   if (k === 'fedavg_local') return 'local FedAvg (our simulation)'
+  if (k === 'fl_convergence') return 'FL convergence curve'
   if (k.startsWith('fl')) return 'federated (FL service)'
   if (k === 'compare') return `comparison: ${p.slice(2, -1).join('.')}`
   if (k === 'silo_data') return 'silo data check'

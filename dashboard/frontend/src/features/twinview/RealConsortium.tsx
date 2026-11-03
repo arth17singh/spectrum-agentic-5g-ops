@@ -2,8 +2,9 @@ import { FlaskConical } from 'lucide-react'
 import type { Rec } from '@/core/types'
 import { Panel } from '@/ui'
 import { JobLine, RunLink, type Job } from '../scorecard/RealRuns'
+import { ConvergenceChart } from '../scorecard/Curves'
 import { num } from '../scorecard/format'
-import { useOverview } from '../scorecard/overview'
+import { sessionFacts, useOverview } from '../scorecard/overview'
 
 // The real Track 2 results (GET /api/realrun/overview -> t2_consortium), read from the t2 result records in the
 // evidence mirror. Simulated silos: three simulated operators on the in-process Maveric twin, not partner data.
@@ -22,9 +23,19 @@ function Fact({ label, f }: { label: string; f: Rec | null }) {
   )
 }
 
-function Split({ s, note }: { s: Rec; note: string }) {
+function Split({ s, note, conv }: { s: Rec; note: string; conv?: Rec | null }) {
   const fed: Rec | undefined = (s.federated ?? []).find((x: Rec) => x.run_id === s.current_federated)
-  const f: Rec = fed?.facts ?? {}
+  const f: Rec = { ...(fed?.facts ?? {}) }
+  // the convergence run records the session itself; its facts replace "not in the records yet"
+  const sess = sessionFacts(conv)
+  if (sess) {
+    const from = `t2.fl_convergence run ${conv!.run_id}`
+    if (sess.rounds_completed != null) f.rounds = { value: sess.rounds_completed, from }
+    if (sess.clients != null) f.clients = { value: sess.clients, from }
+    if (sess.secure_aggregation != null) f.secure_aggregation = { value: sess.secure_aggregation ? 'yes' : 'no', from }
+    if (sess.dp != null) f.epsilon = { value: sess.dp, from }
+    if (sess.session_id_short) f.session_id = { value: sess.session_id_short, from }
+  }
   const dc: Rec | null = s.distance_to_central
   return (
     <div className="space-y-4" data-split={s.split}>
@@ -66,7 +77,7 @@ function Split({ s, note }: { s: Rec; note: string }) {
               <Fact label="Rounds" f={f.rounds} />
               <Fact label="Clients" f={f.clients} />
               <Fact label="Secure aggregation" f={f.secure_aggregation} />
-              <Fact label="DP ε" f={f.epsilon ? { ...f.epsilon } : { value: 'none (no DP)', from: 'result' }} />
+              <Fact label="DP" f={f.epsilon ? { ...f.epsilon } : { value: 'none (no DP)', from: 'result' }} />
               <Fact label="Session" f={f.session_id} />
               <Fact label="Final aggregate" f={f.final_aggregation_file} />
             </div>
@@ -108,7 +119,8 @@ export default function RealConsortium() {
       actions={<span className="flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-micro font-semibold tracking-[0.04em] text-ink-2" title="Three simulated operators on the in-process Maveric twin, run in one account; not partner data."><FlaskConical size={11} aria-hidden />SIMULATED SILOS</span>}>
       {err && !ov && <div className="text-cap text-critical-ink">Unavailable: <span className="mono">{err}</span></div>}
       {ov && !(c?.splits ?? []).length && <div className="text-cap text-ink-3">No Track 2 score runs in the evidence mirror yet.</div>}
-      {(c?.splits ?? []).map((s: Rec) => <Split key={s.split} s={s} note={c?.score_note ?? ''} />)}
+      {ov && <div className="mb-4"><ConvergenceChart c={ov.curves?.t2_convergence} /></div>}
+      {(c?.splits ?? []).map((s: Rec) => <Split key={s.split} s={s} note={c?.score_note ?? ''} conv={ov?.curves?.t2_convergence} />)}
     </Panel>
   )
 }
