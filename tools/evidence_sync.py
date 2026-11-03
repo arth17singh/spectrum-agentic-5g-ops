@@ -334,11 +334,16 @@ class Sync:
         env = dict(os.environ)
         if self.a.profile:
             env["AWS_PROFILE"] = self.a.profile
+        ledger = (self.dest / "ledger.jsonl").is_file() and (self.dest / "public_keys.json").is_file()
+        if not ledger:
+            say("  no evidence ledger in DEST yet (start make demo-real once): check_unit part d will SKIP")
 
         def one(run):
             t0 = time.time()
-            p = subprocess.run([sys.executable, str(REPO / "tools" / "check_unit.py"), run, "--s3", self.a.s3, "--json"],
-                               capture_output=True, text=True, env=env, cwd=REPO, timeout=900)
+            cmd = [sys.executable, str(REPO / "tools" / "check_unit.py"), run, "--s3", self.a.s3, "--json"]
+            if ledger:  # part d: compare every file's sha256 with the dashboard's evidence ledger
+                cmd += ["--ledger-dir", str(self.dest)]
+            p = subprocess.run(cmd, capture_output=True, text=True, env=env, cwd=REPO, timeout=3600)
             try:
                 summary = json.loads(p.stdout)
             except ValueError:
@@ -349,7 +354,7 @@ class Sync:
             (out_dir / f"{run}.json").write_text(json.dumps(doc, indent=1, sort_keys=True))
             return run, p.returncode, doc["elapsed_s"]
 
-        with ThreadPoolExecutor(4) as ex:
+        with ThreadPoolExecutor(6) as ex:
             for f in as_completed([ex.submit(one, r) for r in runs]):
                 try:
                     run, rc, el = f.result()
