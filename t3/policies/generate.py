@@ -146,7 +146,14 @@ suppressOutput (principal, action == {_action(action)}, resource == @GW@)
 when guardrails {{
   {output_guard()}
 }};"""})
-    every = catalog.all_tools()
+    # The kit's nlm___ask_nlm is permitted by the kit's own rule (any team agent, with the same
+    # prompt-attack guardrail). It reaches our NLM, so only ran_explainer may use it, as nlm___ask.
+    not_nlm = sorted(a for a, tools in AGENT_TOOLS.items() if "@NLM@" not in tools)
+    out.append({"name": safe_name(p, "nlm_kit_name_explainer_only"), "mode": LOOSE,
+                "actions": [catalog.KIT_NLM_ASK], "statement": f"""
+forbid (principal, action == {_action(catalog.KIT_NLM_ASK)}, resource == @GW@)
+when {{ {agent_in(not_nlm)} }};"""})
+    every = catalog.governed_tools()
     out.append({"name": safe_name(p, "require_case_id"), "mode": LOOSE, "actions": every, "statement": f"""
 forbid (principal, action in [{", ".join(_action(a) for a in every)}], resource == @GW@)
 unless {{ context.input has case_id && context.input.case_id like "case-*" }};"""})
@@ -268,8 +275,8 @@ def check(rule_list: list[dict], team: str = "team13") -> list[str]:
         if t not in permitted:
             problems.append(f"{t}: no permit (default deny refuses every call)")
     case_rules = [r for r in rule_list if r["name"].endswith("_require_case_id")]
-    if len(case_rules) != 1 or sorted(case_rules[0]["actions"]) != sorted(tools):
-        problems.append("the case-id forbid must cover every tool")
+    if len(case_rules) != 1 or sorted(case_rules[0]["actions"]) != sorted(catalog.governed_tools()):
+        problems.append("the case-id forbid must cover every tool (including nlm___ask_nlm)")
     approval = [r for r in rule_list if "require_human_approval" in r["name"]]
     if len(approval) != 1 or approval[0]["actions"] != [catalog.ran(catalog.APPLY)] \
             or not approval[0]["actions"][0].endswith("___apply_change"):
