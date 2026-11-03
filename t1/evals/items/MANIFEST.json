@@ -1,0 +1,237 @@
+{
+  "graders": "t1-graders-v2",
+  "manifest_version": 2,
+  "parser": "t1-parse-v1",
+  "prompt": {
+    "file": "t1/evals/prompt.txt",
+    "sha256": "bca9ecf54c3b9ac64c4f3a3d036e427f95605cf40c344b3357379c5a20a0629f"
+  },
+  "split": {
+    "dev_fraction": 0.2,
+    "rule": "dev if sha256(unit, item_id, salt)[:8] % 10000 < dev_fraction * 10000",
+    "salt": "t1-split-v1"
+  },
+  "superseded": {
+    "commit": "2959c9b",
+    "reason": "built on twin_standin.py and a local canonical-change fallback; re-frozen on W2 twin.replay.ReplayTwin and W1 team13_contracts.change before any model was run. Same 80 item ids, specs and prompt text; the reference values (noop_kpi, rule/oracle/constant gain) are now stored unrounded (they were rounded to 6 decimals, so they differed from the replay by up to 3.3e-7) and meta.twin names the W2 replay",
+    "units": {
+      "execution": {
+        "sha256": "4686121964eaf4811fec665ac73927af8ee8f32ffe5375e3c4074f87dc80b72c",
+        "test_sha256": "8ac4c54536f8affdfdc75bccbed02f4d0ece78ad81e6ef0d93e44e858cdc0feb"
+      }
+    }
+  },
+  "units": {
+    "execution": {
+      "families": {
+        "congestion": 16,
+        "interference": 16,
+        "outage": 16,
+        "power_drop": 16,
+        "tilt_misconfig": 16
+      },
+      "file": "t1/evals/items/execution.jsonl",
+      "generator": "t1/evals/gen_execution.py",
+      "n_items": 80,
+      "sha256": "63d04053892d118721eed5c40460c9ae0c878043d464db7b9edc10e2223efd74",
+      "splits": {
+        "dev": {
+          "n": 17,
+          "sha256": "44a8e421a6bd50b8fe83406c28a220421a66cca9fda87be5b92f771fe977e069"
+        },
+        "test": {
+          "n": 63,
+          "sha256": "5dbc837713851902e455d750534f7aee49c9b7a1b7836439c280f2606615fc22"
+        }
+      },
+      "twin": {
+        "config": "official",
+        "kind": "maveric-inprocess",
+        "kpi": "coverage_ratio+sla_ratio",
+        "min_oracle_gain": 0.02,
+        "sdk_version": "1.2.9",
+        "seed_base_reserved": 900000
+      }
+    },
+    "interface": {
+      "families": {
+        "adjust_power": 69,
+        "adjust_power_multi": 20,
+        "adjust_tilt": 77,
+        "adjust_tilt_multi": 24,
+        "no_action": 24,
+        "out_of_scope": 40,
+        "query_kpi": 43,
+        "query_kpi_network": 23
+      },
+      "file": "t1/evals/items/interface.jsonl",
+      "generator": "t1/evals/gen_interface.py",
+      "n_items": 320,
+      "sha256": "b8347f58171979b1c86a9c651259a8ce1793c2095600e152d55d2fbfee09210c",
+      "splits": {
+        "dev": {
+          "n": 59,
+          "sha256": "30cb2ec903b91f502f037c2bfd09adf69ae09ee4c3feebd739f5bdf2b96076e1"
+        },
+        "test": {
+          "n": 261,
+          "sha256": "3f93b103c637244f808cd242c86dcb2181797cd63d76b7bfac19a4e9028f4449"
+        }
+      }
+    },
+    "knowledge": {
+      "families": {
+        "3gpp_tsg": 50,
+        "oranbench": 50,
+        "sixg_bench": 50,
+        "telelogs": 100,
+        "telemath": 100,
+        "teleqna": 200,
+        "teletables": 50
+      },
+      "file": "t1/evals/items/knowledge.jsonl",
+      "generator": "t1/evals/gen_knowledge.py",
+      "groups": {
+        "core": {
+          "all": {
+            "n": 400,
+            "sha256": "4605b4204c92b9dbaed2097228bd9338e8380658eb722b6bb1b6a046247bc5c8"
+          },
+          "dev": {
+            "n": 81,
+            "sha256": "3bbe2a9248b074d6dee899b7c416e2d1027587bc2ce2992637a6a67515b5eb81"
+          },
+          "test": {
+            "n": 319,
+            "sha256": "b86080d4f5464989f61ee328bd79a8f75d051f610d556fc5485ce40313a3e244"
+          }
+        },
+        "telelogs": {
+          "all": {
+            "n": 100,
+            "sha256": "6799a04d9cd47659533e2da923cec9b20f4928b18e98d45628956d69c1b1bfc3"
+          },
+          "dev": {
+            "n": 22,
+            "sha256": "38c71734f9fccd508f3d3abff55913b8b98679c69008068f69c4c2c03def6094"
+          },
+          "test": {
+            "n": 78,
+            "sha256": "8da6682abd4a44f97fc5126678f698fc07f68aadf6cf38e2dcbaeb9512f2e4e6"
+          }
+        },
+        "telemath": {
+          "all": {
+            "n": 100,
+            "sha256": "9bfe2e9e5f52edfc80a4b0b9c43fdfb59bc40bc0eae286443c244262f192aad3"
+          },
+          "dev": {
+            "n": 22,
+            "sha256": "e5706cb4e3ba21a365f8a31b12abdb0a416298cbaf322ac7f291438a1abf25a5"
+          },
+          "test": {
+            "n": 78,
+            "sha256": "620a53da126f327aa9efb1836d2280012da2a4b09111f109957b3d3bd4024656"
+          }
+        }
+      },
+      "n_items": 600,
+      "sha256": "8a687445efd4fc5738615c96ab9da5e8907ee50003233527f24b1bbed48a2df9",
+      "source": {
+        "dataset": "GSMA/ot-lite",
+        "files": {
+          "3gpp_tsg": {
+            "file": "test_3gpp_tsg.json",
+            "sha256": "a7ae12665448bc35dd656629daea640a02fb96a7fe32e400f6a95055c65be20b"
+          },
+          "oranbench": {
+            "file": "test_oranbench.json",
+            "sha256": "458be8c1962041196908aabb94838eae82633efac56c56d114c6982883e81fe8"
+          },
+          "sixg_bench": {
+            "file": "test_sixg_bench.json",
+            "sha256": "b86cff25bb490a5c10a8e22b34d0473fbe6e6b04566f8187942bd6302ba5a5da"
+          },
+          "telelogs": {
+            "file": "test_telelogs.json",
+            "sha256": "9d1eea3a86d39cc9ab792bca0f69edba8703e5681583e70ae82f6ef49b531bf9"
+          },
+          "telemath": {
+            "file": "test_telemath.json",
+            "sha256": "5d4c64ae79d3cdec50c28a4d5cb36b098ae982bd5301aec0337358ec9db4453a"
+          },
+          "teleqna": {
+            "file": "test_teleqna.json",
+            "sha256": "3bbb71301dd7a2228a8f42d4ca48c100fd57cbbb80b2e22749d5efe86ae31b5a"
+          },
+          "teletables": {
+            "file": "test_teletables.json",
+            "sha256": "d08065834a41cf295242816594963a9ec3f59699c0d26e8bfaabbe6445647b73"
+          }
+        },
+        "license": "MIT",
+        "revision": "1c0f2eac3ad0baa29704b147a95fea283b2906c7",
+        "take": {
+          "3gpp_tsg": 50,
+          "oranbench": 50,
+          "sixg_bench": 50,
+          "telelogs": 100,
+          "telemath": 100,
+          "teleqna": 200,
+          "teletables": 50
+        }
+      },
+      "splits": {
+        "dev": {
+          "n": 125,
+          "sha256": "54527e81adbaabf84aeb5c1448a7c865744d851b8763cf3c65d884cd9c3ab742"
+        },
+        "test": {
+          "n": 475,
+          "sha256": "be231b0aecbf4e6f905aca34140a781800ed683ea2052cac12969eee65abd8d5"
+        }
+      }
+    },
+    "price_latency": {
+      "families": {},
+      "file": "t1/evals/items/price_latency.jsonl",
+      "generator": "t1/evals/gen_price_latency.py",
+      "n_items": 50,
+      "sha256": "4d55adddb52171878f30000e7d7fa969d77bb41cd6e0f33c041927cde185b408",
+      "splits": {
+        "dev": {
+          "n": 12,
+          "sha256": "073bca87c1059c1c66b0190d1feaef8fda483302d28b5ad9afcbe95ff8b2cbaf"
+        },
+        "test": {
+          "n": 38,
+          "sha256": "802e3621d2bc13d5202caa33af7df7b2585d89d6fc7c27c72216d8a4533f6c44"
+        }
+      }
+    },
+    "safety": {
+      "families": {
+        "alarm": 20,
+        "authority": 30,
+        "benign": 35,
+        "injection": 30,
+        "over_abs": 25,
+        "over_step": 30
+      },
+      "file": "t1/evals/items/safety.jsonl",
+      "generator": "t1/evals/gen_safety.py",
+      "n_items": 170,
+      "sha256": "1ce6f4494cffa54fc385d54dad0a2047a761692c3e3c1e2611928595eae84b75",
+      "splits": {
+        "dev": {
+          "n": 36,
+          "sha256": "b75380efb363d655cea39184a5b513ad1a4876dea5aab7ed3fd151de8e8d325f"
+        },
+        "test": {
+          "n": 134,
+          "sha256": "c26f8181f1a7ae366456b6f9c03ed6635f487834456f8fb0e6c3d2fd3bab354a"
+        }
+      }
+    }
+  }
+}

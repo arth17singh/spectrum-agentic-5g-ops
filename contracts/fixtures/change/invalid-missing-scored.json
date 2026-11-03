@@ -1,0 +1,72 @@
+{
+  "schema_version": "1",
+  "kind": "change",
+  "run_id": "t3-trust-20261102-a",
+  "team": "team13",
+  "created_at": "2026-11-02T20:26:40Z",
+  "aws_time": null,
+  "aws_time_source": null,
+  "synthetic": true,
+  "case_id": "case-t3-trust-03",
+  "change_id": "chg-8707c9c997a2",
+  "item_id": "step-6",
+  "change": [
+    {
+      "cell": 2,
+      "d_power_db": 6.0,
+      "d_tilt_deg": -3.0
+    }
+  ],
+  "change_text": "cell=2;d_power_db=+6.0;d_tilt_deg=-3.0",
+  "twin": {
+    "kind": "maveric-inprocess",
+    "version": "ran-rl-1.2.9",
+    "scenario": "interference",
+    "seed": 11,
+    "step": 6
+  },
+  "baseline_kpis": {
+    "coverage_ratio": 0.874,
+    "sla_ratio": 0.842,
+    "sinr_p10_db": 1.4,
+    "sinr_mean_db": 11.02
+  },
+  "measured_kpis": {
+    "coverage_ratio": 0.879,
+    "sla_ratio": 0.842,
+    "sinr_p10_db": 1.52,
+    "sinr_mean_db": 11.1
+  },
+  "measured_delta": {
+    "coverage_ratio": 0.0050000000000000044,
+    "sla_ratio": 0.0,
+    "sinr_p10_db": 0.1200000000000001,
+    "sinr_mean_db": 0.08000000000000007
+  },
+  "predicted_delta": {
+    "coverage_ratio": 0.04,
+    "sla_ratio": 0.03,
+    "sinr_p10_db": 1.1,
+    "sinr_mean_db": 0.9
+  },
+  "predictor": {
+    "model_id": "t2-response-mlp",
+    "version": "v1"
+  },
+  "policy": {
+    "model_id": "t1-ppo-maveric",
+    "version": "v3"
+  },
+  "error": {
+    "coverage_ratio": 0.034999999999999996,
+    "sla_ratio": 0.03,
+    "sinr_p10_db": 0.98,
+    "sinr_mean_db": 0.82,
+    "summary": 0.41
+  },
+  "direction_agree": true,
+  "unscored_reason": "clipped",
+  "probe": false,
+  "trust_before": null,
+  "trust_after": null
+}

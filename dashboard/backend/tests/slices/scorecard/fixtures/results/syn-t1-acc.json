@@ -1,0 +1,28 @@
+{
+  "unit": "t1.acc",
+  "metric": "accuracy",
+  "value": 0.85,
+  "target": {
+    "metric": "accuracy",
+    "op": ">=",
+    "value": 0.85,
+    "unit": "fraction"
+  },
+  "passed": true,
+  "n_items": 20,
+  "checked_at": "2026-11-02T11:00:00Z",
+  "checker": {
+    "script": "synthetic/check_unit.py",
+    "code_sha": "d04ba2e332819a3b1f3bd3304a37af08132b37b0b1bc49b0db3c872e76997e27"
+  },
+  "details": {
+    "gain": {
+      "value": 1.7,
+      "ci_low": 1.4,
+      "ci_high": 2.0,
+      "baseline_run_id": "syn-t1-acc-base",
+      "paired_n": 20
+    }
+  },
+  "synthetic": true
+}

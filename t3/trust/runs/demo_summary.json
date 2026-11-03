@@ -1,0 +1,713 @@
+{
+ "run_id": "t3.trust-20261102T211603Z-e558",
+ "thresholds_sha256": "d051c1e05efbca5491fd90741ea835a3c83d0ba55ef320dfaf76cc24df4af74b",
+ "thresholds": {
+  "schema": "t3.trust.thresholds/2",
+  "keys": [
+   "coverage_ratio",
+   "sla_ratio",
+   "sinr_p10_db"
+  ],
+  "scales": {
+   "coverage_ratio": 0.057,
+   "sla_ratio": 0.0389,
+   "sinr_p10_db": 0.8862
+  },
+  "direction_deadband": {
+   "coverage_ratio": 0.02,
+   "sla_ratio": 0.02,
+   "sinr_p10_db": 0.4
+  },
+  "weights": {
+   "error": 0.5,
+   "direction": 0.5
+  },
+  "tau": 0.65,
+  "recent_window": 3,
+  "recent_needed": 2,
+  "alpha": 0.15,
+  "warmup": 3,
+  "watch_below": 0.55,
+  "pause_below": 0.4,
+  "max_changes_to_pause": 6,
+  "calibration_false_pause_budget": 1,
+  "notes": {
+   "rule": "after n >= warmup scored changes, pause when recent_needed of the last recent_window changes have e > tau, or the bias-corrected EWMA trust (alpha) of the per-change score falls below pause_below (amendment 1, A6)",
+   "scales": "std of the training-split delta labels of the Track 2 predictor (t2/data/t2_dataset_v0.npz); e = 1 is an error the size of a typical effect",
+   "direction_deadband": "materiality: a measured delta smaller than 2 % of UEs or 0.4 dB of p10 SINR is 'did not move' and not scored for direction",
+   "alpha_tau_pause_below": "written by t3.trust.calibrate --apply (PROPOSAL_RULE) from replayed changes on twin.replay (official, nominal, seeds 20000+) with t2.predict healthy and tilt_reversed; in-sample, so the held-out check is the demo seeds; see t3/trust/calibration.json",
+   "max_changes_to_pause": "declared target for the degraded-predictor demo"
+  }
+ },
+ "scenario": "nominal",
+ "seed": 0,
+ "config": "official",
+ "policy_calls": [
+  {
+   "op": "create_policy",
+   "kwargs": {
+    "policyEngineId": "dry-run-engine",
+    "name": "team13_ranpause_t2_response_v0_v0_1793654164",
+    "validationMode": "IGNORE_ALL_FINDINGS",
+    "description": "trust-gate pause of t2-response-v0@v0: 2 of the last 3 changes had e > tau 0.65 after 15 scored changes; last change chg-b168a149db2b e=0.944 direction_agree=None",
+    "definition": {
+     "policy": {
+      "statement": "forbid (principal, action == AgentCore::Action::\"ran___predict\", resource == AgentCore::Gateway::\"arn:aws:bedrock-agentcore:us-east-2:000000000000:gateway/dry-run-placeholder\")\nwhen { !(context.input has model_version) || context.input.model_version == \"v0\" };"
+     }
+    }
+   },
+   "dry_run": true
+  },
+  {
+   "op": "create_policy",
+   "kwargs": {
+    "policyEngineId": "dry-run-engine",
+    "name": "team13_ranpause_62d19b7335_1793654164",
+    "validationMode": "IGNORE_ALL_FINDINGS",
+    "description": "trust-gate pause of t2-response-v0-degraded-tilt-reversed@v0: trust 0.345 < pause line 0.4 after 3 scored changes; last change chg-4ac495201865 e=1.666 direction_agree=False",
+    "definition": {
+     "policy": {
+      "statement": "forbid (principal, action == AgentCore::Action::\"ran___predict\", resource == AgentCore::Gateway::\"arn:aws:bedrock-agentcore:us-east-2:000000000000:gateway/dry-run-placeholder\")\nwhen { !(context.input has model_version) || context.input.model_version == \"v0\" };"
+     }
+    }
+   },
+   "dry_run": true
+  }
+ ],
+ "cases": [
+  {
+   "case_id": "case-t3.trust-01",
+   "model_id": "t2-response-v0",
+   "version": "v0",
+   "changes": 24,
+   "scored": 15,
+   "clipped": 0,
+   "paused_at_change": 15,
+   "refused_after_pause": 9,
+   "final_trust": 0.45903537652474297,
+   "min_trust_after_warmup": 0.45903537652474297,
+   "e_over_tau": 2,
+   "trust_trajectory": [
+    0.8835,
+    0.8269,
+    0.8392,
+    0.8346,
+    0.7012,
+    0.7171,
+    0.7219,
+    0.7381,
+    0.6375,
+    0.68,
+    0.6147,
+    0.6124,
+    0.5079,
+    0.5382,
+    0.459
+   ],
+   "e_trajectory": [
+    0.2331,
+    0.4425,
+    0.2828,
+    0.3511,
+    0.3197,
+    0.4659,
+    0.5222,
+    0.1995,
+    0.5541,
+    0.1351,
+    0.3655,
+    0.398,
+    1.0713,
+    0.3109,
+    0.9437
+   ],
+   "rows": [
+    {
+     "i": 1,
+     "refused": false,
+     "e": 0.233069220395227,
+     "direction_agree": true,
+     "score": 0.8834653898023865,
+     "trust": 0.8834653898023863,
+     "band": "warm-up",
+     "action": null
+    },
+    {
+     "i": 2,
+     "refused": false,
+     "e": 0.4425261901497515,
+     "direction_agree": true,
+     "score": 0.7787369049251243,
+     "trust": 0.826855397976839,
+     "band": "warm-up",
+     "action": null
+    },
+    {
+     "i": 3,
+     "refused": false,
+     "e": 0.28283121149398005,
+     "direction_agree": true,
+     "score": 0.85858439425301,
+     "trust": 0.8391893129529988,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 4,
+     "refused": false,
+     "e": 0.35114153081816696,
+     "direction_agree": true,
+     "score": 0.8244292345909165,
+     "trust": 0.8345574286358662,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 5,
+     "refused": false,
+     "e": 0.31971234181416847,
+     "direction_agree": false,
+     "score": 0.34014382909291574,
+     "trust": 0.7012431231106269,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 6,
+     "refused": false,
+     "e": 0.4659113173202594,
+     "direction_agree": true,
+     "score": 0.7670443413398703,
+     "trust": 0.7170899161725136,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 7,
+     "refused": false,
+     "e": 0.5222287991511152,
+     "direction_agree": true,
+     "score": 0.7388856004244424,
+     "trust": 0.7219018714089345,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 8,
+     "refused": false,
+     "e": 0.19949799226598638,
+     "direction_agree": null,
+     "score": 0.8005020077340136,
+     "trust": 0.7381078740172097,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 9,
+     "refused": false,
+     "e": 0.5540683884776726,
+     "direction_agree": false,
+     "score": 0.2229658057611637,
+     "trust": 0.637544346666323,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 10,
+     "refused": false,
+     "e": 0.1350633607165452,
+     "direction_agree": null,
+     "score": 0.8649366392834548,
+     "trust": 0.680014470986754,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 11,
+     "refused": false,
+     "e": 0.3654821720177381,
+     "direction_agree": false,
+     "score": 0.31725891399113093,
+     "trust": 0.6146654143232901,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 12,
+     "refused": false,
+     "e": 0.39803293445621746,
+     "direction_agree": null,
+     "score": 0.6019670655437825,
+     "trust": 0.6124447975786853,
+     "band": "trusted",
+     "action": null
+    },
+    {
+     "i": 13,
+     "refused": false,
+     "e": 1.0713141736342273,
+     "direction_agree": false,
+     "score": 0.0,
+     "trust": 0.5079432690576748,
+     "band": "watch",
+     "action": null
+    },
+    {
+     "i": 14,
+     "refused": false,
+     "e": 0.3108531165462148,
+     "direction_agree": null,
+     "score": 0.6891468834537853,
+     "trust": 0.538237098007043,
+     "band": "watch",
+     "action": null
+    },
+    {
+     "i": 15,
+     "refused": false,
+     "e": 0.9436503483312161,
+     "direction_agree": null,
+     "score": 0.05634965166878392,
+     "trust": 0.45903537652474297,
+     "band": "watch",
+     "action": "pause"
+    },
+    {
+     "i": 16,
+     "refused": true
+    },
+    {
+     "i": 17,
+     "refused": true
+    },
+    {
+     "i": 18,
+     "refused": true
+    },
+    {
+     "i": 19,
+     "refused": true
+    },
+    {
+     "i": 20,
+     "refused": true
+    },
+    {
+     "i": 21,
+     "refused": true
+    },
+    {
+     "i": 22,
+     "refused": true
+    },
+    {
+     "i": 23,
+     "refused": true
+    },
+    {
+     "i": 24,
+     "refused": true
+    }
+   ]
+  },
+  {
+   "case_id": "case-t3.trust-02",
+   "model_id": "t2-response-v0-degraded-tilt-reversed",
+   "version": "v0",
+   "changes": 24,
+   "scored": 3,
+   "clipped": 0,
+   "paused_at_change": 3,
+   "refused_after_pause": 21,
+   "final_trust": 0.34487039188344226,
+   "min_trust_after_warmup": 0.34487039188344226,
+   "e_over_tau": 1,
+   "trust_trajectory": [
+    0.957,
+    0.5642,
+    0.3449
+   ],
+   "e_trajectory": [
+    0.0859,
+    0.5395,
+    1.6664
+   ],
+   "rows": [
+    {
+     "i": 1,
+     "refused": false,
+     "e": 0.08592521711110479,
+     "direction_agree": true,
+     "score": 0.9570373914444477,
+     "trust": 0.9570373914444474,
+     "band": "warm-up",
+     "action": null
+    },
+    {
+     "i": 2,
+     "refused": false,
+     "e": 0.5394833698787247,
+     "direction_agree": false,
+     "score": 0.23025831506063765,
+     "trust": 0.564183836642388,
+     "band": "warm-up",
+     "action": null
+    },
+    {
+     "i": 3,
+     "refused": false,
+     "e": 1.666365547460278,
+     "direction_agree": false,
+     "score": 0.0,
+     "trust": 0.34487039188344226,
+     "band": "below-pause-line",
+     "action": "pause"
+    },
+    {
+     "i": 4,
+     "refused": true
+    },
+    {
+     "i": 5,
+     "refused": true
+    },
+    {
+     "i": 6,
+     "refused": true
+    },
+    {
+     "i": 7,
+     "refused": true
+    },
+    {
+     "i": 8,
+     "refused": true
+    },
+    {
+     "i": 9,
+     "refused": true
+    },
+    {
+     "i": 10,
+     "refused": true
+    },
+    {
+     "i": 11,
+     "refused": true
+    },
+    {
+     "i": 12,
+     "refused": true
+    },
+    {
+     "i": 13,
+     "refused": true
+    },
+    {
+     "i": 14,
+     "refused": true
+    },
+    {
+     "i": 15,
+     "refused": true
+    },
+    {
+     "i": 16,
+     "refused": true
+    },
+    {
+     "i": 17,
+     "refused": true
+    },
+    {
+     "i": 18,
+     "refused": true
+    },
+    {
+     "i": 19,
+     "refused": true
+    },
+    {
+     "i": 20,
+     "refused": true
+    },
+    {
+     "i": 21,
+     "refused": true
+    },
+    {
+     "i": 22,
+     "refused": true
+    },
+    {
+     "i": 23,
+     "refused": true
+    },
+    {
+     "i": 24,
+     "refused": true
+    }
+   ]
+  }
+ ],
+ "results": [
+  {
+   "schema_version": "1",
+   "kind": "result",
+   "run_id": "t3.trust-20261102T211603Z-e558.t2-response-v0-v0",
+   "team": "team13",
+   "created_at": "2026-11-02T21:16:04.728710Z",
+   "aws_time": null,
+   "aws_time_source": null,
+   "synthetic": true,
+   "unit": "t3.trust_gate",
+   "metric": "pauses",
+   "value": 1.0,
+   "target": {
+    "metric": "pauses",
+    "op": "==",
+    "value": 0,
+    "unit": "count"
+   },
+   "passed": false,
+   "n_items": 15,
+   "checked_at": "2026-11-02T21:16:04.728714Z",
+   "checker": {
+    "script": "t3/trust/demo.py",
+    "code_sha": "2c8a57c0fe67603f96fd873f61db65cacc25f9d3"
+   },
+   "details": {
+    "model_id": "t2-response-v0",
+    "version": "v0",
+    "role": "healthy",
+    "source_run_id": "t3.trust-20261102T211603Z-e558",
+    "case_id": "case-t3.trust-01",
+    "thresholds": {
+     "tau": 0.65,
+     "scales": {
+      "coverage_ratio": 0.057,
+      "sla_ratio": 0.0389,
+      "sinr_p10_db": 0.8862
+     },
+     "pause_below": 0.4,
+     "watch_below": 0.55,
+     "alpha": 0.15,
+     "n_min": 3,
+     "window": {
+      "needed": 2,
+      "of_last": 3
+     },
+     "direction_deadband": {
+      "coverage_ratio": 0.02,
+      "sla_ratio": 0.02,
+      "sinr_p10_db": 0.4
+     },
+     "weights": {
+      "error": 0.5,
+      "direction": 0.5
+     },
+     "keys": [
+      "coverage_ratio",
+      "sla_ratio",
+      "sinr_p10_db"
+     ],
+     "sha256": "d051c1e05efbca5491fd90741ea835a3c83d0ba55ef320dfaf76cc24df4af74b"
+    },
+    "paused_at_change": 15,
+    "final_trust": 0.45903537652474297,
+    "min_trust_after_warmup": 0.45903537652474297,
+    "refused_after_pause": 9,
+    "trust_trajectory": [
+     0.8835,
+     0.8269,
+     0.8392,
+     0.8346,
+     0.7012,
+     0.7171,
+     0.7219,
+     0.7381,
+     0.6375,
+     0.68,
+     0.6147,
+     0.6124,
+     0.5079,
+     0.5382,
+     0.459
+    ]
+   }
+  },
+  {
+   "schema_version": "1",
+   "kind": "result",
+   "run_id": "t3.trust-20261102T211603Z-e558.t2-response-v0-degraded-tilt-reversed-v0",
+   "team": "team13",
+   "created_at": "2026-11-02T21:16:04.794652Z",
+   "aws_time": null,
+   "aws_time_source": null,
+   "synthetic": true,
+   "unit": "t3.trust_gate",
+   "metric": "changes_to_pause",
+   "value": 3.0,
+   "target": {
+    "metric": "changes_to_pause",
+    "op": "<=",
+    "value": 6,
+    "unit": "changes"
+   },
+   "passed": true,
+   "n_items": 3,
+   "checked_at": "2026-11-02T21:16:04.794657Z",
+   "checker": {
+    "script": "t3/trust/demo.py",
+    "code_sha": "2c8a57c0fe67603f96fd873f61db65cacc25f9d3"
+   },
+   "details": {
+    "model_id": "t2-response-v0-degraded-tilt-reversed",
+    "version": "v0",
+    "role": "degraded",
+    "source_run_id": "t3.trust-20261102T211603Z-e558",
+    "case_id": "case-t3.trust-02",
+    "thresholds": {
+     "tau": 0.65,
+     "scales": {
+      "coverage_ratio": 0.057,
+      "sla_ratio": 0.0389,
+      "sinr_p10_db": 0.8862
+     },
+     "pause_below": 0.4,
+     "watch_below": 0.55,
+     "alpha": 0.15,
+     "n_min": 3,
+     "window": {
+      "needed": 2,
+      "of_last": 3
+     },
+     "direction_deadband": {
+      "coverage_ratio": 0.02,
+      "sla_ratio": 0.02,
+      "sinr_p10_db": 0.4
+     },
+     "weights": {
+      "error": 0.5,
+      "direction": 0.5
+     },
+     "keys": [
+      "coverage_ratio",
+      "sla_ratio",
+      "sinr_p10_db"
+     ],
+     "sha256": "d051c1e05efbca5491fd90741ea835a3c83d0ba55ef320dfaf76cc24df4af74b"
+    },
+    "paused_at_change": 3,
+    "final_trust": 0.34487039188344226,
+    "min_trust_after_warmup": 0.34487039188344226,
+    "refused_after_pause": 21,
+    "trust_trajectory": [
+     0.957,
+     0.5642,
+     0.3449
+    ]
+   }
+  }
+ ],
+ "twin_impl": "twin.replay.ReplayTwin",
+ "predictor_impl": "t2.predict t2/artifacts/t2_response_v0.npz (+ tilt_reversed)",
+ "writer": "local-fallback",
+ "policy_client": "dry-run (no AWS call; forbid simulated in process)",
+ "script_sha256": "bb53f1173c0bd7481226644068a8b72483ec15065469748be00389400f4df842",
+ "code_sha": "2c8a57c0fe67603f96fd873f61db65cacc25f9d3",
+ "elapsed_s": 6.03,
+ "robustness": {
+  "seeds": 10,
+  "twin_seeds": "1000..1009",
+  "healthy_false_pauses": 3,
+  "healthy_paused_at": [
+   null,
+   null,
+   15,
+   null,
+   15,
+   15,
+   null,
+   null,
+   null,
+   null
+  ],
+  "degraded_paused": 10,
+  "degraded_paused_within_declared": 10,
+  "degraded_paused_at": [
+   3,
+   3,
+   3,
+   4,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3
+  ],
+  "rows": [
+   {
+    "seed": 1000,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.689456330495588,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1001,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.656307900231473,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1002,
+    "healthy_paused_at": 15,
+    "healthy_min_trust": 0.5882567135993043,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1003,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.7075254860441876,
+    "degraded_paused_at": 4
+   },
+   {
+    "seed": 1004,
+    "healthy_paused_at": 15,
+    "healthy_min_trust": 0.6111171974653592,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1005,
+    "healthy_paused_at": 15,
+    "healthy_min_trust": 0.6348260255251065,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1006,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.695960661100977,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1007,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.7114736541107669,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1008,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.5687313824757105,
+    "degraded_paused_at": 3
+   },
+   {
+    "seed": 1009,
+    "healthy_paused_at": null,
+    "healthy_min_trust": 0.5830772464637852,
+    "degraded_paused_at": 3
+   }
+  ]
+ }
+}

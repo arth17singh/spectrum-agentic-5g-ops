@@ -1,0 +1,26 @@
+{
+  "kind": "twin-timing",
+  "created_at": "2026-11-02T20:26:24+00:00",
+  "machine": "Darwin arm64, python 3.12.7",
+  "ran_rl": "1.2.9",
+  "load_average_1m": 24.1,
+  "build_cold_ms": 4854.5,
+  "build_warm_ms": 0.06,
+  "build_no_reuse_ms": 18.4,
+  "reset_ms": 23.9,
+  "step_ms": {
+    "mean": 24.32,
+    "p50": 24.24,
+    "p95": 31.22,
+    "n": 40
+  },
+  "replay_5_steps_verified_ms": 150.7,
+  "replay_5_steps_unverified_ms": 184.1,
+  "replay_5_steps_no_model_reuse_ms": 285.1,
+  "replay_10_steps_verified_ms": 316.6,
+  "replay_10_steps_unverified_ms": 302.2,
+  "replay_10_steps_no_model_reuse_ms": 405.1,
+  "replay_20_steps_verified_ms": 595.2,
+  "replay_20_steps_unverified_ms": 537.8,
+  "replay_20_steps_no_model_reuse_ms": 851.6
+}

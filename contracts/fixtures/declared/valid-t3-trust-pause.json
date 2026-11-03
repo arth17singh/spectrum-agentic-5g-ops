@@ -1,0 +1,32 @@
+{
+  "schema_version": "1",
+  "kind": "declared",
+  "run_id": "t3-trust-20261102-a",
+  "team": "team13",
+  "created_at": "2026-11-02T20:05:12.250Z",
+  "aws_time": "2026-11-02T20:05:13Z",
+  "aws_time_source": "s3:last_modified",
+  "synthetic": true,
+  "unit": "t3.trust-pause",
+  "track": "track-3",
+  "target": {
+    "metric": "first_refusal_after_pause_s",
+    "op": "<=",
+    "value": 60,
+    "unit": "s"
+  },
+  "baseline_run_id": "t3-deny-20261102-a",
+  "n_items": 12,
+  "test_set_sha256": "4788224c17388846cdac203276c985bc2baa97f5289c535c191ef9b49aea416f",
+  "model_id": "t2-response-mlp",
+  "grader": "t3/suite/grade_pause.py",
+  "code_sha": "0123456789abcdef0123456789abcdef01234567",
+  "region": "us-east-2",
+  "twin": {
+    "kind": "maveric-inprocess",
+    "version": "ran-rl-1.2.9",
+    "scenario": "interference",
+    "seed": 11
+  },
+  "declared_at": "2026-11-02T20:05:12.250Z"
+}

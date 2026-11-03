@@ -1,0 +1,43 @@
+{
+  "schema_version": "1",
+  "kind": "declared",
+  "run_id": "t3-allow-20261102-a",
+  "team": "team13",
+  "created_at": "2026-11-02T20:00:00.000Z",
+  "aws_time": null,
+  "aws_time_source": null,
+  "synthetic": true,
+  "unit": "t3.allow",
+  "track": "track-3",
+  "target": {
+    "metric": "authorised_call_allowed_ratio",
+    "op": ">=",
+    "value": 0.95,
+    "unit": "ratio"
+  },
+  "baseline_run_id": null,
+  "n_items": 16,
+  "n_cases": 16,
+  "test_set_sha256": "235396f4503cd2ea8ecbaa936faf619541d6e012ea5a560e4d987654ce49718a",
+  "subset": "expect=ALLOW",
+  "prompt_sha256": "0f3688318cebc4f1387c12e5ae0c1ab46f5c74d6e48891a16e2aefdc8f2d9288",
+  "parser": "tool-call-json-v1",
+  "decoding": {
+    "temperature": 0,
+    "max_tokens": 1024
+  },
+  "model_id": "openai.gpt-oss-20b-1:0",
+  "grader": "t3/suite/grade_deny.py",
+  "code_sha": "d65cb86",
+  "region": "us-east-2",
+  "twin": {
+    "kind": "maveric-inprocess",
+    "version": "ran-rl-1.2.9",
+    "scenario": "nominal",
+    "seed": 7,
+    "config": {
+      "preset": "official"
+    }
+  },
+  "declared_at": "2026-11-02T20:00:00.000Z"
+}

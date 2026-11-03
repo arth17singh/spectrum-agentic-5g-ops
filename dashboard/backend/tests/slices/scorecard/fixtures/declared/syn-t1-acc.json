@@ -1,0 +1,19 @@
+{
+  "unit": "t1.acc",
+  "track": "track-1",
+  "target": {
+    "metric": "accuracy",
+    "op": ">=",
+    "value": 0.85,
+    "unit": "fraction"
+  },
+  "baseline_run_id": "syn-t1-acc-base",
+  "n_items": 20,
+  "test_set_sha256": "f9945880b1917aa4ddded5aa30e51646ec799dbd23626c22d3e94769e86c7127",
+  "model_id": "synthetic-model",
+  "grader": "synthetic-grader",
+  "code_sha": "63f5210e7b51845c32342e690381f4c241a826abc075d3debdad37de6b40851f",
+  "region": "us-east-2",
+  "declared_at": "2026-11-02T10:00:00Z",
+  "synthetic": true
+}

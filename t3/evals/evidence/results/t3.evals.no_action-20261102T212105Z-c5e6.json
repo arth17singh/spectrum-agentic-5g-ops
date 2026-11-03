@@ -1,0 +1,66 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "checked_at": "2026-11-02T21:21:07.602Z",
+  "checker": {
+    "code_sha": "fff024e57314a81a05a9cbe16d090e726b221324",
+    "script": "t3/evals/run.py"
+  },
+  "created_at": "2026-11-02T21:21:07.602Z",
+  "details": {
+    "by_group": {
+      "masked": {
+        "mean_recovery": -2.819995280181895e-10,
+        "n": 18,
+        "success_rate": 0.0
+      },
+      "official": {
+        "mean_recovery": 5.1728837042277485e-11,
+        "n": 15,
+        "success_rate": 0.0
+      },
+      "viavi-like": {
+        "mean_recovery": -1.7120962583928514e-10,
+        "n": 18,
+        "success_rate": 0.0
+      },
+      "visible": {
+        "mean_recovery": 1.8467671965696274e-10,
+        "n": 15,
+        "success_rate": 0.0
+      }
+    },
+    "gain": null,
+    "gains": [],
+    "items_clamped": 0,
+    "items_with_wrong_cell_action": 0,
+    "mean_changes_used": 0.0,
+    "mean_recovery": -6.987396089312031e-11,
+    "mode": null,
+    "model_id": "no_action",
+    "n_items": 33,
+    "operator": "no_action",
+    "subset": null,
+    "success_count": 0,
+    "success_rate": 0.0,
+    "test_set_sha256": "485b3bde1dc974a07e5950115e1fc1a8fa0dd2cb6cfc88e377a4ac7a01588a63",
+    "wall_s": 1.591,
+    "wrong_cell_actions_total": 0
+  },
+  "kind": "result",
+  "metric": "mean_score",
+  "n_items": 33,
+  "passed": true,
+  "run_id": "t3.evals.no_action-20261102T212105Z-c5e6",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "mean_score",
+    "op": "<=",
+    "unit": "recovery",
+    "value": 0.05
+  },
+  "team": "team13",
+  "unit": "t3.evals.recovery",
+  "value": -6.987396089312031e-11
+}

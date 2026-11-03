@@ -3,7 +3,11 @@
 Both sources use the same layout, relative to the evidence root (or the S3 prefix):
   declared/<run_id>.json        declaration, written before the run
   outputs/<run_id>/...          per-item outputs
-  records/<run_id>/...          per-run records
+  records/<run_id>/...          per-run records, in two layouts (contract amendment A11), both kind "record":
+                                  records/<run_id>/<kind>.jsonl        batch / local writers (append only)
+                                  records/<run_id>/<kind>/<key>.json   one record per S3 object (Lambdas)
+  results/<run_id>.json         the unit's pass/fail result
+  models/<model_id>/<version>.json   model registry entry (not tied to one run: run id "")
   logs/<run_id>/...             logs
   judging.json                  the run ids submitted for judging (at most 20)
 Anything else is ignored. Both return Artifact objects with the file's SHA-256, size and source time.
@@ -52,9 +56,19 @@ def classify(rel: str) -> tuple[str, str] | None:
         return None  # README.md, ledger.jsonl, anchors.jsonl, public_keys.json, anything else
     if parts[0] == "declared" and len(parts) == 2 and parts[1].endswith(".json"):
         return "declaration", parts[1][: -len(".json")]
+    if parts[0] == "results" and len(parts) == 2 and parts[1].endswith(".json") and parts[1] != ".json":
+        return "result", parts[1][: -len(".json")]
+    if parts[0] == "models" and len(parts) == 3 and parts[2].endswith(".json") and parts[2] != ".json":
+        return "model", ""  # a registry entry belongs to no single run: never shown as a run without a declaration
     if parts[0] in RUN_DIRS and len(parts) >= 3:
         return RUN_DIRS[parts[0]], parts[1]
     return None
+
+
+def is_append_only(path: str) -> bool:
+    """A records/<run_id>/<kind>.jsonl file only ever grows by whole lines."""
+    parts = path.split("/")
+    return len(parts) == 3 and parts[0] == "records" and parts[2].endswith(".jsonl")
 
 
 # --------------------------------------------------------------------------- validation
@@ -200,6 +214,17 @@ class LocalSource:
                                     content=content))
         return out
 
+    def prefix_sha256(self, a: Artifact, n: int) -> str | None:
+        """sha256 of the first n bytes of the artifact as it is now (None if it does not end a line)."""
+        with open(self.root / a.path, "rb") as f:
+            data = f.read(n)
+        return _prefix_sha(data) if len(data) == n else None
+
+
+def _prefix_sha(data: bytes) -> str | None:
+    """sha256 of a prefix, or None unless it ends on a line boundary (a whole-line append)."""
+    return hashlib.sha256(data).hexdigest() if data.endswith(b"\n") else None
+
 
 def _file_sha(p: Path) -> str:
     h = hashlib.sha256()
@@ -267,6 +292,14 @@ class S3Source:
                     self._cache[key] = (etag, lm, sha, size, version_id, content)
                 out.append(Artifact(rel, kind, run_id, sha, size, lm, "s3", version_id, content))
         return out
+
+
+    def prefix_sha256(self, a: Artifact, n: int) -> str | None:
+        """sha256 of the first n bytes (a ranged GetObject; still read-only)."""
+        if n <= 0:
+            return None
+        body = self.client().get_object(Bucket=self.bucket, Key=self.prefix + a.path, Range=f"bytes=0-{n - 1}")["Body"].read()
+        return _prefix_sha(body) if len(body) == n else None
 
 
 def default_source(root: Path, max_cache_age_s: float = 30.0) -> LocalSource | S3Source:

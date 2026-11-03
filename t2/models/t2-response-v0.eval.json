@@ -1,0 +1,300 @@
+{
+  "label": "v0, local, not federated / not the official job",
+  "labels_are": "KPI deltas vs the no-op counterfactual at the same step (amendment 1, A5)",
+  "n_test_rows": 3972,
+  "n_test_seeds": 133,
+  "n_changed_rows": 3076,
+  "baselines": {
+    "no_change": "next-step KPIs = current cluster KPIs",
+    "no_change+dP": "no change plus the power change added to the served signal, interference held fixed: each cell's served RSRP and SINR shift by that cell's d_power; coverage (RSRP > -97 dBm) and SLA (SINR > 0 dB) follow from a normal fit to each cell's mean and p10, weighted by user share; sinr_p10_db and sinr_mean_db += share-weighted mean d_power",
+    "ridge": "linear least squares on the same encoded inputs, trained on the train seeds, predicting the residual"
+  },
+  "mean_abs_true_delta_changed_rows": {
+    "coverage_ratio": 0.03890875621513501,
+    "sla_ratio": 0.029136866213625445,
+    "sinr_p10_db": 0.6710320150052663,
+    "sinr_mean_db": 0.7839457401782073
+  },
+  "mae_all_rows": {
+    "model": {
+      "coverage_ratio": 0.012698312448587963,
+      "sla_ratio": 0.017090216485124234,
+      "sinr_p10_db": 0.37706074425839736,
+      "sinr_mean_db": 0.2418018604997389
+    },
+    "no_change": {
+      "coverage_ratio": 0.030131755820180083,
+      "sla_ratio": 0.02256419951488214,
+      "sinr_p10_db": 0.5196612482769888,
+      "sinr_mean_db": 0.607104002212529
+    },
+    "no_change+dP": {
+      "coverage_ratio": 0.020443960590071725,
+      "sla_ratio": 0.027016441181350773,
+      "sinr_p10_db": 0.9180908496134198,
+      "sinr_mean_db": 0.8845869890440387
+    },
+    "ridge": {
+      "coverage_ratio": 0.022511946649128412,
+      "sla_ratio": 0.022150778681917668,
+      "sinr_p10_db": 0.5048166141814147,
+      "sinr_mean_db": 0.5306664154881968
+    },
+    "n": 3972
+  },
+  "mae_changed_rows": {
+    "model": {
+      "coverage_ratio": 0.01639717069108953,
+      "sla_ratio": 0.022068380974939353,
+      "sinr_p10_db": 0.4868937828980346,
+      "sinr_mean_db": 0.31223569242684096
+    },
+    "no_change": {
+      "coverage_ratio": 0.03890875621513501,
+      "sla_ratio": 0.029136866213625445,
+      "sinr_p10_db": 0.6710320150052663,
+      "sinr_mean_db": 0.7839457401782073
+    },
+    "no_change+dP": {
+      "coverage_ratio": 0.02639902843425387,
+      "sla_ratio": 0.03488598971792108,
+      "sinr_p10_db": 1.1855191335060153,
+      "sinr_mean_db": 1.1422560209632384
+    },
+    "ridge": {
+      "coverage_ratio": 0.029069392747184026,
+      "sla_ratio": 0.028603021106819566,
+      "sinr_p10_db": 0.6518633262446617,
+      "sinr_mean_db": 0.6852428486082958
+    },
+    "n": 3076
+  },
+  "mae_zero_change_rows": {
+    "model": {
+      "coverage_ratio": 0.0,
+      "sla_ratio": 0.0,
+      "sinr_p10_db": 0.0,
+      "sinr_mean_db": 0.0
+    },
+    "no_change": {
+      "coverage_ratio": 0.0,
+      "sla_ratio": 0.0,
+      "sinr_p10_db": 0.0,
+      "sinr_mean_db": 0.0
+    },
+    "no_change+dP": {
+      "coverage_ratio": 0.0,
+      "sla_ratio": 0.0,
+      "sinr_p10_db": 0.0,
+      "sinr_mean_db": 0.0
+    },
+    "ridge": {
+      "coverage_ratio": 0.0,
+      "sla_ratio": 0.0,
+      "sinr_p10_db": 0.0,
+      "sinr_mean_db": 0.0
+    },
+    "n": 896
+  },
+  "mae_viavi_like_start_slice": {
+    "model": {
+      "coverage_ratio": 0.008005401618657756,
+      "sla_ratio": 0.023087118470347643,
+      "sinr_p10_db": 0.363924155964658,
+      "sinr_mean_db": 0.16685211805384068
+    },
+    "no_change": {
+      "coverage_ratio": 0.01603703735810187,
+      "sla_ratio": 0.03562963010950221,
+      "sinr_p10_db": 0.593001806137747,
+      "sinr_mean_db": 0.5913323327898979
+    },
+    "no_change+dP": {
+      "coverage_ratio": 0.010224549546138027,
+      "sla_ratio": 0.03942223839131808,
+      "sinr_p10_db": 1.0688014653973876,
+      "sinr_mean_db": 1.0290816887930299
+    },
+    "ridge": {
+      "coverage_ratio": 0.018627448185158907,
+      "sla_ratio": 0.03192114601000755,
+      "sinr_p10_db": 0.5500608194292844,
+      "sinr_mean_db": 0.4434610969269489
+    },
+    "n": 45,
+    "definition": "episodes starting at exactly 40 dBm / 6 deg, steps 0-1"
+  },
+  "mae_by_scenario": {
+    "nominal": {
+      "coverage_ratio": 0.011023492766983459,
+      "sla_ratio": 0.01580390013644137,
+      "sinr_p10_db": 0.32100738178689836,
+      "sinr_mean_db": 0.20658414390484103,
+      "n": 1073
+    },
+    "low_load": {
+      "coverage_ratio": 0.014946242048160436,
+      "sla_ratio": 0.020812277250331017,
+      "sinr_p10_db": 0.4824933122829477,
+      "sinr_mean_db": 0.27047621065972605,
+      "n": 716
+    },
+    "congestion": {
+      "coverage_ratio": 0.013790455912969247,
+      "sla_ratio": 0.01790718894056553,
+      "sinr_p10_db": 0.42773323945767183,
+      "sinr_mean_db": 0.2850471379393859,
+      "n": 805
+    },
+    "interference": {
+      "coverage_ratio": 0.011089327011967015,
+      "sla_ratio": 0.015263958341439239,
+      "sinr_p10_db": 0.32621020794444244,
+      "sinr_mean_db": 0.21160250786664372,
+      "n": 753
+    },
+    "mobility_stress": {
+      "coverage_ratio": 0.013530239600614172,
+      "sla_ratio": 0.016182586868825375,
+      "sinr_p10_db": 0.3485081593549296,
+      "sinr_mean_db": 0.2500985635166658,
+      "n": 625
+    }
+  },
+  "direction": {
+    "model": {
+      "coverage_ratio": {
+        "accuracy": 0.933050447901933,
+        "n": 2121
+      },
+      "sla_ratio": {
+        "accuracy": 0.7448543689320388,
+        "n": 2575
+      }
+    },
+    "no_change": {
+      "coverage_ratio": {
+        "accuracy": 0.0,
+        "n": 2121
+      },
+      "sla_ratio": {
+        "accuracy": 0.0,
+        "n": 2575
+      }
+    },
+    "no_change+dP": {
+      "coverage_ratio": {
+        "accuracy": 0.7388024516737388,
+        "n": 2121
+      },
+      "sla_ratio": {
+        "accuracy": 0.4225242718446602,
+        "n": 2575
+      }
+    },
+    "ridge": {
+      "coverage_ratio": {
+        "accuracy": 0.9146628948609147,
+        "n": 2121
+      },
+      "sla_ratio": {
+        "accuracy": 0.6003883495145631,
+        "n": 2575
+      }
+    },
+    "heuristic_sign_of_dP": {
+      "coverage_ratio": {
+        "accuracy": 0.7293729372937293,
+        "n": 2121
+      },
+      "sla_ratio": {
+        "accuracy": 0.43223300970873785,
+        "n": 2575
+      }
+    }
+  },
+  "degraded_tilt_reversed": {
+    "variant": "t2-response-v0-degraded-tilt-reversed",
+    "fault": "tilt_reversed",
+    "rows_with_tilt_change": 2254,
+    "mae_tilt_rows": {
+      "healthy": {
+        "coverage_ratio": 0.017846898012357965,
+        "sla_ratio": 0.023017902395753038,
+        "sinr_p10_db": 0.5172260620365225,
+        "sinr_mean_db": 0.34966641507794943
+      },
+      "degraded": {
+        "coverage_ratio": 0.05053469884626597,
+        "sla_ratio": 0.0365619068714893,
+        "sinr_p10_db": 0.8610339681840532,
+        "sinr_mean_db": 1.1143421979310233
+      },
+      "no_change": {
+        "coverage_ratio": 0.04310706919579772,
+        "sla_ratio": 0.030445134707461272,
+        "sinr_p10_db": 0.7116429625304312,
+        "sinr_mean_db": 0.8593414672110091
+      }
+    },
+    "mae_no_tilt_rows": {
+      "healthy": {
+        "coverage_ratio": 0.005943416138496236,
+        "sla_ratio": 0.009313147775835917,
+        "sinr_p10_db": 0.19316515271480356,
+        "sinr_mean_db": 0.10028456945242414
+      },
+      "degraded": {
+        "coverage_ratio": 0.005943416138496236,
+        "sla_ratio": 0.009313147775835917,
+        "sinr_p10_db": 0.19316515271480356,
+        "sinr_mean_db": 0.10028456945242414
+      }
+    },
+    "max_abs_difference_on_no_tilt_rows": 0.0,
+    "direction_tilt_rows": {
+      "healthy": {
+        "coverage_ratio": {
+          "accuracy": 0.9256299938537185,
+          "n": 1627
+        },
+        "sla_ratio": {
+          "accuracy": 0.7480438184663537,
+          "n": 1917
+        }
+      },
+      "degraded": {
+        "coverage_ratio": {
+          "accuracy": 0.53779963122311,
+          "n": 1627
+        },
+        "sla_ratio": {
+          "accuracy": 0.5273865414710485,
+          "n": 1917
+        }
+      }
+    },
+    "mae_ratio_tilt_rows_degraded_over_healthy": {
+      "coverage_ratio": 2.831567637763916,
+      "sla_ratio": 1.5884117606752572,
+      "sinr_p10_db": 1.6647149696862211,
+      "sinr_mean_db": 3.186872258471287
+    }
+  },
+  "effect_sizes_in_data": {
+    "power_only_rows_per_db": {
+      "coverage_ratio": 0.006082579273820575,
+      "sla_ratio": 0.005632441542031619,
+      "sinr_p10_db": 0.1271747619302746,
+      "sinr_mean_db": 0.13938205217315042,
+      "n": 4309
+    },
+    "tilt_only_rows_per_deg": {
+      "coverage_ratio": 0.007538233837946973,
+      "sla_ratio": 0.009132968645096228,
+      "sinr_p10_db": 0.20347555637545411,
+      "sinr_mean_db": 0.20291492969832,
+      "n": 3154
+    }
+  }
+}

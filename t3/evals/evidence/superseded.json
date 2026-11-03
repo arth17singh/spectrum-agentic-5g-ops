@@ -1,0 +1,25 @@
+{
+  "about": "Runs kept in this store (and in git history) that must not be used for scoring. Each was graded against a test set that has since been re-frozen.",
+  "superseded": [
+    {
+      "run_ids": [
+        "t3.evals.no_action-20261102T205432Z-6a9b",
+        "t3.evals.rule_baseline-20261102T205449Z-c52d",
+        "t3.evals.config_revert-20261102T205456Z-0a49",
+        "t3.evals.oracle-20261102T205510Z-4345"
+      ],
+      "test_set_sha256": "20f9013399da360b26214e11de15c9f9edbb8dcb9bcc4cf1d89fb7e194d3dd12",
+      "twin_backend": "maveric-inprocess-standin",
+      "reason": "suite t3-incidents-v2 was frozen on t3/evals' stand-in twin; after W2's twin.replay (ran-rl 1.2.9 Maveric, user-share-weighted pooled p10 KPIs) merged, its frozen KPIs no longer replay. Re-frozen once as t3-incidents-v3 before any swarm or model run.",
+      "superseded_by": {
+        "test_set_sha256": "485b3bde1dc974a07e5950115e1fc1a8fa0dd2cb6cfc88e377a4ac7a01588a63",
+        "run_ids": [
+          "t3.evals.no_action-20261102T212105Z-c5e6",
+          "t3.evals.rule_baseline-20261102T212116Z-a342",
+          "t3.evals.config_revert-20261102T212119Z-cab1",
+          "t3.evals.oracle-20261102T212127Z-2106"
+        ]
+      }
+    }
+  ]
+}

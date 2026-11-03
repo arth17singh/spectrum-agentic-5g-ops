@@ -1,0 +1,53 @@
+{
+  "schema": "t3.trust.thresholds/2",
+  "keys": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+  ],
+  "scales": {
+    "coverage_ratio": 0.0333,
+    "sla_ratio": 0.0391,
+    "sinr_p10_db": 0.8046
+  },
+  "direction_deadband": {
+    "coverage_ratio": 0.02,
+    "sla_ratio": 0.02,
+    "sinr_p10_db": 0.4
+  },
+  "weights": {
+    "error": 0.5,
+    "direction": 0.5
+  },
+  "tau": 1.1,
+  "recent_window": 3,
+  "recent_needed": 2,
+  "alpha": 0.1,
+  "warmup": 3,
+  "watch_below": 0.65,
+  "pause_below": 0.5,
+  "max_changes_to_pause": 6,
+  "notes": {
+    "rule": "after n >= warmup scored changes, pause when recent_needed of the last recent_window changes have e > tau, or the bias-corrected EWMA trust (alpha) of the per-change score falls below pause_below (amendment 1, A6)",
+    "procedure": "t3.trust.calibrate_v2 (module docstring): calibration seeds 20000-20039, block bootstrap, max estimated P(pass) of the declared success criterion over 20 runs",
+    "candidate": "C2-residual-scales",
+    "success_criterion": {
+      "eval_twin_seeds": [
+        2000,
+        2019
+      ],
+      "script": "t3/trust/scripted_changes.json (24 changes)",
+      "healthy_false_pauses_max": 2,
+      "degraded_paused_by_change_6_min": 19,
+      "runs": 20
+    },
+    "forecast": {
+      "est_p_pass": 0.2715,
+      "est_healthy_false_pause": 0.142,
+      "est_degraded_paused_by_6": 0.9333,
+      "est_degraded_paused_any": 1.0
+    },
+    "supersedes": "nothing yet: v1 (thresholds.json sha256 d051c1e05efbca5491fd90741ea835a3c83d0ba55ef320dfaf76cc24df4af74b) stays the default until the lead approves a switch"
+  },
+  "version": "v2"
+}
