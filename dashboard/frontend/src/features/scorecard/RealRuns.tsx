@@ -64,7 +64,7 @@ const NotRun = ({ what = 'not run yet' }: { what?: string }) => (
   <div className="flex h-full min-h-16 items-center justify-center rounded-md border border-dashed border-line px-2 text-micro text-ink-3">{what}</div>
 )
 
-export function useOverview() {
+function useOverview() {
   const [ov, setOv] = useState<Overview | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const load = useCallback(() => get<Overview>('/api/realrun/overview').then((o) => { setOv(o); setErr(null) }).catch((e) => setErr(String(e))), [])
