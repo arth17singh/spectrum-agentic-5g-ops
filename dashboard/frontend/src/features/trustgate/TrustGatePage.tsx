@@ -77,7 +77,7 @@ export default function TrustGatePage() {
         </Panel>
       ) : (
         <div className="grid grid-cols-12 items-start gap-4">
-          <div className="col-span-12 space-y-4 lg:col-span-3">
+          <div className="col-span-12 min-w-0 space-y-4 lg:col-span-3">
             <Panel id="model-list" plane="verify" title="Model versions" subtitle={`${list.length}`} flush>
               <ul>
                 {list.map((m) => (
@@ -95,7 +95,7 @@ export default function TrustGatePage() {
             </Panel>
             <ProbesPanel probes={models.probes} />
           </div>
-          <div className="col-span-12 space-y-4 lg:col-span-9">
+          <div className="col-span-12 min-w-0 space-y-4 lg:col-span-9">
             {current && <TrustPanel m={current} />}
             {current && <ChangesPanel d={detail} m={current} />}
           </div>
@@ -204,7 +204,7 @@ function ChangesPanel({ d, m }: { d: ChangesResponse | null; m: ModelSummary }) 
       subtitle={`${m.n_changes} change${m.n_changes === 1 ? '' : 's'}, effects as change against doing nothing`}
       actions={m.n_direction_known > 0 ? <span className="tnum text-cap text-ink-2">direction agrees on {m.n_direction_agree} of {m.n_direction_known} scored</span> : undefined}>
       {rows == null ? <div className="p-4 text-cap text-ink-3">Loading changes…</div> : rows.length === 0 ? <EmptyState title="No changes recorded for this model version" /> : (
-        <div className="overflow-x-auto">
+        <div className="max-w-full overflow-x-auto" data-testid="changes-scroll">
           <table className="w-full text-cap">
             <thead>
               <tr className="border-b border-line text-left text-micro text-ink-3">

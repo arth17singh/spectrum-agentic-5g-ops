@@ -26,7 +26,7 @@ export function LadderPanel({ ladders, error }: { ladders: Ladder[] | null; erro
     <Panel id="ladder" plane="verify" title="Simulator ladder"
       subtitle="How much of a model’s gain survives the move to a more realistic simulator">
       <p className="mb-3 max-w-[80ch] text-cap text-ink-3">
-        Retention compares the gain on a more realistic rung with the gain on the rung below it, as recorded by the checker; it is “—” when there is no measured gain on that rung. Gains, intervals and retention are read from the recorded result and are not recomputed here. Only a real Viavi measurement is ever drawn green or checked.
+        Retention = gain on VIAVI ÷ gain on REHEARSAL, as recorded by the checker; there is no retention figure until a Viavi gain is measured. REHEARSAL ÷ MAVERIC is only a settings shift on Maveric. Gains, intervals and retention are read from the recorded result and are not recomputed here. Only a real Viavi measurement is ever drawn green or checked.
       </p>
       {error && <div className="mb-3 rounded-md border border-critical/60 bg-critical/10 p-3 text-cap text-critical-ink" role="alert">Could not read ladder results: {error}</div>}
       {ladders == null ? <div className="text-cap text-ink-3">Loading ladder results…</div>
@@ -80,13 +80,12 @@ function NoViavi() {
 
 function OneLadder({ l }: { l: Ladder }) {
   const top = l.rungs[l.rungs.length - 1]
-  const ts = STYLE[l.top_label]
   const lo = Math.min(0, ...l.rungs.flatMap((r) => r.gain_ci ?? (r.gain != null ? [r.gain] : [])))
   const hi = Math.max(0.0001, ...l.rungs.flatMap((r) => r.gain_ci ?? (r.gain != null ? [r.gain] : []))) * 1.08
   // Only a measured, non-synthetic Viavi gain may look like a result. Everything else is neutral.
-  const toViavi = l.top_label === 'VIAVI'
-  const illustrative = l.synthetic || (toViavi && !l.real_viavi)
-  const inkColor = illustrative ? 'var(--ink-2)' : ts.ink
+  const illustrative = l.synthetic || (l.has_viavi && !l.real_viavi)
+  const inkColor = illustrative ? 'var(--ink-2)' : STYLE.VIAVI.ink
+  const ss = l.settings_shift
   return (
     <div data-ladder={l.top_label} data-synthetic={l.synthetic} data-real-viavi={l.real_viavi}>
       {l.synthetic && (
@@ -95,17 +94,21 @@ function OneLadder({ l }: { l: Ladder }) {
         </div>
       )}
       <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        {l.label_ok ? (
-          <span className="text-title font-semibold" style={{ color: inkColor }}>
-            {illustrative ? 'Illustrative retention' : 'Retention'} MAVERIC → {ts.word}{l.top_label === 'REHEARSAL (Viavi-like Maveric)' ? ' (Viavi-like Maveric, not Viavi)' : ''}
+        {!l.label_ok ? (
+          <span className="flex items-center gap-1.5 text-title font-semibold text-critical-ink"><TriangleAlert size={16} />Retention not shown: a rung label contradicts its twin kind</span>
+        ) : l.retention != null ? (
+          // the heading names the rungs actually divided (Viavi gain over rehearsal gain), as the backend states it
+          <span className="text-title font-semibold" style={{ color: inkColor }} data-testid="retention-heading">
+            {illustrative ? 'Illustrative ' : ''}{illustrative ? l.retention_heading.replace('Retention', 'retention') : l.retention_heading}
             {illustrative ? ' (synthetic, not a result)' : ''}:
             <span className="tnum ml-2 text-[22px]">{pc(l.retention)}</span>
           </span>
         ) : (
-          <span className="flex items-center gap-1.5 text-title font-semibold text-critical-ink"><TriangleAlert size={16} />Retention not shown: a rung label contradicts its twin kind</span>
+          <span className="text-title font-semibold text-ink-2" data-testid="retention-heading" title={l.retention_null_reason ?? undefined}>{l.retention_heading}</span>
         )}
         {l.label_ok && l.retention_ci && <span className="tnum text-cap text-ink-2">{illustrative ? 'illustrative ' : ''}interval {pc(l.retention_ci[0])} to {pc(l.retention_ci[1])}</span>}
         {l.label_ok && l.retention != null && !l.retention_ci && <span className="text-cap text-ink-3">no interval recorded</span>}
+        {l.label_ok && l.retention == null && l.retention_null_reason && <span className="text-cap text-ink-3">{l.retention_null_reason}</span>}
         {l.label_ok && l.passed != null && l.target && (illustrative
           ? <span className="text-cap text-ink-3">target {l.target.op} {l.target.value}: not evaluated for synthetic data</span>
           : (
@@ -115,6 +118,14 @@ function OneLadder({ l }: { l: Ladder }) {
             </span>
           ))}
       </div>
+      {l.label_ok && ss && (
+        <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-cap text-ink-2" data-testid="settings-shift">
+          <span className="font-medium">{ss.heading}:</span>
+          <span className="tnum font-semibold text-ink-1">{ss.point == null ? '—' : ss.point.toFixed(2)}</span>
+          {ss.ci && <span className="tnum text-ink-3">interval {ss.ci[0].toFixed(2)} to {ss.ci[1].toFixed(2)}</span>}
+          <span className="text-ink-3">REHEARSAL gain ÷ MAVERIC gain, both on Maveric; no Viavi involved{l.synthetic ? '; illustrative' : ''}</span>
+        </div>
+      )}
       <div className={clsx('grid gap-3', l.rungs.length > 2 ? 'md:grid-cols-3' : 'md:grid-cols-2')}>
         {l.rungs.map((r, i) => <RungCard key={i} r={r} lo={lo} hi={hi} synthetic={l.synthetic} />)}
       </div>

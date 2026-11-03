@@ -115,6 +115,14 @@ export interface Ladder {
   label_ok: boolean
   retention: number | null
   retention_ci: [number, number] | null
+  /** the rungs actually divided: REHEARSAL → VIAVI, or null when retention is not measured */
+  retention_from: string | null
+  retention_to: string | null
+  retention_null_reason: string | null
+  /** title of the retention figure, written by the backend from the rungs actually divided */
+  retention_heading: string
+  /** REHEARSAL gain ÷ MAVERIC gain: a settings shift on Maveric, never called retention */
+  settings_shift: { heading: string; from_label: string; to_label: string; point: number | null; ci: [number, number] | null; what: string | null } | null
   passed: boolean | null
   target: { metric: string; op: string; value: number; unit: string } | null
   synthetic: boolean
