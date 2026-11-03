@@ -38,6 +38,8 @@ def ran(tool: str) -> str:
 
 NLM_ASK = full(NLM_TARGET, ASK)
 KIT_NLM_ASK = full(NLM_TARGET, KIT_ASK)
+NLM_NAMES = (NLM_ASK, KIT_NLM_ASK)      # both reach our code after the takeover of target `nlm`
+KIT_WORK_APPLY = "work___apply_change"  # the kit's example apply tool (its own Lambda, not our twin)
 
 
 def all_tools() -> list[str]:
@@ -96,8 +98,11 @@ def ran_tool_schemas() -> list[dict]:
 def nlm_tool_schemas() -> list[dict]:
     """Both tools of the taken-over `nlm` target: the kit's ask_nlm (its schema) and our ask."""
     return [
+        # The kit's schema plus an optional model_version, so the NLM pause rule (which covers both
+        # names, because both reach our code) can test `context.input has model_version` here too.
         _tool(KIT_ASK, "Ask the domain model (NLM) a question.",
-              {"case_id": CASE_ID, "question": _p("string", "The question."), "special_context": SPECIAL},
+              {"case_id": CASE_ID, "question": _p("string", "The question."), "model_version": MODEL_VERSION,
+               "special_context": SPECIAL},
               ["question"]),
         _tool(ASK, "Ask the network language model (NLM) a question. The answer says which model answered.",
               {"case_id": CASE_ID, "question": _p("string", "The question."), "model_version": MODEL_VERSION,

@@ -6,9 +6,11 @@ Layout: `records/<run_id>/<kind>/<record_key>.json` (S3 cannot append; readers m
 with the batch writers' `records/<run_id>/<kind>.jsonl`). A record is never overwritten: one
 approval applies one change, so a second write of the same key is an error.
 
-Selection (`from_env`, `T3_EVIDENCE`):
-- `local:<dir>` writes under <dir>;
-- `s3://<bucket>/<prefix>` writes under s3://<bucket>/<prefix>/ (prefix default `evidence`).
+Selection (`from_env`), first match wins:
+- `T3_EVIDENCE=local:<dir>` or `T3_EVIDENCE=s3://<bucket>/<prefix>`;
+- `EVIDENCE_S3=s3://<bucket>/evidence/` or `EVIDENCE_DIR=<dir>`: tools.evlib's variables, so the
+  tools and the trust gate (which writes through evlib) share one setting and one layout
+  (<prefix>/records/<run_id>/<kind>/...). The deployed functions use EVIDENCE_S3.
 """
 from __future__ import annotations
 
@@ -86,10 +88,16 @@ class S3Writer:
 
 def from_env(env: dict[str, str] | None = None) -> Writer:
     env = os.environ if env is None else env
-    spec = env.get("T3_EVIDENCE", "")
+    spec = env.get("T3_EVIDENCE", "").strip()
+    if not spec:  # tools.evlib's variables, shared with the trust gate (one setting for both Lambdas)
+        if env.get("EVIDENCE_S3", "").strip():
+            spec = env["EVIDENCE_S3"].strip()
+        elif env.get("EVIDENCE_DIR", "").strip():
+            spec = "local:" + env["EVIDENCE_DIR"].strip()
     if spec.startswith("local:"):
         return LocalWriter(spec[len("local:"):])
     if spec.startswith("s3://"):
         bucket, _, prefix = spec[len("s3://"):].partition("/")
-        return S3Writer(bucket, prefix or "evidence")
-    raise ValueError(f"T3_EVIDENCE={spec!r}: use local:<dir> or s3://bucket/prefix")
+        return S3Writer(bucket, prefix.strip("/") or "evidence")
+    raise ValueError(f"no evidence target ({spec!r}): set EVIDENCE_S3=s3://bucket/evidence/, EVIDENCE_DIR=/path, "
+                     "or T3_EVIDENCE=local:<dir>|s3://bucket/prefix")
