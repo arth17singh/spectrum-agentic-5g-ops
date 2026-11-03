@@ -4,9 +4,9 @@
  "n_items": 10000,
  "synthetic": false,
  "target": {
-  "metric": "mean_score",
+  "metric": "score_gain_ci_low",
   "op": ">",
-  "unit": "scaled-MAE units (y minus x; positive = x better)",
+  "unit": "scaled-MAE units: lower bound of the 95 % paired-bootstrap interval of the mean per-row difference (y minus x; positive = x better)",
   "value": 0
  },
  "test_set_sha256": "<sha256 of the shared test file in the AWS-generated data tree (manifest.json of silos.job_data)>",
@@ -15,12 +15,14 @@
   "config": {
    "details": {
     "bootstrap": {
-     "n_boot": 2000,
-     "seed": 20261102,
-     "unit": "cluster (seed)"
+     "cluster_field": "extra.seed",
+     "level": 0.95,
+     "method": "paired-bootstrap-v1",
+     "resamples": 2000,
+     "seed": 20261102
     },
+    "claim": "the lower bound of the 95 % paired-bootstrap interval (clusters = seeds resampled) of the mean per-row score difference is above 0; the target IS that bound, replayed by check_unit from the item records with the spec in details.gain",
     "comparison": "beats",
-    "declared_also": "95 % paired-bootstrap interval lower bound of the mean difference > 0 (clusters resampled; details.ci_lower_gt0). The verdict in the result details is both conditions.",
     "entry": "python -m silos.job_compare --kind beats --name federated_vs_C --split disjoint",
     "population": "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data",
     "score_scale": [

@@ -204,15 +204,26 @@ def item(*, item_id: str, input_sha256: str, output_sha256: str, grader: str, ba
 
 
 def finish(*, declared: dict, items: list[dict], script: str, code_sha: str, details: dict, dry_run: bool, sink: Sink,
-           extra_records: dict[str, list[dict]] | None = None) -> dict:
+           extra_records: dict[str, list[dict]] | None = None, value_override: float | None = None) -> dict:
     """Build the result from the item records with evlib.make_result (so check_unit recomputes it), validate all
-    records, and (unless dry_run) write items, extra records and the result. Returns a summary dict."""
+    records, and (unless dry_run) write items, extra records and the result. Returns a summary dict.
+
+    value_override: for a target that is not one of evlib's item metrics (a paired-bootstrap bound such as
+    score_gain_ci_low): the result carries this value, compared with the declared target; check_unit replays it
+    from the items with the spec recorded in details.gain."""
     ev = get_evlib()
     declared = reconcile(declared)
     sink.add("item", items)
     for kind, recs in (extra_records or {}).items():
         sink.add(kind, recs)
-    result = ev.make_result(declared, items, script, code_sha, details)
+    if value_override is None:
+        result = ev.make_result(declared, items, script, code_sha, details)
+    else:
+        t = declared["target"]
+        result = {"run_id": declared["run_id"], "unit": declared["unit"], "metric": t["metric"], "value": float(value_override),
+                  "target": dict(t), "passed": ev.compare(float(value_override), t["op"], t["value"]), "n_items": len(items),
+                  "checked_at": ev.utc_now(), "checker": {"script": script, "code_sha": code_sha}, "details": details,
+                  "synthetic": bool(declared.get("synthetic", False))}
     sink.validate()
     ev.validate(ev._envelope(result, "result", declared["run_id"]))
     written: list[str] = []

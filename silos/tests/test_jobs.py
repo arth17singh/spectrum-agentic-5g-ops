@@ -176,16 +176,18 @@ def test_evaluate_then_compare_beats_and_measure(job_env, monkeypatch, tmp_path,
     out1 = json.loads(capsys.readouterr().out)
     res = ev.read_result("t2-test-cmp", ev.default_store())
     items = ev.read_records("t2-test-cmp", "item", ev.default_store())
-    assert res["details"]["bootstrap"]["method"].startswith("paired bootstrap resampling clusters")
-    assert res["target"]["metric"] == "mean_score" and res["value"] == pytest.approx(out1["mean_diff"]) == pytest.approx(np.mean([it["score"] for it in items]))
+    assert res["details"]["bootstrap_detail"]["method"].startswith("paired bootstrap resampling clusters")
+    g = res["details"]["gain"]
+    assert res["target"]["metric"] == "score_gain_ci_low" and res["value"] == pytest.approx(g["ci_low"]) and g["value"] == pytest.approx(out1["mean_diff"])
+    assert g["value"] == pytest.approx(np.mean([it["score"] for it in items])) and g["paired_n"] == len(items)
     assert all(it["score"] == pytest.approx(it["extra"]["y_score"] - it["extra"]["x_score"]) for it in items)
     monkeypatch.setenv("RUN_ID", "t2-test-cmp2")
     rc2 = job_compare.main(["--kind", "beats", "--x", "t2-test-init", "--y", "t2-test-trained", "--name", "b_vs_a", "--split", "disjoint", "--declare-first"])
     out2 = json.loads(capsys.readouterr().out)
     assert out2["mean_diff"] == pytest.approx(-out1["mean_diff"])
-    # the declaration can fail: it needs the mean AND the interval lower bound above zero, and at most one direction can pass
-    assert rc1 == (0 if out1["mean_diff"] > 0 and out1["ci_lower_gt0"] else 1)
-    assert rc2 == (0 if out2["mean_diff"] > 0 and out2["ci_lower_gt0"] else 1)
+    # the declaration can fail: the target is the interval's lower bound above zero, and at most one direction can pass
+    assert rc1 == (0 if out1["ci_lower_gt0"] else 1)
+    assert rc2 == (0 if out2["ci_lower_gt0"] else 1)
     assert not (rc1 == 0 and rc2 == 0)
     # a measurement never fails on the sign
     monkeypatch.setenv("RUN_ID", "t2-test-cmp3")
@@ -221,7 +223,7 @@ def test_declarations_are_in_runner_form_and_say_what_they_must():
     t = declarations.build_all()
     assert t["compare_federated_vs_B_disjoint"]["target"]["op"] == ">"
     det = lambda k: t[k]["twin"]["config"]["details"]
-    assert "bootstrap" in det("compare_federated_vs_B_disjoint") and det("compare_federated_vs_C_disjoint")["declared_also"].count("lower bound") == 1
+    assert "bootstrap" in det("compare_federated_vs_B_disjoint") and det("compare_federated_vs_C_disjoint")["claim"].count("lower bound") == 1
     assert det("fl_dp_disjoint")["privacy"]["epsilon"] == 3.0 and "1e-5" in det("fl_dp_disjoint")["privacy"]["planning_value_not_used"]
     assert det("fl_dp_disjoint")["privacy"]["delta_by_silo"]["A"] == pytest.approx(1 / 24000**2)
     for k, d in t.items():
@@ -232,7 +234,7 @@ def test_declarations_are_in_runner_form_and_say_what_they_must():
     text = json.dumps(t).lower()
     assert ("cross" + "trainer") not in text and ("4835" + "98626742") not in text
     for k in ("local_only_A_disjoint", "central_disjoint", "fl_federated_disjoint", "compare_dp_cost_disjoint", "compare_distance_to_central_disjoint"):
-        assert t[k]["target"]["op"] in (">=", ">") and t[k]["target"]["metric"] in ("n_items", "mean_score")
+        assert t[k]["target"]["op"] in (">=", ">") and t[k]["target"]["metric"] in ("n_items", "score_gain_ci_low")
 
 
 def test_print_runner_declaration_matches_the_template_shape(job_env, monkeypatch, capsys):
@@ -325,3 +327,54 @@ def test_every_record_kind_we_write_passes_the_contracts_library():
                    pred=[0.1, 0.2, 0.3, 0.4], rows=3, uploaded_to=["s3://x/y"], laptop_comparison=None)
     assert set(it) <= {"item_id", "input_sha256", "output_sha256", "grader", "backend", "score", "extra"} and it["extra"]["seed"] == 1
     ev.validate(ev._envelope(it, "item", "r-c"))
+
+
+def _check_unit_module():
+    import importlib.util
+    import sys
+
+    path = Path(__file__).resolve().parents[2] / "tools" / "check_unit.py"
+    spec = importlib.util.spec_from_file_location("check_unit_for_silos", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["check_unit_for_silos"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_check_unit_part_e_replays_the_compare_bound_from_our_own_producer(job_env, monkeypatch, capsys):
+    """Two score runs, then job_compare (kind beats and kind measure) write real records into a local evidence dir;
+    tools/check_unit.py part e recomputes the interval from the item records with the recorded spec."""
+    cu = _check_unit_module()
+    monkeypatch.setenv("RUN_ID", "t2-ce-x")
+    assert job_baselines.main(["--method", "local", "--silo", "B", "--split", "disjoint", "--epochs", "30", "--declare-first"]) == 0
+    w = job_env.parent / "init.safetensors"
+    w.write_bytes(nn.safetensors_dumps(nn.init_params(7)))
+    monkeypatch.setenv("RUN_ID", "t2-ce-y")
+    assert job_evaluate.main(["--label", "federated", "--split", "disjoint", "--weights", str(w), "--declare-first"]) == 0
+    for run, kind in (("t2-ce-beats", "beats"), ("t2-ce-measure", "measure"), ("t2-ce-reverse", "beats")):
+        monkeypatch.setenv("RUN_ID", run)
+        x, y = ("t2-ce-y", "t2-ce-x") if run == "t2-ce-reverse" else ("t2-ce-x", "t2-ce-y")
+        job_compare.main(["--kind", kind, "--x", x, "--y", y, "--name", "ce", "--split", "disjoint", "--declare-first"])
+        capsys.readouterr()
+        ck = cu.Checker(run, cu.LocalEvidence(job_env), None, None, poll_s=0.0)
+        ck.load()
+        ck.part_e()
+        lines = "\n".join(ck.parts["e"].lines)
+        assert ck.parts["e"].state == "PASS", (run, lines)
+        assert "replayed" in lines and "paired-bootstrap-v1" in lines and "clusters extra.seed" in lines
+        ev = evio.get_evlib()
+        res = ev.read_result(run, ev.default_store())
+        if kind == "beats":  # the bound is the declared target, replayed exactly (it may be MISSED: the part still passes)
+            assert res["metric"] == "score_gain_ci_low" and f"score_gain_ci_low = " in lines
+            assert ("target PASSED" in lines) == res["passed"]
+    # a tampered bound no longer replays
+    import json as _json
+
+    f = job_env / "results" / "t2-ce-beats.json"
+    doc = _json.loads(f.read_text())
+    doc["details"]["gain"]["ci_low"] += 1e-6
+    f.write_text(_json.dumps(doc))
+    ck = cu.Checker("t2-ce-beats", cu.LocalEvidence(job_env), None, None, poll_s=0.0)
+    ck.load()
+    ck.part_e()
+    assert ck.parts["e"].state == "FAIL"
