@@ -20,16 +20,20 @@ into a temporary build context outside the repo and deletes that directory after
 contains the wheel's code, so keep the ECR repository private and never make the image public or
 share it outside the team account.
 
-## Build
+## Build (from a pinned commit)
 
 ```bash
-t3/tools/image/build.sh            # add --no-cache to force a rebuild
-# override: RAN_RL_WHEEL=/path/ran_rl-1.2.9-py3-none-any.whl IMAGE=team13-ran-tools:dev
+t3/tools/image/build.sh <commit sha or ref>        # add --no-cache to force a rebuild
+# override: RAN_RL_WHEEL=/path/ran_rl-1.2.9-py3-none-any.whl IMAGE_REPO=team13-ran-tools
 ```
 
-It stages `wheel/`, `smoke/` and the packages that exist in the repo (`twin t2 t1 t3 contracts tools`;
-`t3/tools/image` and `tests` dirs are excluded), runs `docker build --platform linux/arm64`, and prints
-the image size. It never pushes. Rebuilds after a code change only redo the last layer (a few seconds).
+The code comes from an archive of that commit, never from the working tree, so uncommitted edits cannot
+ride along. It stages `wheel/`, `smoke/` (from the commit) and the packages at that commit (`twin t2 t1
+t3 contracts tools`; `t3/tools/image`, `tests` and caches are removed; `team13_contracts` is also copied
+to the top level so it imports in Lambda), runs `docker build --platform linux/arm64`, and prints the
+size. The image is tagged `team13-ran-tools:<first 12 hex of the sha>` and labelled
+`org.opencontainers.image.revision=<full sha>`; `/var/task/IMAGE_REVISION` holds the sha too. It never
+pushes. Rebuilds after a code change only redo the last layer (a few seconds).
 
 ## Run locally (Lambda runtime interface emulator, built into the base image)
 
@@ -62,8 +66,11 @@ aws ecr create-repository --repository-name $REPO --region $REGION --profile $AW
   --image-scanning-configuration scanOnPush=true         # once; private by default
 aws ecr get-login-password --region $REGION --profile $AWS_PROFILE \
   | docker login --username AWS --password-stdin $ACCOUNT.dkr.ecr.$REGION.amazonaws.com
-docker tag team13-ran-tools:dev $ACCOUNT.dkr.ecr.$REGION.amazonaws.com/$REPO:dev
-docker push $ACCOUNT.dkr.ecr.$REGION.amazonaws.com/$REPO:dev
+TAG=<the 12-hex tag build.sh printed>
+docker tag team13-ran-tools:$TAG $ACCOUNT.dkr.ecr.$REGION.amazonaws.com/$REPO:$TAG
+docker push $ACCOUNT.dkr.ecr.$REGION.amazonaws.com/$REPO:$TAG
+# deploy exactly that tag (register.py refuses :latest and a missing --image-uri):
+#   python -m t3.deploy.register ... --image-uri $ACCOUNT.dkr.ecr.$REGION.amazonaws.com/$REPO:$TAG
 ```
 
 `build.sh` passes `--provenance=false` so the pushed manifest is a plain single-arch image Lambda accepts.

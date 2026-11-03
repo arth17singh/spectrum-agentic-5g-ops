@@ -88,9 +88,13 @@ def make_world(existing_targets=KIT_TARGETS, existing_policies=None, existing_fu
     return world
 
 
-def run_apply(kit_dir, world):
+IMAGE = "000000000000.dkr.ecr.us-east-2.amazonaws.com/team13-ran-tools:0123456789ab"
+
+
+def run_apply(kit_dir, world, *extra):
     log = []
-    rc = register.main(["--kit-dir", str(kit_dir), "--evidence-bucket", "team-bucket", "--apply"],
+    rc = register.main(["--kit-dir", str(kit_dir), "--image-uri", IMAGE, "--evidence-bucket", "team-bucket",
+                        "--apply", *extra],
                        client_factory=lambda svc: ValidatingFake(svc, log, world), out=lambda *_: None,
                        wait=lambda s: None)
     return rc, log
@@ -101,8 +105,15 @@ def test_dry_run_makes_no_aws_call(kit_dir, monkeypatch):
         raise AssertionError("dry run must not create a boto3 session")
     monkeypatch.setattr(boto3, "Session", no_session)
     lines = []
-    assert register.main(["--kit-dir", str(kit_dir)], out=lines.append) == 0
+    assert register.main(["--kit-dir", str(kit_dir), "--image-uri", IMAGE, "--evidence-bucket", "team-bucket"],
+                         out=lines.append) == 0
     text = "\n".join(lines)
+    # B1: the corrected environment for both functions is visible in the plan
+    assert text.count('"EVIDENCE_S3": "s3://team-bucket/evidence/"') == 2 and "T3_EVIDENCE" not in text
+    assert '"T1_POLICY_PATH": "/var/task/t1/rl/artifacts/ppo_v0.zip"' in text
+    assert '"T2_PREDICTOR_PATH": "/var/task/t2/artifacts/t2_response_v0.npz"' in text
+    assert '"T3_TRUST_TIMEOUT_S": "15"' in text and '"T3_TRUST_LIVE": "0"' in text
+    assert f'"ImageUri": "{IMAGE}"' in text
     assert text.startswith("DRY RUN") and "WARNING" not in text
     assert " iam." not in text   # IAM is iam_cloudshell.sh's job
     assert "WOULD CALL ecr.create_repository" in text
@@ -116,8 +127,42 @@ def test_dry_run_makes_no_aws_call(kit_dir, monkeypatch):
 
 def test_dry_run_without_a_kit_folder_uses_placeholders():
     lines = []
-    assert register.main([], out=lines.append) == 0
+    assert register.main(["--image-uri", IMAGE], out=lines.append) == 0
     assert any("<gateway_id>" in line for line in lines)
+
+
+@pytest.mark.parametrize("apply", [False, True])
+@pytest.mark.parametrize("image", [None, "000000000000.dkr.ecr.us-east-2.amazonaws.com/team13-ran-tools:latest",
+                                   "000000000000.dkr.ecr.us-east-2.amazonaws.com/team13-ran-tools",
+                                   "000000000000.dkr.ecr.us-west-2.amazonaws.com/team13-ran-tools:0123456789ab",
+                                   "team13-ran-tools:dev"])
+def test_refuses_without_a_pinned_image(kit_dir, image, apply):
+    """B2: no --image-uri, no tag, :latest, the wrong region or a local tag: refused, no AWS call."""
+    lines, made = [], []
+    args = ["--kit-dir", str(kit_dir), "--evidence-bucket", "team-bucket"] + (["--image-uri", image] if image else [])
+    rc = register.main(args + (["--apply"] if apply else []), client_factory=lambda s: made.append(s), out=lines.append)
+    assert rc == 2 and made == [] and "--image-uri" in "\n".join(lines)
+
+
+def test_digest_pinned_image_is_accepted(kit_dir):
+    digest = "000000000000.dkr.ecr.us-east-2.amazonaws.com/team13-ran-tools@sha256:" + "a" * 64
+    assert register.main(["--kit-dir", str(kit_dir), "--image-uri", digest], out=lambda *_: None) == 0
+
+
+def test_apply_refuses_an_image_from_another_account(kit_dir):
+    other = IMAGE.replace("000000000000", "111111111111")
+    log = []
+    rc = register.main(["--kit-dir", str(kit_dir), "--image-uri", other, "--evidence-bucket", "b", "--apply"],
+                       client_factory=lambda svc: ValidatingFake(svc, log, make_world()), out=lambda *_: None,
+                       wait=lambda s: None)
+    assert rc == 2 and [op for _, op, _ in log] == ["get_caller_identity"]
+
+
+def test_trust_live_is_opt_in_per_run(kit_dir):
+    rc, log = run_apply(kit_dir, make_world(), "--trust-live")
+    assert rc == 0
+    trust = next(p for _, op, p in log if op == "create_function" and p["FunctionName"] == "team13-trust-gate")
+    assert trust["Environment"]["Variables"]["T3_TRUST_LIVE"] == "1"
 
 
 def test_apply_makes_valid_calls_in_order(kit_dir):
@@ -138,10 +183,18 @@ def test_apply_makes_valid_calls_in_order(kit_dir):
     assert tools["Role"] == "arn:aws:iam::000000000000:role/bb26/team13-ran-tools"
     assert (tools["MemorySize"], tools["Timeout"]) == (3008, 120)
     assert tools["ImageConfig"]["Command"] == ["t3.tools.app.handler"]
-    assert tools["Code"]["ImageUri"] == "000000000000.dkr.ecr.us-east-2.amazonaws.com/team13-ran-tools:latest"
+    assert tools["Code"]["ImageUri"] == IMAGE and trust["Code"]["ImageUri"] == IMAGE
     env = tools["Environment"]["Variables"]
-    assert env["APPROVALS_TABLE"] == "team13-approvals" and env["T3_EVIDENCE"] == "s3://team-bucket/evidence"
-    assert "T3_TOOL_NAME_FALLBACK" not in env and "T3_STORE" not in env
+    assert env["APPROVALS_TABLE"] == "team13-approvals" and env["EVIDENCE_S3"] == "s3://team-bucket/evidence/"
+    assert env["T1_POLICY_PATH"] == "/var/task/t1/rl/artifacts/ppo_v0.zip"
+    assert env["T2_PREDICTOR_PATH"] == "/var/task/t2/artifacts/t2_response_v0.npz"
+    assert env["T3_TRUST_TIMEOUT_S"] == "15" and env["T3_TRUST_FUNCTION"] == "team13-trust-gate"
+    assert "T3_TOOL_NAME_FALLBACK" not in env and "T3_STORE" not in env and "T3_EVIDENCE" not in env
+    assert trust["Environment"]["Variables"]["EVIDENCE_S3"] == "s3://team-bucket/evidence/"
+    # the tools' own writer resolves that variable to the same place the trust gate (evlib) writes
+    from t3.tools import evidence as ev
+    w = ev.from_env(env)
+    assert (w.bucket, w.prefix) == ("team-bucket", "evidence")
     assert trust["Role"] == "arn:aws:iam::000000000000:role/bb26/team13-trust-gate"
     assert trust["ImageConfig"]["Command"] == ["t3.trust.handler.handler"]
     assert trust["Environment"]["Variables"]["T3_TRUST_LIVE"] == "0"
@@ -195,8 +248,8 @@ def test_apply_refuses_without_kit_state_or_bucket(tmp_path, kit_dir):
     lines = []
     empty = tmp_path / "empty"
     empty.mkdir()
-    assert register.main(["--kit-dir", str(empty), "--evidence-bucket", "b", "--apply"], out=lines.append) == 2
-    assert register.main(["--kit-dir", str(kit_dir), "--apply"], out=lines.append) == 2
+    assert register.main(["--kit-dir", str(empty), "--image-uri", IMAGE, "--evidence-bucket", "b", "--apply"], out=lines.append) == 2
+    assert register.main(["--kit-dir", str(kit_dir), "--image-uri", IMAGE, "--apply"], out=lines.append) == 2
 
 
 def test_warns_when_noc_lead_cannot_change(kit_dir):

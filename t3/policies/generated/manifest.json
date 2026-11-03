@@ -32,7 +32,8 @@
     },
     {
       "actions": [
-        "nlm___ask"
+        "nlm___ask",
+        "nlm___ask_nlm"
       ],
       "file": "pause/team13_ranpause_ask_otel_nlm_v0.cedar",
       "mode": "IGNORE_ALL_FINDINGS",
@@ -100,6 +101,14 @@
     },
     {
       "actions": [
+        "nlm___ask_nlm"
+      ],
+      "file": "team13_ran_screen_nlm_answers_kit_name.cedar",
+      "mode": "IGNORE_ALL_FINDINGS",
+      "name": "team13_ran_screen_nlm_answers_kit_name"
+    },
+    {
+      "actions": [
         "ran___observe",
         "ran___propose",
         "ran___predict",
@@ -118,6 +127,14 @@
       "file": "team13_ran_require_human_approval.cedar",
       "mode": "IGNORE_ALL_FINDINGS",
       "name": "team13_ran_require_human_approval"
+    },
+    {
+      "actions": [
+        "work___apply_change"
+      ],
+      "file": "team13_ran_no_kit_apply_change.cedar",
+      "mode": "IGNORE_ALL_FINDINGS",
+      "name": "team13_ran_no_kit_apply_change"
     }
   ],
   "team": "team13",
