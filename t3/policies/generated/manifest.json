@@ -160,6 +160,14 @@
       "file": "team13_ran_seed_never_agents.cedar",
       "mode": "IGNORE_ALL_FINDINGS",
       "name": "team13_ran_seed_never_agents"
+    },
+    {
+      "actions": [
+        "ran___seed_case"
+      ],
+      "file": "team13_ran_seed_case_id_required.cedar",
+      "mode": "IGNORE_ALL_FINDINGS",
+      "name": "team13_ran_seed_case_id_required"
     }
   ],
   "team": "team13",

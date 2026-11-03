@@ -15,10 +15,17 @@ def _seed_rules():
 
 def test_seed_has_an_app_only_permit_and_a_forbid_for_everyone_else():
     rules = {r["name"]: r for r in _seed_rules()}
-    assert set(rules) == {"team13_ran_seed_app_only", "team13_ran_seed_never_agents"}
+    assert set(rules) == {"team13_ran_seed_app_only", "team13_ran_seed_never_agents", "team13_ran_seed_case_id_required"}
     permit, forbid = rules["team13_ran_seed_app_only"]["statement"], rules["team13_ran_seed_never_agents"]["statement"]
-    assert permit.startswith("permit") and g.APP_EXPR in permit and 'like "case-*"' in permit
-    assert forbid.startswith("forbid (principal,") and f"unless {{ {g.APP_EXPR} }}" in forbid
+    assert permit.startswith("permit") and g.APP_EXPR in permit and "context.input" not in permit
+    assert forbid.startswith("forbid (principal,") and all(f'"{a}"' in forbid for a in AGENTS)
+    case = rules["team13_ran_seed_case_id_required"]["statement"]
+    assert 'unless { context.input has case_id && context.input.case_id like "case-*" }' in case
+    # each seed rule has the exact shape of a rule that is already ACTIVE on the engine
+    live = {r["name"]: r["statement"] for r in g.rules()}
+    assert permit.split("when")[1].strip() == "{ " + g.APP_EXPR + " };"
+    assert forbid.split("when")[1] == live["team13_ran_no_kit_apply_change"].split("when")[1]
+    assert case.split("unless")[1] == live["team13_ran_require_case_id"].split("unless")[1]
     # no agent permit names the seed tool, and no agent prompt does either
     for r in g.rules():
         if r["statement"].startswith("permit") and catalog.SEED_FULL in r["actions"]:

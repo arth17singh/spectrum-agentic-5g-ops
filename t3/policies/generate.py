@@ -174,15 +174,22 @@ unless {{ context.input has approval && context.input.approval == "APPROVED" }};
     out.append({"name": f"{p}_no_kit_apply_change", "mode": LOOSE, "actions": [kit_apply], "statement": f"""
 forbid (principal, action == {_action(kit_apply)}, resource == @GW@)
 when {{ {agent_in(list(AGENT_TOOLS))} }};"""})
-    # ran___seed_case sets twin state for the evaluation harness. Only the app's token may call it, with a
-    # case id; a forbid refuses every other principal (every agent included) even if a permit is ever added.
+    # ran___seed_case sets twin state for the evaluation harness. Only the app's token may call it. Three
+    # rules, each in a shape already ACTIVE on the engine (no new construct for the validator):
+    # - the permit has the shape of the kit's app_may_read_case_status (app role only);
+    # - the agents' forbid has the shape of no_kit_apply_change (names every agent), so no agent can call
+    #   it even if a permit is ever added;
+    # - the case-id forbid has the shape of require_case_id.
     seed = catalog.SEED_FULL
     out.append({"name": safe_name(p, "seed_app_only"), "mode": STRICT, "actions": [seed], "statement": f"""
 permit (principal is AgentCore::OAuthUser, action == {_action(seed)}, resource == @GW@)
-when {{ {APP_EXPR} && context.input has case_id && context.input.case_id like "case-*" }};"""})
+when {{ {APP_EXPR} }};"""})
     out.append({"name": safe_name(p, "seed_never_agents"), "mode": LOOSE, "actions": [seed], "statement": f"""
 forbid (principal, action == {_action(seed)}, resource == @GW@)
-unless {{ {APP_EXPR} }};"""})
+when {{ {agent_in(list(AGENT_TOOLS))} }};"""})
+    out.append({"name": safe_name(p, "seed_case_id_required"), "mode": LOOSE, "actions": [seed], "statement": f"""
+forbid (principal, action == {_action(seed)}, resource == @GW@)
+unless {{ context.input has case_id && context.input.case_id like "case-*" }};"""})
     for r in out:
         r["statement"] = r["statement"].strip()
     return out
@@ -288,9 +295,11 @@ def check(rule_list: list[dict], team: str = "team13") -> list[str]:
         if t not in permitted:
             problems.append(f"{t}: no permit (default deny refuses every call)")
     seed_rules = [r for r in rule_list if catalog.SEED_FULL in r["actions"]]
-    if sorted(r["statement"].split("(", 1)[0].strip() for r in seed_rules) != ["forbid", "permit"] or not all(
-            APP_EXPR in r["statement"] for r in seed_rules):
-        problems.append(f"{catalog.SEED_FULL}: needs exactly an app-only permit and a forbid for everyone else")
+    seed_permits = [r for r in seed_rules if r["statement"].startswith("permit")]
+    agents_forbid = [r for r in seed_rules if r["statement"].startswith("forbid") and
+                     all(f'"{a}"' in r["statement"] for a in AGENT_TOOLS)]
+    if len(seed_permits) != 1 or APP_EXPR not in seed_permits[0]["statement"] or len(agents_forbid) != 1:
+        problems.append(f"{catalog.SEED_FULL}: needs exactly one app-only permit and a forbid naming every agent")
     case_rules = [r for r in rule_list if r["name"].endswith("_require_case_id")]
     if len(case_rules) != 1 or sorted(case_rules[0]["actions"]) != sorted(catalog.governed_tools()):
         problems.append("the case-id forbid must cover every tool (including nlm___ask_nlm)")
