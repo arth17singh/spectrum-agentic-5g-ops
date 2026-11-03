@@ -57,4 +57,8 @@ PY -m t3.evals.run --operator swarm --mode proposal --subset masked \
 
 Demo run with real approvals (2-3 cases): use `--mode full`. Each step returns only a change that was actually applied after approval; a refused step counts as no change.
 
+**How it runs tonight (two phases).** The job role reaches neither DynamoDB nor AgentCore, so the swarm acts live from a terminal and the score is computed on x86 from what it did:
+1. `python -m t3.evals.live_swarm --run-id t3.swarm-live-<UTC> --live` (team profile): declares first, then per (masked incident, step) maps and seeds a case with `ran___seed_case` (app token only), sends the ticket to `noc_lead` through `front___continue_case`, and reads the proposal from the approval refusal. It writes `outputs/<run>/swarm-actions.jsonl`.
+2. The scored run in a SageMaker CPU job, `--swarm-client t3.evals.recorded_client:factory` with that file as the `recording` input: the recorded client returns exactly the live proposals and refuses a harness whose earlier steps differ. Declaration: `tools/sm/examples/t3-evals-swarm-masked.json`.
+
 The client protocol is in the `swarm.py` docstring. `factory()` reads its endpoints and tokens from environment variables. Without `--swarm-client`, the run uses `DryRunSwarmClient`, a fake that is marked synthetic. Don't keep dry-run results in `evidence/`.

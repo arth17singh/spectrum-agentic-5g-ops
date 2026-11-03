@@ -73,7 +73,8 @@ def _reset():
 # ---------------------------------------------------------------- dispatch and case_id
 def test_dispatch_by_gateway_tool_name():
     w = World()
-    assert set(app._dispatch_table(app.Tools(w.deps))) == set(catalog.all_tools()) | {"nlm___ask_nlm"}
+    assert set(app._dispatch_table(app.Tools(w.deps))) == set(catalog.all_tools()) | {"nlm___ask_nlm",
+                                                                                       "ran___seed_case"}
     obs = w.call("ran___observe", case_id=CASE)
     assert obs["twin"]["step"] == 0 and "coverage_ratio" in obs["kpis"]
     prop = w.call("ran___propose", case_id=CASE)

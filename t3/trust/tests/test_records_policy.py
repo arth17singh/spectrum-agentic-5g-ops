@@ -87,7 +87,7 @@ def test_forbid_text_matches_a8():
     s = pol.forbid_statement(GW, pol.PauseTarget(**pol.DEFAULT_TARGET), "v2")
     assert s == ('forbid (principal, action == AgentCore::Action::"ran___predict", '
                  f'resource == AgentCore::Gateway::"{GW}")\n'
-                 'when { !(context.input has model_version) || context.input.model_version == "v2" };')
+                 'unless { context.input has model_version && context.input.model_version != "v2" };')
     plain = pol.forbid_statement(GW, pol.PauseTarget("ran___predict_v2"), "v2")
     assert plain.endswith(f'resource == AgentCore::Gateway::"{GW}");')
 

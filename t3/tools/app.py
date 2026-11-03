@@ -495,6 +495,43 @@ class Tools:
                 case = self.d.store.get_case(case["case_id"])
 
     # ---- tools
+    def seed_case(self, args: dict) -> dict:
+        """ran___seed_case (the evaluation harness only; Cedar: the app's token alone, t3/policies):
+        open a NEW case at an incident's state, from (scenario, seed, preset) and the changes applied
+        so far (`start_action_log_json`: a JSON list of steps, each a canonical change string or [] for a
+        no-op step). The steps are replayed through the safety filter like every other change, and the
+        twin's own log is stored, so later replays are checked against it. Refuses an existing case."""
+        case_id = require_case_id(args)
+        if self.d.store.get_case(case_id) is not None:
+            raise ToolError(f"case {case_id} already exists: a seeded case must be new")
+        try:
+            steps = json.loads(args.get("start_action_log_json") or "[]")
+            scenario, seed = str(args["scenario"]), int(args["seed"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ToolError(f"seed_case needs scenario, seed and start_action_log_json: {exc}") from exc
+        if not isinstance(steps, list) or len(steps) > 32:
+            raise ToolError("start_action_log_json must be a JSON list of at most 32 steps")
+        preset = args.get("preset") or None
+        twin = self.twin(scenario, seed, preset)
+        state = twin.reset()
+        for raw in steps:
+            cells = [] if raw in ([], "", None) else parse_change(raw)[0]
+            state = twin.apply(cells)
+        resolved = getattr(twin, "config", None)
+        new = {"case_id": case_id, "run_id": self.d.store.mapped_run_id(case_id) or f"adhoc-{case_id}",
+               "scenario": scenario, "seed": seed,
+               "config": jsonable(resolved) if isinstance(resolved, dict) else preset,
+               "action_log": jsonable(list(twin.action_log)), "twin_kind": self.d.defaults["twin_kind"],
+               "predictions": [], "created_at": self.d.now()}
+        try:
+            self.d.store.put_case(new, None)
+        except ConflictError as exc:
+            raise ToolError(f"case {case_id} was created concurrently") from exc
+        audit(record="ran_case_seeded", case_id=case_id, run_id=new["run_id"], scenario=scenario, seed=seed,
+              preset=preset, steps=len(steps))
+        return {"case_id": case_id, "run_id": new["run_id"], "seeded": True, "step": len(steps),
+                "kpis": self.state_kpis(twin, state)}
+
     def observe(self, args: dict) -> dict:
         case = self.load_case(args)
         twin, state = self.replay(case)
@@ -762,7 +799,7 @@ def _dispatch_table(tools: Tools) -> dict[str, Callable[[dict], dict]]:
     return {catalog.ran(catalog.OBSERVE): tools.observe, catalog.ran(catalog.PROPOSE): tools.propose,
             catalog.ran(catalog.PREDICT): tools.predict, catalog.ran(catalog.PREFLIGHT): tools.preflight,
             catalog.ran(catalog.APPLY): tools.apply_change, catalog.NLM_ASK: tools.ask,
-            catalog.KIT_NLM_ASK: tools.ask}
+            catalog.KIT_NLM_ASK: tools.ask, catalog.SEED_FULL: tools.seed_case}
 
 
 def tool_name(event: dict, context: Any, fallback: bool) -> str | None:

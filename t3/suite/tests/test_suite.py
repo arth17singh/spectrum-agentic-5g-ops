@@ -87,9 +87,13 @@ def make_runner(clock, ddb, gw, ev, policy=None, approve_after_s=30.0, approver=
 
     pauser = (pause_floor.CedarPause(policy, "engine-1", "arn:aws:bedrock-agentcore:us-east-2:0:gateway/gw",
                                      sleep=clock.sleep, clock=clock) if policy else None)
+    sink = getattr(ev, "runner_calls", None)
+    if sink is None:
+        sink = ev.runner_calls = {}
     return runner.Runner(run_id=run_id, gateway=gateway, evlib=ev, ddb=ddb, cfg=CFG, pauser=pauser,
                          approval_timeout_s=timeout, poll_s=5.0, sleep=sleep, clock=clock, log=lambda *a: None,
-                         synthetic=True, unit=unit)
+                         synthetic=True, unit=unit,
+                         calls_sink=lambda rid, rec: sink.setdefault(rid, []).append(rec))
 
 
 def run_suite(unit="deny", flip=None, approver=True, with_pause=True, apply_noop=False):
@@ -123,7 +127,10 @@ def common_runner_checks(summary, ev, gw, ddb, unit_name, n):
     rows = ddb.approvals()
     assert rows["t3-active"]["run_id"] == "t3-test-run" and "status" not in rows["t3-active"]
     assert rows[f"t3-{summary['case_id']}"]["run_id"] == "t3-test-run"
-    items = ev.records[("t3-test-run", "item")]
+    assert ("t3-test-run", "item") not in ev.records   # the client view is not evidence
+    items = ev.runner_calls["t3-test-run"]
+    assert all(r["kind"] == "call" for r in items)
+    assert items[-1]["item_id"] == "setup-close" and "run_id: t3-test-run" in items[-1]["extra"]["args"]["message"]
     setup = items[0]
     assert setup["extra"]["setup"] and "run_id: t3-test-run" in setup["extra"]["args"]["request"]
     graded = [r for r in items if not r["extra"].get("setup")]
@@ -178,12 +185,12 @@ def test_units_partition_the_suite_and_all_uses_two_run_ids():
     assert [(d["run_id"], d["unit"], d["n_items"]) for d in ev.declared] == [
         ("1102a-deny", "t3.deny", N_DENY), ("1102a-allow", "t3.allow", N_ALLOW)]
     assert ddb.approvals()["t3-active"]["run_id"] == "1102a-allow"
-    d_cases = {r["extra"]["case_id"] for r in ev.records[("1102a-deny", "item")] if r["extra"].get("case_id")}
-    a_cases = {r["extra"]["case_id"] for r in ev.records[("1102a-allow", "item")] if r["extra"].get("case_id")}
+    d_cases = {r["extra"]["case_id"] for r in ev.runner_calls["1102a-deny"] if r["extra"].get("case_id")}
+    a_cases = {r["extra"]["case_id"] for r in ev.runner_calls["1102a-allow"] if r["extra"].get("case_id")}
     assert not (d_cases & a_cases) - {"no-case"}
     for rid, key in units.run_ids("1102a", "all"):
         decl = next(d for d in ev.declared if d["run_id"] == rid)
-        assert check.check(rid, ev.records[(rid, "item")], gw.cp_rows, gw.span_rows, declared=decl,
+        assert check.check(rid, ev.runner_calls[rid], gw.cp_rows, gw.span_rows, declared=decl,
                            spans_mode="required", log=lambda *a: None, tool_rows=gw.tool_rows) == 0
 
 
@@ -195,7 +202,7 @@ def test_case_ids_do_not_collide_for_similar_run_ids():
 
 def test_runner_skips_the_change_when_nobody_approves():
     summary, ev, gw, ddb, clock = run_suite("allow", approver=False)
-    items = {r["item_id"]: r for r in ev.records[("t3-test-run", "item")]}
+    items = {r["item_id"]: r for r in ev.runner_calls["t3-test-run"]}
     after = [r for r in items.values() if r["extra"].get("approval_step") == "after_approval"][0]
     assert "approval timeout" in after["extra"]["skipped"]
     assert after["item_id"] in summary["skipped"]
@@ -254,7 +261,7 @@ def test_gateway_reads_http_errors_and_streams_as_answers():
 # ---------- check against fixture rows ----------
 def records_and_rows(unit="deny", **kw):
     summary, ev, gw, ddb, clock = run_suite(unit, **kw)
-    return ev.records[("t3-test-run", "item")], gw.cp_rows, gw.span_rows, ev.declared[0], gw.tool_rows
+    return ev.runner_calls["t3-test-run"], gw.cp_rows, gw.span_rows, ev.declared[0], gw.tool_rows
 
 
 @pytest.mark.parametrize("unit,n", [("deny", N_DENY), ("allow", N_ALLOW)])
@@ -333,7 +340,7 @@ def test_check_flags_sources_that_disagree_and_missing_spans():
 
 def test_check_counts_skipped_items_as_not_passed():
     summary, ev, gw, ddb, clock = run_suite("deny", with_pause=False)
-    code = check.check("t3-test-run", ev.records[("t3-test-run", "item")], gw.cp_rows, gw.span_rows,
+    code = check.check("t3-test-run", ev.runner_calls["t3-test-run"], gw.cp_rows, gw.span_rows,
                        declared=ev.declared[0], log=lambda *a: None)
     assert code == 1
 
@@ -388,7 +395,7 @@ def test_check_cli_all_grades_both_run_ids(tmp_path):
         make_runner(clock, ddb, gw, ev, policy, unit=key, run_id=rid).run()
         (tmp_path / "records" / rid).mkdir(parents=True)
         (tmp_path / "records" / rid / "item.jsonl").write_text(
-            "\n".join(json.dumps(r) for r in ev.records[(rid, "item")]))
+            "\n".join(json.dumps(r) for r in ev.runner_calls[rid]))
         (tmp_path / "declared").mkdir(exist_ok=True)
         decl = next(d for d in ev.declared if d["run_id"] == rid)
         (tmp_path / "declared" / f"{rid}.json").write_text(json.dumps(decl))
@@ -424,7 +431,8 @@ def test_pause_floor_passes_and_times_the_first_refusal():
     floor, ev, gw, clock = make_floor()
     res = floor.run()
     assert ev.calls[0] == ("declared", "t3-test-run")
-    assert ev.declared[0]["unit"] == "t3.pause" and ev.declared[0]["target"]["value"] == 0
+    assert ev.declared[0]["unit"] == "t3.pause" and ev.declared[0]["target"] == {
+        "metric": "pass_rate", "op": ">=", "value": 1.0, "unit": "ratio"} and ev.declared[0]["n_items"] == 9
     d = res["details"]
     assert res["passed"] and d["allowed_after_forbid"] == 0 and d["calls_after_first_refusal"] == 5
     assert 0 <= d["first_refusal_s"] <= 60 and d["forbid_time_source"] == "agentcore:policy.createdAt"
@@ -432,15 +440,19 @@ def test_pause_floor_passes_and_times_the_first_refusal():
     assert [c["action"] for c in ev.records[("t3-test-run", "control")]] == ["pause", "resume"]
     assert all(p["deleted"] for p in floor.p.c.policies.values())  # resumed: the forbid is gone
     assert d["tool"] == "ran___predict" and d["policy_name"].startswith("team13_ranpause_predict_")
-    assert ev.records[("t3-test-run", "item")][0]["extra"]["caller"] == "ran_optimizer"
+    calls = ev.runner_calls["t3-test-run"]
+    assert calls[0]["extra"]["caller"] == "ran_optimizer"
+    graded = ev.records[("t3-test-run", "item")]
+    assert len(graded) == 9 and all(i["passed"] for i in graded) and res["value"] == 1.0 and res["n_items"] == 9
+    assert [i["item_id"] for i in graded][:3] == ["pause-before", "pause-first-after-active",
+                                                   "pause-first-refusal-latency"]
     # the floor waited for GetPolicy to say ACTIVE before the "next call is denied" step, and recorded it
     wait = d["wait_until_active"]
     assert wait["want"] == "ACTIVE" and wait["statuses"][-1] == "ACTIVE" and wait["polls"] >= 2
     assert wait["waited_s"] >= 6.0 and wait["since_forbid_s"] >= 6.0      # the fake propagates in 6 s
     assert d["first_call_after_active"] == "DENY" and d["allowed_while_propagating"] == 0
-    items = ev.records[("t3-test-run", "item")]
-    w = next(r for r in items if r["item_id"] == "pause-wait-active")
-    calls_after = [r for r in items if r["extra"].get("phase") == "after_active"]
+    w = next(r for r in calls if r["item_id"] == "setup-wait-active")
+    calls_after = [r for r in calls if r["extra"].get("phase") == "after_active"]
     assert w["extra"]["wait"]["seen_at"] <= calls_after[0]["extra"]["sent_at"]
 
 
@@ -830,9 +842,31 @@ def test_records_validate_against_the_contracts_when_present():
         records, cp, spans, decl, tools = records_and_rows(unit)
         ev = FakeEvlib()
         check.check("t3-test-run", records, cp, spans, declared=decl, evlib=ev, log=lambda *a: None, tool_rows=tools)
-        recs += [decl] + records + [r for v in ev.records.values() for r in v] + ev.results
+        assert all(r["kind"] == "call" for r in records)   # the client view: not evidence, never written as such
+        recs += [decl] + [r for v in ev.records.values() for r in v] + ev.results
     floor, ev, gw, clock = make_floor()
     floor.run()
     recs += ev.declared + [r for v in ev.records.values() for r in v] + ev.results
     for r in recs:
         tc.validate_record(r)
+
+
+def test_runner_binding_row_is_read_by_the_real_tools_store():
+    """map_case (runner) -> t3/tools/store.py DynamoStore on a botocore-validated fake table: the binding is
+    "no case yet" with the run id, the first put replaces it, and the runner can never overwrite a case."""
+    from t3.tools import store as tstore
+    from t3.tools.tests.fakes import FakeDynamo
+    ddb = FakeDynamo()
+    clock = Clock()
+    r = runner.Runner(run_id="1102b-allow", gateway=None, evlib=FakeEvlib(), ddb=ddb, cfg=CFG, clock=clock,
+                      log=lambda *a: None, unit="allow")
+    r.map_case("case-abc12345-34")
+    s = tstore.DynamoStore("team13-approvals", client=ddb)
+    assert s.get_case("case-abc12345-34") is None and s.mapped_run_id("case-abc12345-34") == "1102b-allow"
+    doc = {"case_id": "case-abc12345-34", "run_id": "1102b-allow", "scenario": "s", "seed": 1, "config": {},
+           "action_log": [], "twin_kind": "maveric-inprocess", "predictions": [], "created_at": "t"}
+    s.put_case(doc, None)
+    assert s.get_case("case-abc12345-34")["version"] == 1
+    with pytest.raises(Exception, match="ConditionalCheckFailed"):
+        r.map_case("case-abc12345-34")   # the runner cannot clobber a real case
+    assert s.get_case("case-abc12345-34")["version"] == 1

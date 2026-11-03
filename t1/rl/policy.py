@@ -71,6 +71,12 @@ class Policy:
         self.meta = meta
         self.model_id = str(meta.get("model_id", "t1-ppo-v0"))
         self.version = str(meta.get("version", "v0"))
+        # "masked" (default, v0: t1/rl/obs.py) or "sdk": the SDK trainer's own observation (ran_rl
+        # training/train.py, MultiInputPolicy on RANOptimizationEnv, no wrapper), as the SageMaker-trained
+        # checkpoints were trained and evaluated; prev_action is zero (a stateless tool call), as at reset.
+        self.obs_mode = str(meta.get("obs", "masked"))
+        if self.obs_mode not in ("masked", "sdk"):
+            raise ValueError(f"unknown observation mode {self.obs_mode!r} in the policy's meta")
 
     # ---- state handling ------------------------------------------------------------------
     @staticmethod
@@ -91,7 +97,9 @@ class Policy:
 
         s = self._full_state(state)
         n = len(s["power_dbm"])
-        obs = mask_obs(normalize_observation(s, np.zeros(2 * n), self._cfg))
+        obs = normalize_observation(s, np.zeros(2 * n), self._cfg)
+        if self.obs_mode == "masked":   # v0 was trained on the masked view; the SDK's own trainer was not
+            obs = mask_obs(obs)
         action, _ = self._model.predict(obs, deterministic=True)
         return np.asarray(action, dtype=np.float64)
 
