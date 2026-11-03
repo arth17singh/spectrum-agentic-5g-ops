@@ -30,6 +30,8 @@ Times are Seattle time (PST, UTC−8) with UTC in brackets. Each entry keeps a d
 | [G-020](#g-020) | Resolved · harness defects | Two harness defects found by the first comparison and Bedrock runs: a missed target made the T2 compare job exit 1 (result never attested), and a non-finite model answer was stored as `inf` and crashed a Bedrock knowledge run | T2 compare federated_vs_B and Bedrock knowledge (gpt-oss-20b): both relaunched | 3 Nov (time TODO) |
 | [G-021](#g-021) | Resolved · checker false positive | `check_unit` part d (ledger comparison) reported a false positive that depended on the order in which the ledger ingested files; fixed in `06ddb9f` | Part d on runs checked against a ledger | 3 Nov (time TODO) |
 | [G-022](#g-022) | Run once · session bridge, part c not checkable | The Viavi Operate rung ran once for the RL model (`t1.rl.viavi_operate-20261103T075351Z-25c0`, measure-only), through the team's signed-in browser session; no machine access to the RSG exists | Viavi rung: one 5-step measurement; no AWS window (check_unit part c cannot check); no retention figure | 3 Nov 07:54 UTC (2 Nov 23:54 PST) |
+| [G-023](#g-023) | Open · declared design | The signed evidence ledger is kept on the team laptop, not in the repo or S3, so the offline rebuild cannot be run from a clone | The offline rebuild (`make -C dashboard evidence-rebuild`) only; per-run checks do not need it (`check_unit` parts a, b, c and e; part d skips without a ledger) | 3 Nov 06:30 PST (14:30 UTC) |
+| [G-024](#g-024) | Open · confidentiality | One declaration, `t2.fl_federated.disjoint-20261103T051311Z`, is in S3 only, not in the repo, because it names a confidential service | Repo copy of that one declaration; the run itself and its S3 declaration are unchanged | 3 Nov 06:30 PST (14:30 UTC) |
 
 ### Watching
 
@@ -387,6 +389,24 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - 3 Nov about 07:45 UTC: read-only handshake through the signed-in browser session; 302 to sign-in from the twin host's adapter.
 - 3 Nov about 00:00 PST: decision, no Viavi operate run. Reversed the same night ("go for RL on Viavi").
 - 3 Nov 07:53 to 08:03 UTC: declaration, scenario saved, attempt 1 (CloudFront 502), attempt 2 (5 steps), simulation stopped.
+
+
+<a id="g-023"></a>
+## G-023 · The signed evidence ledger is kept on the team laptop (offline rebuild needs it)
+
+- **What:** `make -C dashboard evidence-rebuild` re-verifies the dashboard's signed evidence ledger (hash chain, signatures with the committed public key, Merkle anchors, file hashes) from an evidence mirror. The ledger (`ledger.jsonl`, `anchors.jsonl`) is written by the dashboard on the team laptop and signed with a key that stays there. It is not in the repo or in S3, so on a fresh clone the command prints "nothing to rebuild".
+- **Unit it limits:** the offline rebuild only. It does not limit any reported result: recomputing each result from its items is `check_unit` part e, which the live test runs with read-only AWS access. Part d (comparing files with the ledger) skips without a ledger, as G-021 notes.
+- **Why:** the ledger is the console's own signed record of what it ingested; its signing secret must not leave the laptop, and the ledger was never part of the S3 evidence layout.
+- **Measured (3 Nov):** against the laptop's mirror the rebuild reports "chain OK: 119865 records, 3745 Merkle anchors, signatures verified" and "rebuild OK".
+- **Who we told:** not applicable (our own design).
+
+<a id="g-024"></a>
+## G-024 · One declaration is kept in S3 only
+
+- **What:** the declaration of `t2.fl_federated.disjoint-20261103T051311Z` is at `evidence/declared/` in S3 but not in the repo. The file names a confidential service, and the pre-push guard blocks it. A byte-exact copy cannot be redacted: its sha256 is what the evidence chain checks.
+- **Unit it limits:** the repo copy of that one declaration. The other 57 declarations that `judging.json` names are committed byte-exact. The run, its S3 declaration and its check are unchanged.
+- **Why:** confidentiality of the service, which we may not name in published files.
+- **Who we told:** not applicable.
 
 ---
 
