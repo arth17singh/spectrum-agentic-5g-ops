@@ -11,7 +11,7 @@ def test_redact_strings_only():
          "arn": "arn:aws:iam::123456789012:role/r", "sha": H, "n": 123456789012, "t": "20261103T043115Z"}
     out = redact(d)
     assert out["uri"] == "s3://bb26-p-team13-data-<acct>-use2/evidence/x.json"
-    assert out["arn"] == "arn:aws:iam::<acct>:role/r"
+    assert out["arn"] == "iam-role:r"
     assert out["sha"] == H and out["n"] == 123456789012 and out["t"] == d["t"]
 
 

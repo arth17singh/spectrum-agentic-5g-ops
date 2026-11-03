@@ -6,7 +6,9 @@ slice prefix passes through `RedactMiddleware`: inside JSON *strings* only (numb
 untouched),
   * any standalone 12-digit number (an account id: in ARNs, bucket names, ECR hosts) becomes "<acct>";
   * s3://<bucket>/ becomes s3://<bucket>/ with the account redacted as above (bucket names keep their shape);
-  * an absolute local path that starts with the user's home directory becomes "~/...".
+  * an absolute local path that starts with the user's home directory becomes "~/...";
+  * an email, or a person's STS / IAM ARN (e.g. an approval's approved_by), becomes "person:team13-op1";
+    a service-role ARN becomes "iam-role:<name>".
 A 64-hex sha256 cannot contain a standalone 12-digit run (it is bounded by hex characters), so hashes
 shown on screen stay byte-exact.
 """
@@ -18,13 +20,24 @@ import os
 import re
 
 ACCOUNT = re.compile(r"(?<![0-9A-Za-z])\d{12}(?![0-9A-Za-z])")
+PERSON = "person:team13-op1"
+# A person's AWS identity (STS assumed-role session, IAM user) or an email: audit evidence in the records,
+# never shown in the UI. Service roles keep their name only, without the ARN.
+PERSON_ARN = re.compile(r"arn:aws[a-z-]*:(?:sts::[^:\s\"]*:assumed-role|iam::[^:\s\"]*:user|sts::[^:\s\"]*:federated-user)/[^\s\"',;)]*")
+ROLE_ARN = re.compile(r"arn:aws[a-z-]*:iam::[^:\s\"]*:role/((?:[\w+=,.@-]+/)*)([\w+=,.@-]+)")
+EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
 HOME = os.path.expanduser("~")
-PREFIXES = ("/api/scorecard", "/api/trace", "/api/trustgate", "/api/twinview", "/api/realrun")
+PREFIXES = ("/api/scorecard", "/api/trace", "/api/trustgate", "/api/twinview", "/api/realrun", "/api/evidence")
 
 
 def redact_str(s: str) -> str:
     if HOME and HOME != "/" and HOME in s:
         s = s.replace(HOME, "~")
+    if "arn:" in s:
+        s = PERSON_ARN.sub(PERSON, s)
+        s = ROLE_ARN.sub(lambda m: f"iam-role:{m.group(2)}", s)
+    if "@" in s:
+        s = EMAIL.sub(PERSON, s)
     return ACCOUNT.sub("<acct>", s) if any(c.isdigit() for c in s) else s
 
 
