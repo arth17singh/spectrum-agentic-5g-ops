@@ -32,3 +32,14 @@ def test_latest_convergence_run_passes_details_through(tmp_path):
     st = logic.Store(tmp_path)
     c = extra.latest_unit(st, st.run_ids(), "t2.fl_convergence")
     assert c["run_id"] == "t2.fl_convergence-2" and c["details"]["session"]["clients"] == 3 and c["state"] == "pass"
+
+
+def test_unit_with_split_suffix_is_found(tmp_path):
+    run = "t2.fl_convergence.disjoint-20261103T065921Z"
+    w(tmp_path, f"declared/{run}.json", {"run_id": run, "unit": "t2.fl_convergence.disjoint", "target": T})
+    w(tmp_path, f"results/{run}.json", {"run_id": run, "unit": "t2.fl_convergence.disjoint", "metric": "n_items", "value": 3,
+                                         "passed": True, "checked_at": "2026-11-03T07:00:00Z", "details": CONV})
+    w(tmp_path, "declared/t2.fl_convergence_x-1.json", {"run_id": "t2.fl_convergence_x-1", "unit": "t2.fl_convergence_x", "target": T})
+    st = logic.Store(tmp_path)
+    assert extra.latest_unit(st, st.run_ids(), "t2.fl_convergence")["run_id"] == run
+    assert extra.latest_unit(st, st.run_ids(), "t1.curves") is None

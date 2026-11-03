@@ -236,8 +236,9 @@ def latest_unit(store: Store, runs: list[str], unit: str) -> dict | None:
         if run in sup:
             continue
         d, r = store.declared(run) or {}, store.result(run)
-        if not isinstance(r, dict) or (d.get("unit") or r.get("unit")) != unit:
-            continue
+        u = d.get("unit") or r.get("unit")
+        if not isinstance(r, dict) or not isinstance(u, str) or not (u == unit or u.startswith(unit + ".")):
+            continue  # the unit itself, or with the house split suffix (t2.fl_convergence.disjoint)
         if best is None or (r.get("checked_at") or "") > (best[1].get("checked_at") or ""):
             best = (run, r, d)
     if best is None:
