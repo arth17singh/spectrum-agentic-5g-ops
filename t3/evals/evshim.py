@@ -29,17 +29,44 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
+_SHA40 = "0123456789abcdef"
+
+
+def pinned_sha() -> str | None:
+    """The commit a runner job was packaged from (``CODE_SHA``, else ``TEAM13_CODE_SHA``), if set.
+
+    A SageMaker job runs a ``git archive`` with no ``.git``: it must never call git, so the pinned sha
+    wins whenever it is present (the archive IS that commit, clean by construction)."""
+    for name in ("CODE_SHA", "TEAM13_CODE_SHA"):
+        v = os.environ.get(name, "").strip()
+        if v:
+            if len(v) != 40 or any(c not in _SHA40 for c in v):
+                raise ValueError(f"{name}={v!r} is not a full 40-character commit sha")
+            return v
+    return None
+
+
 def code_sha() -> str:
-    here = Path(__file__).resolve().parent
+    pinned = pinned_sha()
+    if pinned:
+        return pinned
+    if _ev is not None:
+        return _ev.code_sha()
+    here = Path(__file__).resolve().parent  # local shim only (W6 not merged)
     return subprocess.run(["git", "rev-parse", "HEAD"], cwd=here, capture_output=True, text=True,
                           check=True).stdout.strip()
 
 
 def code_dirty() -> bool:
-    here = Path(__file__).resolve().parent
-    out = subprocess.run(["git", "status", "--porcelain", "--", "."], cwd=here, capture_output=True,
-                         text=True, check=True).stdout
-    return any(line and "t3/evals/evidence/" not in line for line in out.splitlines())
+    """Uncommitted changes to tracked files (evlib's rule). Never dirty in a runner job."""
+    if pinned_sha():
+        return False
+    if _ev is not None:
+        return _ev.code_dirty()
+    here = Path(__file__).resolve().parent  # local shim only (W6 not merged)
+    out = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=here,
+                         capture_output=True, text=True, check=True).stdout
+    return bool(out.strip())
 
 
 def new_run_id(unit: str) -> str:
@@ -102,6 +129,13 @@ class Evidence:
     """One evidence target (a local directory). Delegates to W6's evlib when it is importable."""
 
     def __init__(self, root: str | os.PathLike) -> None:
+        if str(root).startswith("s3://"):  # read baselines from the team's evidence prefix (evlib only)
+            if _ev is None:
+                raise RuntimeError("an s3:// evidence store needs tools/evlib")
+            self.root = str(root)  # type: ignore[assignment]
+            self._local = None  # type: ignore[assignment]
+            self._store = _ev.S3Store(str(root))
+            return
         self.root = Path(root)
         self._local = _Local(root)
         self._store = _ev.LocalStore(root) if _ev is not None else None

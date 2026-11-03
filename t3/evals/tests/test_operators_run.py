@@ -3,15 +3,15 @@ import json
 import numpy as np
 import pytest
 
-from t3.evals import incidents as I
 from t3.evals import run as R
 from t3.evals.graders import load_targets
 from t3.evals.operators import NoAction, Oracle, PPO, RuleBaseline, StubPolicy, make
 from t3.evals.swarm import DryRunSwarmClient, SwarmOperator, task_text
+from t3.evals.tests._local import local_suite
 from t3.evals.twin_backend import ReplayTwin
 
 T = load_targets()
-INCS, DIGEST = I.load_test()
+SUITE, INCS, DIGEST = local_suite()  # built on this machine (see _local.py)
 INC = INCS[0]
 
 
@@ -141,8 +141,8 @@ def test_proposal_mode_grades_the_refused_proposal_on_our_twin():
 
 
 def test_end_to_end_run_writes_declared_items_result_and_gain(tmp_path):
-    base = R.run("no_action", tmp_path, [], allow_dirty=True, run_id="t-noact")
-    cand = R.run("config_revert", tmp_path, ["t-noact"], allow_dirty=True, run_id="t-cfg")
+    base = R.run("no_action", tmp_path, [], allow_dirty=True, suite=SUITE, run_id="t-noact")
+    cand = R.run("config_revert", tmp_path, ["t-noact"], allow_dirty=True, suite=SUITE, run_id="t-cfg")
     decl = json.loads((tmp_path / "declared" / "t-cfg.json").read_text())
     assert decl["test_set_sha256"] == DIGEST and decl["n_items"] == len(INCS)
     assert decl["baseline_run_id"] == "t-noact" and "subset" not in decl
@@ -150,18 +150,18 @@ def test_end_to_end_run_writes_declared_items_result_and_gain(tmp_path):
     assert len(items) == len(INCS) and all(i["run_id"] == "t-cfg" for i in items)
     res = json.loads((tmp_path / "results" / "t-cfg.json").read_text())
     g = res["details"]["gain"]
-    assert set(g) == {"value", "ci_low", "ci_high", "baseline_run_id", "paired_n"}
+    assert {"value", "ci_low", "ci_high", "baseline_run_id", "paired_n", "method", "seed"} <= set(g)
     assert g["paired_n"] == len(INCS) and g["baseline_run_id"] == "t-noact"
     assert g["ci_low"] <= g["value"] <= g["ci_high"]
     assert g["value"] == pytest.approx(cand["details"]["mean_recovery"] - base["details"]["mean_recovery"])
     with pytest.raises(FileExistsError):
-        R.run("no_action", tmp_path, [], allow_dirty=True, run_id="t-noact")
+        R.run("no_action", tmp_path, [], allow_dirty=True, suite=SUITE, run_id="t-noact")
 
     # the swarm unit: masked subset, proposal mode, gain over config_revert, secondary vs rule_baseline
-    R.run("rule_baseline", tmp_path, ["t-noact"], allow_dirty=True, run_id="t-rule")
+    R.run("rule_baseline", tmp_path, ["t-noact"], allow_dirty=True, suite=SUITE, run_id="t-rule")
     with pytest.raises(SystemExit):
-        R.run("swarm", tmp_path, ["t-noact"], allow_dirty=True, run_id="t-sw0", subset="masked")
-    R.run("swarm", tmp_path, ["t-cfg", "t-rule"], allow_dirty=True, run_id="t-sw", subset="masked")
+        R.run("swarm", tmp_path, ["t-noact"], allow_dirty=True, suite=SUITE, run_id="t-sw0", subset="masked")
+    R.run("swarm", tmp_path, ["t-cfg", "t-rule"], allow_dirty=True, suite=SUITE, run_id="t-sw", subset="masked")
     masked = [i for i in INCS if i["tier"] == "masked"]
     d = json.loads((tmp_path / "declared" / "t-sw.json").read_text())
     assert d["subset"] == "tier=masked" and d["n_items"] == len(masked)
@@ -205,7 +205,7 @@ ITEM_FIELDS = {"schema_version", "kind", "run_id", "team", "created_at", "aws_ti
 def test_records_only_use_contract_fields(tmp_path):
     import re
 
-    R.run("no_action", tmp_path, [], allow_dirty=True, run_id="t-c1")
+    R.run("no_action", tmp_path, [], allow_dirty=True, suite=SUITE, run_id="t-c1")
     decl = json.loads((tmp_path / "declared" / "t-c1.json").read_text())
     assert set(decl) <= R.DECLARED_FIELDS
     assert set(decl["twin"]) <= {"kind", "version", "scenario", "seed", "config"}
@@ -217,3 +217,12 @@ def test_records_only_use_contract_fields(tmp_path):
     res = json.loads((tmp_path / "results" / "t-c1.json").read_text())
     assert res["metric"] == res["target"]["metric"]
     assert res["passed"] == (res["value"] <= res["target"]["value"])
+
+
+def test_baselines_can_live_in_another_store(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    R.run("no_action", a, [], allow_dirty=True, suite=SUITE, run_id="t-na")
+    res = R.run("config_revert", b, ["t-na"], allow_dirty=True, suite=SUITE, run_id="t-cr", baseline_evidence=a)
+    assert res["details"]["gain"]["baseline_run_id"] == "t-na"
+    assert res["details"]["gain"]["paired_n"] == len(INCS)
+    assert not (b / "records" / "t-na").exists() and (a / "records" / "t-na").exists()

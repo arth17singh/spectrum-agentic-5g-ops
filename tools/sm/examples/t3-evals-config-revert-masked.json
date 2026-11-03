@@ -1,0 +1,45 @@
+{
+  "unit": "t3.evals.recovery",
+  "track": "track-3",
+  "target": {
+    "metric": "gain_ci_low_vs_no_action",
+    "op": ">",
+    "value": 0.0,
+    "unit": "recovery"
+  },
+  "test_set": "t3/evals/suite/incidents-test.jsonl",
+  "model_id": "config-revert-median-v1",
+  "grader": "t3/evals/graders.py:v1 (twin replay, same-step healthy counterfactual)",
+  "synthetic": false,
+  "twin": {
+    "kind": "maveric-inprocess",
+    "version": "ran-rl-1.2.9",
+    "scenario": "incident-suite",
+    "seed": 4102,
+    "config": {
+      "backend": "maveric-inprocess",
+      "suite": "t3/evals/suite/incidents-test.jsonl",
+      "suite_version": "t3-incidents-v4",
+      "suite_sha256": "128b229489d3b1e050223a03c7a23bb2e0bec995cb480a6e44552d2d51984638",
+      "frozen_by": "t3.evals.suite-freeze-20261103T031439Z-32b3 (ml.m5.xlarge, x86_64)",
+      "presets": [
+        "official",
+        "viavi-like"
+      ],
+      "tiers": [
+        "masked"
+      ],
+      "seeds": "one per incident (see the suite); twin.seed is the smallest",
+      "eval": {
+        "operator": "config_revert",
+        "targets_sha256": "8ab60e1ace2c587aff903a5f400b3be826cdad97967999414c0db00ba18e8e51",
+        "executed": "SageMaker training job started by tools/sm/run.py on ml.m5.xlarge (x86_64, the platform the suite was frozen on); in-process twin (twin/, W2), no network twin",
+        "evidence_writer": "tools/evlib.py: a local store in the job, uploaded and attested by tools/sm/entry.py",
+        "baselines": "pass --baseline-run-id <no_action run> to the runner AND the module",
+        "subset_note": "the 18 masked-tier incidents of the frozen test split; n_items 18"
+      },
+      "pathspec_note": "ship contracts, t3, tools and twin (twin/ must be in the archive)"
+    }
+  },
+  "subset": "tier=masked"
+}

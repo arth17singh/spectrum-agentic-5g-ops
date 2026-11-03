@@ -34,3 +34,27 @@ def paired_bootstrap(
         "paired_n": len(ids),
         "excludes_zero": bool(lo > 0 or hi < 0),
     }
+
+
+METHOD = "paired-bootstrap-v1"  # the name tools/check_unit.py replays; the algorithm is paired_bootstrap above
+
+
+def ci_spec(boot: dict[str, Any], baseline_run_id: str | None, baseline_model_id: str | None,
+            score_field: str = "score", subset: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Everything needed to replay an interval from the item records (check_unit part e).
+
+    ``boot`` is targets.json's bootstrap block (seed, resamples, ci). Pairs are item ids; each pair is
+    its own cluster; ``subset`` filters this run's items ({"field": dotted path, "equals": value})."""
+    return {
+        "method": METHOD,
+        "seed": int(boot["seed"]),
+        "resamples": int(boot["resamples"]),
+        "level": float(boot["ci"]),
+        "pair_key": "item_id",
+        "score_field": score_field,
+        "baseline_run_id": baseline_run_id,
+        "baseline_model_id": baseline_model_id,
+        "cluster_field": None,
+        "subset": subset,
+        "numpy_version": np.__version__,
+    }

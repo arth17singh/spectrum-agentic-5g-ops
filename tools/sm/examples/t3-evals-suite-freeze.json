@@ -1,0 +1,24 @@
+{
+  "unit": "t3.evals.suite-freeze",
+  "track": "track-3",
+  "target": {"metric": "n_items", "op": "==", "value": 84, "unit": "count"},
+  "test_set": "t3/evals/suite/candidates.jsonl",
+  "model_id": "none (data generation: twin replay only, no model)",
+  "grader": "t3/evals/incidents.py:v4 (twin replay; kept iff no_action fails the tolerance at the grade step and the safety filter clipped nothing)",
+  "synthetic": false,
+  "twin": {
+    "kind": "maveric-inprocess",
+    "version": "ran-rl-1.2.9",
+    "scenario": "incident-suite",
+    "seed": 4100,
+    "config": {
+      "backend": "maveric-inprocess",
+      "suite_version": "t3-incidents-v4",
+      "input": "t3/evals/suite/candidates.jsonl: the 84 candidate specs (test_set_sha256 is its sha256); seeds 4100-4183, one per candidate",
+      "output": "{output_dir}/suite: incidents-test.jsonl, incidents-dev.jsonl, incidents-test.sha256, incidents-meta.json (in the job's output.tar.gz)",
+      "records": "one item per candidate (input = canonical candidate spec, output = canonical incident or drop record) and a result with n_items == 84",
+      "executed": "SageMaker training job started by tools/sm/run.py on ml.m5.xlarge (x86_64): the platform of record for the suite; in-process twin (twin/, W2), no network twin",
+      "evidence_writer": "tools/evlib.py: a local store in the job, uploaded and attested by tools/sm/entry.py"
+    }
+  }
+}
