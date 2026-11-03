@@ -34,6 +34,28 @@ if (mode === 'empty') {
   if (!(await page.locator('[data-empty="pending"]').isVisible())) fail('empty state not shown')
   await page.screenshot({ path: join(out, '1-empty.png'), fullPage: true })
 } else {
+  // N-02: at 390 px the sheet fits, Reject and Approve stay visible, and FIXTURE wording is shown
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 } })
+  await phone.goto(`${base}/approvals`)
+  await phone.waitForSelector('[data-slice="kitapprovals"]')
+  await phone.waitForTimeout(1200)
+  if (await phone.locator('[aria-label="Demo Director"]').isVisible()) { await phone.keyboard.press('d'); await phone.waitForTimeout(300) }
+  const pend = phone.locator('[data-row="chg-3f9a1c2b7d10"]')
+  if (await pend.count()) {
+    await pend.click()
+    await phone.click('[data-action="review"]').catch(() => fail('no review button at 390 px'))
+    await phone.waitForSelector('[role="dialog"]').catch(() => fail('no dialog at 390 px'))
+    await phone.waitForTimeout(400)
+    for (const a of ['reject', 'approve']) {
+      const b = await phone.locator(`[role="dialog"] [data-action="${a}"]`).boundingBox()
+      if (!b || b.x < 0 || b.y < 0 || b.x + b.width > 390 || b.y + b.height > 844) fail(`${a} clipped at 390 px: ${JSON.stringify(b)}`)
+    }
+    const d = await phone.locator('[role="dialog"]').boundingBox()
+    if (!d || d.x < 0 || d.x + d.width > 390) fail(`dialog wider than 390 px: ${JSON.stringify(d)}`)
+    if (!(await phone.locator('[data-wording="fixture"]').isVisible())) fail('FIXTURE wording missing in the dialog')
+    await phone.screenshot({ path: join(out, '7-sheet-390px.png') })
+    await phone.close()
+  } else fail('no pending row for the 390 px check')
   await page.click('[data-row="chg-3f9a1c2b7d10"]')
   await page.waitForSelector('[data-detail="chg-3f9a1c2b7d10"]')
   await page.waitForTimeout(300)
@@ -78,6 +100,7 @@ if (mode === 'empty') {
   if (!(await page.locator('[data-filter="case"]').isVisible())) fail('no case filter note')
   if (!(await page.locator('[data-action="review"]').isDisabled())) fail('review is enabled on an evaluation proposal')
   await page.screenshot({ path: join(out, '6-case-filter-eval-proposal.png'), fullPage: true })
+
 }
 if (errors.length) fail(`console errors: ${errors.join(' | ')}`)
 await browser.close()
