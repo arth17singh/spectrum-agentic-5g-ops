@@ -6,6 +6,7 @@ import type { Rec } from '@/core/types'
 import { Button, CodeBlock, CopyText, EmptyState, PageHeader, Panel, RealChip } from '@/ui'
 import { gainText, stateAttr, targetText, utc, value } from './format'
 import manifest from './manifest'
+import RealRuns from './RealRuns'
 
 // Everything here is read from the declared/ and results/ records through GET /api/scorecard/units.
 // The server recomputes pass/fail from the measured value and the DECLARED target; a stored
@@ -109,6 +110,7 @@ export default function ScorecardPage() {
 
       {!card && !err && <div className="text-cap text-ink-3">Loading the scorecard…</div>}
       {card && <Summary card={card} />}
+      <RealRuns />
       {card && card.empty && (
         <Panel id="scorecard-empty" plane="verify" className="mt-4" title="No units yet">
           <EmptyState title="Nothing has been declared"
