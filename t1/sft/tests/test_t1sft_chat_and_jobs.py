@@ -1,4 +1,5 @@
-"""Chat rendering invariants (thinking off), the trainer's pure helpers, stage helpers and the job templates."""
+"""Chat rendering (thinking off), the trainer's and stager's pure helpers, the runner declarations and the
+exact runner commands (put through tools/sm/run.py's own plan, offline)."""
 
 from __future__ import annotations
 
@@ -9,8 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from t1.sft import chat, common, declare, stage_base, train_lora
+from t1.sft import chat, common, declare, launch, stage_base, train_lora
 from t1.sft.testing import MINI_TEMPLATE, FakeTokenizer
+from tools import check_unit, evlib
 
 MSGS = [{"role": "system", "content": "SYS"}, {"role": "user", "content": "USER"},
         {"role": "assistant", "content": '{"decision": "refuse", "change": "", "reason": "r"}'}]
@@ -43,10 +45,9 @@ def test_encode_masks_the_prompt_and_ends_on_im_end():
                     "model's chat_template.jinja (an organiser file, never in git) to check it too")
 def test_real_template_invariants():
     from t1.sft import templates
-
-    render = chat.jinja_renderer(Path(os.environ["T1_SFT_CHAT_TEMPLATE"]).read_text())
     from t1.sft.build import to_row
 
+    render = chat.jinja_renderer(Path(os.environ["T1_SFT_CHAT_TEMPLATE"]).read_text())
     for ex in templates.interface_examples(20) + templates.safety_examples(14):
         chat.split_text(render, to_row(ex, "train")["messages"])
 
@@ -82,6 +83,24 @@ def test_verify_sums_catches_a_changed_file(tmp_path):
         train_lora.verify_sums(tmp_path)
 
 
+def test_dev_items_score_final_over_base_and_recompute(tmp_path):
+    from t1.sft import templates
+    from t1.sft.build import to_row
+
+    rows = [to_row(ex, "dev") for ex in templates.interface_examples(4)]
+    dev_ex = [{"id": r["id"], "n_target": 30} for r in rows]
+    base = {r["id"]: 2.0 for r in rows}
+    final = {r["id"]: v for r, v in zip(rows, (0.2, 0.4, 1.0, 2.2))}
+    items = train_lora.dev_item_records(rows, dev_ex, base, final, "test")
+    assert [round(i["score"], 6) for i in items] == [0.1, 0.2, 0.5, 1.1]
+    assert [i["passed"] for i in items] == [True, True, True, False]
+    decl = {"run_id": "t1.sft.train-x", "unit": "t1.sft.train", "target": {"metric": "mean_score", "op": "<=",
+                                                                          "value": 0.5, "unit": "ratio"}}
+    res = common.write_evidence(tmp_path, decl, items, "t1/sft/train_lora.py", "a" * 40, {})
+    assert res["value"] == pytest.approx(check_unit.recompute("mean_score", items)) == pytest.approx(0.475)
+    assert res["passed"] is True and res["n_items"] == 4
+
+
 def test_train_dry_run_checks_the_chat_rendering(tmp_path):
     from t1.sft import build
 
@@ -93,7 +112,7 @@ def test_train_dry_run_checks_the_chat_rendering(tmp_path):
                                                      s["local_dir"], "--out", str(tmp_path / "o"),
                                                      "--chat-template", str(tpl)]))
     assert plan["chat_rendering_checked"] == s["counts"]["by_split"]["train"]
-    assert plan["target"] == {"metric": "dev_loss_ratio", "op": "<=", "value": 0.5, "unit": "ratio"}
+    assert plan["target"] == {"metric": "mean_score", "op": "<=", "value": 0.5, "unit": "ratio"}
 
 
 # --------------------------------------------------------------------------- stage helpers
@@ -106,25 +125,40 @@ def test_stage_read_index_and_dry_run(tmp_path):
     (tmp_path / "pytorch_model-00001-of-00001.bin").write_bytes(b"x")
     assert stage_base.read_index(tmp_path) == idx
     plan = stage_base.dry_run(stage_base.parse_args(["--run-id", "t1.sft.stage-dry", "--dry-run", "--src",
-                                                     str(tmp_path), "--dst", str(tmp_path / "out")]))
-    assert plan["n_tensors"] == 1 and plan["target"]["metric"] == "tensor_mismatch_count"
+                                                     str(tmp_path), "--dst", str(tmp_path / "out"),
+                                                     "--evidence-dir", str(tmp_path / "ev")]))
+    assert plan["n_tensors"] == 1
 
 
-def test_stage_records_validate(tmp_path):
-    from tools import evlib
+def test_stage_verify_items_per_tensor_with_tied_lm_head(tmp_path):
+    torch = pytest.importorskip("torch")
+    g = torch.Generator().manual_seed(0)
+    emb = torch.randn(6, 4, generator=g)
+    src = {"model.embed_tokens.weight": emb, "lm_head.weight": emb.clone(), "w1": torch.randn(3, 4, generator=g),
+           "w2": torch.randn(4, generator=g)}
+    index = {"weight_map": {k: "s.bin" for k in src}}
+    out = {"model.embed_tokens.weight": emb.to(torch.bfloat16), "w1": src["w1"].to(torch.bfloat16),
+           "w2": (src["w2"] + 1).to(torch.bfloat16)}
+    ver = stage_base.verify(src, out, index, tie=True)
+    by = {r["tensor"]: r for r in ver["rows"]}
+    assert by["lm_head.weight"]["passed"] and by["lm_head.weight"]["stored_as"].endswith("(tied)")
+    assert by["w1"]["passed"] and not by["w2"]["passed"] and by["w2"]["problem"].startswith("values differ")
+    assert by["w1"]["source_sha256"] != by["w1"]["output_sha256"]  # fp32 bytes vs bf16 bytes
+    items = stage_base.item_records(ver, "test")
+    assert len(items) == 4 and check_unit.recompute("fail_count", items) == 1
+    out["extra.weight"] = torch.zeros(1, dtype=torch.bfloat16)
+    ver2 = stage_base.verify(src, out, index, tie=True)
+    items2 = stage_base.item_records(ver2, "test")
+    assert len(items2) == 5 and check_unit.recompute("fail_count", items2) == 2
 
-    summary = {"verify": {"tensor_mismatch_count": 0, "n_tensors_source": 311, "problems": []},
+
+def test_stage_model_record_validates(tmp_path):
+    summary = {"verify": {"failed": 0, "n_tensors_source": 311},
                "output_files": {"model.safetensors": {"size": 1, "sha256": "0" * 64}},
                "source_files": [{"name": "config.json", "size": 1, "sha256": "1" * 64}],
-               "versions": {"python": "3.12"}, "dst": "s3://example-bucket/x/", "code_sha": "a" * 40}
+               "versions": {"python": "3.12"}, "code_sha": "a" * 40}
     rec = stage_base.model_record("t1.sft.stage-x", "s3://example-bucket/x/", "f" * 64, summary, None)
-    evlib.validate(dict(rec, kind="model", schema_version="1", team="team13", created_at=evlib.utc_now(),
-                        aws_time=None, aws_time_source=None, synthetic=False))
-    res = stage_base.result_record("t1.sft.stage-x", "a" * 40, summary)
-    evlib.validate(dict(res, kind="result", schema_version="1", team="team13", created_at=evlib.utc_now(),
-                        checked_at=evlib.utc_now(), aws_time=None, aws_time_source=None, synthetic=False))
-    store = evlib.LocalStore(tmp_path)
-    evlib.write_model(rec, store=store)
+    evlib.write_model(rec, store=evlib.LocalStore(tmp_path))
     assert (tmp_path / "models" / "otel-llm-1.7b-it" / "t1.sft.stage-x.json").is_file()
 
 
@@ -137,31 +171,120 @@ def test_upload_tree_refuses_to_overwrite_locally(tmp_path):
         common.upload_tree(src, str(tmp_path / "dst"))
 
 
-# --------------------------------------------------------------------------- job templates
-
-VALUES = {"run_id": "t1.sft.x-20261103T000000Z-abcd", "code_sha": "a" * 40, "bucket": "example-bucket",
-          "stage_run_id": "t1.sft.stage-20261103T000000Z-0001", "data_run_id": "t1.sft.data-20261103T000000Z-0002",
-          "n_dev": 380, "dev_jsonl_sha256": "b" * 64, "data_manifest_sha256": "c" * 64}
-
-
-@pytest.mark.parametrize("job", declare.JOBS)
-def test_declaration_templates_validate_when_filled(job):
-    rec = declare.declaration(job, VALUES)
-    assert rec["run_id"] == VALUES["run_id"] and rec["code_sha"] == VALUES["code_sha"]
-    assert rec["track"] == "track-1" and rec["region"] == "us-east-2"
-    spec = declare.job_spec(job, VALUES)
-    assert not declare.placeholders(spec)
-    assert spec["args"][:2] == ["--run-id", VALUES["run_id"]]
-    assert spec["entry"][:3] == ["python", "-m", f"t1.sft.{job}"]
+def test_the_input_must_be_the_declared_test_set():
+    common.check_test_set({"test_set_sha256": "a" * 64}, "a" * 64, "x")
+    with pytest.raises(common.JobError, match="test_set_sha256"):
+        common.check_test_set({"test_set_sha256": "a" * 64}, "b" * 64, "x")
 
 
-def test_unfilled_placeholders_are_an_error():
-    with pytest.raises(common.JobError, match="unfilled"):
-        declare.declaration("train_lora", {"run_id": "r", "code_sha": "a" * 40})
+def test_build_refuses_eval_items_other_than_the_declared_ones(tmp_path):
+    from t1.sft import build
+
+    d = declare.through_runner(declare.load("build"), run_id="t1.sft.data-ts")
+    d["test_set_sha256"] = "0" * 64
+    p = tmp_path / "d.json"
+    p.write_text(json.dumps(d))
+    a = build.parse_args(["--run-id", "t1.sft.data-ts", "--out", str(tmp_path / "o"), "--evidence-dir",
+                          str(tmp_path / "e"), "--declared", str(p), "--n-execution", "0"])
+    with pytest.raises(common.JobError, match="test_set_sha256"):
+        build.run(a)
+    assert not (tmp_path / "o").exists()
 
 
-def test_templates_hold_no_account_ids_or_organiser_bucket():
+def test_stored_declaration_must_name_the_run(tmp_path):
+    p = tmp_path / "d.json"
+    p.write_text(json.dumps({"run_id": "a"}))
+    assert common.stored_declaration("a", str(p))["run_id"] == "a"
+    with pytest.raises(common.JobError):
+        common.stored_declaration("b", str(p))
+
+
+# --------------------------------------------------------------------------- runner declarations and commands
+
+@pytest.fixture
+def clean_tree(monkeypatch):
+    from tools.sm import package
+
+    monkeypatch.setattr(package, "tree_dirty", lambda repo: [])
+
+
+def test_static_declarations_pass_the_runners_own_builder():
+    st = declare.through_runner(declare.load("stage_base"))
+    assert st["target"] == {"metric": "fail_count", "op": "==", "value": 0, "unit": "count"} and st["n_items"] == 311
+    bd = declare.through_runner(declare.load("build"))
+    assert bd["test_set_sha256"] == "b12ef1e21c452329bc6812de1568a48d0ecb2b2aa08f4b95326833263399d3c6"
+    assert bd["prompt_sha256"] == "bca9ecf54c3b9ac64c4f3a3d036e427f95605cf40c344b3357379c5a20a0629f"
+    assert bd["n_items"] == 1220 and bd["twin"]["kind"] == "maveric-inprocess"
+
+
+def _manifest(run_id="t1.sft.data-x"):
+    return {"run_id": run_id, "dry_run": False, "files": {"dev.jsonl": {"sha256": "d" * 64}},
+            "counts": {"written": {"by_split": {"dev": 421, "train": 3779}}},
+            "overlap": {"final_check": {"eval_overlap_count": 0}}}
+
+
+def test_train_declaration_is_filled_from_the_dataset_manifest():
+    d = declare.train_declaration("t1.sft.stage-x", "t1.sft.data-x", _manifest(), "e" * 64)
+    assert d["n_items"] == 421 and d["test_set_sha256"] == "d" * 64 and "baseline_run_id" not in d
+    assert d["decoding"]["inputs"]["base_run_id"] == "t1.sft.stage-x"  # the base weights' run, not an eval baseline
+    assert "subset" not in d and d["decoding"]["inputs"]["data_manifest_sha256"] == "e" * 64
+    r = declare.through_runner(d)
+    assert r["target"]["metric"] == "mean_score"
+    s = declare.train_declaration("t1.sft.stage-x", "t1.sft.data-x", _manifest(), "e" * 64, smoke=True)
+    assert s["n_items"] == 48 and s["target"]["op"] == "<" and "--limit-dev" in s["subset"]
+    declare.through_runner(s)
+    with pytest.raises(common.JobError):
+        declare.train_declaration("t1.sft.stage-x", "t1.sft.data-y", _manifest(), "e" * 64)
+    bad = _manifest()
+    bad["overlap"]["final_check"]["eval_overlap_count"] = 1
+    with pytest.raises(common.JobError):
+        declare.train_declaration("t1.sft.stage-x", "t1.sft.data-x", bad, "e" * 64)
+
+
+@pytest.mark.parametrize("job", ["stage_base", "build", "train_lora"])
+def test_runner_plans_each_job_offline(job, tmp_path, clean_tree, monkeypatch):
+    from tools.sm import run as R
+    from tools.sm import spec
+
+    monkeypatch.chdir(launch.REPO)  # the printed declaration paths are repo-relative
+
+    decl = None
+    if job == "train_lora":
+        decl = tmp_path / "train.json"
+        decl.write_text(json.dumps(declare.train_declaration("t1.sft.stage-x", "t1.sft.data-x", _manifest(), "e" * 64)))
+    args = launch.runner_args(job, f"t1.sft.{job}-test", spec.BUCKET, stage_run_id="t1.sft.stage-x",
+                              data_run_id="t1.sft.data-x", declaration=str(decl) if decl else None, profile=None)
+    a = R.parser().parse_args([*args, "--account", "000000000000"])
+    p = R.plan(a, None)
+    entry = " ".join(p["argv"])
+    for ph in ("{run_id}", "{evidence_dir}", "{output_dir}"):
+        assert ph in entry  # filled in the job, not here
+    chans = dict(p["channels"])
+    if job == "stage_base":
+        assert p["device"] == "cpu" and a.instance_type == "ml.m5.2xlarge" and not p["sdk"]
+        assert chans == {"model": f"s3://{spec.BUCKET}/models/base/otel-llm-1.7b-it/"}
+        assert "{channel:model}" in entry and "transformers==4.57.6" in p["requirements"]
+    elif job == "build":
+        assert p["device"] == "cpu" and a.instance_type == "ml.c5.4xlarge" and p["sdk"]
+        assert "sdk" in chans and "ran-rl[maveric]" in p["requirements"]
+        assert p["declaration"]["twin"]["config"]["runner"]["instance_type"] == "ml.c5.4xlarge"
+    else:
+        assert p["device"] == "gpu" and a.instance_type == "ml.g6.2xlarge" and not p["sdk"]
+        assert chans == {"model": f"s3://{spec.BUCKET}/models/base/otel-llm-1.7b-it-bf16/t1.sft.stage-x/",
+                         "data": f"s3://{spec.BUCKET}/datasets/t1-sft/t1.sft.data-x/"}
+        assert "peft" in p["requirements"] and a.max_run == 7200
+    assert f"t1/sft/{job}.py" in p["files"]
+
+
+def test_launch_prints_dry_run_and_no_wait_commands(capsys):
+    assert launch.main(["stage_base", "--run-id", "t1.sft.stage-test"]) == 0
+    out = capsys.readouterr().out
+    assert "--dry-run" in out and "--no-wait" in out and "--finish t1.sft.stage-test" in out
+    assert launch.main(["train_lora", "--run-id", "t1.sft.train-test"]) == 2  # needs stage/data/declaration
+
+
+def test_committed_files_hold_no_organiser_bucket():
     for p in list(declare.JOBS_DIR.glob("*.json")) + [Path(declare.__file__).with_name("staging") / "base_copy.json"]:
         text = p.read_text()
-        assert not re.search(r"\b\d{12}\b(?!\.dkr)", text.replace("763104351884.dkr", "")), p
+        assert not re.search(r"\b\d{12}\b", text), p
         assert "fyuz-otel" not in text and "bb26-p-team13" not in text, p

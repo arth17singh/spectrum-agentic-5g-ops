@@ -1,4 +1,0 @@
-# CPU job t1.sft.build on pytorch-training:2.8.0-cpu-py312 (torch from the image).
-# ran-rl 1.2.9[maveric] is installed by the job from the organisers' wheel (--sdk-wheel), never from git.
-pydantic>=2.7,<3
-boto3>=1.34

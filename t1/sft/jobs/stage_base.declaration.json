@@ -1,0 +1,22 @@
+{
+  "unit": "t1.sft.stage",
+  "track": "track-1",
+  "target": {"metric": "fail_count", "op": "==", "value": 0, "unit": "count"},
+  "n_items": 311,
+  "test_set_sha256": "25df4377f824767f051e557974776e3e75dec012b4f263b497ecde00e7cf402d",
+  "model_id": "otel-llm-1.7b-it",
+  "grader": "t1/sft/stage_base.py:verify (one item per tensor the source index names: passed when the bf16 safetensors output holds exactly the bf16 cast of the fp32 source tensor; lm_head must equal embed_tokens in the source to be stored tied; items carry both tensors' sha256)",
+  "synthetic": false,
+  "decoding": {
+    "test_set_is": "sha256 of pytorch_model.bin.index.json in the copied base prefix: the list of the 311 tensors verified",
+    "source": {"hf_repo": "farbodtavakkoli/OTel-LLM-1.7B-IT", "revision": "2a2d417b4c84d7ea609d6026a864cdf666ab1491",
+               "copy_record": "t1/sft/staging/base_copy.json", "channel": "model = s3://<team-bucket>/models/base/otel-llm-1.7b-it/",
+               "shard_etags": {"pytorch_model-00001-of-00002.bin": "315220401cc11e8e76e5d450e8537435-593",
+                               "pytorch_model-00002-of-00002.bin": "5d1865e8c2a0576c0b4b974dda711232-229"}},
+    "job": {"entry": "t1.sft.stage_base", "instance_type": "ml.m5.2xlarge", "transformers": "4.57.6",
+            "output": "s3://<team-bucket>/models/base/otel-llm-1.7b-it-bf16/<run_id>/ (plain files: model.safetensors, config, tokenizer, chat template, SHA256SUMS; stage_summary.json beside them)",
+            "output_dtype": "bfloat16",
+            "smoke": "chat template with enable_thinking=False must end with the empty think block; greedy decode 8 tokens",
+            "model_record": "evidence/models/otel-llm-1.7b-it/<run_id>.json (model_kind llm-lora: the contract has no base-model kind)"}
+  }
+}

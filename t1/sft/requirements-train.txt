@@ -1,7 +1,0 @@
-# GPU job t1.sft.train_lora on pytorch-training:2.8.0-gpu-py312 (torch from the image).
-transformers==4.57.6
-peft>=0.17,<0.18
-accelerate>=1.0,<2
-safetensors>=0.4.3,<1
-pydantic>=2.7,<3
-boto3>=1.34
