@@ -22,9 +22,9 @@ Times are Seattle time (PST, UTC−8) with UTC in brackets. Each entry keeps a d
 | [G-012](#g-012) | Resolved · found and fixed 2 Nov | `tools/check_unit.py` could not recompute the paired-bootstrap gain metric, so part [e] said "cannot check" (exit 2) for the Track 3 gain runs | Was: Track 3 baselines and the swarm incident eval (slot 5) | 3 Nov (found during the live-test rehearsal) |
 | [G-013](#g-013) | Resolved · harness defect | The Track 1 knowledge parser rejected bare-letter answers (90% parse failures); the first base knowledge run is superseded | Slot 6 (knowledge, base); the other four base runs stand | 2 Nov 20:43 PST |
 | [G-014](#g-014) | Resolved · process incident | A stream-branch push contained a real host address in a test literal; the scan reported it but the pipe hid the exit code. Branch deleted within minutes, history rewritten (`008e4bc`) | Confidentiality of the twin host; pushes now scan-gated | 2 Nov (time TODO) |
-| [G-015](#g-015) | Resolved · crashed run | The first t3 deny run `t3.deny-20261103T051458Z` crashed at item 23 (the Cedar validator rejected the pause-forbid guard form); fixed in `51010f8` | Slot 1 (t3 deny): the crashed run is superseded by a fresh deny run | 2 Nov about 21:15 PST |
+| [G-015](#g-015) | Resolved · crashed run | The first t3 deny run `t3.deny-20261103T051458Z` crashed at item 23 (the Cedar validator rejected the pause-forbid guard form); fixed in `51010f8` | Slot 1 (t3 deny): the crashed run is superseded by `t3.deny-20261103T054914Z` | 2 Nov about 21:15 PST |
 | [G-016](#g-016) | Declared design | Change records carry the approver's AWS identity (`approved_by`) as audit evidence; the dashboard shows a pseudonym | Track 3 audit: identity is in the evidence store, not on screen | 3 Nov (time TODO) |
-| [G-017](#g-017) | Open · diagnosis pending | Seed rules missing from the policy engine after the `614fc3b` deploy | Track 3 checkpoint | 3 Nov (time TODO) |
+| [G-017](#g-017) | Resolved · deploy script defect | `t3/deploy/register.py` read only the first page of `list_policies`; with 24 rules it tried to create a rule that already existed, exited 1 without a message, and never created the three seed rules | Track 3 checkpoint: the seed rules were missing after the `614fc3b` deploy | 3 Nov (time TODO) |
 
 ### Watching
 
@@ -270,7 +270,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Status:** resolved; the crashed run is superseded.
 - **Run:** `t3.deny-20261103T051458Z`, declared 3 Nov 05:14 UTC (2 Nov about 21:15 PST).
 - **What happened:** the run crashed at item 23. The Cedar validator rejected the pause-forbid guard form used for the pause-window items.
-- **Fix:** commit `51010f8` changes the guard form. A fresh deny run is to follow (run id to follow).
+- **Fix:** commit `51010f8` changes the guard form. The fresh deny run is `t3.deny-20261103T054914Z` (declared; grading under way when this was written, result TODO).
 - **Note:** a result record exists on S3 for the crashed run, covering the 22 items that completed; it shows 22 of 22 and must not be cited as the 27-item deny unit. It is listed in `evidence/superseded.json`.
 - **Who we told:** not applicable (our own code).
 
@@ -288,12 +288,19 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Who we told:** not applicable.
 
 <a id="g-017"></a>
-## G-017 · Seed rules missing from the policy engine after the deploy (diagnosis pending)
+## G-017 · Seed rules missing from the policy engine after the deploy (diagnosed and fixed)
 
-- **Status:** open; diagnosis pending.
-- **What:** seed rules missing from the policy engine after the `614fc3b` deploy. TODO: which rules, the exact error, the request id, and what we changed.
-- **Limits:** TODO (the Track 3 deny, allow and pause units depend on the rule set).
-- **Who we told:** TODO (user).
+- **Status:** resolved.
+- **What was missing:** the three seed rules were absent from the policy engine after the `614fc3b` deploy.
+- **Diagnosis:** `t3/deploy/register.py` read only the first page of the engine's `list_policies` answer. With 24 rules the list spans more than one page, so the script did not see a rule that already existed, tried to create it, failed, and exited 1 without printing an error. It never reached the seed rules.
+- **What was done by hand:** the lead created the three seed rules from `generate.rules()` as of `614fc3b`, with the exact parameters `register.py` uses and the forbid rules first. All three are ACTIVE. The other 12 rules were compared and have the same text.
+- **Fix:** commit `83f99f8` reads every page, prints failures, and has a test with a two-page list. With cedarpy installed, the 6 seed tests pass.
+- **Effect on runs:** the trial `t3.swarm-trial-20261103T052430Z` ran before the seed rules existed and is not a scored run (see the superseded table).
+- **Who we told:** not applicable (our own script and account).
+
+**Log**
+- 3 Nov (time TODO): missing seed rules noticed after the `614fc3b` deploy; created by hand.
+- `83f99f8`: paginated reads, printed failures, two-page test.
 
 ---
 
@@ -301,7 +308,9 @@ These become entries if still missing at the time shown (2 Nov, PST).
 
 | Run | Why it is superseded | Replaced by |
 |---|---|---|
-| `t3.deny-20261103T051458Z` | Crashed at item 23: the Cedar validator rejected the pause-forbid guard form (fixed in `51010f8`, G-015) | a fresh deny run (id to follow) |
+| `t3.deny-20261103T051458Z` | Crashed at item 23: the Cedar validator rejected the pause-forbid guard form (fixed in `51010f8`, G-015) | `t3.deny-20261103T054914Z` |
+| `t2.compare.federated_vs_B.disjoint-20261103T054303Z`, `t2.compare.federated_vs_C.disjoint-20261103T054442Z`, `t2.compare.distance_to_central.disjoint-20261103T054624Z`, `t2.compare.federated_vs_localfedavg.disjoint-20261103T054804Z` | Declared but never run: the job request was refused on our side before it reached AWS (a `ParamValidationError` from botocore, so no job exists) | the same comparisons relaunched under new ids (TODO) |
+| `t3.swarm-trial-20261103T052430Z` | A trial run before the seed rules existed (G-017); not a scored run | the scored swarm run (TODO) |
 | `t1.knowledge-otel-base-1` | Harness defect: the JSON-only knowledge parser rejected bare-letter answers (parse_fail 0.90); fixed narrowly in `c4b4b5e` (G-013) | `t1.knowledge-otel-base-2` |
 | `t3.evals.no_action-20261103T023304Z-0cd3` | Failed smoke run on the stand-in twin backend, against the old v2 suite; no result record | `t3.evals.no_action-20261103T032552Z-x86` |
 | `t3.evals.no_action-20261103T024101Z-22ae` | Failed smoke run, same cause; no result record | `t3.evals.no_action-20261103T032552Z-x86` |
