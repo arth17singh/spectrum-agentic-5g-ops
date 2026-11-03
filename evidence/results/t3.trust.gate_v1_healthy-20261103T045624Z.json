@@ -1,0 +1,121 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "checked_at": "2026-11-03T05:00:04.310652Z",
+  "checker": {
+    "code_sha": "5ccfd49f522132de1bf720f1cb30d548903d294d",
+    "script": "t3/trust/jobs.py"
+  },
+  "created_at": "2026-11-03T05:00:04.310647Z",
+  "details": {
+    "interval": "Wilson 95 %",
+    "model_id": "t2-response-v0",
+    "note": "Fresh for the trust gate: twin seeds 3000-3019 have never been through the gate (calibration used 20000-20039, the demos 0 and 1000-1009, the v2 evaluation 2000-2019). They were used by the laptop LADDER runs (f4a75a2), which choose changes with the predictors but never run the gate rule; no threshold was chosen on them. Thresholds v1 as declared (sha256 d051c1e0...), untouched since 2c8a57c.",
+    "paused": 7,
+    "paused_at": [
+      null,
+      15,
+      null,
+      20,
+      null,
+      16,
+      16,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      19,
+      19,
+      null,
+      null,
+      null,
+      null,
+      16
+    ],
+    "paused_by_6": 0,
+    "paused_by_6_ci95": [
+      0.0,
+      0.16112516018512965
+    ],
+    "paused_ci95": [
+      0.18119182312398308,
+      0.5671457249315559
+    ],
+    "policy_client": "dry run (pause forbids simulated; control records synthetic)",
+    "role": "healthy",
+    "runs": 20,
+    "seeds": [
+      3000,
+      3001,
+      3002,
+      3003,
+      3004,
+      3005,
+      3006,
+      3007,
+      3008,
+      3009,
+      3010,
+      3011,
+      3012,
+      3013,
+      3014,
+      3015,
+      3016,
+      3017,
+      3018,
+      3019
+    ],
+    "thresholds": {
+      "alpha": 0.15,
+      "direction_deadband": {
+        "coverage_ratio": 0.02,
+        "sinr_p10_db": 0.4,
+        "sla_ratio": 0.02
+      },
+      "keys": [
+        "coverage_ratio",
+        "sla_ratio",
+        "sinr_p10_db"
+      ],
+      "n_min": 3,
+      "pause_below": 0.4,
+      "scales": {
+        "coverage_ratio": 0.057,
+        "sinr_p10_db": 0.8862,
+        "sla_ratio": 0.0389
+      },
+      "sha256": "d051c1e05efbca5491fd90741ea835a3c83d0ba55ef320dfaf76cc24df4af74b",
+      "tau": 0.65,
+      "watch_below": 0.55,
+      "weights": {
+        "direction": 0.5,
+        "error": 0.5
+      },
+      "window": {
+        "needed": 2,
+        "of_last": 3
+      }
+    },
+    "thresholds_version": "v1",
+    "version": "v0"
+  },
+  "kind": "result",
+  "metric": "fail_count",
+  "n_items": 20,
+  "passed": false,
+  "run_id": "t3.trust.gate_v1_healthy-20261103T045624Z",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "fail_count",
+    "op": "<=",
+    "unit": "runs (healthy model paused)",
+    "value": 2
+  },
+  "team": "team13",
+  "unit": "t3.trust_gate.v1.healthy",
+  "value": 7.0
+}

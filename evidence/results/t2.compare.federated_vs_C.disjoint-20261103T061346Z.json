@@ -1,0 +1,93 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "checked_at": "2026-11-03T06:18:14.095Z",
+  "checker": {
+    "code_sha": "2e8f846a9743804abaeae4588d5b121167fb6318",
+    "script": "silos/job_compare.py"
+  },
+  "created_at": "2026-11-03T06:18:36.130Z",
+  "details": {
+    "bootstrap_detail": {
+      "ci_hi": 0.25538940361275625,
+      "ci_lo": 0.04147420493816014,
+      "level": 0.95,
+      "mean": 0.13459521602850424,
+      "method": "paired bootstrap resampling clusters (seeds)",
+      "n_boot": 2000,
+      "n_groups": 16,
+      "n_rows": 10000,
+      "row_level_ci": [
+        0.12470554210960094,
+        0.14443393706216184
+      ],
+      "seed": 20261102
+    },
+    "ci_lower_gt0": true,
+    "dry_run": false,
+    "gain": {
+      "baseline_run_id": null,
+      "ci_high": 0.25538940361275625,
+      "ci_low": 0.04147420493816014,
+      "cluster_field": "extra.seed",
+      "level": 0.95,
+      "method": "paired-bootstrap-v1",
+      "numpy_version": "2.5.3",
+      "pair_key": "item_id",
+      "paired_n": 10000,
+      "resamples": 2000,
+      "score_field": "score",
+      "seed": 20261102,
+      "subset": null,
+      "value": 0.13459521602850424
+    },
+    "kind": "beats",
+    "mean_diff": 0.13459521602850424,
+    "per_segment": {
+      "region_A": {
+        "mean_diff": 0.5448391038477491,
+        "n": 2000
+      },
+      "region_B": {
+        "mean_diff": 0.15054047709571505,
+        "n": 2000
+      },
+      "region_C": {
+        "mean_diff": -0.10204082613196194,
+        "n": 2000
+      },
+      "viavi_default_noise": {
+        "mean_diff": 0.06654517839999803,
+        "n": 2000
+      },
+      "viavi_like": {
+        "mean_diff": 0.013092146931021089,
+        "n": 2000
+      }
+    },
+    "verdict": true,
+    "x_mean_score": 0.6465625987053291,
+    "x_model": "t2-response-fl-federated-disjoint@v1",
+    "x_run": "t2.fl_federated.disjoint-20261103T051311Z",
+    "x_wins_fraction": 0.6227,
+    "y_mean_score": 0.7811578147338334,
+    "y_model": "t2-response-local-c-disjoint@v1",
+    "y_run": "t2.local_only.C.disjoint-20261103T041606Z"
+  },
+  "kind": "result",
+  "metric": "score_gain_ci_low",
+  "n_items": 10000,
+  "passed": true,
+  "run_id": "t2.compare.federated_vs_C.disjoint-20261103T061346Z",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "score_gain_ci_low",
+    "op": ">",
+    "unit": "scaled-MAE units: lower bound of the 95 % paired-bootstrap interval of the mean per-row difference (y minus x; positive = x better)",
+    "value": 0
+  },
+  "team": "team13",
+  "unit": "t2.compare.federated_vs_C.disjoint",
+  "value": 0.04147420493816014
+}
