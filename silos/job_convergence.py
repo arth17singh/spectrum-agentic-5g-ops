@@ -192,7 +192,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--split", choices=list(sr.SPLITS), default="disjoint")
     ap.add_argument("--rounds", required=True, help="first:last iteration index of the aggregates to score, e.g. 2:21")
-    ap.add_argument("--rounds-dir", help="directory holding the per-round aggregates (searched recursively; the runner passes {channel:<name>}/rounds)")
+    ap.add_argument("--rounds-dir", help="directory holding the per-round aggregates (searched recursively; the runner passes {channel:rounds})")
     ap.add_argument("--published", help="the published final aggregate (the file silos.job_evaluate scored)")
     ap.add_argument("--published-run", required=True, help="run id of the silos.job_evaluate run that scored the published aggregate")
     ap.add_argument("--local-only", action="append", default=[], metavar="S=RUN", help="the local-only run of silo S (A, B and C)")
@@ -259,8 +259,9 @@ def main(argv=None) -> int:
 
     root = sr.fetch([f"{a.split}/shared_test/test.csv"], manifest)
     test = nn.read_xy(root / a.split / "shared_test" / "test.csv")
-    if a.dry_run:
-        test = {k: v[:300] for k, v in test.items()}
+    if a.dry_run:  # the first rows of EVERY segment (the file is ordered by segment, so a plain head would miss some)
+        keep = np.concatenate([np.flatnonzero(test["segment"] == g)[:60] for g in sorted(set(test["segment"]))])
+        test = {k: v[keep] for k, v in test.items()}
 
     # the published model, scored by the same function; its bytes must be the file the published run recorded
     pub_blob = Path(a.published).read_bytes()
