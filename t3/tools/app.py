@@ -179,6 +179,7 @@ def check_model_version(args: dict, serving: str, what: str) -> None:
 CELL_KEYS = ("cell", "power_dbm", "tilt_deg", "ue_count", "coverage_share", "sla_share", "sinr_mean_db",
              "sinr_p10_db", "rsrp_mean_dbm", "rsrp_p10_dbm", "alarm", "asleep")
 INT_CELL_KEYS = ("cell", "ue_count")
+SHARE_KEYS = ("coverage_share", "sla_share")   # W2 2977a7e, ReplayTwin only
 
 
 def snapshot(step: int, kpis: dict) -> dict:
@@ -187,6 +188,8 @@ def snapshot(step: int, kpis: dict) -> dict:
     cells = []
     for c in kpis.get("per_cell") or []:
         cell = {k: c[k] for k in CELL_KEYS if k in c and c[k] is not None}
+        for k in SHARE_KEYS:  # always present: None where the twin cannot tell (hosted adapters, 0 UEs)
+            cell[k] = c.get(k)
         for k in INT_CELL_KEYS:
             if k in cell:
                 cell[k] = int(cell[k])
@@ -417,25 +420,41 @@ class Tools:
         Otherwise replays twice: once with an empty change (W2: a no-op step), once with the change.
         """
         twin, state = self.replay(case)
-        before = jsonable(self.d.kpis(state))          # the state at this step, as ran___observe shows it
+        before = self.state_kpis(twin, state)       # this step, exactly as ran___observe shows it
         cf_fn = getattr(twin, "counterfactual", None)
         cf = jsonable(cf_fn(cells)) if callable(cf_fn) else None   # W2: does not move the live twin
-        baseline = jsonable(self.d.kpis(twin.apply([])))            # no-change step: per-cell baseline
-        twin, _ = self.replay(case)
-        measured = jsonable(self.d.kpis(twin.apply(cells)))         # the change, applied for real
+        if cf is not None and cf.get("after_kpis") and cf.get("baseline_kpis"):
+            # W2 (2977a7e): full kpis() of both futures, per-cell shares included. One replay.
+            after_full, baseline_full = cf["after_kpis"], cf["baseline_kpis"]
+            twin.apply(cells)                                        # the change, applied for real
+        else:
+            baseline_full = jsonable(self.d.kpis(twin.apply([])))   # no-change step
+            twin, _ = self.replay(case)
+            after_full = jsonable(self.d.kpis(twin.apply(cells)))   # the change, applied for real
         if cf is not None:
             hb, hm = headline(cf["baseline"]), headline(cf["after"])
             d = {k: (None if cf["delta"].get(k) is None else float(cf["delta"][k])) for k in KPI_KEYS}
             clipped, rules, source = bool(cf.get("clamped")), cf.get("rules") or [], "twin.counterfactual"
         else:
             entry = twin.action_log[-1] if twin.action_log else {}
-            hb, hm = headline(baseline), headline(measured)
+            hb, hm = headline(baseline_full), headline(after_full)
             d = delta(hm, hb)
             clipped, rules, source = bool(entry.get("clamped")), entry.get("rules") or [], "two replays"
         return {"baseline_kpis": hb, "measured_kpis": hm, "measured_delta": d,
-                "measured_per_cell": measured.get("per_cell"), "clipped": clipped, "safety_rules": rules,
+                "measured_per_cell": after_full.get("per_cell"), "clipped": clipped, "safety_rules": rules,
                 "counterfactual_source": source, "action_log": jsonable(list(twin.action_log)),
-                "before_full": before, "baseline_full": baseline, "measured_full": measured}
+                "before_full": before, "baseline_full": baseline_full, "measured_full": after_full}
+
+    def state_kpis(self, twin: Any, state: Any) -> dict:
+        """KPIs of the twin's current state: W2's ReplayTwin.kpis() (per-cell shares included) when
+        it has it, else twin.kpis(state). Hosted adapters have no per-UE data, so no shares there."""
+        fn = getattr(twin, "kpis", None)
+        if callable(fn):
+            try:
+                return jsonable(fn())
+            except RuntimeError:  # shares rely on ran-rl 1.2.9 internals
+                pass
+        return jsonable(self.d.kpis(state))
 
     def twin_state(self, cf: dict, step: int) -> dict:
         """Per-cell twin state for the record: before (this step), after (the change plus one step)
@@ -468,9 +487,9 @@ class Tools:
     # ---- tools
     def observe(self, args: dict) -> dict:
         case = self.load_case(args)
-        _, state = self.replay(case)
+        twin, state = self.replay(case)
         return {"case_id": case["case_id"], "run_id": case["run_id"],
-                "twin": self.twin_info(case, len(case["action_log"])), "kpis": jsonable(self.d.kpis(state))}
+                "twin": self.twin_info(case, len(case["action_log"])), "kpis": self.state_kpis(twin, state)}
 
     def propose(self, args: dict) -> dict:
         case = self.load_case(args)

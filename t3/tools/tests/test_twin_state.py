@@ -37,10 +37,35 @@ def applied_record(twin=FakeTwinCF, steps_before=0):
 
 
 def cells(kpis):
-    return [{k: c[k] for k in app.CELL_KEYS if k in c} for c in kpis["per_cell"]]
+    return app.snapshot(0, kpis)["per_cell"]
 
 
-@pytest.mark.parametrize("twin", [FakeTwinCF, FakeTwin])
+def with_shares(k):
+    k = copy.deepcopy(k)
+    for c in k["per_cell"]:
+        c["coverage_share"] = round(0.2 + 0.1 * c["cell"], 3)
+        c["sla_share"] = None if c["cell"] == 3 else 0.25   # a cell with no UEs: None
+    return k
+
+
+class FakeTwinShares(FakeTwinCF):
+    """Like W2 2977a7e: kpis() with per-cell shares, and counterfactual() returning after_kpis and
+    baseline_kpis (full kpis dicts) next to the headline numbers."""
+
+    def kpis(self):
+        return with_shares(fake_kpis(self.state))
+
+    def counterfactual(self, change):
+        out = super().counterfactual(change)
+        saved_state, saved_log = copy.deepcopy(self.state), copy.deepcopy(self.action_log)
+        after = with_shares(fake_kpis(self.apply(change)))
+        self.state, self.action_log = copy.deepcopy(saved_state), copy.deepcopy(saved_log)
+        base = with_shares(fake_kpis(self.apply([])))
+        self.state, self.action_log = saved_state, saved_log
+        return {**out, "after_kpis": after, "baseline_kpis": base}
+
+
+@pytest.mark.parametrize("twin", [FakeTwinShares, FakeTwinCF, FakeTwin])
 @pytest.mark.parametrize("steps_before", [0, 2])
 def test_before_after_baseline_snapshots(twin, steps_before):
     w, rec, obs_before, obs_after = applied_record(twin, steps_before)
@@ -60,7 +85,13 @@ def test_before_after_baseline_snapshots(twin, steps_before):
     replay.reset()
     for entry in w.case_doc()["action_log"][:n]:
         replay.apply(entry["change"])
-    assert ts["baseline"]["per_cell"] == cells(fake_kpis(replay.apply([])))
+    base_kpis = fake_kpis(replay.apply([]))
+    assert ts["baseline"]["per_cell"] == cells(with_shares(base_kpis) if twin is FakeTwinShares else base_kpis)
+    if twin is FakeTwinShares:   # shares pass through; None where the twin cannot tell
+        assert ts["after"]["per_cell"][3]["sla_share"] is None and ts["after"]["per_cell"][1]["coverage_share"] == 0.3
+        assert obs_after["kpis"]["per_cell"][1]["coverage_share"] == 0.3   # observe shows them too
+    else:                        # no per-UE data: the keys are present and None
+        assert all(c["coverage_share"] is None and c["sla_share"] is None for c in ts["after"]["per_cell"])
     # the changed cell differs between after and baseline; the others do not
     after = {c["cell"]: c for c in ts["after"]["per_cell"]}
     base = {c["cell"]: c for c in ts["baseline"]["per_cell"]}
@@ -89,6 +120,10 @@ def test_snapshot_keeps_only_contract_cell_keys():
          "sinr_mean_db": 9.3, "sinr_p10_db": 2.7, "rsrp_mean_dbm": -88.0, "rsrp_p10_dbm": -92.0,
          "alarm": False, "asleep": False}]}
     assert isinstance(snap["per_cell"][0]["cell"], int)
+    hosted = {"coverage_ratio": 0.6, "sla_ratio": 0.9,
+              "per_cell": [{"cell": 1, "power_dbm": 23.0, "tilt_deg": 6.0, "ue_count": 0}]}
+    assert app.snapshot(0, hosted)["per_cell"] == [{"cell": 1, "power_dbm": 23.0, "tilt_deg": 6.0, "ue_count": 0,
+                                                    "coverage_share": None, "sla_share": None}]
 
 
 def test_aws_time_from_the_lambda_clock():
