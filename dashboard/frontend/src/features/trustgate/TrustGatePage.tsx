@@ -121,7 +121,7 @@ function PauseBadge({ m }: { m: ModelSummary }) {
 
 function TrustPanel({ m }: { m: ModelSummary }) {
   return (
-    <Panel id="trust-line" plane="verify" title={<span className="mono">{m.model_id} {m.version}</span>} subtitle="trust after each scored change"
+    <Panel id="trust-line" plane="verify" title={<span className="mono block max-w-[55vw] truncate md:max-w-none" title={`${m.model_id} ${m.version}`}>{m.model_id} {m.version}</span>} subtitle="trust after each scored change"
       actions={<PauseBadge m={m} />}>
       {m.status_conflict && (
         <div className="mb-3 flex items-center gap-2 rounded-md border border-warn/50 bg-warn/10 px-3 py-2 text-cap text-warn-ink">
