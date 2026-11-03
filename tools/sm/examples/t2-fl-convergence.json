@@ -1,0 +1,65 @@
+{
+ "grader": "silos.nn_core: per-row scaled MAE (declared scales) on the shared test set",
+ "model_id": "t2-response-fl-rounds-disjoint@v1",
+ "n_items": 60,
+ "synthetic": false,
+ "target": {
+  "metric": "pass_count",
+  "op": "==",
+  "unit": "points of the curve (round x silo) scored from a round whose client copies hold identical tensors; the last round counts only if its tensors equal the published model's and it reproduces its stored per-segment scores",
+  "value": 60
+ },
+ "test_set_sha256": "0ea3ff5dff6a7dc6f66eb8b91456db43607e55a2b047760905396c52f07296b9",
+ "track": "track-2",
+ "twin": {
+  "config": {
+   "details": {
+    "definitions": {
+     "mean": "unweighted mean of A, B and C (the three segments have equal n, so it equals the score on the three regions pooled)",
+     "metric": "scaled_mae: mean over test rows of mean over the 4 labels of |prediction - truth| / score_scale (silos.nn_core.row_scores); lower is better",
+     "reference": "each reference value is the model's score on the silo's own test segment, quoted from its evidence result (local_only.S = the model trained on silo S alone, scored on region_S)",
+     "round": "the iteration index in the service's file name; iteration 1 is the initial weights (not scored), and the aggregate with index k is the result of aggregating the clients' iteration k-1 updates",
+     "silo_segment": {
+      "A": "region_A",
+      "B": "region_B",
+      "C": "region_C"
+     }
+    },
+    "entry": "python -m silos.job_convergence --split disjoint",
+    "note": "Error against round of a federated session: the global aggregate of every round of the FL service session, scored with the scorer of the published final model on each simulated silo's own test segment of the shared test set. A measurement (there is no pass bar on the error); the declared target only proves that every point of the curve exists, comes from client copies with identical tensors, and that the last round is the published model.",
+    "population": "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data",
+    "published_run": "t2.fl_federated.disjoint-20261103T051311Z",
+    "reference_runs": {
+     "central": "t2.central.disjoint-20261103T041620Z",
+     "fedavg_local": "t2.fedavg_local.disjoint-20261103T041634Z",
+     "local_only": {
+      "A": "t2.local_only.A.disjoint-20261103T041539Z",
+      "B": "t2.local_only.B.disjoint-20261103T041553Z",
+      "C": "t2.local_only.C.disjoint-20261103T041606Z"
+     }
+    },
+    "rounds": [
+     2,
+     21
+    ],
+    "score_scale": [
+     0.02,
+     0.03,
+     0.5,
+     0.35
+    ],
+    "silos": [
+     "A",
+     "B",
+     "C"
+    ],
+    "split": "disjoint"
+   }
+  },
+  "kind": "none",
+  "scenario": "none",
+  "seed": 0,
+  "version": "none"
+ },
+ "unit": "t2.fl_convergence.disjoint"
+}
