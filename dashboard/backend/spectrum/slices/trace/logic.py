@@ -6,7 +6,10 @@ declared expected sequence:
 
     case_opened -> ask_agent* -> tool calls -> approval -> change_applied -> observe
 
-Times are the records' AWS times when present (`aws_time`), otherwise the time our own code wrote.
+Ordering uses the record's own time (`aws_time` when it has one, otherwise the time our own code wrote), as before.
+Every event also carries, separately, `aws_time` + `aws_time_source` (cloudwatch | s3_stored | policy_createdAt |
+gateway_date | none: see `_shared/awstime.py`) and `runner_time`, the clock of our own code. A runner or Lambda clock is
+never reported as AWS time.
 """
 
 from __future__ import annotations
@@ -14,6 +17,8 @@ from __future__ import annotations
 import shlex
 from datetime import datetime, timezone
 from typing import Any, Iterable
+
+from spectrum.slices._shared import awstime
 
 Rec = dict[str, Any]
 
@@ -50,10 +55,13 @@ def event_time(rec: Rec, kind: str) -> str | None:
 
 
 def _prov(rec: Rec) -> Rec:
-    """Provenance of one displayed record. `real` needs both: not marked synthetic (fixtures and dry runs are),
-    and an AWS-sourced time. A record without either signal is never counted as real."""
+    """Provenance of one displayed record, plus its AWS time and its runner clock (kept apart). `real` needs both:
+    not marked synthetic (fixtures and dry runs are), and a time AWS recorded for the event itself (CloudWatch, the
+    policy's createdAt, the Gateway's Date). A stored time alone (S3 LastModified) shows when the record was stored,
+    not that the event was real, so it is not enough; a Lambda or runner clock is never one."""
     synthetic = rec.get("synthetic") is True
-    return {"synthetic": synthetic, "real": (not synthetic) and bool(rec.get("aws_time"))}
+    t = awstime.resolve(rec)
+    return {"synthetic": synthetic, "real": (not synthetic) and t["aws_time_source"] in awstime.EVENT_SOURCES, **t}
 
 
 def _is_pause(rec: Rec) -> bool:
@@ -95,7 +103,7 @@ def _decision_event(rec: Rec) -> Rec:
         "tool": rec.get("tool"), "decision": rec.get("decision"), "deciding_rule": rec.get("deciding_rule"),
         "reason": rec.get("reason"), "guardrail_scores": rec.get("guardrail_scores"),
         "approval_id": rec.get("approval_id"),
-        "detail": {k: rec.get(k) for k in ("trace_id", "span_id", "log_pointer", "aws_time_source") if rec.get(k) is not None},
+        "detail": {k: rec.get(k) for k in ("trace_id", "span_id", "log_pointer") if rec.get(k) is not None},
         "kind": "decision", "step": step, "category": cat, **_prov(rec),
     }
 
@@ -231,10 +239,11 @@ def _is_pause_event(e: Rec) -> bool:
 def provenance(events: Iterable[Rec]) -> Rec:
     """What the screen may claim about the records it displays. `state`:
       empty       nothing displayed
-      real        every record has an AWS time and none is marked synthetic
+      real        every record has an AWS-recorded event time and none is marked synthetic
       synthetic   every record is marked synthetic (test fixtures, dry runs)
       mixed       some synthetic, some not
-      unverified  none synthetic, but some lack an AWS time (so not shown as real)
+      unverified  none synthetic, but some lack an AWS-recorded event time (so not shown as real)
+    `aws_time_summary` is "AWS time on k of n (cloudwatch a, S3 stored b, ...)" over the same records, by source.
     `note` is the text to show. `claim` ("Nothing here is simulated.") is non-empty only in the real state."""
     ev = list(events)
     n = len(ev)
@@ -245,15 +254,16 @@ def provenance(events: Iterable[Rec]) -> Rec:
     elif n_syn == n:
         state, label, note = "synthetic", "SYNTHETIC", "Synthetic records (test fixtures): not a real run."
     elif n_syn == 0 and n_unv == 0:
-        state, label, note = "real", "REAL", "Every record shown has an AWS time and is not marked synthetic."
+        state, label, note = "real", "REAL", "Every record shown has an AWS-recorded event time and is not marked synthetic."
     elif n_syn == 0:
         state, label = "unverified", "UNVERIFIED"
-        note = f"{n_unv} of {n} records have no AWS time, so they are not shown as real."
+        note = f"{n_unv} of {n} records have no AWS-recorded event time, so they are not shown as real."
     else:
         state, label = "mixed", "MIXED"
-        note = f"{n_syn} of {n} records synthetic" + (f"; {n_unv} more have no AWS time." if n_unv else ".")
+        note = f"{n_syn} of {n} records synthetic" + (f"; {n_unv} more have no AWS-recorded event time." if n_unv else ".")
     claim = "Nothing here is simulated." if state == "real" else ""
-    return {"state": state, "label": label, "note": note, "claim": claim, "n_records": n, "n_synthetic": n_syn, "n_unverified": n_unv}
+    return {"state": state, "label": label, "note": note, "claim": claim, "n_records": n, "n_synthetic": n_syn, "n_unverified": n_unv,
+            "aws_time_summary": awstime.summary(ev)}
 
 
 def _group(records: Iterable[Rec]) -> dict[tuple[str, str], list[Rec]]:

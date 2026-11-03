@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,19 @@ from typing import Any
 DEFAULT_ROOT = Path(__file__).resolve().parents[5] / "evidence"
 _NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._:@+=-]{0,199}$")
 _TIME_FIELDS = ("created_at", "time", "aws_time")
+
+
+_MANIFEST_LOCK = threading.Lock()
+_MANIFEST_CACHE: dict[str, tuple[tuple[int, int], dict[str, tuple[str, int]]]] = {}
+
+
+def _s3_iso(t: Any) -> str | None:
+    """S3 LastModified (a datetime from boto3) as whole-second UTC ISO, the form the evidence sync keeps."""
+    if not isinstance(t, datetime):
+        return None
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+    return t.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class RecordsError(RuntimeError):
@@ -63,10 +77,42 @@ def _record_time(rec: Any) -> float | None:
 
 def _order(entries: list[tuple[str, Any]]) -> list[Any]:
     """entries: (stable key, record). Timed records first by time, then key; untimed last by key."""
+    return [rec for _, rec in _order_keyed(entries)]
+
+
+def _order_keyed(entries: list[tuple[str, Any]]) -> list[tuple[str, Any]]:
     def sort_key(e):
         t = _record_time(e[1])
         return (t is None, t or 0.0, e[0])
-    return [rec for _, rec in sorted(entries, key=sort_key)]
+    return sorted(entries, key=sort_key)
+
+
+def _manifest(root: Path) -> dict[str, tuple[str, int]]:
+    """<root>/.sync/manifest.json (written by tools/evidence_sync.py from S3 ListObjectsV2) as
+    rel -> (LastModified, size), without the item records (they are never shown with a stored time). The parse is
+    cached until the file changes: the manifest is tens of MB and the views poll."""
+    p = root / ".sync" / "manifest.json"
+    try:
+        st = p.stat()
+    except OSError:
+        return {}
+    sig = (st.st_mtime_ns, st.st_size)
+    with _MANIFEST_LOCK:
+        hit = _MANIFEST_CACHE.get(str(p))
+        if hit and hit[0] == sig:
+            return hit[1]
+        try:
+            raw = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        out: dict[str, tuple[str, int]] = {}
+        if isinstance(raw, dict):
+            for k, v in raw.items():
+                if isinstance(v, dict) and isinstance(v.get("last_modified"), str) and isinstance(v.get("size"), int) \
+                        and "/item/" not in k:
+                    out[k] = (v["last_modified"], v["size"])
+        _MANIFEST_CACHE[str(p)] = (sig, out)
+        return out
 
 
 def _parse_json(text: str, where: str) -> Any:
@@ -136,6 +182,61 @@ class RecordsReader:
         for run_id in self.runs():
             entries += self._entries(run_id, kind)
         return _order(entries)
+
+    def all_records_stored(self, kind: str) -> list[tuple[dict, str | None]]:
+        """Like all_records(kind), each record paired with the S3 LastModified of its own object (whole-second
+        UTC ISO), or None. Only a per-record object (records/<run>/<kind>/<key>.json) gets one; a record read from
+        a .jsonl batch file never does, because the file's time bounds many records and is not theirs. The time is
+        AWS's: S3 itself for an s3:// root, the evidence sync's manifest for a mirrored directory (and only for a
+        file whose size still matches what S3 stored)."""
+        kind = _name(kind, "kind")
+        entries: list[tuple[str, Any]] = []
+        stored: dict[str, str | None] = {}
+        for run_id in self.runs():
+            es = self._entries(run_id, kind)
+            times = self._stored_times(f"records/{run_id}/{kind}/", [k for k, _ in es])
+            for k, _ in es:
+                stored[k] = times.get(k)
+            entries += es
+        return [(rec, stored.get(key)) for key, rec in _order_keyed(entries)]
+
+    def declared_stored(self, run_id: str) -> str | None:
+        """S3 LastModified of declared/<run_id>.json, or None."""
+        rel = f"declared/{_name(run_id, 'run_id')}.json"
+        return self._stored_times("declared/", [rel]).get(rel)
+
+    # ------------------------------------------------------------------ stored (S3 LastModified) times
+
+    def _stored_times(self, prefix: str, rels: list[str]) -> dict[str, str]:
+        rels = [r for r in rels if r.startswith(prefix) and r.endswith(".json") and "#" not in r]
+        if not rels:
+            return {}
+        if self.kind == "file":
+            man = _manifest(self.dir)
+            out = {}
+            for r in rels:
+                ent = man.get(r)
+                if not ent:
+                    continue
+                try:
+                    if (self.dir / r).stat().st_size != ent[1]:
+                        continue  # the local file is not what S3 stored
+                except OSError:
+                    continue
+                out[r] = ent[0]
+            return out
+        want = set(rels)
+        full = self.prefix + prefix
+        out = {}
+        try:
+            for page in self._s3().get_paginator("list_objects_v2").paginate(Bucket=self.bucket, Prefix=full):
+                for o in page.get("Contents", []):
+                    rel = o["Key"][len(self.prefix):]
+                    if rel in want and (iso := _s3_iso(o.get("LastModified"))):
+                        out[rel] = iso
+        except Exception as e:  # noqa: BLE001
+            raise RecordsError(f"cannot list s3://{self.bucket}/{full}: {_describe(e)}") from None
+        return out
 
     # ------------------------------------------------------------------ layout
 

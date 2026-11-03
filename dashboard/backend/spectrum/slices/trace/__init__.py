@@ -11,6 +11,8 @@ from typing import Any
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
+from spectrum.slices._shared import awstime
+
 from . import logic
 
 router = APIRouter(prefix="/api/trace")
@@ -23,13 +25,23 @@ def _reader():
     return RecordsReader()
 
 
+def _records(r, kind: str) -> list[dict]:
+    """The records of a kind. Each one that was read from its own object carries, in a private field the views never
+    output, the S3 LastModified AWS assigned when it stored that object (the fallback AWS time). A reader without
+    that method (a test double) just gives the records."""
+    stored = getattr(r, "all_records_stored", None)
+    if stored is None:
+        return list(r.all_records(kind))
+    return [{**rec, awstime.STORED_KEY: at} if at else rec for rec, at in stored(kind)]
+
+
 def _load() -> tuple[list[dict], list[dict], list[dict], Any]:
     r = _reader()
     try:
         src = r.source()
     except Exception:  # the source description is a courtesy, never a reason to fail
         src = None
-    return list(r.all_records("decision")), list(r.all_records("change")), list(r.all_records("control")), src
+    return _records(r, "decision"), _records(r, "change"), _records(r, "control"), src
 
 
 def _govern_listing(out: dict) -> dict:

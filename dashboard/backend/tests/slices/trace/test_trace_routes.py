@@ -140,7 +140,7 @@ def test_provenance_mixed_counts_synthetic_records(monkeypatch):
 def test_provenance_unverified_when_aws_time_missing(monkeypatch):
     p, _ = _prov(monkeypatch, _flip(FakeReader(), synthetic=False, aws_time=False))
     assert p["state"] == "unverified" and p["claim"] == "" and p["n_unverified"] == p["n_records"] > 0
-    assert "no AWS time" in p["note"]
+    assert "no AWS-recorded event time" in p["note"]
 
 
 def test_provenance_empty_and_control_counted_once(monkeypatch):

@@ -228,7 +228,7 @@
    "team": "team13",
    "created_at": "2026-11-02T20:02:45Z",
    "aws_time": "2026-11-02T20:02:45Z",
-   "aws_time_source": "dynamodb:applied_at",
+   "aws_time_source": "cloudwatch:/aws/lambda/team13-ran-tools",
    "synthetic": true,
    "case_id": "case-deny",
    "change_id": "chg-bbbbbbbbbbbb",
