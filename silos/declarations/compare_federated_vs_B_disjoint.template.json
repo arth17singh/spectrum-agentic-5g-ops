@@ -1,26 +1,7 @@
 {
- "bootstrap": {
-  "n_boot": 2000,
-  "seed": 20261102,
-  "unit": "cluster (seed)"
- },
- "code_sha": "<CODE_SHA: 40-hex commit the job was packaged from>",
- "comparison": "beats",
- "declared_also": "95 % paired-bootstrap interval lower bound of the mean difference > 0 (clusters resampled; details.ci_lower_gt0). The verdict in the result details is both conditions.",
- "entry": "python -m silos.job_compare --kind beats --name federated_vs_B --split disjoint",
  "grader": "silos.nn_core per-row scaled MAE, paired by item_id",
  "model_id": "t2-response-fl-federated-disjoint@v1 vs t2-response-local-b-disjoint@v1",
  "n_items": 10000,
- "population": "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data",
- "region": "<AWS_REGION>",
- "run_id": "<RUN_ID>",
- "score_scale": [
-  0.02,
-  0.03,
-  0.5,
-  0.35
- ],
- "split": "disjoint",
  "synthetic": false,
  "target": {
   "metric": "mean_score",
@@ -30,7 +11,33 @@
  },
  "test_set_sha256": "<sha256 of the shared test file in the AWS-generated data tree (manifest.json of silos.job_data)>",
  "track": "track-2",
- "unit": "t2.compare.federated_vs_B.disjoint",
- "x_run": "<run id of fl_federated>",
- "y_run": "<run id of local_B>"
+ "twin": {
+  "config": {
+   "details": {
+    "bootstrap": {
+     "n_boot": 2000,
+     "seed": 20261102,
+     "unit": "cluster (seed)"
+    },
+    "comparison": "beats",
+    "declared_also": "95 % paired-bootstrap interval lower bound of the mean difference > 0 (clusters resampled; details.ci_lower_gt0). The verdict in the result details is both conditions.",
+    "entry": "python -m silos.job_compare --kind beats --name federated_vs_B --split disjoint",
+    "population": "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data",
+    "score_scale": [
+     0.02,
+     0.03,
+     0.5,
+     0.35
+    ],
+    "split": "disjoint",
+    "x_run": "<run id of fl_federated>",
+    "y_run": "<run id of local_B>"
+   }
+  },
+  "kind": "none",
+  "scenario": "none",
+  "seed": 0,
+  "version": "none"
+ },
+ "unit": "t2.compare.federated_vs_B.disjoint"
 }

@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from silos import declarations, evio, features as F, generate as G, job_baselines, job_compare, job_data, job_evaluate, launch, nn_core as nn, scorerun as sr
+from silos import declarations, evio, features as F, generate as G, job_baselines, job_compare, job_data, job_evaluate, nn_core as nn, scorerun as sr
 from silos.tests.test_silos import tiny_cfg
 
 CODE_SHA = "a" * 40
@@ -203,44 +203,8 @@ def test_compare_refuses_runs_on_different_test_sets(job_env, monkeypatch, tmp_p
 
 
 # ---------------------------------------------------------------------------------------------
-# launch request, packaging, declaration templates
+# runner compatibility and declaration templates
 # ---------------------------------------------------------------------------------------------
-def test_launch_request_is_complete_and_never_calls_aws(monkeypatch, capsys):
-    for k, v in {"ROLE_ARN": "arn:aws:iam::111122223333:role/x", "IMAGE_URI": "img", "SOURCE_S3_URI": "s3://b/src.tgz", "OUTPUT_S3": "s3://b/out/",
-                 "EVIDENCE_S3": "s3://b/evidence/", "CODE_SHA": CODE_SHA, "DATA_COPY_S3": "s3://b/t2-silos/r/", "SDK_S3_URI": "s3://b/sdk.zip",
-                 "SILO_BUCKET_A": "a", "SILO_BUCKET_B": "b", "SILO_BUCKET_C": "c"}.items():
-        monkeypatch.setenv(k, v)
-    assert launch.main(["data", "--dry-run"]) == 0
-    cap = capsys.readouterr()
-    req = json.loads(cap.out)
-    assert req["Environment"]["JOB_MODULE"] == "silos.job_data" and req["Environment"]["JOB_NEEDS_SDK"] == "1"
-    assert req["ResourceConfig"]["InstanceType"] == "ml.m5.4xlarge" and req["StoppingCondition"]["MaxRuntimeInSeconds"] == 3600
-    assert json.loads(req["HyperParameters"]["sagemaker_program"]) == "run_job.py"
-    assert "estimate" in cap.err and "unset" not in cap.err
-    assert launch.main(["baseline", "--method", "local", "--silo", "B", "--split", "overlap"]) == 0
-    req2 = json.loads(capsys.readouterr().out)
-    assert req2["Environment"]["JOB_ARGS"].startswith("--method local --silo B --split overlap")
-    assert len(req2["TrainingJobName"]) <= 63 and "_" not in req2["TrainingJobName"]
-
-
-def test_launch_prints_placeholders_when_unset(monkeypatch, capsys):
-    for k in ("ROLE_ARN", "IMAGE_URI", "SOURCE_S3_URI", "OUTPUT_S3", "EVIDENCE_S3", "CODE_SHA", "DATA_COPY_S3", "SDK_S3_URI", "SILO_BUCKET_A", "SILO_BUCKET_B", "SILO_BUCKET_C", "RUN_ID"):
-        monkeypatch.delenv(k, raising=False)
-    launch.main(["compare", "--kind", "beats", "--x", "r1", "--y", "r2", "--name", "n"])
-    cap = capsys.readouterr()
-    assert "<ROLE_ARN>" in cap.out and "ROLE_ARN" in cap.err
-
-
-def test_package_contains_code_evlib_and_shim_but_no_tests_or_data(tmp_path):
-    import tarfile
-
-    info = launch.package(tmp_path / "src.tgz")
-    names = set(tarfile.open(tmp_path / "src.tgz").getnames())
-    assert {"run_job.py", "requirements.txt", "tools/evlib.py", "silos/job_data.py", "silos/config.yaml", "silos/manifest.json"} <= names
-    assert not any("tests" in n or n.endswith(".csv") or "__pycache__" in n for n in names)
-    assert len(info["sha256"]) == 64
-
-
 def test_committed_templates_match_what_the_code_generates():
     cur = declarations.build_all()
     on_disk = {p.name.replace(".template.json", ""): json.loads(p.read_text()) for p in declarations.DIR.glob("*.template.json")}
@@ -249,18 +213,85 @@ def test_committed_templates_match_what_the_code_generates():
         assert json.loads(json.dumps(cur[k], sort_keys=True)) == on_disk[k], k
 
 
-def test_declarations_say_what_they_must():
+RUNNER_DECLARED_KEYS = {"unit", "track", "target", "baseline_run_id", "n_items", "n_cases", "test_set_sha256", "subset", "prompt_sha256", "parser",
+                        "decoding", "model_id", "grader", "twin", "synthetic"}  # tools/sm/run.py DECLARED_KEYS
+
+
+def test_declarations_are_in_runner_form_and_say_what_they_must():
     t = declarations.build_all()
-    assert t["compare_federated_vs_B_disjoint"]["target"]["op"] == ">" and "bootstrap" in t["compare_federated_vs_B_disjoint"]
-    assert t["compare_federated_vs_C_disjoint"]["declared_also"].count("lower bound") == 1
-    assert t["fl_dp_disjoint"]["privacy"]["epsilon"] == 3.0 and "1e-5" in t["fl_dp_disjoint"]["privacy"]["planning_value_not_used"]
-    assert t["fl_dp_disjoint"]["privacy"]["delta_by_silo"]["A"] == pytest.approx(1 / 24000**2)
+    assert t["compare_federated_vs_B_disjoint"]["target"]["op"] == ">"
+    det = lambda k: t[k]["twin"]["config"]["details"]
+    assert "bootstrap" in det("compare_federated_vs_B_disjoint") and det("compare_federated_vs_C_disjoint")["declared_also"].count("lower bound") == 1
+    assert det("fl_dp_disjoint")["privacy"]["epsilon"] == 3.0 and "1e-5" in det("fl_dp_disjoint")["privacy"]["planning_value_not_used"]
+    assert det("fl_dp_disjoint")["privacy"]["delta_by_silo"]["A"] == pytest.approx(1 / 24000**2)
     for k, d in t.items():
-        assert d["track"] == "track-2" and "simulated silos" in d["population"] and d["run_id"] == "<RUN_ID>", k
+        assert set(d) <= RUNNER_DECLARED_KEYS and d["track"] == "track-2", k  # nothing the runner would refuse
+        assert "simulated silos" in d["twin"]["config"]["details"]["population"], k
+        assert not {"run_id", "code_sha", "region"} & set(d), k  # the runner sets these
+    assert t["data"]["twin"]["kind"] == "maveric-inprocess" and t["central_disjoint"]["twin"]["kind"] == "none"
     text = json.dumps(t).lower()
     assert ("cross" + "trainer") not in text and ("4835" + "98626742") not in text
     for k in ("local_only_A_disjoint", "central_disjoint", "fl_federated_disjoint", "compare_dp_cost_disjoint", "compare_distance_to_central_disjoint"):
         assert t[k]["target"]["op"] in (">=", ">") and t[k]["target"]["metric"] in ("n_items", "mean_score")
+
+
+def test_print_runner_declaration_matches_the_template_shape(job_env, monkeypatch, capsys):
+    monkeypatch.setenv("RUN_ID", "r")
+    assert job_baselines.main(["--method", "local", "--silo", "A", "--split", "disjoint", "--print-runner-declaration"]) == 0
+    d = json.loads(capsys.readouterr().out)
+    assert set(d) <= RUNNER_DECLARED_KEYS and d["unit"] == "t2.local_only.A.disjoint" and d["n_items"] == 50
+    assert d["twin"]["config"]["details"]["method"] == "local"
+
+
+def test_reconcile_uses_the_stored_declaration_and_refuses_a_different_one(tmp_path, monkeypatch):
+    ev = evio.get_evlib()
+    store = ev.LocalStore(tmp_path / "ev")
+    monkeypatch.setattr(ev, "default_store", lambda: store)
+    monkeypatch.setenv("EVIDENCE_S3", "s3://not-used/evidence/")
+    mine = evio.declaration(run_id="r-rec", unit="u", target={"metric": "n_items", "op": ">=", "value": 5, "unit": "count"}, n_items=5,
+                            test_set_sha256="b" * 64, model_id="m@v1", grader="g", code_sha=CODE_SHA)
+    assert evio.reconcile(mine) is mine  # nothing stored yet: standalone use
+    ev.write_declared({**mine, "twin": {"kind": "none", "version": "none", "scenario": "none", "seed": 0}}, store)
+    got = evio.reconcile(mine)
+    assert got["twin"]["kind"] == "none" and got["unit"] == "u"
+    with pytest.raises(SystemExit):
+        evio.reconcile({**mine, "n_items": 6})
+
+
+def test_parallel_object_writes_equal_evlib_layout(tmp_path):
+    ev = evio.get_evlib()
+    store = ev.LocalStore(tmp_path / "ev")
+    recs = [evio.item(item_id=f"i{k}", input_sha256="a" * 64, output_sha256="b" * 64, grader="g", backend="b", score=float(k)) for k in range(40)]
+    uris = evio.put_objects(ev, store, "r-par", "item", recs, workers=8)
+    assert len(uris) == 40 and len(set(uris)) == 40
+    got = evio.read_records_fast("r-par", "item", store)
+    assert sorted(r["item_id"] for r in got) == sorted(r["item_id"] for r in recs) == sorted(r["item_id"] for r in ev.read_records("r-par", "item", store))
+
+
+def test_job_runs_under_the_runner_entry_without_git_or_cwd_assumptions(tree, tmp_path, monkeypatch, capsys):
+    """tools/sm/entry.py runs '-m module args' with runpy in a process that has no .git; CODE_SHA names the commit."""
+    import runpy
+    import subprocess
+
+    def no_git(*a, **k):
+        raise AssertionError("a job must not call git: " + repr(a[0] if a else k))
+
+    monkeypatch.setattr(subprocess, "check_output", no_git)
+    monkeypatch.setattr(subprocess, "run", no_git)
+    monkeypatch.setenv("CODE_SHA", CODE_SHA)
+    monkeypatch.setenv("RUN_ID", "dryrun-under-runner")
+    monkeypatch.setenv("EVIDENCE_DIR", str(tmp_path / "ev"))
+    monkeypatch.setattr("sys.argv", ["silos.job_baselines", "--method", "local", "--silo", "C", "--split", "disjoint", "--data-dir", str(tree), "--dry-run"])
+    monkeypatch.delenv("DATA_DIR", raising=False)
+    with pytest.raises(SystemExit) as e:
+        runpy.run_module("silos.job_baselines", run_name="__main__", alter_sys=True)
+    assert e.value.code == 0
+    monkeypatch.setattr("sys.argv", ["silos.job_data", "--dry-run", "--out-dir", str(tmp_path / "out"), "--workers", "2"])
+    with pytest.raises(SystemExit) as e2:
+        runpy.run_module("silos.job_data", run_name="__main__", alter_sys=True)
+    assert e2.value.code == 0
+    man = json.loads((tmp_path / "out" / "manifest.json").read_text())
+    assert man["generator_commit"] == CODE_SHA and man["generator_tree_dirty"] is False
 
 
 def test_dp_accounting_service_vs_standard_counts():

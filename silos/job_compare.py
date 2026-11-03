@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 
 import numpy as np
@@ -37,7 +38,7 @@ def read_scores(run_id: str, store=None) -> tuple[dict, dict]:
     decl = ev.read_declared(run_id, store)
     if not decl:
         raise SystemExit(f"no declaration for run {run_id!r}")
-    items = {it["item_id"]: it for it in ev.read_records(run_id, "item", store)}
+    items = {it["item_id"]: it for it in evio.read_records_fast(run_id, "item", store)}
     if not items:
         raise SystemExit(f"run {run_id!r} has no item records")
     return decl, items
@@ -67,13 +68,14 @@ def main(argv=None) -> int:
     ap.add_argument("--split", choices=list(sr.SPLITS), default="disjoint")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--print-declaration", action="store_true")
+    ap.add_argument("--print-runner-declaration", action="store_true", help="print the declaration in the form `python -m tools.sm.run --declaration` accepts")
     ap.add_argument("--declare-only", action="store_true", help="write the declaration via evlib and exit (the runner does this BEFORE launching the job)")
     ap.add_argument("--declare-first", action="store_true")
     a = ap.parse_args(argv)
-    run_id = evio.env_run_id() or ("dryrun-t2-compare-" + a.name if (a.dry_run or a.print_declaration) else None)
+    run_id = evio.env_run_id() or ("dryrun-t2-compare-" + a.name if (a.dry_run or a.print_declaration or a.print_runner_declaration) else None)
     if not run_id:
         sys.exit("set RUN_ID (or EVIDENCE_RUN_ID)")
-    code_sha = evio.env_code_sha(required=not (a.dry_run or a.print_declaration))
+    code_sha = evio.env_code_sha(required=not (a.dry_run or a.print_declaration or a.print_runner_declaration))
     xd, xi = read_scores(a.x)
     yd, yi = read_scores(a.y)
     if xd["test_set_sha256"] != yd["test_set_sha256"]:
@@ -85,10 +87,15 @@ def main(argv=None) -> int:
     if a.print_declaration:
         evio.print_json(declared)
         return 0
+    if a.print_runner_declaration:
+        evio.print_json(evio.runner_declaration(declared))
+        return 0
     if a.declare_only:
         evio.get_evlib().write_declared(declared)
         print(f"declared {declared['run_id']} ({declared['unit']})")
         return 0
+    if not a.dry_run:
+        declared = evio.reconcile(declared)  # inside a runner job: the stored declaration must agree with this code
     if a.declare_first and not a.dry_run:
         evio.declare_first(declared)
 

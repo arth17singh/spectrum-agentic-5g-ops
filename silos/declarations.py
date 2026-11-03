@@ -2,10 +2,11 @@
 
     python -m silos.declarations            # regenerates silos/declarations/*.template.json
 
-A template is the declaration document with placeholders for what only exists at run time (<RUN_ID>, <CODE_SHA>, the
-Region) and for the hash of the AWS-generated shared test set (the committed manifest is the laptop copy; the run
-declares the hash of the data tree it actually scores). The job runner fills them and writes declared/<run_id>.json
-through tools/evlib before the run. `python -m silos.job_<x> --print-declaration` prints the same document with real values.
+A template is the declaration in the form the job runner accepts (`python -m tools.sm.run --declaration FILE`): only the
+contract's keys; the runner sets run_id, code_sha and region and writes declared/<run_id>.json BEFORE the job. What we
+say beyond the contract (population label, note, scales, comparison details) is in twin.config.details. The hash of the
+shared test set is a placeholder: the committed manifest is the laptop copy, and a run declares the hash of the AWS data
+tree it actually scores. `python -m silos.job_<x> --print-runner-declaration` prints the same document with real values.
 
 The units (all on the ONE shared test set of a split, scored by the per-row scaled MAE in silos/nn_core.py; "simulated
 silos": the three silos run in one account, so say so wherever these numbers are shown):
@@ -32,6 +33,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from . import evio
 from . import job_baselines as jb
 from . import job_compare as jc
 from . import job_evaluate as je
@@ -45,7 +47,6 @@ TEST_PH = "<sha256 of the shared test file in the AWS-generated data tree (manif
 
 
 def _fix(d: dict) -> dict:
-    d["region"] = PH["region"]
     d["test_set_sha256"] = TEST_PH
     return d
 
@@ -54,9 +55,7 @@ def build_all() -> dict[str, dict]:
     m = sr.committed_manifest()
     cfg = load_config(DEFAULT_CONFIG)
     out: dict[str, dict] = {}
-    d = job_data.declaration_for(cfg, PH["run_id"], PH["code_sha"])
-    d["region"] = PH["region"]
-    out["data"] = d
+    out["data"] = job_data.declaration_for(cfg, PH["run_id"], PH["code_sha"])
     for split in sr.SPLITS:
         for s in sr.SILOS:
             out[f"local_only_{s}_{split}"] = _fix(jb.declaration_for("local", s, split, PH["run_id"], PH["code_sha"], m, 20, 0))
@@ -68,7 +67,6 @@ def build_all() -> dict[str, dict]:
                                   n_rows=sr.test_rows(m, split), test_sha=TEST_PH, code_sha=PH["code_sha"], note=je.NOTE[label],
                                   extra={"split": split, "session_id": "<FL session id>", "final_aggregation_file": "<highest _aggregation_ file name>",
                                          "epsilon": eps, "entry": f"python -m silos.job_evaluate --label {label} --split {split}"})
-        dd["region"] = PH["region"]
         if label == "dp":
             dd["privacy"] = {"epsilon": 3.0, "delta": "(training-set size)^-2 per silo, fixed by the FL service's framework",
                              "delta_by_silo": {"A": 1 / 24000**2, "B": 1 / 9000**2, "C": 1 / 3000**2},
@@ -85,9 +83,9 @@ def build_all() -> dict[str, dict]:
                "local_B": "t2-response-local-b-disjoint@v1", "local_C": "t2-response-local-c-disjoint@v1"}
         dd = jc.declaration_for(kind, name, split, PH["run_id"], PH["code_sha"], {**fake, "model_id": ids[xk]}, {**fake, "model_id": ids[yk]},
                                 sr.test_rows(m, split), f"<run id of {xk}>", f"<run id of {yk}>")
-        dd["region"] = PH["region"]
         out[f"compare_{name}_{split}"] = dd
-    return out
+    twin = {"data": job_data.RUNNER_TWIN}
+    return {k: evio.runner_declaration(v, twin.get(k)) for k, v in out.items()}
 
 
 def write_templates() -> list[str]:
