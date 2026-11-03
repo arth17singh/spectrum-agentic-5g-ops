@@ -59,7 +59,23 @@ def sha256_text(s: str) -> str:
 
 
 def _close(a: dict[str, float], b: dict[str, float], keys) -> bool:
-    return all(math.isclose(a[k], b[k], rel_tol=REPLAY_TOL, abs_tol=1e-8) for k in keys)
+    return not replay_diffs(a, b, keys)
+
+
+def replay_diffs(got: dict[str, float], frozen: dict[str, float], keys) -> list[str]:
+    """One line per KPI that misses the replay tolerance: value replayed, value frozen, difference."""
+    out = []
+    for k in keys:
+        if not math.isclose(got[k], frozen[k], rel_tol=REPLAY_TOL, abs_tol=1e-8):
+            d = got[k] - frozen[k]
+            rel = abs(d) / max(abs(frozen[k]), 1e-12)
+            out.append(f"{k}: replayed {got[k]!r} vs frozen {frozen[k]!r} (diff {d:+.3e}, rel {rel:.3e}, "
+                       f"tolerance rel {REPLAY_TOL:g})")
+    return out
+
+
+class ReplayMismatch(RuntimeError):
+    """The twin on this machine does not reproduce the frozen suite (wrong backend or platform)."""
 
 
 def run_incident(incident: dict[str, Any], op: Any, targets: dict[str, Any], run_id: str = "adhoc") -> dict[str, Any]:
@@ -70,8 +86,14 @@ def run_incident(incident: dict[str, Any], op: Any, targets: dict[str, Any], run
     twin.reset()
     for change in inc_mod.script(incident, targets, with_fault=True):
         state = twin.apply(change)
-    if not _close(graded(state), incident["post_fault_kpis"], keys):
-        raise RuntimeError(f"{incident['incident_id']}: replayed post-fault KPIs differ from the frozen suite")
+    diffs = replay_diffs(graded(state), incident["post_fault_kpis"], keys)
+    if diffs:
+        import platform
+
+        raise ReplayMismatch(
+            f"{incident['incident_id']}: replayed post-fault KPIs differ from the frozen suite "
+            f"(twin backend {BACKEND}, platform {platform.system()}-{platform.machine()}; see "
+            f"suite/incidents-meta.json for where it was frozen): " + "; ".join(diffs))
     ctx = {"twin": twin, "targets": targets, "run_id": run_id}
     if hasattr(op, "begin"):
         op.begin(incident, ctx)
@@ -256,7 +278,7 @@ REGION = "us-east-2"  # the team's region (where this evidence is kept); the run
 
 def build_declared(run_id: str, operator: str, op: Any, unit: dict[str, Any], incidents: list[dict[str, Any]],
                    digest: str, baseline_run_ids: list[str], targets: dict[str, Any],
-                   subset: str | None = None) -> dict[str, Any]:
+                   subset: str | None = None, suite_path: str = "t3/evals/suite/incidents-test.jsonl") -> dict[str, Any]:
     d = {
         "run_id": run_id,
         "synthetic": bool(getattr(op, "synthetic", False)),
@@ -276,7 +298,7 @@ def build_declared(run_id: str, operator: str, op: Any, unit: dict[str, Any], in
             "seed": min(i["seed"] for i in incidents),
             "config": {
                 "backend": BACKEND,
-                "suite": "t3/evals/suite/incidents-test.jsonl",
+                "suite": suite_path,
                 "suite_version": inc_mod.SUITE_VERSION,
                 "presets": sorted({i["preset"] for i in incidents}),
                 "tiers": sorted({i.get("tier", "visible") for i in incidents}),
@@ -306,11 +328,16 @@ def build_declared(run_id: str, operator: str, op: Any, unit: dict[str, Any], in
 
 def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers: int = 1,
         allow_dirty: bool = False, op_kwargs: dict[str, Any] | None = None, run_id: str | None = None,
-        subset: str | None = None) -> dict[str, Any]:
+        subset: str | None = None, suite: str | Path | None = None) -> dict[str, Any]:
     single_thread()
     targets = load_targets()
     unit = targets["units"][operator]
-    incidents, digest = inc_mod.load_test()
+    suite_file = Path(suite) if suite else inc_mod.TEST_PATH
+    incidents, digest = inc_mod.load_test(suite_file)
+    try:
+        suite_label = suite_file.resolve().relative_to(inc_mod.SUITE_DIR.parents[2].resolve()).as_posix()
+    except ValueError:
+        suite_label = f"(outside the repo) {suite_file.name}"
     if subset is not None:
         if subset not in SUBSETS:
             raise SystemExit(f"unknown subset {subset!r}; known: {sorted(SUBSETS)}")
@@ -323,7 +350,8 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
     ev = Evidence(evidence_dir)
     run_id = run_id or new_run_id(f"t3.evals.{operator}")
     synthetic = bool(getattr(op, "synthetic", False))
-    declared = build_declared(run_id, operator, op, unit, incidents, digest, baseline_run_ids, targets, subset)
+    declared = build_declared(run_id, operator, op, unit, incidents, digest, baseline_run_ids, targets, subset,
+                              suite_label)
     ev.write_declared(declared)
     t0 = time.time()
     if workers > 1 and operator != "swarm":
@@ -406,6 +434,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="swarm only. proposal: each step is one front-door case stopped at the approval refusal; "
                          "the proposed change is graded on our twin (no approvals). full: real approvals.")
     ap.add_argument("--proposal-steps", type=int, default=3, help="swarm proposal mode: cases per incident")
+    ap.add_argument("--suite", type=Path, default=None,
+                    help="incident file to score (default: the frozen t3/evals/suite/incidents-test.jsonl, whose "
+                         "sha256 is checked against suite/incidents-test.sha256)")
     ap.add_argument("--subset", choices=sorted(SUBSETS), default=None,
                     help="masked = the masked-tier incidents of the frozen test split")
     ap.add_argument("--run-id", default=None)
@@ -413,7 +444,7 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     res = run(a.operator, a.evidence_dir, a.baseline_run_id, a.workers, a.allow_dirty,
               {"ppo_path": a.ppo_path, "swarm_client": a.swarm_client, "swarm_mode": a.mode,
-               "proposal_steps": a.proposal_steps}, a.run_id, a.subset)
+               "proposal_steps": a.proposal_steps}, a.run_id, a.subset, a.suite)
     d = res["details"]
     print(json.dumps({
         "run_id": res["run_id"], "synthetic": res["synthetic"], "metric": res["metric"], "value": res["value"],

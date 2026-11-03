@@ -94,8 +94,20 @@ def test_masked_tier_hides_the_fault_in_a_heterogeneous_configuration():
     assert any(len(i["commissioning"]) >= 3 for i in test if i["tier"] == "masked")
 
 
+def _frozen_platform_is_here() -> bool:
+    import platform
+
+    meta = json.loads(I.META_PATH.read_text())
+    from t3.evals.twin_backend import BACKEND
+
+    return (meta.get("platform") == f"{platform.system()}-{platform.machine()}" and meta.get("twin_backend") == BACKEND
+            and meta.get("suite") == I.SUITE_VERSION)
+
+
 def test_replay_is_deterministic_on_one_incident():
-    inc = I.load_test()[0][0]
+    from t3.evals.tests._local import local_suite
+
+    inc = local_suite()[1][0]
     runs = []
     for _ in range(2):
         t = ReplayTwin(inc["scenario"], inc["seed"], inc["preset"])
@@ -108,5 +120,80 @@ def test_replay_is_deterministic_on_one_incident():
 
 
 def test_regenerating_the_suite_reproduces_the_frozen_bytes():
+    if not _frozen_platform_is_here():
+        pytest.skip("the suite of record was frozen on another platform/backend/version (see suite/incidents-meta.json); "
+                    "the float32 GP twin replays it to 1e-6 only there: run this check in a runner job")
     out = I.generate()
     assert I.to_bytes(out["test"]) == I.TEST_PATH.read_bytes()
+
+
+def test_candidates_file_is_the_generators_input():
+    assert I.CANDIDATES_PATH.read_bytes() == I.candidates_bytes()
+    lines = I.CANDIDATES_PATH.read_text().splitlines()
+    assert len(lines) == I.N_CANDIDATES
+    assert json.loads(lines[0]) == I.candidate(0)
+
+
+def test_freeze_writes_only_into_out_and_records_one_item_per_candidate(tmp_path, monkeypatch):
+    monkeypatch.setattr(I, "N_CANDIDATES", 6)
+    monkeypatch.setattr(I, "CANDIDATES_PATH", tmp_path / "absent.jsonl")
+    out_dir, ev_dir = tmp_path / "out" / "suite", tmp_path / "ev"
+    before = sorted(p.name for p in I.SUITE_DIR.iterdir())
+    stamps = {p.name: p.stat().st_mtime_ns for p in I.SUITE_DIR.iterdir()}
+    rc = I.main(["--out", str(out_dir), "--evidence-dir", str(ev_dir), "--run-id", "t-freeze"])
+    assert rc == 0
+    assert sorted(p.name for p in I.SUITE_DIR.iterdir()) == before  # the code tree is untouched
+    assert {p.name: p.stat().st_mtime_ns for p in I.SUITE_DIR.iterdir()} == stamps
+    assert sorted(p.name for p in out_dir.iterdir()) == sorted(
+        [I.TEST_PATH.name, I.DEV_PATH.name, I.HASH_PATH.name, I.META_PATH.name])
+    test_bytes = (out_dir / I.TEST_PATH.name).read_bytes()
+    assert (out_dir / I.HASH_PATH.name).read_text().split()[0] == hashlib.sha256(test_bytes).hexdigest()
+    meta = json.loads((out_dir / I.META_PATH.name).read_text())
+    assert meta["suite"] == I.SUITE_VERSION and meta["frozen_at"].endswith("Z") and meta["candidates"] == 6
+    items = [json.loads(x) for x in (ev_dir / "records" / "t-freeze" / "item.jsonl").read_text().splitlines()]
+    assert len(items) == 6 and len({i["item_id"] for i in items}) == 6
+    for it, i in zip(items, range(6)):
+        spec = I.candidate(i)
+        assert it["input_sha256"] == hashlib.sha256(I.canonical_line(spec).encode()).hexdigest()
+        assert len(it["output_sha256"]) == 64
+    kept_ids = {i["extra"]["incident_id"] for i in items if i["extra"]["kept"]}
+    frozen_ids = {json.loads(x)["incident_id"] for x in test_bytes.decode().splitlines()}
+    frozen_ids |= {json.loads(x)["incident_id"] for x in (out_dir / I.DEV_PATH.name).read_text().splitlines()}
+    assert kept_ids == frozen_ids
+    res = json.loads((ev_dir / "results" / "t-freeze.json").read_text())
+    assert res["metric"] == "n_items" and res["value"] == 6 and res["n_items"] == 6 and res["passed"] is True
+    assert res["target"] == {"metric": "n_items", "op": "==", "value": 6, "unit": "count"}
+    assert res["details"]["test_sha256"] == hashlib.sha256(test_bytes).hexdigest()
+
+
+def test_replay_mismatch_names_the_kpi_and_the_difference():
+    from t3.evals import run as R
+    from t3.evals.operators import NoAction
+    from t3.evals.tests._local import local_suite
+
+    inc = json.loads(json.dumps(local_suite()[1][0]))
+    inc["post_fault_kpis"]["coverage_ratio"] += 0.005
+    with pytest.raises(R.ReplayMismatch) as e:
+        R.run_incident(inc, NoAction(), T)
+    msg = str(e.value)
+    assert inc["incident_id"] in msg and "coverage_ratio: replayed" in msg and "diff -5.000e-03" in msg
+    assert "sla_ratio" not in msg
+
+
+def test_evshim_takes_the_pinned_sha_and_never_asks_git(monkeypatch):
+    from t3.evals import evshim
+
+    sha = "0123456789abcdef0123456789abcdef01234567"
+    monkeypatch.setenv("CODE_SHA", sha)
+
+    def boom(*a, **k):
+        raise AssertionError("git was called")
+
+    monkeypatch.setattr(evshim.subprocess, "run", boom)
+    if evshim._ev is not None:
+        monkeypatch.setattr(evshim._ev, "code_sha", boom)
+        monkeypatch.setattr(evshim._ev, "code_dirty", boom)
+    assert evshim.code_sha() == sha and evshim.code_dirty() is False
+    monkeypatch.setenv("CODE_SHA", "not-a-sha")
+    with pytest.raises(ValueError):
+        evshim.code_sha()
