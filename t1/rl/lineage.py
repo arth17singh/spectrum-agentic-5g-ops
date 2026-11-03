@@ -21,9 +21,11 @@ import argparse
 import io
 import json
 import math
+import re
 import os
 import sys
 import tarfile
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +34,7 @@ for _p in (str(ROOT / "contracts"), str(ROOT)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+from t1.rl.reward_check import last_metric  # noqa: E402
 from tools import evlib  # noqa: E402
 from tools.sm import spec as smspec  # noqa: E402
 
@@ -40,6 +43,7 @@ TRAIN_JOB = "t1-rl-train-20261103T023805Z-a09e-20261103-023807"
 RUN_METADATA_KEYS = ("git_commit", "config_hash", "use_case", "objective_version", "seed", "twin", "reward_plugin",
                      "started_at", "ended_at", "resumed_from")
 MAX_BYTES = 512 * 1024 * 1024
+CKPT_STEPS_RE = re.compile(r"_(\d+)_steps\.zip$")
 
 
 class Refusal(RuntimeError):
@@ -87,7 +91,8 @@ def tar_sha(data: bytes, name: str) -> str | None:
     return None
 
 
-def build(aws, run_id: str, job: str, region: str, bucket: str) -> tuple[dict, dict]:
+def build(aws, run_id: str, job: str, region: str, bucket: str,
+          checkpoint_uri: str | None = None) -> tuple[dict, dict]:
     s3, sm = aws.client("s3"), aws.client("sagemaker", region)
     store = evlib.S3Store(f"s3://{bucket}/{smspec.EVIDENCE_PREFIX}", client=s3)
     decl = evlib.read_declared(run_id, store)
@@ -105,34 +110,70 @@ def build(aws, run_id: str, job: str, region: str, bucket: str) -> tuple[dict, d
     job_rec = smspec.job_record(d, region, price)
     job_rec.update(run_id=run_id, synthetic=False)
     model_uri = (d.get("ModelArtifacts") or {}).get("S3ModelArtifacts")
-    if status != "Completed" or not model_uri:
-        raise Refusal(f"training job {job} is {status} with artifact {model_uri!r}: no model to record")
-    model = get_object(s3, model_uri)
-    metrics_json, members = tar_json(model, "metrics.json")
-    run_meta, _ = tar_json(model, "run_metadata.json")
+    end = smspec.iso(d.get("TrainingEndTime"))
+    ckpt: dict = {}
+    if checkpoint_uri:
+        ck_prefix = ((d.get("CheckpointConfig") or {}).get("S3Uri") or "").rstrip("/") + "/"
+        m = CKPT_STEPS_RE.search(checkpoint_uri)
+        if ck_prefix == "/" or not checkpoint_uri.startswith(ck_prefix) or not m:
+            raise Refusal(f"{checkpoint_uri} is not an SDK checkpoint (<algo>_<steps>_steps.zip) under the job's "
+                          f"CheckpointConfig.S3Uri ({ck_prefix})")
+        model = get_object(s3, checkpoint_uri)
+        if not zipfile.is_zipfile(io.BytesIO(model)):
+            raise Refusal(f"{checkpoint_uri} is not a zip file")
+        b, _, k = checkpoint_uri[len("s3://"):].partition("/")
+        lm = smspec.iso(s3.head_object(Bucket=b, Key=k).get("LastModified"))
+        eff = None
+        try:
+            eff = get_object(s3, ck_prefix + "effective_config.json")
+        except Exception:  # noqa: BLE001 - optional
+            eff = None
+        metrics_json, members, run_meta = None, None, None
+        ckpt = {"steps": int(m.group(1)), "source_checkpoint_uri": checkpoint_uri, "s3_last_modified": lm,
+                "effective_config_sha256": evlib.sha256_bytes(eff) if eff else None,
+                "failed_model_artifact_uri": model_uri if status != "Completed" else None}
+        artifact_uri, version = checkpoint_uri, f"{job}-ckpt-{ckpt['steps']}"
+        aws_time, aws_src = lm, f"s3:LastModified {checkpoint_uri}"
+    else:
+        if status != "Completed" or not model_uri:
+            raise Refusal(f"training job {job} is {status} with artifact {model_uri!r}: no model to record "
+                          "(name a checkpoint with --checkpoint-uri)")
+        model = get_object(s3, model_uri)
+        metrics_json, members = tar_json(model, "metrics.json")
+        run_meta, _ = tar_json(model, "run_metadata.json")
+        artifact_uri, version = model_uri, job
+        aws_time, aws_src = end, "sagemaker:TrainingEndTime"
+    last_ts = last_metric(aws, job, region, d, "timesteps")
     project_uri = smspec.unquote_hp((d.get("HyperParameters") or {}).get("sagemaker_submit_directory"))
     project = get_object(s3, project_uri) if isinstance(project_uri, str) and project_uri.startswith("s3://") else None
     final = {m["MetricName"]: {"value": m.get("Value"), "timestamp": smspec.iso(m.get("Timestamp"))}
              for m in d.get("FinalMetricDataList") or []}
     billable = int(d.get("BillableTimeInSeconds") or 0)
-    end = smspec.iso(d.get("TrainingEndTime"))
     model_rec = {
-        "run_id": run_id, "model_id": decl["model_id"], "version": job, "model_kind": "ppo",
-        "artifact_uri": model_uri, "artifact_sha256": evlib.sha256_bytes(model), "status": "candidate",
+        "run_id": run_id, "model_id": decl["model_id"], "version": version, "model_kind": "ppo",
+        "artifact_uri": artifact_uri, "artifact_sha256": evlib.sha256_bytes(model), "status": "candidate",
         "trained_on": run_id, "synthetic": False,
-        "aws_time": end, "aws_time_source": "sagemaker:TrainingEndTime",
+        "aws_time": aws_time, "aws_time_source": aws_src,
         "metrics": finite({
+            "model_form": "checkpoint" if checkpoint_uri else "model.tar.gz",
+            "checkpoint": ckpt or None,
+            "steps": ckpt.get("steps"),
+            "declared_timesteps": ((decl.get("twin") or {}).get("config") or {}).get("training", {}).get("timesteps"),
+            "last_metric_timesteps": last_ts,
             "final_metric_data_list": final,
             "final_metrics_source": ("sagemaker:FinalMetricDataList" if final else
+                                     "FinalMetricDataList was empty; a checkpoint has no metrics.json, see "
+                                     "last_metric_timesteps (the job log)" if checkpoint_uri else
                                      "FinalMetricDataList was empty; see metrics_json (the artifact's metrics.json)"),
             "metrics_json": metrics_json,
             "artifact_bytes": len(model), "artifact_members": members,
-            "model_zip_sha256": tar_sha(model, "model.zip"),
+            "model_zip_sha256": evlib.sha256_bytes(model) if checkpoint_uri else tar_sha(model, "model.zip"),
             "project_uri": project_uri, "project_sha256": evlib.sha256_bytes(project) if project else None,
             "project_bytes": len(project) if project else None,
             "run_metadata": {k: run_meta[k] for k in RUN_METADATA_KEYS if isinstance(run_meta, dict) and k in run_meta},
             "training_job": {
                 "name": job, "arn": d.get("TrainingJobArn"), "status": status,
+                "failure_reason": d.get("FailureReason"),
                 "secondary_status": d.get("SecondaryStatus"),
                 "creation_time": smspec.iso(d.get("CreationTime")),
                 "training_start_time": smspec.iso(d.get("TrainingStartTime")), "training_end_time": end,
@@ -170,6 +211,7 @@ def main(argv: list[str] | None = None, aws=None, out=print) -> int:
     ap.add_argument("--run-id", default=TRAIN_RUN_ID)
     ap.add_argument("--job", default=TRAIN_JOB)
     ap.add_argument("--write", action="store_true", help="write the two records (default: dry run)")
+    ap.add_argument("--checkpoint-uri", help="record this SDK checkpoint .zip as the model (allows a Failed job)")
     ap.add_argument("--profile", default=os.environ.get("AWS_PROFILE"))
     ap.add_argument("--region", default=smspec.REGION)
     ap.add_argument("--bucket", default=smspec.BUCKET)
@@ -180,7 +222,7 @@ def main(argv: list[str] | None = None, aws=None, out=print) -> int:
         aws = Aws(a.profile, a.region)
     store = evlib.S3Store(f"s3://{a.bucket}/{smspec.EVIDENCE_PREFIX}", client=aws.client("s3"), region=a.region)
     try:
-        job_rec, model_rec = build(aws, a.run_id, a.job, a.region, a.bucket)
+        job_rec, model_rec = build(aws, a.run_id, a.job, a.region, a.bucket, a.checkpoint_uri)
         check_new(store, a.run_id, job_rec, model_rec)
         pj, pm = preview(job_rec, "job"), preview(model_rec, "model")
     except (Refusal, evlib.EvidenceError) as e:

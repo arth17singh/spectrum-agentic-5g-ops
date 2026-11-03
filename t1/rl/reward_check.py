@@ -67,7 +67,12 @@ def metric_regex(d: dict, metric: str = METRIC) -> tuple[re.Pattern, str]:
 def last_metric(aws, job: str, region: str, d: dict, metric: str) -> dict | None:
     """The job's last `METRIC <metric>=<x>` log event: value, time, ingestion time, stream, event id; or None."""
     rx, src = metric_regex(d, metric)
-    evs = metric_events(aws.client("logs", region), job, rx, metric)
+    try:
+        evs = metric_events(aws.client("logs", region), job, rx, metric)
+    except Exception as e:  # noqa: BLE001 - no log group (yet): there is no such line
+        if ((getattr(e, "response", None) or {}).get("Error") or {}).get("Code") != "ResourceNotFoundException":
+            raise
+        evs = []
     if not evs:
         return None
     e = evs[-1]

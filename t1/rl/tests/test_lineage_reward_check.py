@@ -121,6 +121,39 @@ def test_lineage_refuses_a_running_job():
     assert lineage.main(["--write"], aws=aws, out=out.append) == 2 and aws.s3.writes == 0
 
 
+def test_lineage_failed_job_with_checkpoint():
+    import zipfile
+
+    aws, _, _ = lineage_world(status="Failed")
+    j = aws.jobs[0]
+    ckp = f"s3://{BUCKET}/teams/team13/checkpoints/{lineage.TRAIN_JOB}"
+    j.update(FailureReason="AlgorithmError: ExitCode 1", BillableTimeInSeconds=6034,
+             CheckpointConfig={"S3Uri": ckp})
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("data", "{}")
+    ck = buf.getvalue()
+    aws.s3.put(BUCKET, f"teams/team13/checkpoints/{lineage.TRAIN_JOB}/ppo_50000_steps.zip", ck, "2026-11-03T03:52:46Z")
+    aws.events.append({"region": "us-east-2", "log_group": "/aws/sagemaker/TrainingJobs",
+                       "log_stream": f"{lineage.TRAIN_JOB}/algo-1", "timestamp": "2026-11-03T04:17:32Z",
+                       "message": "METRIC timesteps=67584", "event_id": "t1"})
+    aws.log_groups.setdefault("us-east-2", []).append("/aws/sagemaker/TrainingJobs")
+    out: list[str] = []
+    assert lineage.main(["--write"], aws=aws, out=out.append) == 2  # no model without a checkpoint
+    assert aws.s3.writes == 0
+    uri = f"{ckp}/ppo_50000_steps.zip"
+    assert lineage.main(["--write", "--checkpoint-uri", uri], aws=aws, out=out.append) == 0, "\n".join(out)
+    store = evlib.S3Store(EV, client=aws.s3)
+    jobs = evlib.read_records(lineage.TRAIN_RUN_ID, "job", store)
+    assert jobs[0]["status"] == "Failed" and jobs[0]["billable_s"] == 6034
+    m = evlib.read_model("ppo-synthetic", f"{lineage.TRAIN_JOB}-ckpt-50000", store)
+    assert m["artifact_uri"] == uri and m["artifact_sha256"] == hashlib.sha256(ck).hexdigest()
+    assert m["metrics"]["steps"] == 50000 and m["metrics"]["checkpoint"]["source_checkpoint_uri"] == uri
+    assert m["metrics"]["training_job"]["failure_reason"] == "AlgorithmError: ExitCode 1"
+    assert m["metrics"]["last_metric_timesteps"]["value"] == 67584
+    assert m["aws_time"] == "2026-11-03T03:52:46.000Z"
+
+
 # ---------------------------------------------------------------------------- reward check
 
 def reward_world(values=(0.70, 0.85, 0.891), status="Completed", dup=True):
