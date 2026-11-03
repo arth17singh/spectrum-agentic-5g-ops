@@ -1,0 +1,20 @@
+{
+  "schema_version": "1",
+  "kind": "job",
+  "run_id": "t1-ppo-20261102-a",
+  "team": "team13",
+  "created_at": "2026-11-02T19:10:00Z",
+  "aws_time": "2026-11-02T17:02:11.000Z",
+  "aws_time_source": "sagemaker:CreationTime",
+  "synthetic": true,
+  "job_name": "team13-ppo-maveric-20261102-a",
+  "arn": "arn:aws:sagemaker:us-east-2:123456789012:training-job/team13-ppo-maveric-20261102-a",
+  "job_kind": "notebook",
+  "region": "us-east-2",
+  "status": "Completed",
+  "aws_start": "2026-11-02T17:02:11.000Z",
+  "aws_end": "2026-11-02T18:49:37.000Z",
+  "instance_type": "ml.c5.2xlarge",
+  "billable_s": 6406,
+  "est_cost_usd": 0.73
+}

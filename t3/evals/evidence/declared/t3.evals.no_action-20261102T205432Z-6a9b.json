@@ -1,0 +1,57 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "4f4868230274aeacedc149b52c0154dc5a608b39",
+  "created_at": "2026-11-02T20:54:32.415Z",
+  "declared_at": "2026-11-02T20:54:32.415Z",
+  "grader": "t3/evals/graders.py:v1 (twin replay, same-step healthy counterfactual)",
+  "kind": "declared",
+  "model_id": "no_action",
+  "n_items": 33,
+  "region": "us-east-2",
+  "run_id": "t3.evals.no_action-20261102T205432Z-6a9b",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "mean_score",
+    "op": "<=",
+    "unit": "recovery",
+    "value": 0.05
+  },
+  "team": "team13",
+  "test_set_sha256": "20f9013399da360b26214e11de15c9f9edbb8dcb9bcc4cf1d89fb7e194d3dd12",
+  "track": "track-3",
+  "twin": {
+    "config": {
+      "backend": "maveric-inprocess-standin",
+      "eval": {
+        "episode": {
+          "fault_step": 2,
+          "grade_step": 5,
+          "note": "reset = step 0. Step 1 = commissioning (the healthy per-cell configuration: none on the visible tier, seeded offsets on the masked tier). Step 2 = the fault. The operator then gets exactly 3 applies (steps 3-5); None or [] is a no-op step that still advances. Everyone is graded at step 5, so pairs are on the same UE positions.",
+          "operator_steps": 3
+        },
+        "evidence_writer": "t3/evals/evshim.py (local shim)",
+        "executed": "local, offline, in-process twin (no AWS call)",
+        "operator": "no_action",
+        "targets_sha256": "0c3b335674d4671d84c40311eb51b0cc2aafa30dbe168af94a79f78521aa1f24"
+      },
+      "presets": [
+        "official",
+        "viavi-like"
+      ],
+      "seeds": "one per incident (see the suite); twin.seed is the smallest",
+      "suite": "t3/evals/suite/incidents-test.jsonl",
+      "suite_version": "t3-incidents-v2",
+      "tiers": [
+        "masked",
+        "visible"
+      ]
+    },
+    "kind": "maveric-inprocess",
+    "scenario": "incident-suite",
+    "seed": 4102,
+    "version": "ran-rl-1.2.9"
+  },
+  "unit": "t3.evals.recovery"
+}

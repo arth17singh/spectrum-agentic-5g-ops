@@ -1,0 +1,149 @@
+{
+  "pause_examples": [
+    {
+      "actions": [
+        "ran___predict"
+      ],
+      "file": "pause/team13_ranpause_predict_t2_response_v0.cedar",
+      "mode": "IGNORE_ALL_FINDINGS",
+      "model_id": "t2-response",
+      "name": "team13_ranpause_predict_t2_response_v0",
+      "version": "v0"
+    },
+    {
+      "actions": [
+        "ran___predict"
+      ],
+      "file": "pause/team13_ranpause_predict_t2_response_v0_degraded.cedar",
+      "mode": "IGNORE_ALL_FINDINGS",
+      "model_id": "t2-response",
+      "name": "team13_ranpause_predict_t2_response_v0_degraded",
+      "version": "v0-degraded"
+    },
+    {
+      "actions": [
+        "ran___propose"
+      ],
+      "file": "pause/team13_ranpause_propose_ppo_maveric_v0.cedar",
+      "mode": "IGNORE_ALL_FINDINGS",
+      "model_id": "ppo-maveric",
+      "name": "team13_ranpause_propose_ppo_maveric_v0",
+      "version": "v0"
+    },
+    {
+      "actions": [
+        "nlm___ask",
+        "nlm___ask_nlm"
+      ],
+      "file": "pause/team13_ranpause_ask_otel_nlm_v0.cedar",
+      "mode": "IGNORE_ALL_FINDINGS",
+      "model_id": "otel-nlm",
+      "name": "team13_ranpause_ask_otel_nlm_v0",
+      "version": "v0"
+    }
+  ],
+  "rules": [
+    {
+      "actions": [
+        "ran___observe"
+      ],
+      "file": "team13_ran_allow_observe.cedar",
+      "mode": "FAIL_ON_ANY_FINDINGS",
+      "name": "team13_ran_allow_observe"
+    },
+    {
+      "actions": [
+        "ran___propose"
+      ],
+      "file": "team13_ran_allow_propose.cedar",
+      "mode": "FAIL_ON_ANY_FINDINGS",
+      "name": "team13_ran_allow_propose"
+    },
+    {
+      "actions": [
+        "ran___predict"
+      ],
+      "file": "team13_ran_allow_predict.cedar",
+      "mode": "FAIL_ON_ANY_FINDINGS",
+      "name": "team13_ran_allow_predict"
+    },
+    {
+      "actions": [
+        "ran___preflight"
+      ],
+      "file": "team13_ran_allow_preflight.cedar",
+      "mode": "FAIL_ON_ANY_FINDINGS",
+      "name": "team13_ran_allow_preflight"
+    },
+    {
+      "actions": [
+        "ran___apply_change"
+      ],
+      "file": "team13_ran_allow_apply_change.cedar",
+      "mode": "FAIL_ON_ANY_FINDINGS",
+      "name": "team13_ran_allow_apply_change"
+    },
+    {
+      "actions": [
+        "nlm___ask"
+      ],
+      "file": "team13_ran_nlm_safe_questions.cedar",
+      "mode": "FAIL_ON_ANY_FINDINGS",
+      "name": "team13_ran_nlm_safe_questions"
+    },
+    {
+      "actions": [
+        "nlm___ask"
+      ],
+      "file": "team13_ran_screen_nlm_answers.cedar",
+      "mode": "IGNORE_ALL_FINDINGS",
+      "name": "team13_ran_screen_nlm_answers"
+    },
+    {
+      "actions": [
+        "nlm___ask_nlm"
+      ],
+      "file": "team13_ran_screen_nlm_answers_kit_name.cedar",
+      "mode": "IGNORE_ALL_FINDINGS",
+      "name": "team13_ran_screen_nlm_answers_kit_name"
+    },
+    {
+      "actions": [
+        "ran___observe",
+        "ran___propose",
+        "ran___predict",
+        "ran___preflight",
+        "ran___apply_change",
+        "nlm___ask"
+      ],
+      "file": "team13_ran_require_case_id.cedar",
+      "mode": "IGNORE_ALL_FINDINGS",
+      "name": "team13_ran_require_case_id"
+    },
+    {
+      "actions": [
+        "ran___apply_change"
+      ],
+      "file": "team13_ran_require_human_approval.cedar",
+      "mode": "IGNORE_ALL_FINDINGS",
+      "name": "team13_ran_require_human_approval"
+    },
+    {
+      "actions": [
+        "work___apply_change"
+      ],
+      "file": "team13_ran_no_kit_apply_change.cedar",
+      "mode": "IGNORE_ALL_FINDINGS",
+      "name": "team13_ran_no_kit_apply_change"
+    }
+  ],
+  "team": "team13",
+  "tools": [
+    "ran___observe",
+    "ran___propose",
+    "ran___predict",
+    "ran___preflight",
+    "ran___apply_change",
+    "nlm___ask"
+  ]
+}

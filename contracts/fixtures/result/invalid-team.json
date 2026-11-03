@@ -1,0 +1,30 @@
+{
+  "schema_version": "1",
+  "kind": "result",
+  "run_id": "t3-trust-20261102-a",
+  "team": "team12",
+  "created_at": "2026-11-02T20:41:30.125Z",
+  "aws_time": null,
+  "aws_time_source": null,
+  "synthetic": true,
+  "unit": "t3.trust-pause",
+  "metric": "first_refusal_after_pause_s",
+  "value": 74.5,
+  "target": {
+    "metric": "first_refusal_after_pause_s",
+    "op": "<=",
+    "value": 60,
+    "unit": "s"
+  },
+  "passed": false,
+  "n_items": 12,
+  "checked_at": "2026-11-02T20:41:30.125Z",
+  "checker": {
+    "script": "tools/check_unit.py",
+    "code_sha": "d65cb86"
+  },
+  "details": {
+    "pause_at": "2026-11-02T20:24:11.020Z",
+    "first_refusal_at": "2026-11-02T20:25:25.520Z"
+  }
+}

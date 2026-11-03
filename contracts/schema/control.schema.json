@@ -1,0 +1,130 @@
+{
+  "$id": "https://team13.invalid/contracts/control.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A pause or resume of a model's tool. Stored as records/<run_id>/control/<key>.json or in records/<run_id>/control.jsonl.",
+  "properties": {
+    "action": {
+      "enum": [
+        "pause",
+        "resume"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "aws_time": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Time taken from an AWS source; null when there is none.",
+      "title": "Aws Time"
+    },
+    "aws_time_source": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime.",
+      "title": "Aws Time Source"
+    },
+    "by": {
+      "pattern": "^(person:[A-Za-z0-9_.-]+|trust-gate)$",
+      "title": "By",
+      "type": "string"
+    },
+    "created_at": {
+      "description": "When our code wrote the record (UTC, trailing Z).",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "kind": {
+      "const": "control",
+      "default": "control",
+      "title": "Kind",
+      "type": "string"
+    },
+    "model_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "title": "Model Id",
+      "type": "string"
+    },
+    "policy_name": {
+      "description": "The Cedar policy (forbid) that enforces the pause.",
+      "minLength": 1,
+      "title": "Policy Name",
+      "type": "string"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "run_id": {
+      "description": "The run this record belongs to; safe as a path segment.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "synthetic": {
+      "description": "True for fixtures, dry runs and anything not measured on a real system.",
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "team": {
+      "const": "team13",
+      "default": "team13",
+      "title": "Team",
+      "type": "string"
+    },
+    "time": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+      "title": "Time",
+      "type": "string"
+    },
+    "version": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "team",
+    "run_id",
+    "created_at",
+    "synthetic",
+    "model_id",
+    "version",
+    "action",
+    "by",
+    "reason",
+    "policy_name",
+    "time"
+  ],
+  "title": "ControlRecord",
+  "type": "object"
+}

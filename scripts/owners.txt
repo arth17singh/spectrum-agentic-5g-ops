@@ -1,0 +1,68 @@
+# Path ownership per build stream (BUILD_CONTRACT.md "Repository layout and ownership").
+# Format: <stream> <glob>   ("**" and "*" both match across "/"; paths are relative to the repo root)
+# Aliases on the same line are not supported: one stream name per line. `nobody` paths may be changed
+# only by the lead. scripts/check-owners.sh <stream> fails if a diff touches a path the stream does not own.
+
+W1 contracts/**
+W1 dashboard/frontend/src/contracts/**
+
+W2 twin/**
+
+W3 t3/tools/**
+W3 t3/policies/**
+W3 t3/deploy/**
+W3 t3/README.md
+
+W4 t3/suite/**
+
+W5 t3/trust/**
+
+W6 tools/**
+W6 dashboard/backend/spectrum/evidence/**
+W6 dashboard/backend/tests/test_evidence*.py
+W6 dashboard/frontend/src/features/evidence/**
+W6 dashboard/backend/tests/fixtures/records/layout/**
+
+W7a dashboard/backend/spectrum/main.py
+W7a dashboard/backend/spectrum/slices/__init__.py
+W7a dashboard/backend/spectrum/slices/_shared/**
+W7a dashboard/backend/tests/slices/_shared/**
+W7a dashboard/backend/tests/conftest.py
+W7a dashboard/backend/pyproject.toml
+W7a dashboard/backend/uv.lock
+W7a dashboard/Makefile
+W7a dashboard/frontend/src/core/**
+W7a dashboard/frontend/src/features/index.ts
+W7a dashboard/frontend/src/ui/**
+W7a dashboard/frontend/scripts/**
+W7a scripts/**
+
+W7b dashboard/backend/spectrum/slices/trace/**
+W7b dashboard/backend/tests/slices/trace/**
+W7b dashboard/frontend/src/features/trace/**
+
+W7c dashboard/backend/spectrum/slices/trustgate/**
+W7c dashboard/backend/tests/slices/trustgate/**
+W7c dashboard/frontend/src/features/trustgate/**
+
+W7d dashboard/backend/spectrum/slices/scorecard/**
+W7d dashboard/backend/tests/slices/scorecard/**
+W7d dashboard/frontend/src/features/scorecard/**
+
+W8 t3/agents/**
+
+W9 t2/**
+W9 t1/rl/**
+
+W10 t3/evals/**
+
+W11 silos/**
+
+W12 t1/evals/**
+
+lead **
+
+nobody evidence/public_keys.json
+nobody CLAUDE.md
+nobody GAPS.md
+nobody .gitignore

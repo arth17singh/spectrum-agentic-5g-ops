@@ -32,3 +32,6 @@ __pycache__/
 
 # Evidence ledger signing secret (dashboard/backend/.evidence-key): never commit
 .evidence-key
+
+# Organiser hackathon docs (confidential, no redistribution): never commit
+hackathon_docs/

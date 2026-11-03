@@ -1,0 +1,38 @@
+{
+  "schema": "t3.trust.thresholds/2",
+  "keys": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+  ],
+  "scales": {
+    "coverage_ratio": 0.057,
+    "sla_ratio": 0.0389,
+    "sinr_p10_db": 0.8862
+  },
+  "direction_deadband": {
+    "coverage_ratio": 0.02,
+    "sla_ratio": 0.02,
+    "sinr_p10_db": 0.4
+  },
+  "weights": {
+    "error": 0.5,
+    "direction": 0.5
+  },
+  "tau": 0.65,
+  "recent_window": 3,
+  "recent_needed": 2,
+  "alpha": 0.15,
+  "warmup": 3,
+  "watch_below": 0.55,
+  "pause_below": 0.4,
+  "max_changes_to_pause": 6,
+  "calibration_false_pause_budget": 1,
+  "notes": {
+    "rule": "after n >= warmup scored changes, pause when recent_needed of the last recent_window changes have e > tau, or the bias-corrected EWMA trust (alpha) of the per-change score falls below pause_below (amendment 1, A6)",
+    "scales": "std of the training-split delta labels of the Track 2 predictor (t2/data/t2_dataset_v0.npz); e = 1 is an error the size of a typical effect",
+    "direction_deadband": "materiality: a measured delta smaller than 2 % of UEs or 0.4 dB of p10 SINR is 'did not move' and not scored for direction",
+    "alpha_tau_pause_below": "written by t3.trust.calibrate --apply (PROPOSAL_RULE) from replayed changes on twin.replay (official, nominal, seeds 20000+) with t2.predict healthy and tilt_reversed; in-sample, so the held-out check is the demo seeds; see t3/trust/calibration.json",
+    "max_changes_to_pause": "declared target for the degraded-predictor demo"
+  }
+}

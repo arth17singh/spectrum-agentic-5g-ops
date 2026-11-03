@@ -1,0 +1,18 @@
+{
+  "unit": "t3.trace",
+  "track": "track-3",
+  "target": {
+    "metric": "trace_match",
+    "op": "==",
+    "value": 1,
+    "unit": "fraction"
+  },
+  "n_items": 12,
+  "test_set_sha256": "554141cf7c9adab31425c9dc1262631d33fed33bcc5cc86985202b4594b9dd82",
+  "model_id": "synthetic-model",
+  "grader": "synthetic-grader",
+  "code_sha": "63f5210e7b51845c32342e690381f4c241a826abc075d3debdad37de6b40851f",
+  "region": "us-east-2",
+  "declared_at": "2026-11-02T10:00:00Z",
+  "synthetic": true
+}

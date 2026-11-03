@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "team13-twin"
+version = "0.1.0"
+description = "Deterministic replay of the in-process Maveric twin, KPIs, and a client for the organisers' twin adapters."
+requires-python = ">=3.11"
+# ran-rl is the organisers' SDK, installed from their wheel (not redistributed here).
+dependencies = ["ran-rl==1.2.9", "numpy", "httpx"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools]
+# The repo directory `twin/` is itself the package `twin`.
+packages = ["twin"]
+package-dir = { "twin" = "." }
+
+[tool.pytest.ini_options]
+markers = ["parity: needs the organisers' adapter to start locally (set TWINHOST_DIR); skipped otherwise"]
+filterwarnings = ["ignore::FutureWarning"]

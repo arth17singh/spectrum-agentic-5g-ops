@@ -1,0 +1,39 @@
+{
+  "_comment": "Template for the team13-trust-gate Lambda role (A7), created by the lead under /bb26/ with the bb26 boundary. Fill REGION, ACCOUNT, ENGINE_ID, TABLE, BUCKET at deploy time; never commit the filled copy. Policy-name prefix scoping (team13_ranpause_) is enforced in code: verify in the IAM docs whether bedrock-agentcore supports a policy-name condition before relying on IAM for it.",
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PausePoliciesOnOurEngineOnly",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock-agentcore:CreatePolicy",
+        "bedrock-agentcore:DeletePolicy",
+        "bedrock-agentcore:GetPolicy",
+        "bedrock-agentcore:ListPolicies"
+      ],
+      "Resource": [
+        "arn:aws:bedrock-agentcore:REGION:ACCOUNT:policy-engine/ENGINE_ID",
+        "arn:aws:bedrock-agentcore:REGION:ACCOUNT:policy-engine/ENGINE_ID/*"
+      ]
+    },
+    {
+      "Sid": "TrustRows",
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:UpdateItem"],
+      "Resource": "arn:aws:dynamodb:REGION:ACCOUNT:table/TABLE",
+      "Condition": {"ForAllValues:StringLike": {"dynamodb:LeadingKeys": ["t3-trust#*"]}}
+    },
+    {
+      "Sid": "ControlRecords",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject"],
+      "Resource": "arn:aws:s3:::BUCKET/evidence/records/*"
+    },
+    {
+      "Sid": "Logs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:REGION:ACCOUNT:log-group:/aws/lambda/team13-trust-gate:*"
+    }
+  ]
+}

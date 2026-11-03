@@ -1,0 +1,60 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "baseline_run_id": "t3.evals.no_action-20261102T212105Z-c5e6",
+  "code_sha": "fff024e57314a81a05a9cbe16d090e726b221324",
+  "created_at": "2026-11-02T21:21:16.795Z",
+  "declared_at": "2026-11-02T21:21:16.795Z",
+  "grader": "t3/evals/graders.py:v1 (twin replay, same-step healthy counterfactual)",
+  "kind": "declared",
+  "model_id": "ran_rl.evaluation.baseline:RuleBasedController@1.2.9",
+  "n_items": 33,
+  "region": "us-east-2",
+  "run_id": "t3.evals.rule_baseline-20261102T212116Z-a342",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "gain_ci_low_vs_no_action",
+    "op": ">",
+    "unit": "recovery",
+    "value": 0.0
+  },
+  "team": "team13",
+  "test_set_sha256": "485b3bde1dc974a07e5950115e1fc1a8fa0dd2cb6cfc88e377a4ac7a01588a63",
+  "track": "track-3",
+  "twin": {
+    "config": {
+      "backend": "maveric-inprocess",
+      "eval": {
+        "episode": {
+          "fault_step": 2,
+          "grade_step": 5,
+          "note": "reset = step 0. Step 1 = commissioning (the healthy per-cell configuration: none on the visible tier, seeded offsets on the masked tier). Step 2 = the fault. The operator then gets exactly 3 applies (steps 3-5); None or [] is a no-op step that still advances. Everyone is graded at step 5, so pairs are on the same UE positions.",
+          "operator_steps": 3
+        },
+        "evidence_writer": "tools/evlib.py",
+        "executed": "local, offline, in-process twin (no AWS call)",
+        "mode": null,
+        "operator": "rule_baseline",
+        "proposal_steps": null,
+        "targets_sha256": "8ab60e1ace2c587aff903a5f400b3be826cdad97967999414c0db00ba18e8e51"
+      },
+      "presets": [
+        "official",
+        "viavi-like"
+      ],
+      "seeds": "one per incident (see the suite); twin.seed is the smallest",
+      "suite": "t3/evals/suite/incidents-test.jsonl",
+      "suite_version": "t3-incidents-v3",
+      "tiers": [
+        "masked",
+        "visible"
+      ]
+    },
+    "kind": "maveric-inprocess",
+    "scenario": "incident-suite",
+    "seed": 4102,
+    "version": "ran-rl-1.2.9"
+  },
+  "unit": "t3.evals.recovery"
+}

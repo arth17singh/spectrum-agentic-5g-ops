@@ -1,0 +1,79 @@
+{
+  "schema_version": "1",
+  "kind": "model",
+  "run_id": "w9-models-v0-local",
+  "team": "team13",
+  "created_at": "2026-11-02T20:33:49+00:00",
+  "aws_time": null,
+  "aws_time_source": null,
+  "synthetic": false,
+  "model_id": "t2-response-v0",
+  "version": "v0",
+  "model_kind": "t2-response",
+  "artifact_uri": "t2/artifacts/t2_response_v0.npz",
+  "artifact_sha256": "39f25386b7797b458e0e6d1e67e1361f3b9e2a10bfde6e3f7902f738334bda38",
+  "status": "candidate",
+  "trained_on": "v0, local, not federated / not the official job. Maveric in-process twin (ran_rl, shipped sim_tilt_sweep_4cell models), 4-cell clusters, data contract v0.2; dataset sha256 70634c9237f9423edcfe28ace2e6c1553108276b7c65be3432f57ebf0f761df4, 21019 rows",
+  "metrics": {
+    "label": "v0, local, not federated / not the official job",
+    "n_test_rows": 3972,
+    "n_test_seeds": 133,
+    "mae_all_rows": {
+      "coverage_ratio": 0.012698312448587963,
+      "sla_ratio": 0.017090216485124234,
+      "sinr_p10_db": 0.37706074425839736,
+      "sinr_mean_db": 0.2418018604997389
+    },
+    "mae_all_rows_no_change": {
+      "coverage_ratio": 0.030131755820180083,
+      "sla_ratio": 0.02256419951488214,
+      "sinr_p10_db": 0.5196612482769888,
+      "sinr_mean_db": 0.607104002212529
+    },
+    "mae_all_rows_no_change+dP": {
+      "coverage_ratio": 0.020443960590071725,
+      "sla_ratio": 0.027016441181350773,
+      "sinr_p10_db": 0.9180908496134198,
+      "sinr_mean_db": 0.8845869890440387
+    },
+    "mae_changed_rows": {
+      "coverage_ratio": 0.01639717069108953,
+      "sla_ratio": 0.022068380974939353,
+      "sinr_p10_db": 0.4868937828980346,
+      "sinr_mean_db": 0.31223569242684096
+    },
+    "mae_changed_rows_no_change": {
+      "coverage_ratio": 0.03890875621513501,
+      "sla_ratio": 0.029136866213625445,
+      "sinr_p10_db": 0.6710320150052663,
+      "sinr_mean_db": 0.7839457401782073
+    },
+    "mae_changed_rows_no_change+dP": {
+      "coverage_ratio": 0.02639902843425387,
+      "sla_ratio": 0.03488598971792108,
+      "sinr_p10_db": 1.1855191335060153,
+      "sinr_mean_db": 1.1422560209632384
+    },
+    "direction": {
+      "coverage_ratio": {
+        "accuracy": 0.933050447901933,
+        "n": 2121
+      },
+      "sla_ratio": {
+        "accuracy": 0.7448543689320388,
+        "n": 2575
+      }
+    },
+    "baselines": {
+      "no_change": "next-step KPIs = current cluster KPIs",
+      "no_change+dP": "no change plus the power change added to the served signal, interference held fixed: each cell's served RSRP and SINR shift by that cell's d_power; coverage (RSRP > -97 dBm) and SLA (SINR > 0 dB) follow from a normal fit to each cell's mean and p10, weighted by user share; sinr_p10_db and sinr_mean_db += share-weighted mean d_power",
+      "ridge": "linear least squares on the same encoded inputs, trained on the train seeds, predicting the residual"
+    },
+    "labels_are": "KPI deltas vs the no-op counterfactual at the same step",
+    "direction_definition": "sign of the predicted delta vs the measured delta, rows with a nonzero change and |measured delta| > 0.004",
+    "degraded_variant": {
+      "model_id": "t2-response-v0-degraded-tilt-reversed",
+      "fault": "tilt_reversed"
+    }
+  }
+}
