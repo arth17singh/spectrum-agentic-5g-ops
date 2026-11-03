@@ -1,5 +1,5 @@
-"""Walk every GET route's JSON over an evidence root whose records carry an approver's email and STS ARN (as the
-real t3.allow change records do) and fail on any email or STS/IAM ARN in a response."""
+"""Walk every GET route's JSON over an evidence root whose records carry an approver's email and STS ARN, job and
+role ARNs, a Secrets Manager ARN and an ECR host (as the real records do) and fail if any survives."""
 
 import json
 import re
@@ -9,7 +9,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
-ARN = re.compile(r"arn:aws[a-z-]*:(?:sts|iam)::")
+ARN = re.compile(r"arn:aws")
+SECRET = re.compile(r"secretsmanager|AmazonSageMaker-|twin-token|twin-url")
+ECR = re.compile(r"\.dkr\.ecr\.")
 ACCT = "123456789012"
 WHO = f"arn:aws:sts::{ACCT}:assumed-role/AWSReservedSSO_bb26-Participant_0123/jane.doe@example.com"
 RUN = "t3.allow-20990101T000000Z"
@@ -39,7 +41,11 @@ def root(tmp_path, monkeypatch):
         "kind": "decision", "run_id": RUN, "case_id": "case-1", "item_id": "step-0", "created_at": "2099-01-01T00:04:00Z",
         "actor": WHO, "decision": "allow"})
     w(tmp_path, f"outputs/{RUN}/job-map.json", {"job_name": "j-1", "role_arn": f"arn:aws:iam::{ACCT}:role/bb26/team13-x",
-                                                 "launched_by": "jane.doe@example.com"})
+                                                 "launched_by": "jane.doe@example.com",
+                                                 "job_arn": f"arn:aws:sagemaker:us-east-2:{ACCT}:training-job/j-1",
+                                                 "image": f"{ACCT}.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0",
+                                                 "secrets": {"RAN_RL_ADAPTER_TOKEN":
+                                                             f"arn:aws:secretsmanager:us-east-2:{ACCT}:secret:AmazonSageMaker-team13-twin-token-AbC"}})
     monkeypatch.setenv("SPECTRUM_RECORDS_ROOT", str(tmp_path))
     return tmp_path
 
@@ -60,7 +66,9 @@ def test_no_email_or_person_arn_in_any_get_route(root):
             r = c.get(p)
             body = r.text
             assert not EMAIL.search(body), f"{p}: email in response"
-            assert not ARN.search(body), f"{p}: STS/IAM ARN in response"
+            assert not ARN.search(body), f"{p}: ARN in response"
+            assert not SECRET.search(body), f"{p}: secret name in response"
+            assert not ECR.search(body), f"{p}: ECR host in response"
             assert ACCT not in body, f"{p}: account id in response"
             seen_person |= "person:team13-op1" in body
             assert r.status_code < 500, f"{p}: HTTP {r.status_code}"
