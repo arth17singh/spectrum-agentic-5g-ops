@@ -14,6 +14,12 @@ Times are Seattle time (PST, UTC−8) with UTC in brackets. Each entry keeps a d
 | [G-004](#g-004) | Open · platform | No read-only role to rehearse the judges' live test; permission simulation is denied | Live-test rehearsal (evidence chain) | 2 Nov 12:40 PST |
 | [G-005](#g-005) | Resolving · platform | Track 2 FL service not provisioned at the 16:00 enablement | All Track 2 units | 2 Nov 16:40 PST |
 | [G-006](#g-006) | Declared risk · organiser-side IAM | The Agent Builder host role can create and modify any role under /bb26/; participant SSO role can invoke our tools Lambda directly | Track 3 claim "only the Gateway invokes our tools" holds for non-human principals only | 2 Nov 18:20 PST |
+| [G-007](#g-007) | Declared limit · SDK logging | The RAN RL SDK logs every twin HTTP call at INFO with the twin host (never the token) | Evidence hygiene: SDK job logs name the twin host | 3 Nov (time TODO) |
+| [G-008](#g-008) | Open · failed run | Full RL training run crashed at about 67.6k of 100k steps (connection reset by the twin host); the 50k checkpoint was scored instead and failed UPLIFT | Track 1 RL unit: scored on the 50k checkpoint, 5 of 6 gates | 2 Nov 20:19 PST |
+| [G-009](#g-009) | Open · measurement | Frozen eval references drift across CPU architecture, torch build and instance size | Track 1 execution and Track 3 incident units: frozen values are valid only on the instance type that froze them | 2 Nov 19:14 PST |
+| [G-010](#g-010) | Declared risk · organiser-side IAM | The organisers' SageMaker role has no Bedrock access; Bedrock baselines run under a team role. SageMaker roles can read any secret named AmazonSageMaker-* | Track 1 Bedrock baselines; secret exposure | 3 Nov (time TODO) |
+| [G-011](#g-011) | Open · feature gap | The dashboard's phone approve page drives the simulator, not the real approvals table | Track 3 human-approval demo until the real page (W7g) is built | 3 Nov (time TODO) |
+| [G-012](#g-012) | Open · checker | `tools/check_unit.py` cannot recompute the paired-bootstrap gain metric (`gain_ci_low_vs_no_action`), so part [e] reports "cannot check" (exit 2) for the gain runs | Track 3 baselines and the swarm incident eval (slot 5): parts a to c pass, part e is not independently recomputed | 3 Nov (found during the live-test rehearsal) |
 
 ### Watching
 
@@ -128,3 +134,107 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Limits:** the claim "only the Gateway invokes our tools" holds for non-human principals only.
 - **Who we told:** TODO (user).
 
+
+<a id="g-007"></a>
+## G-007 · SDK logs name the twin host (declared limit)
+
+- **Status:** declared limit; mitigated in our own jobs.
+- **Service:** the RAN RL SDK 1.2.9 (HTTP client to the twin host).
+- **What happens:** the SDK logs every twin HTTP call at INFO level, with the twin host in the line. It never logs the token. SageMaker job logs and any copy of them therefore contain the host address.
+- **Our mitigation:** our own evaluation job lowers those loggers before it makes any call, so its logs and the records it writes do not carry the host. Declarations say "address and token not recorded". Raw job logs are never mirrored into the repo.
+- **Limits:** other jobs that run the SDK's own code may still write the host into their CloudWatch logs in the team account (TODO: confirm per job). Those logs are not part of the hand-in.
+- **Who we told:** TODO (user).
+
+**Log**
+- 3 Nov (time TODO): logged. Our evaluation job lowers the SDK's HTTP loggers.
+
+<a id="g-008"></a>
+## G-008 · Full RL training run crashed; the 50k checkpoint was scored instead
+
+- **Status:** open; a documented failure with a run id.
+- **Service:** SageMaker training job against the team-hosted twin (HTTP backend).
+- **Run:** `t1.rl.train-20261103T023805Z-a09e` (declared 3 Nov 02:38 UTC = 2 Nov 18:38 PST, target: all six gates pass after 100k steps).
+- **What happened:** at 20:19 PST (04:19 UTC) the job crashed at about 67.6k of 100k steps.
+- **Exact error:** `httpx.ReadError: Connection reset by peer`, raised from a call to the twin host. The SDK's HTTP client does not retry it. The twin's `/health` was OK afterwards, so the host itself was up.
+- **Request id:** not recorded.
+- **Who we told:** not applicable (our own host); TODO (user) if the organisers should know about the SDK's missing retry.
+- **What we did instead:** the 50k checkpoint was scored. The run `t1.rl.eval-20261103T043115Z-bf52` was declared before evaluation (3 Nov 04:31:38 UTC = 20:31 PST; model id `ppo-cco-reward-v1-ckpt50k`). **Result: 5 of 6 gates pass; UPLIFT fails** (the unit's target needs all six). It is reported as a failure.
+- **Limits:** Track 1 RL done-means. We have a Completed link job (`t1.rl.link-test-20261102T234623Z-7368`) and a Completed reward check (`t1.rl.reward-check-20261103T020244Z-4f92`), but no Completed full training job that passes all gates.
+- **Resolved when:** a rerun completes, or we decide to keep the failure as final.
+
+**Log**
+- 2 Nov 18:38 PST (3 Nov 02:38 UTC): the full run was declared and started.
+- 2 Nov 20:19 PST (3 Nov 04:19 UTC): crash.
+- 2 Nov 20:31 PST (3 Nov 04:31 UTC): the 50k checkpoint's evaluation was declared; result written about 20:36 PST.
+
+<a id="g-009"></a>
+## G-009 · Frozen references drift across platforms and instance sizes
+
+- **Status:** open; measured, with a fix in progress.
+- **What we found:** the references frozen in our eval sets (the no-change KPI and the rule, best-of-K and fixed-answer gains) are floating-point results of the twin replay, and the replay is not bit-identical everywhere:
+  - an arm64 Mac against x86 Linux;
+  - the CPU build of torch against the CUDA build;
+  - ml.g5.2xlarge (8 threads) against ml.g5.4xlarge (16 threads).
+  Users sitting exactly on a coverage threshold flip; about one user's worth of coverage (0.005 to 0.017) on up to 5 or 6 items out of 80.
+- **Replay-check runs** (each checks every item against the frozen values to 1e-9; `pass_rate` is the share of items that match):
+  - `t1.execution.replay-check-x86-1`, ml.m5.xlarge (x86, CPU torch): 0.9375, 5 items drifted, largest difference 0.0167;
+  - `t1.execution.refreeze-x86-1`, ml.g5.2xlarge: rebuilt every item on AWS and wrote new hashes (execution and price-latency items changed; see `DATA.md`);
+  - `t1.execution.replay-check-g5-1`, ml.g5.4xlarge (16 threads, CUDA torch): 0.9375, 5 items drifted, largest difference 0.005;
+  - `t1.execution.replay-check-g5-2xl-1`, ml.g5.2xlarge (8 threads, CUDA torch): 1.0, no drift.
+  The Track 3 incident suite had the same cause and was re-frozen on AWS x86 as suite v4 (`t3.evals.suite-freeze-20261103T031439Z-32b3`; `DATA.md`).
+- **Fix:** re-freeze on AWS, and pin each evaluation to the instance type that froze it: execution evals run on ml.g5.2xlarge (the base execution run is declared on it), Track 3 evals on ml.m5.xlarge. A run on another instance type is not comparable and is not reported as such.
+- **Limits:** base and tuned runs of a unit must use the same instance type. Results from runs pinned to different instance types are not compared.
+- **Who we told:** TODO (user).
+
+**Log**
+- 2 Nov 19:14 PST (3 Nov 03:14 UTC): first replay check on x86 (m5.xlarge) shows drift.
+- 2 Nov 19:17 PST: suite v4 frozen on AWS x86 (3 Nov 03:17:39 UTC).
+- 2 Nov 19:26 PST (03:26 UTC): execution items rebuilt on AWS (refreeze run).
+- 2 Nov 19:49 PST (03:49 UTC): g5.4xlarge replay check drifts; 19:57 PST (03:57 UTC): g5.2xlarge replay check passes.
+
+<a id="g-010"></a>
+## G-010 · The organisers' SageMaker role has no Bedrock access (declared risk)
+
+- **Status:** declared; workaround in place.
+- **Service:** IAM and Bedrock, team account.
+- **What did not work:** the organisers' SageMaker execution role (`bb26-SageMakerExecution`) cannot call Bedrock, so Bedrock baselines for Track 1 cannot run under it.
+- **What we did:** a team role `/bb26/team13-sm-bedrock-eval`, created in CloudShell under the `/bb26/` path with the permissions boundary, runs the Bedrock baseline jobs.
+- **Related risk:** the SageMaker roles can read any Secrets Manager secret whose name starts with `AmazonSageMaker-`. Any secret we name that way is readable by every job role of that kind. We pass a job a Secrets Manager ARN, not the secret, in its `Environment`. TODO (user): confirm which roles this covers.
+- **Who we told:** TODO (user).
+
+**Log**
+- 3 Nov (time TODO): role created in CloudShell.
+
+<a id="g-011"></a>
+## G-011 · The dashboard's phone approve page drives the simulator
+
+- **Status:** open; a real approvals page (W7g) is being built.
+- **What:** the dashboard's phone page (`/m/approve`) approves items in the dashboard's own simulator. It does not write to the real approvals table the checkpoint reads, so approving there does not approve a real change.
+- **Limits:** Track 3 "human approval before any state change". Until the real page exists, real approvals are made with the kit's approve command, and the demo must not use the simulator page for them.
+- **Who we told:** not applicable (our own code).
+
+**Log**
+- 3 Nov (time TODO): gap logged; W7g started.
+
+<a id="g-012"></a>
+## G-012 · The independent checker cannot recompute the gain metric
+
+- **Status:** open.
+- **What:** `tools/check_unit.py` is deliberately separate from the code that writes results, and recomputes a result's value from the item records. For the gain runs (`gain_ci_low_vs_no_action`, a paired bootstrap against `no_action`) it prints `cannot check: unknown metric` and exits 2. Seen on `t3.evals.config_revert-masked-20261103T035108Z-x86`; the same metric is used by the `rule_baseline` and `config_revert` runs. Parts a (declared before), b (code in the repo) and c (records agree with AWS times) pass.
+- **Limits:** part [e] of the four-part rule for the Track 3 baselines and for the swarm incident eval. The value in the result file is computed by `t3/evals/run.py` and is not yet independently recomputed.
+- **Meanwhile:** the paired gains are recomputable by hand from the item records with `python -m t3.evals.run gains --run <A> --baseline <B>`. A bootstrap in the checker (same seed and resamples as `t3/evals/targets.json`) is TODO.
+- **Who we told:** not applicable (our own code).
+
+**Log**
+- 3 Nov (time TODO): found while rehearsing `scripts/live_test.sh`.
+
+---
+
+## Superseded runs (kept in S3 and in history; not used for any claim)
+
+| Run | Why it is superseded | Replaced by |
+|---|---|---|
+| `t3.evals.no_action-20261103T023304Z-0cd3` | Failed smoke run on the stand-in twin backend, against the old v2 suite; no result record | `t3.evals.no_action-20261103T032552Z-x86` |
+| `t3.evals.no_action-20261103T024101Z-22ae` | Failed smoke run, same cause; no result record | `t3.evals.no_action-20261103T032552Z-x86` |
+| `t3.evals.rule_baseline-20261103T033026Z-x86`, `t3.evals.config_revert-20261103T033026Z-x86`, `t3.evals.config_revert_masked-20261103T033026Z-x86` | First gain baselines on suite v4; replaced by the replayable runs below | the `...T035108Z-x86` runs |
+| `t3.evals.rule_baseline-20261103T035108Z-x86`, `t3.evals.config_revert-20261103T035108Z-x86`, `t3.evals.config_revert-masked-20261103T035108Z-x86` | current gain baselines | (these are the ones to cite) |
