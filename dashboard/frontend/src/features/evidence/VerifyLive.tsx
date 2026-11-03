@@ -44,6 +44,25 @@ async function call(runId: string, method: 'GET' | 'POST'): Promise<{ ok: boolea
   return { ok: res.ok, status: res.status, body }
 }
 
+/** "Verified" only when every part passed. A failed part and a part that could not be checked are said as they are. */
+function headline(res: Rec, retained: boolean): string {
+  const parts: Rec[] = res.parts ?? []
+  const ids = (state: string) => parts.filter((p) => p.state === state).map((p) => String(p.id))
+  const list = (xs: string[]) => (xs.length ? xs.join(xs.length > 2 ? ', ' : ' and ') : '')
+  const at = `at ${utc(res.checked_at)}`
+  const how = retained ? '' : ' live against AWS'
+  if (res.exit_code === 0) return `Verified${how} ${at} · all ${parts.length || 5} parts passed`
+  if (res.exit_code === 1) {
+    const f = ids('FAIL')
+    return `Checked${how} ${at} · ${f.length > 1 ? 'parts' : 'a part'} ${f.length ? `${list(f)} ` : ''}FAILED`
+  }
+  if (res.exit_code === 2) {
+    const c = ids('CANNOT CHECK')
+    return `Checked${how} ${at} · nothing failed; ${c.length ? `part${c.length > 1 ? 's' : ''} ${list(c)}` : 'a part'} could not be checked`
+  }
+  return `Checked${how} ${at} · the check did not complete`
+}
+
 export function VerifyLive({ runId, compact = false }: { runId: string; compact?: boolean }) {
   const [phase, setPhase] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [t0, setT0] = useState(0)
@@ -89,7 +108,7 @@ export function VerifyLive({ runId, compact = false }: { runId: string; compact?
       {phase === 'done' && res && open && (
         <div className="mt-2 min-w-0 rounded-md border border-line bg-s2/50 p-2.5 text-micro [overflow-wrap:anywhere]" data-testid="verify-live-result">
           {retained && <div className="mb-1 text-warn-ink" data-testid="verify-live-retained">{retained}</div>}
-          <div className="mb-1 font-medium text-ink-1">{retained ? 'Verified' : 'Verified live against AWS'} at {utc(res.checked_at)} · exit {res.exit_code}: {res.verdict}{res.elapsed_s != null ? ` · ${res.elapsed_s} s` : ''}</div>
+          <div className="mb-1 font-medium text-ink-1" data-testid="verify-live-header">{headline(res, !!retained)}{res.elapsed_s != null ? ` · ${res.elapsed_s} s` : ''}</div>
           {res.attest && <div className="mb-1 text-ink-3">Job-log attestation cache: {res.attest}</div>}
           {res.error && <div className="text-critical-ink">{res.error}</div>}
           <ul className="space-y-1">

@@ -48,7 +48,7 @@ def test_classify(label, expect):
 ])
 def test_each_event_source_is_kept_as_the_aws_time(src, expect):
     t = awstime.resolve(rec(aws_time="2026-11-03T05:50:00.100Z", aws_time_source=src))
-    assert t == {"aws_time": "2026-11-03T05:50:00.100Z", "aws_time_source": expect, "runner_time": "2026-11-03T06:00:00.000Z"}
+    assert t == {"aws_time": "2026-11-03T05:50:00.100Z", "aws_time_source": expect, "runner_time": "2026-11-03T06:00:00.000Z", "gateway_window": None}
 
 
 def test_a_lambda_clock_is_the_runner_clock_not_aws_time():
@@ -69,7 +69,7 @@ def test_no_source_or_unparseable_time_is_not_trusted():
 
 def test_s3_stored_is_the_fallback_and_runner_time_stays_separate():
     t = awstime.resolve(rec(**{awstime.STORED_KEY: "2026-11-03T06:00:03Z"}))
-    assert t == {"aws_time": "2026-11-03T06:00:03Z", "aws_time_source": "s3_stored", "runner_time": "2026-11-03T06:00:00.000Z"}
+    assert t == {"aws_time": "2026-11-03T06:00:03Z", "aws_time_source": "s3_stored", "runner_time": "2026-11-03T06:00:00.000Z", "gateway_window": None}
 
 
 def test_an_aws_time_equal_to_the_record_time_is_not_also_the_runner_clock():
@@ -82,8 +82,8 @@ def test_summary_counts_by_source():
     rows = [{"aws_time_source": s} for s in ("cloudwatch", "cloudwatch", "s3_stored", "policy_createdAt", "gateway_date", "cloudwatch_attest", "none")]
     s = awstime.summary(rows)
     assert (s["n"], s["k"]) == (7, 6)
-    assert s["by_source"] == {"cloudwatch": 2, "cloudwatch_attest": 1, "policy_createdAt": 1, "gateway_date": 1, "s3_stored": 1, "none": 1}
-    assert s["text"] == "AWS time on 6 of 7 (CloudWatch 2, job attestation 1, policy createdAt 1, gateway Date 1, S3 stored 1)"
+    assert s["by_source"] == {"cloudwatch": 2, "cloudwatch_attest": 1, "cloudwatch_lambda": 0, "policy_createdAt": 1, "gateway_date": 1, "s3_stored": 1, "none": 1}
+    assert s["text"] == "AWS time on 6 of 7 (AWS CloudWatch (policy decision log) 2; AWS CloudWatch (job attestation) 1; AgentCore policy createdAt 1; AWS response Date 1; AWS S3 (stored) 1)"
     assert awstime.summary([])["text"] == "AWS time on 0 of 0"
     assert awstime.summary([{"aws_time_source": "none"}])["text"] == "AWS time on 0 of 1"
 
@@ -247,9 +247,9 @@ def test_trace_events_carry_each_source_and_the_runner_clock_apart(monkeypatch, 
 def test_trace_summary_is_k_of_n_by_source(monkeypatch, tmp_path):
     c = _trace_client(monkeypatch, _evidence(tmp_path))
     s = c.get("/api/trace/cases").json()["provenance"]["aws_time_summary"]
-    assert s["by_source"] == {"cloudwatch": 1, "cloudwatch_attest": 0, "policy_createdAt": 1, "gateway_date": 1, "s3_stored": 2, "none": 3}
+    assert s["by_source"] == {"cloudwatch": 1, "cloudwatch_attest": 0, "cloudwatch_lambda": 0, "policy_createdAt": 1, "gateway_date": 1, "s3_stored": 2, "none": 3}
     assert (s["k"], s["n"]) == (5, 8)
-    assert s["text"] == "AWS time on 5 of 8 (CloudWatch 1, policy createdAt 1, gateway Date 1, S3 stored 2)"
+    assert s["text"] == "AWS time on 5 of 8 (AWS CloudWatch (policy decision log) 1; AgentCore policy createdAt 1; AWS response Date 1; AWS S3 (stored) 2)"
     case = c.get("/api/trace/case/case-1").json()
     assert case["provenance"]["aws_time_summary"]["n"] == 8
     # the case row in the listing carries its own summary
@@ -439,3 +439,47 @@ def test_a_replaced_attest_file_is_picked_up_without_a_restart(tmp_path):
     new.write_text(json.dumps({"files": {chg: {"job": "j", "log_time": "2026-11-03T05:50:31Z", "sha256": _sha(root, chg), "state": "match"}}}))
     os.replace(new, root / ".sync" / "attest" / f"{RUN}.json")
     assert get() == "2026-11-03T05:50:31Z"
+
+
+# ---------------------------------------------------------------------------------------------- Lambda log attestation
+
+def test_a_lambda_log_attestation_is_a_cloudwatch_lambda_time():
+    t = awstime.resolve(rec(aws_time="2026-11-03T05:31:52.546Z", aws_time_source="lambda:clock",
+                            **{awstime.ATTEST_KEY: "2026-11-03T05:31:52.884Z", awstime.ATTEST_VIA_KEY: "lambda_log",
+                               awstime.WINDOW_KEY: {"start": "2026-11-03T05:31:51.874Z", "end": "2026-11-03T05:31:52.970Z"}}))
+    assert (t["aws_time"], t["aws_time_source"]) == ("2026-11-03T05:31:52.884Z", "cloudwatch_lambda")
+    assert t["gateway_window"]["end"] == "2026-11-03T05:31:52.970Z"
+    assert "cloudwatch_lambda" in awstime.EVENT_SOURCES
+    # a job attestation carries no window and is not called a Lambda time
+    j = awstime.resolve(rec(**{awstime.ATTEST_KEY: "2026-11-03T05:31:52Z"}))
+    assert j["aws_time_source"] == "cloudwatch_attest" and j["gateway_window"] is None
+    assert awstime.LABELS["cloudwatch_lambda"] == "AWS CloudWatch (Lambda log)"
+    assert awstime.LABELS["s3_stored"] == "AWS S3 (stored)"
+
+
+def test_the_allow_that_is_logged_at_request_end_is_ordered_by_the_gateway_window(monkeypatch, tmp_path):
+    """The Lambda wrote the change at .884 and the Gateway logged its ALLOW at .967, when the request ended (the
+    request ran .874 to .970): one request, so the two stamps are not ordered against each other. Without the window
+    evidence the strict order stands."""
+    run = "t3.allow-20261103T000000Z"
+    chg = {"change_id": "chg-9", "case_id": "c", "created_at": "2026-11-03T05:31:52.545Z", "aws_time": "2026-11-03T05:31:52.546Z",
+           "aws_time_source": "lambda:clock", "change": [{"cell": 2, "d_power_db": -1.0, "d_tilt_deg": 1.0}], "change_text": "cell=2",
+           "twin": {"kind": "maveric-inprocess", "step": 0}}
+    allow = rec(case_id="c", tool="ran___apply_change", decision="ALLOW", approval_id="chg-9", time="2026-11-03T05:31:52.967Z",
+                created_at="2026-11-03T05:42:00Z", aws_time="2026-11-03T05:31:52.967Z", aws_time_source="cloudwatch:/team13/checkpoint")
+    for k, o in (("decision", allow), ("change", rec(kind="change", **chg))):
+        _put(tmp_path, f"records/{run}/{k}/a.json", {**o, "run_id": run, "kind": k})
+    c = _trace_client(monkeypatch, tmp_path)
+    d = c.get(f"/api/trace/case/c?run_id={run}").json()
+    assert d["check"]["passed"] is False and d["check"]["order_ok"] is False  # no evidence: strict
+    rel = f"records/{run}/change/a.json"
+    _attest(tmp_path, run, {rel: {"job": None, "log_time": "2026-11-03T05:31:52.884Z", "sha256": _sha(tmp_path, rel), "state": "match",
+                                  "via": "lambda_log", "gateway_window": {"start": "2026-11-03T05:31:51.874Z", "end": "2026-11-03T05:31:52.970Z"}}})
+    d = c.get(f"/api/trace/case/c?run_id={run}").json()
+    assert d["check"]["passed"] is True and any("falls inside the Gateway request" in n for n in d["check"]["notes"])
+    ch = next(e for e in d["timeline"] if e["kind"] == "change")
+    assert (ch["aws_time"], ch["aws_time_source"], ch["real"]) == ("2026-11-03T05:31:52.884Z", "cloudwatch_lambda", True)
+    # an apply OUTSIDE the request window is still out of order
+    _attest(tmp_path, run, {rel: {"job": None, "log_time": "2026-11-03T05:31:59.884Z", "sha256": _sha(tmp_path, rel), "state": "match",
+                                  "via": "lambda_log", "gateway_window": {"start": "2026-11-03T05:31:51.874Z", "end": "2026-11-03T05:31:52.970Z"}}})
+    assert c.get(f"/api/trace/case/c?run_id={run}").json()["check"]["order_ok"] is False

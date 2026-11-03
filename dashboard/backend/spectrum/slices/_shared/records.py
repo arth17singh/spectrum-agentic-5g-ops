@@ -116,7 +116,7 @@ def _manifest(root: Path) -> dict[str, tuple[str, int]]:
         return out
 
 
-_ATTEST_CACHE: dict[str, tuple[tuple[int, int], dict[str, tuple[str, str]]]] = {}
+_ATTEST_CACHE: dict[str, tuple[tuple[int, int], dict[str, tuple]]] = {}
 _SHA_CACHE: dict[str, tuple[tuple[int, int], str]] = {}
 
 
@@ -128,9 +128,9 @@ def _run_of(rel: str) -> str:
     return parts[1][:-5] if len(parts) > 1 and parts[1].endswith(".json") else ""
 
 
-def _attest(root: Path, run_id: str) -> dict[str, tuple[str, str]]:
+def _attest(root: Path, run_id: str) -> dict[str, tuple]:
     """<root>/.sync/attest/<run>.json (the evidence sync's reading of the job's `team13-evidence` log lines) as
-    rel -> (CloudWatch log time, sha256), for entries whose state is "match" only, without the item records (they
+    rel -> (CloudWatch log time, sha256, via, Gateway request window), for entries whose state is "match" only, without the item records (they
     are never shown with a time). Cached until the file changes: a run's file can be several MB."""
     if not run_id or "/" in run_id or ".." in run_id:
         return {}
@@ -148,13 +148,15 @@ def _attest(root: Path, run_id: str) -> dict[str, tuple[str, str]]:
             raw = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return {}
-        out: dict[str, tuple[str, str]] = {}
+        out: dict[str, tuple] = {}
         files = raw.get("files") if isinstance(raw, dict) else None
         if isinstance(files, dict):
             for k, v in files.items():
                 if isinstance(v, dict) and v.get("state") == "match" and isinstance(v.get("log_time"), str) \
                         and isinstance(v.get("sha256"), str) and "/item/" not in k:
-                    out[k] = (v["log_time"], v["sha256"])
+                    w = v.get("gateway_window")
+                    w = {"start": w.get("start"), "end": w.get("end")} if isinstance(w, dict) else None
+                    out[k] = (v["log_time"], v["sha256"], "lambda_log" if v.get("via") == "lambda_log" else "job_log", w)
         _ATTEST_CACHE[str(p)] = (sig, out)
         return out
 
@@ -287,7 +289,7 @@ class RecordsReader:
             man = _manifest(self.dir)
             out: dict[str, dict] = {}
             for r in rels:
-                stored = attested = None
+                stored = attested = via = window = None
                 ent = man.get(r)
                 try:
                     st = (self.dir / r).stat()
@@ -297,8 +299,8 @@ class RecordsReader:
                     stored = ent[0]
                 att = _attest(self.dir, _run_of(r)).get(r)
                 if att and _file_sha(self.dir / r, st) == att[1]:
-                    attested = att[0]
-                out[r] = {"stored": stored, "attested": attested}
+                    attested, via, window = att[0], att[2], att[3]
+                out[r] = {"stored": stored, "attested": attested, "attested_via": via, "window": window}
             return out
         want = set(rels)
         full = self.prefix + prefix
