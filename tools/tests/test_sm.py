@@ -224,6 +224,62 @@ def test_dry_run_request_sets_code_sha_to_the_declared_commit(clean_tree):
         spec.check_env({"CODE_SHA": "f" * 40})  # the runner sets it; a launch cannot override it
 
 
+def dry_run_parts(out: list[str]) -> tuple[dict, dict]:
+    text = "\n".join(out)
+    req = json.loads(text[text.index("CreateTrainingJob request"):].split("\n", 1)[1])
+    decl = json.loads(text[text.index("(written FIRST):") + len("(written FIRST):"):text.index("CreateTrainingJob")])
+    return req, decl
+
+
+def test_role_defaults_to_the_organisers_role(clean_tree):
+    out: list[str] = []
+    assert runner.main(base_args("t.sm-role0", "--dry-run"), aws=FakeAws(now=T0), out=out.append) == 0
+    req, decl = dry_run_parts(out)
+    assert req["RoleArn"] == "arn:aws:iam::000000000000:role/bb26-SageMakerExecution"
+    assert decl["twin"]["config"]["runner"]["role"] == "bb26-SageMakerExecution"
+    assert "role        arn:aws:iam::000000000000:role/bb26-SageMakerExecution" in out
+
+
+def test_team_role_under_bb26_in_the_dry_run(clean_tree):
+    out: list[str] = []
+    rc = runner.main(base_args("t.sm-role1", "--dry-run", "--role", "bb26/team13-sm-bedrock-eval"),
+                     aws=FakeAws(now=T0), out=out.append)
+    assert rc == 0
+    req, decl = dry_run_parts(out)
+    assert req["RoleArn"] == "arn:aws:iam::000000000000:role/bb26/team13-sm-bedrock-eval"
+    assert decl["twin"]["config"]["runner"]["role"] == "bb26/team13-sm-bedrock-eval"
+    assert "role        arn:aws:iam::000000000000:role/bb26/team13-sm-bedrock-eval" in out
+
+
+@pytest.mark.parametrize("role", ["OrganizationAccountAccessRole", "bb26/other-role", "bb26-OrgAdmin", "team13-x",
+                                  "bb26/team13-", "bb26/x/team13-y", "aws-reserved/team13-x", "bb26/team13-a*b",
+                                  "bb26-SageMakerExecution2"])
+def test_other_roles_are_refused(clean_tree, role):
+    out: list[str] = []
+    aws = FakeAws(now=T0)
+    assert runner.main(base_args("t.sm-role2", "--dry-run", "--role", role), aws=aws, out=out.append) == 2
+    assert "--role" in out[-1] and not aws.s3.objects
+
+
+def test_missing_team_role_is_refused_before_the_declaration(tmp_path, clean_tree):
+    rc, aws, out = launch(tmp_path, "t.sm-role3", "--role", "bb26/team13-sm-bedrock-eval")
+    assert rc == 2 and "create it in CloudShell first" in out[-1]
+    assert not aws.s3.write_log and not aws.created  # nothing declared, nothing launched
+
+
+def test_team_role_is_passed_and_recorded_in_the_job_map(tmp_path, clean_tree):
+    aws = fake_aws()
+    aws.roles["team13-sm-bedrock-eval"] = "/bb26/"
+    rc, aws, out = launch(tmp_path, "t.sm-role4", "--role", "bb26/team13-sm-bedrock-eval", aws=aws)
+    assert rc == 0, "\n".join(out)
+    arn = "arn:aws:iam::000000000000:role/bb26/team13-sm-bedrock-eval"
+    assert aws.created[0]["RoleArn"] == arn
+    jm = json.loads(aws.s3.objects[(BUCKET, "evidence/outputs/t.sm-role4/job-map.json")]["body"])
+    assert jm["role"] == "bb26/team13-sm-bedrock-eval" and jm["role_arn"] == arn
+    decl = json.loads(aws.s3.objects[(BUCKET, "evidence/declared/t.sm-role4.json")]["body"])
+    assert decl["twin"]["config"]["runner"]["role"] == "bb26/team13-sm-bedrock-eval"
+
+
 def test_gpu_profile_dry_run(clean_tree):
     out: list[str] = []
     rc = runner.main(base_args("t.sm-gpu", "--dry-run", "--gpu", "--model-s3", f"s3://{BUCKET}/models/otel-1.7b/"),
