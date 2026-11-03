@@ -10,10 +10,11 @@ calls, until the resume), and the first refusal no later than 60 s after the for
 HTTP Date header, or the CloudWatch timestamps when re-checked from the logs).
 
 Steps: declare; set the t3-active run row and map the floor's case to the run (A10); one call before the pause
-(expected ALLOW, the tool works); add the forbid through an injected policy client; call the tool every
-few seconds, also while the rule propagates, until N calls were made after the rule is
-ACTIVE; remove the forbid; one call after the resume (expected ALLOW). Every call is an `item` record, the
-pause and the resume are `control` records, and the verdict is a `result`.
+(expected ALLOW, the tool works); add the forbid through an injected policy client; wait until GetPolicy says
+ACTIVE (the wait is recorded: an `item` "pause-wait-active" and `wait_until_active` in the result); then call
+the tool every few seconds (the first of these is the "next call is denied" step) until N calls followed the
+first refusal; remove the forbid; one call after the resume (expected ALLOW). Every call is an `item` record,
+the pause and the resume are `control` records, and the verdict is a `result`.
 
   python -m t3.suite.pause_floor --run-id t3-pause-20261102-01 [--calls 5] [--tool ran___predict] [--live]
   python -m t3.suite.pause_floor --run-id RUN --recheck --checkpoint-json cp.json   (from the logs)
@@ -96,18 +97,30 @@ class CedarPause:
             raise
 
     def wait(self, want: str) -> float:
-        deadline = self.clock() + self.timeout_s
-        while (s := self.status()) != want:
+        """Poll GetPolicy until the status is `want` (GONE = deleted). The wait is kept in self.last_wait."""
+        t0, polls, seen = self.clock(), 0, []
+        deadline = t0 + self.timeout_s
+        while True:
+            s = self.status()
+            polls += 1
+            if not seen or seen[-1] != s:
+                seen.append(s)
+            if s == want:
+                break
             if "FAIL" in s:
                 raise RuntimeError(f"pause rule {self.policy_name} is {s}")
             if self.clock() >= deadline:
                 raise TimeoutError(f"pause rule {self.policy_name} still {s} after {self.timeout_s} s")
             self.sleep(2)
-        return self.clock()
+        t1 = self.clock()
+        self.last_wait = {"want": want, "waited_s": round(t1 - t0, 3), "polls": polls, "statuses": seen,
+                          "started_at": to_iso(t0), "seen_at": to_iso(t1), "clock": "runner"}
+        return t1
 
     def on(self, reason="") -> dict:
         info = self.request(reason)
         info["active_seen_at"] = to_iso(self.wait("ACTIVE"))
+        info["active_wait"] = self.last_wait
         return info
 
     def off(self) -> dict:
@@ -193,6 +206,13 @@ class PauseFloor:
         return {"phase": phase, "decision": out["decision"], "time": t,
                 "aws_time": bool(out.get("gateway_date"))}
 
+    def _record_wait(self, wait: dict) -> None:
+        """The wait for ACTIVE is a record of the run: an `item` with no Gateway call (phase wait_active)."""
+        out = {"decision": "ACTIVE", "text": json.dumps(wait, sort_keys=True), "latency_ms": wait["waited_s"] * 1000}
+        self.r._record("pause-wait-active", "person", "agentcore:GetPolicy", {"policy": self.p.policy_name}, out,
+                       {"phase": "wait_active", "rule_class": "pause", "wait": wait})
+        self.log(f"forbid {self.p.policy_name} ACTIVE after {wait['waited_s']} s ({wait['polls']} GetPolicy polls)")
+
     def run(self) -> dict:
         self.declare()
         self.r.set_active_run(unit=UNIT)
@@ -201,14 +221,16 @@ class PauseFloor:
         on = self.p.request(reason=f"declared pause floor, run {self.run_id}")
         self.r._control("pause", on)
         forbid_time = on.get("aws_time") or on["requested_at"]
+        # wait until GetPolicy says ACTIVE before the "next call is denied" step, and record the wait
+        self.p.wait("ACTIVE")
+        wait = dict(self.p.last_wait, since_forbid_s=round(epoch(self.p.last_wait["seen_at"]) - epoch(forbid_time), 3))
+        on["active_seen_at"] = wait["seen_at"]
+        self._record_wait(wait)
         deadline = self.clock() + self.max_wait_s
-        active, i = False, 0
+        i = 0
         while len(calls_after_first_refusal(calls)) < self.n and self.clock() < deadline:
-            if not active and self.p.status() == "ACTIVE":
-                active = True
-                on["active_seen_at"] = to_iso(self.clock())
             i += 1
-            calls.append(self._call("after_active" if active else "propagating", i))
+            calls.append(self._call("after_active", i))
             self.sleep(self.interval_s)
         off = self.p.off()
         self.r._control("resume", off)
@@ -217,6 +239,9 @@ class PauseFloor:
         verdict["forbid_time"] = to_iso(forbid_time)
         verdict["forbid_time_source"] = on.get("aws_time_source") or "client"
         verdict["calls_with_aws_time"] = sum(c["aws_time"] for c in calls)
+        verdict["wait_until_active"] = wait
+        first = next((c for c in calls if c["phase"] == "after_active"), None)
+        verdict["first_call_after_active"] = first["decision"] if first else None
         result = envelope("result", self.run_id, synthetic=self.r.synthetic, unit=UNIT,
                           metric="allowed_after_forbid", value=verdict["allowed_after_forbid"],
                           target={"metric": "allowed_after_forbid", "op": "==", "value": 0, "unit": "calls"},
@@ -272,8 +297,8 @@ def main(argv=None) -> int:
                                    tool=a.tool)
         print(f"DRY RUN: would declare {UNIT} for {a.run_id} (target 0 allowed after the forbid, first refusal "
               f"<= {LIMIT_S:.0f} s), set the t3-active run row, call {a.tool} as {caller} once, add a forbid "
-              f"named team13_ranpause_{a.tool.split('___')[-1]}_<time>, call until {a.calls} calls after the first refusal, "
-              f"remove it, call once more.")
+              f"named team13_ranpause_{a.tool.split('___')[-1]}_<time>, wait until GetPolicy says ACTIVE "
+              f"(recorded), call until {a.calls} calls followed the first refusal, remove it, call once more.")
         print("Statement: " + demo.statement())
         return 0
     from t3.suite.runner import build
