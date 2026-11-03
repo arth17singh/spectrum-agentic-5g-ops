@@ -4,6 +4,8 @@ The real evidence for judged runs, and the signed ledger that records it. Nothin
 The SPECTRUM backend scans this folder every 30 s (set `SPECTRUM_EVIDENCE_POLL_S` to change it, or
 press **Scan now** on the Evidence screen) and appends one signed ledger record per new file.
 
+In this repo: `declared/` holds the declarations of the runs `judging.json` names (one is kept in S3 only, GAPS G-024) and `results/` the results of 13 of the 14 judged runs, byte-exact copies of the S3 objects (the `t3.pause` result names the team's gateway, so it stays in S3 only, GAPS G-024); per-item outputs and records are in the team bucket under `evidence/`.
+
 ## Layout
 
 | Path | What | Written by |

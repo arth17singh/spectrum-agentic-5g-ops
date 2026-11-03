@@ -1,0 +1,108 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "checked_at": "2026-11-03T04:36:20.447Z",
+  "checker": {
+    "code_sha": "942e05b84e9fe5e289d675fdc48a6d390abf0ebf",
+    "script": "t1/rl/job_evaluate.py"
+  },
+  "created_at": "2026-11-03T04:36:20.447Z",
+  "details": {
+    "artifacts": {
+      "baseline.json": {
+        "job_output_member": "eval/baseline.json",
+        "sha256": "80322d201572da47b005d43e3199bf12a18e7bebde351f2fb55f5e8fcadd595e",
+        "uri": "s3://bb26-p-team13-data-483598626742-use2/evidence/outputs/t1.rl.eval-20261103T043115Z-bf52/eval/baseline.json"
+      },
+      "evaluation.json": {
+        "job_output_member": "eval/evaluation.json",
+        "sha256": "3f41025c24f693e10a9928449cadb7dc71ac585e598ff3fa3ddb15a2bde3be0e",
+        "uri": "s3://bb26-p-team13-data-483598626742-use2/evidence/outputs/t1.rl.eval-20261103T043115Z-bf52/eval/evaluation.json"
+      },
+      "evaluation.md": {
+        "job_output_member": "eval/evaluation.md",
+        "sha256": "ce518d62fb5d08fea8c2a231fc3e7a4f7d2fabd51d25e65635ece086a6685655",
+        "uri": "s3://bb26-p-team13-data-483598626742-use2/evidence/outputs/t1.rl.eval-20261103T043115Z-bf52/eval/evaluation.md"
+      }
+    },
+    "attempts": [
+      {
+        "attempt": 1,
+        "exit": 0,
+        "twin_error": false
+      }
+    ],
+    "baseline_overall": {
+      "coverage_mean": 0.8432048611111111,
+      "energy_score": 0.9391184799331403,
+      "episodes": 20,
+      "objective_mean": 29.7570287398331,
+      "reward_mean": 57.46352873983311,
+      "safety_violations": 0,
+      "sla_ratio_mean": 0.9517847222222222,
+      "spectral_efficiency": 0.25885500566936837
+    },
+    "checkpoint_sha256": "e04d8c907ca30fd3c876121b924c2836157cb546b1890a984184bb52f37484c1",
+    "checkpoint_steps": 50000,
+    "checkpoint_uri": "s3://bb26-p-team13-data-483598626742-use2/teams/team13/checkpoints/t1-rl-train-20261103T023805Z-a09e-20261103-023807/ppo_50000_steps.zip",
+    "config_hash": "a4751cfe455f6fdcf9c3944ad0d254c616497ea0ce4ad8732d9b45d740f5a78e",
+    "evaluation_attempts": 1,
+    "gate_thresholds": {
+      "objective_uplift": 1.05,
+      "repeat_tolerance": 0.01,
+      "sla_tolerance": 0.02
+    },
+    "items": {
+      "COVERAGE": true,
+      "REPEAT": true,
+      "SAFETY": true,
+      "SERVICE": true,
+      "TRACE": true,
+      "UPLIFT": false
+    },
+    "job_output": "output.tar.gz of training job t1-rl-eval-20261103T043115Z-bf52-00c436 (SageMaker OutputDataConfig)",
+    "model_artifact_sha256": null,
+    "model_artifact_uri": null,
+    "model_form": "checkpoint",
+    "model_overall": {
+      "coverage_mean": 0.9695763888888888,
+      "energy_score": 0.6563768579255438,
+      "episodes": 20,
+      "objective_mean": 3.2041189815420594,
+      "reward_mean": 48.83178564820872,
+      "safety_violations": 0,
+      "sla_ratio_mean": 0.985111111111111,
+      "spectral_efficiency": 0.21499467364066072
+    },
+    "model_zip_sha256": "e04d8c907ca30fd3c876121b924c2836157cb546b1890a984184bb52f37484c1",
+    "project_sha256": "be5c3bf3a45c6b69c3001f83fbaf17729f888ebb313f1488c41f8e3cd82283d2",
+    "release": "SDK registry step (ran_rl.release.registry) NOT run: the training run failed and never wrote run_metadata.json, which the SDK packager needs beside the checkpoint",
+    "repeat_rule": "a gate with pass: null (not measured) counts as not passed",
+    "retries": 0,
+    "sdk_gates": {
+      "REPEAT": true,
+      "SAFETY": true,
+      "SERVICE": true,
+      "TRACE": true,
+      "UPLIFT": false
+    },
+    "training_job_name": "t1-rl-train-20261103T023805Z-a09e-20261103-023807",
+    "training_run_id": "t1.rl.train-20261103T023805Z-a09e"
+  },
+  "kind": "result",
+  "metric": "pass_rate",
+  "n_items": 6,
+  "passed": false,
+  "run_id": "t1.rl.eval-20261103T043115Z-bf52",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "pass_rate",
+    "op": ">=",
+    "unit": "ratio",
+    "value": 1.0
+  },
+  "team": "team13",
+  "unit": "t1.rl.eval",
+  "value": 0.8333333333333334
+}

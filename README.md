@@ -1,6 +1,6 @@
-# Track 3: Multi-Agent Swarms for Application Enablement through NLMs (team13)
+# Trusted Data and AI Evidence Chain (cross-cutting track, every track), team13
 
-Team code `team13`. Hand-in: 12:00 Seattle time, 3 Nov 2026. Primary track: Track 3. Track 1 is the second entry. Track 2 ran one session on the FL service (`t2.fl_federated.disjoint-20261103T051311Z`; judged slot 9: silo C PASS, silo B MISSED). The Bridge was not attempted (G-018). What is blocked or not attempted is in [`GAPS.md`](GAPS.md). The machine-readable summary for judges is [`judging.json`](judging.json); every dataset and model output is listed in [`DATA.md`](DATA.md).
+Team code `team13`. Hand-in: 12:00 Seattle time, 3 Nov 2026. Primary track: the evidence chain (cross-cutting). It runs through every entry: Track 3 (agent checkpoint and swarm), Track 1 (NLM), Track 2 (one FL-service session). Track 2 ran one session on the FL service (`t2.fl_federated.disjoint-20261103T051311Z`; judged slot 9: silo C PASS, silo B MISSED). The Bridge was not attempted (G-018). What is blocked or not attempted is in [`GAPS.md`](GAPS.md). The machine-readable summary for judges is [`judging.json`](judging.json); every dataset and model output is listed in [`DATA.md`](DATA.md).
 
 ## The problem
 
@@ -67,6 +67,16 @@ Run from the repository root with Python 3.12. The organisers' `ran-rl` SDK is n
 | Live test (judges, read-only) | `scripts/live_test.sh <run_id> [--item <item_id>]`: prints where each record lives (S3 key, Logs Insights query, DynamoDB key), then runs `check_unit.py`; stops at 2:30. Lower level: `python tools/show_record.py --run-id <run_id> --item <item_id> --s3 s3://<team data bucket>/evidence/` | built; rehearsed on two real runs, both passing, in 0:29 and 0:30 (no read-only role to rehearse under, G-004) |
 | Fill `judging.json` | `python tools/judging_json.py --s3 s3://<team data bucket>/evidence/ --include <run ids> --order-file <file> --dry-run`, then without `--dry-run`; `python tools/judging_json.py --slots-report` shows which of the ten slots and two edge cases are filled | built; 10 of 10 slots and both edge cases filled |
 | Tests | `python -m pytest -q scripts/hooks/tests tools/tests t1/evals/tests t3/suite/tests t3/evals/tests` (more under each package); dashboard gate: `scripts/gate.sh` in a worktree | |
+
+## Evidence chain: the four units
+
+How our records map to the judging deck's four units of the special track. Every claim names a run in `judging.json`.
+
+- **Base security monitoring:** every agent tool call crosses the AgentCore Gateway, gets a Cedar decision and leaves a CloudWatch audit record (decision log and spans; the deny run joins all 27 decisions to their spans). The trust gate pauses a degraded model by itself: `t3.trust.gate_v1_degraded-20261103T045624Z`, 20 of 20 paused (slot 10). It also falsely paused 7 of 20 healthy runs (E1).
+- **Adversarial testing:** the deny suite `t3.deny-20261103T054914Z` refused 27 of 27, including 4 prompt-injection items (slot 1). The Track 1 safety suite: the tuned model scores 0.851 (`t1.safety-otel-tuned-1`), below the 0.95 bar the base run declared; its own declared target (gain over base) passes.
+- **Trusted data and AI evidence chain:** a target declared in S3 before every run, frozen test-set hashes (`judging.json` `data.test_sets`), rule-based graders (no model grades a model), per-item records with AWS times, `check_unit` parts a to e, the signed ledger, `judging.json` and `DATA.md`.
+- **SDLC:** the RL kit's gated pipeline, `t1.rl.eval-20261103T043115Z-bf52`: 5 of 6 gates, UPLIFT FAILS (slot 8). The NLM path: data `t1.sft.data-20261103T034500Z-7c2a` (checks PASS) → train `t1.sft.train-20261103T034500Z-9d4f` (PASS) → evaluate `t1.execution-otel-tuned-1` and `t1.interface-otel-tuned-1` (slots 5 and 6, PASS).
+- **Not covered:** the deck's "20 simulations, 10+ seeds" bar is the Bridge's, which we did not attempt (G-018). What we have: the RL evaluation runs 20 episodes on 20 seeds (4 scenarios x 5), and the trust gate 20 twin seeds (3000 to 3019).
 
 ## Judged runs
 
