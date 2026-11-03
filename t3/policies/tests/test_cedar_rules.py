@@ -35,7 +35,8 @@ def test_rule_set():
         "team13_ran_allow_observe", "team13_ran_allow_propose", "team13_ran_allow_predict",
         "team13_ran_allow_preflight", "team13_ran_allow_apply_change", "team13_ran_nlm_safe_questions",
         "team13_ran_screen_nlm_answers", "team13_ran_screen_nlm_answers_kit_name", "team13_ran_require_case_id",
-        "team13_ran_require_human_approval", "team13_ran_no_kit_apply_change", "team13_ran_nlm_kit_name_explainer_only"}
+        "team13_ran_require_human_approval", "team13_ran_no_kit_apply_change", "team13_ran_nlm_kit_name_explainer_only",
+        "team13_ran_seed_app_only", "team13_ran_seed_never_agents"}
     # M2: both NLM names reach our code, so both are screened
     assert rules["team13_ran_screen_nlm_answers"]["actions"] == ["nlm___ask"]
     assert rules["team13_ran_screen_nlm_answers_kit_name"]["actions"] == ["nlm___ask_nlm"]

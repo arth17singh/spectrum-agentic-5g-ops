@@ -26,6 +26,10 @@ ASK = "ask"
 KIT_ASK = "ask_nlm"   # the kit's NLM tool name, kept in the taken-over target
 
 RAN_TOOLS = (OBSERVE, PROPOSE, PREDICT, PREFLIGHT, APPLY)
+# The evaluation harness's tool (t3/evals/live_swarm.py): opens a case at an incident's state. It SETS twin
+# state, so Cedar lets only the app's token call it (t3/policies/generate.py: seed_app_only); it is not one
+# of the six frozen agent tools and no agent prompt names it.
+SEED = "seed_case"
 
 
 def full(target: str, tool: str) -> str:
@@ -37,6 +41,7 @@ def ran(tool: str) -> str:
 
 
 NLM_ASK = full(NLM_TARGET, ASK)
+SEED_FULL = full(RAN_TARGET, SEED)
 KIT_NLM_ASK = full(NLM_TARGET, KIT_ASK)
 NLM_NAMES = (NLM_ASK, KIT_NLM_ASK)      # both reach our code after the takeover of target `nlm`
 KIT_WORK_APPLY = "work___apply_change"  # the kit's example apply tool (its own Lambda, not our twin)
@@ -90,6 +95,13 @@ def ran_tool_schemas() -> list[dict]:
               {**base, "change": CHANGE}, ["change"]),
         # Mirrors the kit's apply_change schema (checkpoint_kit.py 376-382): approval and
         # special_context must be declared or the interceptor's injected value fails validation.
+        _tool(SEED, "Evaluation harness only (the app's token; agents are refused): open a new case at an "
+                    "incident's state.",
+              {"case_id": CASE_ID, "scenario": _p("string", "Twin scenario."),
+               "seed": _p("integer", "Twin seed."), "preset": _p("string", "Twin preset, e.g. official."),
+               "start_action_log_json": _p("string", "JSON list of the steps applied so far, each a canonical "
+                                                     "change string or [] for a no-op step.")},
+              ["scenario", "seed", "start_action_log_json"]),
         _tool(APPLY, "Apply a change to this case's twin. Needs a person's approval; one approval applies "
                      "one change. If refused for approval, give the person the approval id, and after they "
                      "approve call again with exactly the same values.",
