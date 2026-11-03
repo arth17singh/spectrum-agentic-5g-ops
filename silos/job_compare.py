@@ -100,7 +100,7 @@ def main(argv=None) -> int:
         evio.declare_first(declared)
 
     xs = np.array([xi[i]["score"] for i in ids]); ys = np.array([yi[i]["score"] for i in ids])
-    seeds = np.array([xi[i]["seed"] for i in ids]); segs = np.array([xi[i]["segment"] for i in ids])
+    seeds = np.array([xi[i]["extra"]["seed"] for i in ids]); segs = np.array([xi[i]["extra"]["segment"] for i in ids])
     diff = ys - xs
     boot = nn.paired_bootstrap(diff, seeds, n_boot=N_BOOT, seed=sr.EVAL_SEED)
     items = []

@@ -122,7 +122,7 @@ def test_job_data_print_declaration(capsys):
     assert job_data.main(["--print-declaration"]) == 0
     d = json.loads(capsys.readouterr().out)
     assert d["unit"] == "t2.silo_data" and d["target"] == {"metric": "pass_count", "op": ">=", "value": 14, "unit": "files (checked, uploaded, SHA-256 verified)"}
-    assert "simulated silos" in d["population"] and d["track"] == "track-2"
+    assert "simulated silos" in d["twin"]["config"]["details"]["population"] and d["track"] == "track-2"
 
 
 @pytest.mark.parametrize("args", [["--method", "local", "--silo", "B"], ["--method", "central"], ["--method", "fedavg"]])
@@ -144,7 +144,7 @@ def test_job_baselines_real_run_writes_a_recomputable_unit(job_env, monkeypatch)
     assert decl["unit"] == "t2.local_only.C.disjoint" and decl["target"]["metric"] == "n_items" and decl["code_sha"] == CODE_SHA
     assert res["passed"] and res["value"] == len(items) == decl["n_items"] == 50
     assert abs(ev.summarize_items(items, "n_items") - res["value"]) == 0
-    assert all(np.isfinite(it["score"]) and len(it["pred"]) == 4 for it in items)
+    assert all(np.isfinite(it["score"]) and len(it["extra"]["pred"]) == 4 for it in items)
     mdl = ev.read_model("t2-response-local-c-disjoint", "v1", store)
     assert mdl["model_kind"] == "t2-response" and mdl["artifact_uri"].endswith("model.safetensors")
     blob = (Path(os.environ["MODEL_DIR"]) / "model.safetensors").read_bytes()
@@ -178,7 +178,7 @@ def test_evaluate_then_compare_beats_and_measure(job_env, monkeypatch, tmp_path,
     items = ev.read_records("t2-test-cmp", "item", ev.default_store())
     assert res["details"]["bootstrap"]["method"].startswith("paired bootstrap resampling clusters")
     assert res["target"]["metric"] == "mean_score" and res["value"] == pytest.approx(out1["mean_diff"]) == pytest.approx(np.mean([it["score"] for it in items]))
-    assert all(it["score"] == pytest.approx(it["y_score"] - it["x_score"]) for it in items)
+    assert all(it["score"] == pytest.approx(it["extra"]["y_score"] - it["extra"]["x_score"]) for it in items)
     monkeypatch.setenv("RUN_ID", "t2-test-cmp2")
     rc2 = job_compare.main(["--kind", "beats", "--x", "t2-test-init", "--y", "t2-test-trained", "--name", "b_vs_a", "--split", "disjoint", "--declare-first"])
     out2 = json.loads(capsys.readouterr().out)
@@ -310,3 +310,18 @@ def test_declare_only_writes_the_declaration_and_nothing_else(job_env, monkeypat
     d = ev.read_declared("t2-test-declare-only", ev.default_store())
     assert d["unit"] == "t2.central.disjoint" and d["code_sha"] == CODE_SHA and d["declared_at"]
     assert ev.read_result("t2-test-declare-only", ev.default_store()) is None and ev.record_kinds("t2-test-declare-only", ev.default_store()) == []
+
+
+def test_every_record_kind_we_write_passes_the_contracts_library():
+    """Run with PYTHONPATH=contracts: the library rejects unknown top-level fields (declared, item)."""
+    pytest.importorskip("team13_contracts")
+    ev = evio.get_evlib()
+    decls = [job_data.declaration_for(G.load_config(), "r-c", CODE_SHA)]
+    decls += [json.loads(json.dumps(d)) for d in declarations.build_all().values()]
+    for d in decls:
+        d = {**d, "run_id": "r-c", "code_sha": CODE_SHA, "region": "us-east-2", "test_set_sha256": "c" * 64}
+        ev.validate(ev._envelope({**d, "declared_at": ev.utc_now()}, "declared", "r-c"))
+    it = evio.item(item_id="a:1:2", input_sha256="a" * 64, output_sha256="b" * 64, grader="g", backend="b", score=0.5, segment="s", seed=1,
+                   pred=[0.1, 0.2, 0.3, 0.4], rows=3, uploaded_to=["s3://x/y"], laptop_comparison=None)
+    assert set(it) <= {"item_id", "input_sha256", "output_sha256", "grader", "backend", "score", "extra"} and it["extra"]["seed"] == 1
+    ev.validate(ev._envelope(it, "item", "r-c"))

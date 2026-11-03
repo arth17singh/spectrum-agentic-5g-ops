@@ -63,14 +63,21 @@ def region() -> str:
     return os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-2"
 
 
+NO_TWIN = {"kind": "none", "version": "none", "scenario": "none", "seed": 0}
+POPULATION = "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data"
+
+
 def declaration(*, run_id: str, unit: str, target: dict, n_items: int, test_set_sha256: str, model_id: str, grader: str,
-                code_sha: str, extra: dict | None = None) -> dict:
-    d = {"run_id": run_id, "unit": unit, "track": TRACK, "target": target, "n_items": int(n_items),
-         "test_set_sha256": test_set_sha256, "model_id": model_id, "grader": grader, "code_sha": code_sha,
-         "region": region(), "synthetic": False,
-         "population": "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data"}
-    d.update(extra or {})
-    return d
+                code_sha: str, extra: dict | None = None, twin: dict | None = None) -> dict:
+    """A declared record that the contracts library accepts: only contract fields at the top level. What we say beyond
+    the contract (population label, note, scales, comparison details) is in twin.config.details."""
+    t = dict(twin or NO_TWIN)
+    cfg = dict(t.get("config") or {})
+    cfg["details"] = {"population": POPULATION, **(extra or {})}
+    t["config"] = cfg
+    return {"run_id": run_id, "unit": unit, "track": TRACK, "target": target, "n_items": int(n_items),
+            "test_set_sha256": test_set_sha256, "model_id": model_id, "grader": grader, "code_sha": code_sha,
+            "region": region(), "synthetic": False, "twin": t}
 
 
 def declare_first(declared: dict) -> None:
@@ -157,9 +164,9 @@ def runner_declaration(decl: dict, twin: dict | None = None) -> dict:
     note, scales, comparison details) travels in twin.config.details."""
     out = {k: decl[k] for k in RUNNER_KEYS if k in decl}
     extras = {k: v for k, v in decl.items() if k not in RUNNER_KEYS and k not in ("run_id", "code_sha", "region")}
-    t = dict(twin or {"kind": "none", "version": "none", "scenario": "none", "seed": 0})
+    t = dict(twin or decl.get("twin") or NO_TWIN)
     cfg = dict(t.get("config") or {})
-    cfg["details"] = extras
+    cfg["details"] = {**(cfg.get("details") or {}), **extras}
     t["config"] = cfg
     out["twin"] = t
     out.setdefault("synthetic", False)
@@ -182,9 +189,17 @@ def reconcile(declared: dict) -> dict:
     return stored
 
 
+ITEM_FIELDS = ("score", "passed", "latency_ms", "cost_usd")  # the contract's optional top-level item fields
+
+
 def item(*, item_id: str, input_sha256: str, output_sha256: str, grader: str, backend: str, **fields: Any) -> dict:
+    """An item record the contracts library accepts: everything that is not a contract field goes in item.extra."""
     d = {"item_id": item_id, "input_sha256": input_sha256, "output_sha256": output_sha256, "grader": grader, "backend": backend}
-    d.update(fields)
+    extra = {}
+    for k, v in fields.items():
+        (d if k in ITEM_FIELDS else extra)[k] = v
+    if extra:
+        d["extra"] = extra
     return d
 
 

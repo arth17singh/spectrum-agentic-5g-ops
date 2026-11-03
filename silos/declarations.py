@@ -84,8 +84,7 @@ def build_all() -> dict[str, dict]:
         dd = jc.declaration_for(kind, name, split, PH["run_id"], PH["code_sha"], {**fake, "model_id": ids[xk]}, {**fake, "model_id": ids[yk]},
                                 sr.test_rows(m, split), f"<run id of {xk}>", f"<run id of {yk}>")
         out[f"compare_{name}_{split}"] = dd
-    twin = {"data": job_data.RUNNER_TWIN}
-    return {k: evio.runner_declaration(v, twin.get(k)) for k, v in out.items()}
+    return {k: evio.runner_declaration(v) for k, v in out.items()}
 
 
 def write_templates() -> list[str]:

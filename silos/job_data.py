@@ -70,7 +70,7 @@ def declaration_for(cfg: dict, run_id: str, code_sha: str) -> dict:
     return evio.declaration(
         run_id=run_id, unit=UNIT, target={"metric": "pass_count", "op": ">=", "value": n, "unit": "files (checked, uploaded, SHA-256 verified)"},
         n_items=n, test_set_sha256=config_sha256(cfg), model_id=MODEL_ID, grader=GRADER, code_sha=code_sha,
-        extra={"note": "Provenance of the simulated-silo datasets. test_set_sha256 is the sha256 of the generator config "
+        twin=RUNNER_TWIN, extra={"note": "Provenance of the simulated-silo datasets. test_set_sha256 is the sha256 of the generator config "
                        "(silos/config.yaml, canonical JSON). The comparison with the earlier laptop copy is a measurement, "
                        "not a target.",
                "entry": "python -m silos.job_data"})
@@ -137,7 +137,7 @@ def main(argv=None) -> int:
         evio.print_json(declared)
         return 0
     if a.print_runner_declaration:
-        evio.print_json(evio.runner_declaration(declared, twin=RUNNER_TWIN))
+        evio.print_json(evio.runner_declaration(declared))
         return 0
     if a.declare_only:
         evio.get_evlib().write_declared(declared)
