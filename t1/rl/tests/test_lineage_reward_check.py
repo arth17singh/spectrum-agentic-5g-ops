@@ -17,7 +17,7 @@ from t1.rl import lineage, reward_check  # noqa: E402
 from tools import evlib  # noqa: E402
 from tools.sm import spec  # noqa: E402
 
-BUCKET = spec.BUCKET
+BUCKET = "fixture-data-bucket"
 EV = f"s3://{BUCKET}/evidence/"
 HOST = "twin-synthetic.example.internal"
 
@@ -29,6 +29,7 @@ def _no_aws_env(monkeypatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing-not-a-key")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing-not-a-secret")
     monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
+    monkeypatch.setenv(spec.BUCKET_ENV, BUCKET)
 
 
 def tgz(files: dict) -> bytes:

@@ -20,7 +20,7 @@ from tools import evlib  # noqa: E402
 from tools.sm import package, spec  # noqa: E402
 from tools.sm import run as runner  # noqa: E402
 
-BUCKET = spec.BUCKET
+BUCKET = "fixture-data-bucket"
 TRAIN_RID = "t1.rl.train-20261103T023805Z-a09e"
 TRAIN_JOB = "t1-rl-train-20261103T023805Z-a09e-20261103-023807"
 URL_ARN = "arn:aws:secretsmanager:us-east-2:000000000000:secret:AmazonSageMaker-team13-twin-url-AbCdEf"
@@ -36,6 +36,7 @@ def _no_aws_env(monkeypatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing-not-a-key")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing-not-a-secret")
     monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
+    monkeypatch.setenv(spec.BUCKET_ENV, BUCKET)
     monkeypatch.setattr(package, "tree_dirty", lambda repo: [])
 
 
