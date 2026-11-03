@@ -95,7 +95,7 @@ async def remote_flags():
 
 @app.get("/api/snapshot")
 async def snapshot():
-    _evidence_fresh()  # the evidence part is re-checked against disk, as /api/evidence is
+    await asyncio.to_thread(_evidence_fresh)  # re-checked against disk, as /api/evidence is; a reload (~3 s) runs off the loop
     ev = await asyncio.to_thread(_evidence_snapshot)  # built off the event loop, cached until the ledger changes
     return {**engine.snapshot(), "evidence": ev}
 
@@ -392,7 +392,7 @@ def _evidence_snapshot() -> dict:
 
 @app.get("/api/evidence")
 async def evidence_snapshot():
-    _evidence_fresh()
+    await asyncio.to_thread(_evidence_fresh)
     return await asyncio.to_thread(_evidence_snapshot)
 
 
