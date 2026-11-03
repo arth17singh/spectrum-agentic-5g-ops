@@ -116,7 +116,8 @@ def main(argv: list[str] | None = None) -> int:
     tv = ap.add_mutually_exclusive_group(required=True)
     tv.add_argument("--value", type=float, help="the target value")
     tv.add_argument("--delta-over-baseline", type=float, help="target = baseline value + this (needs --baseline-cmd)")
-    ap.add_argument("--target-unit", default="", help='unit of the target value, e.g. "ms" ("" for a ratio)')
+    ap.add_argument("--target-unit", help="unit of the target value, e.g. ratio, count, calls, ms "
+                    "(default: evlib.METRIC_UNITS for the metric)")
     ap.add_argument("--test-set", type=Path, required=True, help="the frozen test set file (hashed into the declaration)")
     ap.add_argument("--n-items", type=int, help="default: non-empty lines in --test-set")
     ap.add_argument("--model-id", required=True)
@@ -141,6 +142,9 @@ def main(argv: list[str] | None = None) -> int:
     cmd = a.cmd[1:] if a.cmd[:1] == ["--"] else a.cmd
     if not cmd:
         ap.error("give the command to run after --")
+    a.target_unit = a.target_unit or evlib.METRIC_UNITS.get(a.metric)
+    if not a.target_unit:
+        ap.error(f"--target-unit is required for metric {a.metric!r}")
     if a.delta_over_baseline is not None and not a.baseline_cmd:
         ap.error("--delta-over-baseline needs --baseline-cmd")
 
