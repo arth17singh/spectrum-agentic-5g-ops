@@ -40,12 +40,28 @@ def check_of(run_id: str, root: Path | None = None) -> dict | None:
             "parts": {k: (v or {}).get("state") for k, v in parts.items() if isinstance(v, dict)}}
 
 
+def superseded_ids(root: Path | None = None) -> set[str]:
+    root = root or _root()
+    out: set[str] = set()
+    for p in ([root / "superseded.json"] if root else []) + [Path(__file__).resolve().parents[5] / "evidence" / "superseded.json"]:
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for e in (d.get("superseded") or []) if isinstance(d, dict) else []:
+            out.update(r for r in (e.get("run_ids") or []) if isinstance(r, str))
+    return out
+
+
 def govern(prov: Any, run_ids: Iterable[Any], root: Path | None = None) -> Any:
     if not isinstance(prov, dict) or prov.get("state") == "empty":
         return prov
     runs = sorted({r for r in run_ids if isinstance(r, str) and r})
     if not runs:
         return prov
+    if len(runs) > 1:  # a listing: runs withdrawn in superseded.json are not counted (their own view says why)
+        sup = superseded_ids(root)
+        runs = [r for r in runs if r not in sup] or runs
     checks = {r: check_of(r, root) for r in runs}
     if any(c is None for c in checks.values()):
         return prov
