@@ -44,6 +44,7 @@ from t3.evals.twin_backend import (
     PRESET_SCENARIO,
     ReplayTwin,
     graded,
+    single_thread,
     twin_version,
 )
 
@@ -345,6 +346,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--run-id", help="run id for the evidence records")
     ap.add_argument("--write-candidates", action="store_true", help="refresh suite/candidates.jsonl and exit")
     a = ap.parse_args(argv)
+    single_thread()  # same torch reduction order as t3.evals.run, which replays this suite
     if a.write_candidates:
         CANDIDATES_PATH.write_bytes(candidates_bytes())
         print(json.dumps({"candidates": N_CANDIDATES,
