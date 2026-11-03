@@ -128,17 +128,17 @@ def test_snapshot_keeps_only_contract_cell_keys():
 
 def test_aws_time_from_the_lambda_clock():
     w = World(run_id="r-clock")
-    w.deps.aws_clock = lambda: ("2026-11-03T01:02:03.456Z", "lambda-clock:team13-ran-tools")
+    w.deps.aws_clock = lambda: ("2026-11-03T01:02:03.456Z", "lambda:clock")
     w.approved(APPLY)
     w.call("ran___apply_change", **APPLY)
     rec = w.records()[0]
-    assert rec["aws_time"] == "2026-11-03T01:02:03.456Z" and rec["aws_time_source"] == "lambda-clock:team13-ran-tools"
+    assert rec["aws_time"] == "2026-11-03T01:02:03.456Z" and rec["aws_time_source"] == "lambda:clock"
 
 
 def test_lambda_clock_only_inside_lambda():
     assert app.lambda_clock({})() == (None, None)
     t, src = app.lambda_clock({"AWS_LAMBDA_FUNCTION_NAME": "team13-ran-tools"})()
-    assert src == "lambda-clock:team13-ran-tools" and t.endswith("Z") and "T" in t
+    assert src == "lambda:clock" and t.endswith("Z") and "T" in t
 
 
 def test_fields_are_left_out_until_the_contract_declares_them(monkeypatch):
@@ -152,6 +152,21 @@ def test_real_shaped_record_validates_against_team13_contracts(monkeypatch):
     if "twin_state" not in contracts.ChangeRecord.model_fields:
         pytest.skip("this team13_contracts predates twin_state (W1 commit pending)")
     monkeypatch.setattr(app, "_DECLARED", {})   # use what the contract really declares
-    _, rec, _, _ = applied_record()
-    assert "twin_state" in rec
+    for twin in (FakeTwinShares, FakeTwin):
+        _, rec, _, _ = applied_record(twin)
+        assert "twin_state" in rec and rec["twin"]["preset"] == "official"
+        contracts.parse_record(copy.deepcopy(rec))
+    # a real-shaped record: W2's per-cell keys, a dark cell with -inf RSRP, numpy-style 0/1 flags
+    dark = {"coverage_ratio": 0.5, "sla_ratio": 0.8, "rsrp_p10_dbm": -110.0, "per_cell": [
+        {"cell": 0, "power_dbm": 23.0, "tilt_deg": 6.0, "ue_count": 30, "rsrp_mean_dbm": -90.0,
+         "rsrp_p10_dbm": -101.5, "sinr_mean_db": 8.1, "sinr_p10_db": 1.2, "alarm": 0, "asleep": 0,
+         "coverage_share": 0.8, "sla_share": 0.9},
+        {"cell": 1, "power_dbm": 20.0, "tilt_deg": 6.0, "ue_count": 0, "rsrp_mean_dbm": float("-inf"),
+         "rsrp_p10_dbm": float("-inf"), "sinr_mean_db": float("nan"), "sinr_p10_db": float("nan"), "alarm": 1,
+         "asleep": 0, "coverage_share": None, "sla_share": None}]}
+    snap = app.snapshot(4, dark)
+    assert snap["per_cell"][1]["rsrp_mean_dbm"] is None and snap["per_cell"][1]["sinr_p10_db"] is None
+    assert snap["per_cell"][1]["alarm"] is True and snap["per_cell"][0]["asleep"] is False
+    rec = dict(rec, twin_state={"before": snap, "after": app.snapshot(5, dark), "baseline": app.snapshot(5, dark)})
     contracts.parse_record(copy.deepcopy(rec))
+    assert "rsrp_mean_dbm\": null" in json.dumps(rec["twin_state"])

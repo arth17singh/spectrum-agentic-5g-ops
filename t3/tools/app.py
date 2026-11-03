@@ -187,12 +187,16 @@ def snapshot(step: int, kpis: dict) -> dict:
     contract's cell keys are kept (W2's kpis also carry bounds and method notes)."""
     cells = []
     for c in kpis.get("per_cell") or []:
-        cell = {k: c[k] for k in CELL_KEYS if k in c and c[k] is not None}
+        # Non-finite twin values (e.g. -inf RSRP of a dark cell) are written as null (W1 cc92085).
+        cell = {k: jsonable(c[k]) for k in CELL_KEYS if k in c}
         for k in SHARE_KEYS:  # always present: None where the twin cannot tell (hosted adapters, 0 UEs)
-            cell[k] = c.get(k)
+            cell[k] = jsonable(c.get(k))
         for k in INT_CELL_KEYS:
-            if k in cell:
+            if cell.get(k) is not None:
                 cell[k] = int(cell[k])
+        for k in ("alarm", "asleep"):
+            if cell.get(k) is not None:
+                cell[k] = bool(cell[k])
         cells.append(cell)
     h = headline(kpis)
     return {"step": int(step), "coverage_ratio": h["coverage_ratio"], "sla_ratio": h["sla_ratio"], "per_cell": cells}
@@ -217,6 +221,9 @@ def declared(model: str, field: str) -> bool:
     return _DECLARED[key]
 
 
+AWS_TIME_SOURCE = "lambda:clock"   # W1 cc92085: what a Lambda stamping its own clock writes
+
+
 def lambda_clock(env: dict) -> Callable[[], tuple[str | None, str | None]]:
     """aws_time from the Lambda's own clock (inside AWS Lambda only; local runs stay null)."""
     fn = env.get("AWS_LAMBDA_FUNCTION_NAME")
@@ -224,7 +231,7 @@ def lambda_clock(env: dict) -> Callable[[], tuple[str | None, str | None]]:
     def clock():
         if not fn:
             return None, None
-        return now_iso(), f"lambda-clock:{fn}"
+        return now_iso(), AWS_TIME_SOURCE
     return clock
 
 
