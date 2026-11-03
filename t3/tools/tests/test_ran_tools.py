@@ -25,7 +25,9 @@ class World:
     def __init__(self, predictor=None, policy=None, nlm_obj=None, run_id=None, trust=True, twin=FakeTwinCF):
         self.ddb = FakeDynamo()
         if run_id:
-            self.ddb.set_plain("t3-active", run_id=run_id)  # written by the runner
+            self.ddb.set_plain("t3-active", run_id=run_id, unit="u")  # the runner: active run ...
+            self.ddb.set_plain(f"t3-{CASE}", case_id=CASE, run_id=run_id, unit="u", created_at=1793600000,
+                               source="t3/suite/runner.py")  # ... and map_case: a row WITHOUT doc
         self.writer = MemoryWriter()
         self.trust = FakeTrustInvoker()
         self.predictor = predictor if predictor is not None else FakePredictor()
@@ -349,14 +351,60 @@ def test_default_invoker_is_synchronous_with_a_short_timeout(monkeypatch):
         deps.trust_invoker()({"record": {}})
 
 
-def test_run_id_comes_from_the_active_run_row():
+def map_case(w, case_id, run_id):
+    """Exactly what t3/suite/runner.py map_case writes: a t3-<case> row with NO doc."""
+    w.ddb.set_plain(f"t3-{case_id}", case_id=case_id, run_id=run_id, unit="t3.allow", created_at=1793600000,
+                    source="t3/suite/runner.py")
+
+
+def test_runner_mapped_case_without_doc_works_and_gets_its_doc():
     w = World()
-    assert w.call("ran___observe", case_id="case-00000001")["run_id"] == "adhoc-case-00000001"
-    w.ddb.set_plain("t3-active", run_id="r-7")
-    assert w.call("ran___observe", case_id="case-00000002")["run_id"] == "r-7"
-    w.ddb.set_plain("t3-active", run_id="r-8")
-    assert w.call("ran___observe", case_id="case-00000002")["run_id"] == "r-7"  # fixed for the case's life
-    assert "status" not in w.ddb.items["t3-case-00000002"]   # the kit's approve never lists case rows
+    map_case(w, "case-r7aaaaaa-01", "r-7")
+    out = w.call("ran___observe", case_id="case-r7aaaaaa-01")
+    assert not out.get("error") and out["run_id"] == "r-7"           # used to fail: KeyError 'doc'
+    row = w.ddb.plain("t3-case-r7aaaaaa-01")
+    assert row["doc"] and row["version"] == 1 and row["run_id"] == "r-7"
+    assert row["unit"] == "t3.allow" and row["source"] == "t3/suite/runner.py"   # the runner's fields kept
+    assert "status" not in row                                                  # never listed by approve
+    puts = [c for c in w.ddb.calls if c[0] == "put_item"]
+    assert puts[0][1]["ConditionExpression"] == "attribute_not_exists(pk) OR attribute_not_exists(doc)"
+    # and the full flow on that case: predict, approve, apply, record under the runner's run
+    args = dict(APPLY, case_id="case-r7aaaaaa-01")
+    w.call("ran___predict", case_id=args["case_id"], item_id="step-0", change=CHANGE)
+    w.approved(args)
+    assert w.call("ran___apply_change", **args)["applied"] is True
+    assert w.records()[0]["run_id"] == "r-7"
+
+
+def test_second_create_of_the_same_case_is_still_guarded():
+    w = World()
+    map_case(w, "case-r7aaaaaa-02", "r-7")
+    s = w.deps.store
+    first = {"case_id": "case-r7aaaaaa-02", "run_id": "r-7", "scenario": "nominal", "seed": 0, "config": "official",
+             "action_log": [], "twin_kind": "maveric-inprocess", "predictions": [], "created_at": "t"}
+    s.put_case(dict(first), None)                        # fills in the doc-less mapping row
+    with pytest.raises(store.ConflictError):
+        s.put_case(dict(first, run_id="r-other"), None)  # a concurrent second create must not overwrite
+    assert s.get_case("case-r7aaaaaa-02")["run_id"] == "r-7"
+    w.call("ran___observe", case_id="case-r7aaaaaa-02")  # load_case survives the race path too
+    assert s.get_case("case-r7aaaaaa-02")["version"] == 1
+
+
+def test_chat_cases_are_adhoc_even_with_an_active_suite_run():
+    w = World()
+    w.ddb.set_plain("t3-active", run_id="r-suite")      # never cleared by the runner
+    assert w.call("ran___observe", case_id="case-chat0001")["run_id"] == "adhoc-case-chat0001"
+    map_case(w, "case-chat0002", "r-suite")
+    w.ddb.set_plain("t3-active", run_id="r-next")
+    assert w.call("ran___observe", case_id="case-chat0002")["run_id"] == "r-suite"   # the mapping wins
+    assert w.call("ran___observe", case_id="case-chat0002")["run_id"] == "r-suite"   # fixed for the case's life
+    assert "status" not in w.ddb.items["t3-case-chat0002"]
+
+
+def test_local_store_mapping_rows(tmp_path):
+    s = store.LocalStore(tmp_path)
+    s.map_case("case-loc00001", "r-local")
+    assert s.get_case("case-loc00001") is None and s.mapped_run_id("case-loc00001") == "r-local"
 
 
 def test_replay_is_deterministic_and_the_twin_is_cached():
@@ -396,7 +444,8 @@ def test_model_version_must_be_the_served_one():
 def test_local_store_emulates_the_interceptor(tmp_path):
     s = store.from_env({"T3_STORE": f"local:{tmp_path}"})
     assert s.emulate_interceptor is True
-    s.set_active_run_id("r-local")
+    s.set_active_run_id("r-other")   # never used for a case (t3-active is not cleared)
+    s.map_case(CASE, "r-local")      # the runner maps the suite case
     writer = evidence.LocalWriter(tmp_path / "ev")
     app.set_deps(app.Deps(store=s, twin_factory=FakeTwin, kpis=fake_kpis, predictor=lambda: FakePredictor(),
                           writer=lambda: writer, tool_name_fallback=True))

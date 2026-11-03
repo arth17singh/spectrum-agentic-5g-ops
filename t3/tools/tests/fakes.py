@@ -52,6 +52,8 @@ class FakeDynamo:
     def _check(self, cond: str | None, cur: dict | None, values: dict | None, names: dict | None) -> bool:
         if cond is None:
             return True
+        if cond == "attribute_not_exists(pk) OR attribute_not_exists(doc)":
+            return cur is None or "doc" not in cur
         if cond == "attribute_not_exists(pk)":
             return cur is None
         if cond == "version = :v":
