@@ -396,7 +396,10 @@ class Tools:
         dflt = self.d.defaults
         twin = self.twin(dflt["scenario"], dflt["seed"], dflt["config"])
         resolved = getattr(twin, "config", None)
-        new = {"case_id": case_id, "run_id": self.d.store.active_run_id() or f"adhoc-{case_id}",
+        # the run the suite runner bound this case to; a chat case (no binding) is ad hoc, never the last
+        # suite run (t3-active is never cleared)
+        bound = self.d.store.case_run_id(case_id) if hasattr(self.d.store, "case_run_id") else None
+        new = {"case_id": case_id, "run_id": bound or f"adhoc-{case_id}",
                "scenario": dflt["scenario"], "seed": int(dflt["seed"]),
                "config": jsonable(resolved) if isinstance(resolved, dict) else dflt["config"],
                "action_log": [], "twin_kind": dflt["twin_kind"], "predictions": [], "created_at": self.d.now()}

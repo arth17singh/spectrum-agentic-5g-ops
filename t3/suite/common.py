@@ -233,6 +233,9 @@ def ddb_get(ddb, table: str, key: dict) -> dict | None:
     return {k: next(iter(v.values())) for k, v in item.items()}
 
 
-def ddb_put(ddb, table: str, item: dict) -> None:
-    ddb.put_item(TableName=table, Item={k: ({"N": str(v)} if isinstance(v, (int, float)) and not isinstance(v, bool)
-                                            else {"S": str(v)}) for k, v in item.items()})
+def ddb_put(ddb, table: str, item: dict, condition: str | None = None) -> None:
+    kw = {"TableName": table, "Item": {k: ({"N": str(v)} if isinstance(v, (int, float)) and not isinstance(v, bool)
+                                           else {"S": str(v)}) for k, v in item.items()}}
+    if condition:
+        kw["ConditionExpression"] = condition
+    ddb.put_item(**kw)

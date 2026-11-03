@@ -54,6 +54,8 @@ class FakeDynamo:
             return True
         if cond == "attribute_not_exists(pk)":
             return cur is None
+        if cond == "attribute_not_exists(pk) OR attribute_not_exists(doc)":
+            return cur is None or "doc" not in cur
         if cond == "version = :v":
             return cur is not None and "version" in cur and cur["version"] == values[":v"]
         if cond == "#s = :approved":

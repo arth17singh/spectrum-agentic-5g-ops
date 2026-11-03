@@ -24,8 +24,9 @@ def kit_key(args):
 class World:
     def __init__(self, predictor=None, policy=None, nlm_obj=None, run_id=None, trust=True, twin=FakeTwinCF):
         self.ddb = FakeDynamo()
-        if run_id:
-            self.ddb.set_plain("t3-active", run_id=run_id)  # written by the runner
+        if run_id:  # written by the suite runner: the run row and the case's binding row (no doc)
+            self.ddb.set_plain("t3-active", run_id=run_id)
+            self.ddb.set_plain(f"t3-{CASE}", case_id=CASE, run_id=run_id)
         self.writer = MemoryWriter()
         self.trust = FakeTrustInvoker()
         self.predictor = predictor if predictor is not None else FakePredictor()
@@ -349,14 +350,31 @@ def test_default_invoker_is_synchronous_with_a_short_timeout(monkeypatch):
         deps.trust_invoker()({"record": {}})
 
 
-def test_run_id_comes_from_the_active_run_row():
+def test_run_id_comes_from_the_runners_binding_row_never_from_t3_active():
     w = World()
     assert w.call("ran___observe", case_id="case-00000001")["run_id"] == "adhoc-case-00000001"
+    # t3-active is never cleared, so a chat case after a suite run must NOT be filed under that run
     w.ddb.set_plain("t3-active", run_id="r-7")
-    assert w.call("ran___observe", case_id="case-00000002")["run_id"] == "r-7"
+    assert w.call("ran___observe", case_id="case-00000003")["run_id"] == "adhoc-case-00000003"
+    # the suite runner's binding row (t3/suite/runner.py map_case: case_id, run_id, no doc, no status)
+    w.ddb.set_plain("t3-case-00000002", case_id="case-00000002", run_id="r-7", unit="t3.allow",
+                    created_at=1793650000, source="t3/suite/runner.py")
+    assert w.call("ran___observe", case_id="case-00000002")["run_id"] == "r-7"   # no KeyError on "doc"
+    row = w.ddb.plain("t3-case-00000002")
+    assert "doc" in row and row["run_id"] == "r-7" and int(row["version"]) == 1   # the binding became the case
     w.ddb.set_plain("t3-active", run_id="r-8")
     assert w.call("ran___observe", case_id="case-00000002")["run_id"] == "r-7"  # fixed for the case's life
     assert "status" not in w.ddb.items["t3-case-00000002"]   # the kit's approve never lists case rows
+
+
+def test_a_bound_case_runs_the_whole_apply_flow():
+    w = World()
+    w.ddb.set_plain(f"t3-{CASE}", case_id=CASE, run_id="r-allow")   # written by the runner first
+    w.call("ran___predict", case_id=CASE, item_id="step-0", change=CHANGE)
+    w.approved(APPLY)
+    out = w.call("ran___apply_change", **APPLY)
+    assert out["applied"] is True and out["run_id"] == "r-allow"
+    assert w.case_doc()["run_id"] == "r-allow"
 
 
 def test_replay_is_deterministic_and_the_twin_is_cached():

@@ -138,11 +138,14 @@ class Runner:
             "source": "t3/suite/runner.py"})
 
     def map_case(self, case_id, unit=None):
-        """Amendment A10: case row t3-<case_id> -> run_id, again without a `status` attribute."""
+        """Amendment A10: a BINDING row t3-<case_id> -> run_id, without `status` (the kit's approve never lists
+        it) and without `doc` (the tools read it as "no case yet", take its run_id and replace it with the
+        case, t3/tools/store.py). Written only if no row exists, so it can never overwrite a real case."""
         unit = unit or self.unit_name
         common.ddb_put(self.ddb, self.cfg["approvals_table"], {
             "pk": f"t3-{case_id}", "case_id": case_id, "run_id": self.run_id, "unit": unit,
-            "created_at": int(self.clock()), "source": "t3/suite/runner.py"})
+            "created_at": int(self.clock()), "source": "t3/suite/runner.py"},
+            condition="attribute_not_exists(pk)")
 
     def ensure_fresh(self, case_ids):
         """Case ids come from run_id[:8]; a run id whose first 8 characters were used before would reuse old

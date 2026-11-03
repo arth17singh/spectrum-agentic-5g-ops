@@ -9,7 +9,12 @@ Selection (`from_env`):
     attribute, so the kit's `approve` (which lists rows by status) never shows it. `doc` is the case
     dict as JSON text: {case_id, run_id, scenario, seed, config, action_log, twin_kind, predictions,
     created_at};
-  * the run row `pk = "t3-active"` holds the current `run_id`, set by the runner.
+  * the run row `pk = "t3-active"` holds the current `run_id`, set by the runner (informational:
+    it is never cleared, so the tools do NOT file new cases under it);
+  * a BINDING row is a case row the suite runner wrote before the case existed: `pk = "t3-" + case_id`
+    with `case_id, run_id` and no `doc`. `get_case` treats it as "no case yet", `case_run_id` returns
+    its run_id, and the first `put_case` replaces it. A case with no binding is filed under
+    `adhoc-<case_id>` (chat cases are not suite runs).
   Applying a change is ONE TransactWriteItems: the kit's conditional APPROVED -> APPLIED update and
   the case-row write (conditional on its version). Either both happen or neither does.
 """
@@ -40,6 +45,7 @@ class Store(Protocol):
     def get_case(self, case_id: str) -> dict | None: ...
     def put_case(self, case: dict, expected_version: int | None) -> None: ...
     def active_run_id(self) -> str | None: ...
+    def case_run_id(self, case_id: str) -> str | None: ...
     def approval_status(self, key: str) -> str | None: ...
     def approval_item(self, key: str) -> dict | None: ...
     def model_paused(self, model_id: str, version: str) -> bool: ...
@@ -85,7 +91,17 @@ class LocalStore:
         tmp.replace(p)
 
     def get_case(self, case_id: str) -> dict | None:
-        return self._read(self._case_path(case_id))
+        data = self._read(self._case_path(case_id))
+        return data if data and "version" in data else None   # a binding file is not a case yet
+
+    def case_run_id(self, case_id: str) -> str | None:
+        """The run a case belongs to: its binding (bind_case), else the local active run (local runs
+        have no suite runner in front of them)."""
+        data = self._read(self._case_path(case_id)) or {}
+        return data.get("run_id") or self.active_run_id()
+
+    def bind_case(self, case_id: str, run_id: str) -> None:
+        self._write(self._case_path(case_id), {"case_id": _safe(case_id), "run_id": _safe(run_id)})
 
     def put_case(self, case: dict, expected_version: int | None) -> None:
         p = self._case_path(case["case_id"])
@@ -167,8 +183,8 @@ class DynamoStore:
         item = {"pk": CASE_PREFIX + case["case_id"], "case_id": case["case_id"], "run_id": case["run_id"],
                 "doc": json.dumps(_body(case), separators=(",", ":")), "version": (expected_version or 0) + 1}
         put = {"TableName": self.table, "Item": {k: self._ser.serialize(v) for k, v in item.items()}}
-        if expected_version is None:
-            put["ConditionExpression"] = "attribute_not_exists(pk)"
+        if expected_version is None:  # a new case: no row yet, or only the runner's binding row (no doc)
+            put["ConditionExpression"] = "attribute_not_exists(pk) OR attribute_not_exists(doc)"
         else:
             put["ConditionExpression"] = "version = :v"
             put["ExpressionAttributeValues"] = {":v": {"N": str(expected_version)}}
@@ -176,7 +192,7 @@ class DynamoStore:
 
     def get_case(self, case_id: str) -> dict | None:
         row = self._get(CASE_PREFIX + _safe(case_id))
-        if not row:
+        if not row or "doc" not in row:   # no row, or the suite runner's binding row (case_id, run_id)
             return None
         doc = json.loads(row["doc"])
         doc["version"] = int(row["version"])
@@ -194,6 +210,11 @@ class DynamoStore:
 
     def active_run_id(self) -> str | None:
         row = self._get(ACTIVE_PK)
+        return row.get("run_id") if row else None
+
+    def case_run_id(self, case_id: str) -> str | None:
+        """The run the suite runner bound this case to (its t3-<case_id> row), else None."""
+        row = self._get(CASE_PREFIX + _safe(case_id))
         return row.get("run_id") if row else None
 
     def approval_status(self, key: str) -> str | None:
