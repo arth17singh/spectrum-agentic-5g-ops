@@ -14,21 +14,21 @@ Times are Seattle time (PST, UTC−8) with UTC in brackets. Each entry keeps a d
 | [G-004](#g-004) | Open · platform | No read-only role to rehearse the judges' live test; permission simulation is denied | Live-test rehearsal (evidence chain) | 2 Nov 12:40 PST |
 | [G-005](#g-005) | Resolved for the first session · platform | Track 2 FL service was not provisioned at the 16:00 enablement; a federated run (`t2.fl_federated.disjoint-20261103T051311Z`) has since run, comparison runs pending | Track 2 units until the comparisons exist | 2 Nov 16:40 PST |
 | [G-006](#g-006) | Declared risk · organiser-side IAM | The Agent Builder host role can create and modify any role under /bb26/; participant SSO role can invoke our tools Lambda directly | Track 3 claim "only the Gateway invokes our tools" holds for non-human principals only | 2 Nov 18:20 PST |
-| [G-007](#g-007) | Declared limit · SDK logging | The RAN RL SDK logs every twin HTTP call at INFO with the twin host (never the token) | Evidence hygiene: SDK job logs name the twin host | 3 Nov (time TODO) |
+| [G-007](#g-007) | Declared limit · SDK logging | The RAN RL SDK logs every twin HTTP call at INFO with the twin host (never the token) | Evidence hygiene: SDK job logs name the twin host | 2 Nov 21:02 PST (3 Nov 05:02 UTC; first logged in `fed7c50`) |
 | [G-008](#g-008) | Open · failed run | Full RL training run crashed at about 67.6k of 100k steps (connection reset by the twin host); the 50k checkpoint was scored instead and failed UPLIFT | Track 1 RL unit: scored on the 50k checkpoint, 5 of 6 gates | 2 Nov 20:19 PST |
 | [G-009](#g-009) | Open · measurement | Frozen eval references drift across CPU architecture, torch build and instance size | Track 1 execution and Track 3 incident units: frozen values are valid only on the instance type that froze them | 2 Nov 19:14 PST |
-| [G-010](#g-010) | Declared risk · organiser-side IAM | The organisers' SageMaker role has no Bedrock access; Bedrock baselines run under a team role. SageMaker roles can read any secret named AmazonSageMaker-* | Track 1 Bedrock baselines; secret exposure | 3 Nov (time TODO) |
-| [G-011](#g-011) | Open · feature gap | The dashboard's phone approve page drives the simulator, not the real approvals table | Track 3 human-approval demo until the real page (W7g) is built | 3 Nov (time TODO) |
+| [G-010](#g-010) | Declared risk · organiser-side IAM | The organisers' SageMaker role has no Bedrock access; Bedrock baselines run under a team role. SageMaker roles can read any secret named AmazonSageMaker-* | Track 1 Bedrock baselines; secret exposure | 2 Nov 21:02 PST (3 Nov 05:02 UTC; first logged in `fed7c50`) |
+| [G-011](#g-011) | Open · feature gap | The dashboard's phone approve page drives the simulator, not the real approvals table | Track 3 human-approval demo until the real page (W7g) is built | 2 Nov 21:02 PST (3 Nov 05:02 UTC; first logged in `fed7c50`) |
 | [G-012](#g-012) | Resolved · found and fixed 2 Nov | `tools/check_unit.py` could not recompute the paired-bootstrap gain metric, so part [e] said "cannot check" (exit 2) for the Track 3 gain runs | Was: Track 3 baselines and the swarm incident eval (slot 5) | 3 Nov (found during the live-test rehearsal) |
 | [G-013](#g-013) | Resolved · harness defect | The Track 1 knowledge parser rejected bare-letter answers (90% parse failures); the first base knowledge run is superseded | Slot 6 (knowledge, base); the other four base runs stand | 2 Nov 20:43 PST |
-| [G-014](#g-014) | Resolved · process incident | A stream-branch push contained a real host address in a test literal; the scan reported it but the pipe hid the exit code. Branch deleted within minutes, history rewritten (`008e4bc`) | Confidentiality of the twin host; pushes now scan-gated | 2 Nov (time TODO) |
+| [G-014](#g-014) | Resolved · process incident | A stream-branch push contained a real host address in a test literal; the scan reported it but the pipe hid the exit code. Branch deleted within minutes, history rewritten (`008e4bc`) | Confidentiality of the twin host; pushes now scan-gated | 2 Nov 21:49 PST (3 Nov 05:49 UTC; first logged in `aff7172`) |
 | [G-015](#g-015) | Resolved · crashed run | The first t3 deny run `t3.deny-20261103T051458Z` crashed at item 23 (the Cedar validator rejected the pause-forbid guard form); fixed in `51010f8` | Slot 1 (t3 deny): the crashed run is superseded by `t3.deny-20261103T054914Z` | 2 Nov about 21:15 PST |
-| [G-016](#g-016) | Declared design | Change records carry the approver's AWS identity (`approved_by`) as audit evidence; the dashboard shows a pseudonym | Track 3 audit: identity is in the evidence store, not on screen | 3 Nov (time TODO) |
-| [G-017](#g-017) | Resolved · deploy script defect | `t3/deploy/register.py` read only the first page of `list_policies`; with 24 rules it tried to create a rule that already existed, exited 1 without a message, and never created the three seed rules | Track 3 checkpoint: the seed rules were missing after the `614fc3b` deploy | 3 Nov (time TODO) |
+| [G-016](#g-016) | Declared design | Change records carry the approver's AWS identity (`approved_by`) as audit evidence; the dashboard shows a pseudonym | Track 3 audit: identity is in the evidence store, not on screen | 2 Nov 21:49 PST (3 Nov 05:49 UTC; first logged in `aff7172`) |
+| [G-017](#g-017) | Resolved · deploy script defect | `t3/deploy/register.py` read only the first page of `list_policies`; with 24 rules it tried to create a rule that already existed, exited 1 without a message, and never created the three seed rules | Track 3 checkpoint: the seed rules were missing after the `614fc3b` deploy | 2 Nov 21:49 PST (3 Nov 05:49 UTC; first logged in `aff7172`) |
 | [G-018](#g-018) | Not attempted · team decision | Bridge challenge not attempted: no loop code or setup steps in the kits, two different bars (0.73 vs 0.97), and the 10:00 cutoff for new runs | The optional Bridge unit; no Bridge number exists or is claimed | 2 Nov 18:00 PST |
-| [G-019](#g-019) | Resolved · runner defect | The runner sent an empty `InputDataConfig` for jobs with no input channels; AWS never saw the request, so 8 declared runs (4 T2 compares, 4 Bedrock CPU runs) never started | The T2 comparisons and the Bedrock baselines until relaunched | 3 Nov (time TODO) |
-| [G-020](#g-020) | Resolved · harness defects | Two harness defects found by the first comparison and Bedrock runs: a missed target made the T2 compare job exit 1 (result never attested), and a non-finite model answer was stored as `inf` and crashed a Bedrock knowledge run | T2 compare federated_vs_B and Bedrock knowledge (gpt-oss-20b): both relaunched | 3 Nov (time TODO) |
-| [G-021](#g-021) | Resolved · checker false positive | `check_unit` part d (ledger comparison) reported a false positive that depended on the order in which the ledger ingested files; fixed in `06ddb9f` | Part d on runs checked against a ledger | 3 Nov (time TODO) |
+| [G-019](#g-019) | Resolved · runner defect | The runner sent an empty `InputDataConfig` for jobs with no input channels; AWS never saw the request, so 8 declared runs (4 T2 compares, 4 Bedrock CPU runs) never started | The T2 comparisons and the Bedrock baselines until relaunched | 2 Nov 22:15 PST (3 Nov 06:15 UTC; first logged in `130632f`) |
+| [G-020](#g-020) | Resolved · harness defects | Two harness defects found by the first comparison and Bedrock runs: a missed target made the T2 compare job exit 1 (result never attested), and a non-finite model answer was stored as `inf` and crashed a Bedrock knowledge run | T2 compare federated_vs_B and Bedrock knowledge (gpt-oss-20b): both relaunched | 2 Nov 22:50 PST (3 Nov 06:50 UTC; first logged in `cfd3874`) |
+| [G-021](#g-021) | Resolved · checker false positive | `check_unit` part d (ledger comparison) reported a false positive that depended on the order in which the ledger ingested files; fixed in `06ddb9f` | Part d on runs checked against a ledger | 2 Nov 22:50 PST (3 Nov 06:50 UTC; first logged in `cfd3874`) |
 | [G-022](#g-022) | Run once · session bridge, part c not checkable | The Viavi Operate rung ran once for the RL model (`t1.rl.viavi_operate-20261103T075351Z-25c0`, measure-only), through the team's signed-in browser session; no machine access to the RSG exists | Viavi rung: one 5-step measurement; no AWS window (check_unit part c cannot check); no retention figure | 3 Nov 07:54 UTC (2 Nov 23:54 PST) |
 | [G-023](#g-023) | Open · declared design | The signed evidence ledger is kept on the team laptop, not in the repo or S3, so the offline rebuild cannot be run from a clone | The offline rebuild (`make -C dashboard evidence-rebuild`) only; per-run checks do not need it (`check_unit` parts a, b, c and e; part d skips without a ledger) | 3 Nov 06:30 PST (14:30 UTC) |
 | [G-024](#g-024) | Open · confidentiality | One declaration, `t2.fl_federated.disjoint-20261103T051311Z`, is in S3 only, not in the repo, because it names a confidential service | Repo copy of that one declaration; the run itself and its S3 declaration are unchanged | 3 Nov 06:30 PST (14:30 UTC) |
@@ -55,7 +55,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Time:** our own deadline for the file was 10:00 PST (18:00 UTC). It was still missing at 11:01 PST (19:01 UTC).
 - **Exact error:** none. No call to the twin can be made without its address and token.
 - **Request id:** none, for the same reason.
-- **Who we told:** not recorded yet.
+- **Who we told:** Reported to the organisers by the team lead (confirmed by the team lead on 3 Nov, 11:15 PST); the contact name and time were not recorded.
 - **What we checked:**
   - our machine, by file name and contents, at 11:01 PST: only the kit's blank `.env.example`;
   - both team S3 buckets at 11:06 PST: us-east-2 holds only the starter kit we uploaded, and us-east-1 is empty.
@@ -84,7 +84,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **What happened:** Foundation step 5 takes `RAN_RL_BUNDLE_URI` from the event details page, and we have not been given that value. On the hackathon CDN, the staging bundle, its `SHA256SUMS` file and the wheel paths returned HTTP 403. The starter kit zip (SDK 1.2.7) published on the hackathon hub is byte-identical to the copy we were given: 1,501,816 bytes, SHA-256 `fd3fa97d629fc3b18d3142028f122398681bf75dcbd734bd98d35afa95aa40fc`. We uploaded that copy to our us-east-2 bucket and pointed `RAN_RL_BUNDLE_URI` at it, marked as a stand-in.
 - **Exact error:** HTTP 403 on the bundle, `SHA256SUMS` and wheel paths.
 - **Request id:** not recorded.
-- **Who we told:** not recorded yet.
+- **Who we told:** Reported to the organisers by the team lead (confirmed by the team lead on 3 Nov, 11:15 PST); the contact name and time were not recorded.
 - **Limits:** no unit directly. We could check only that the hub's copy and ours match, not verify either against an organiser checksum file, so the guide's checksum step (p.21, Part A) was skipped.
 - **Resolved when:** the organisers send the official URI, or confirm the starter zip is the intended path; we switch to it and record its checksum.
 
@@ -112,7 +112,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **What did not work:** `iam:SimulatePrincipalPolicy` is explicitly denied for the participant role (checked read-only during the feasibility review), so permissions cannot be verified in advance. No read-only role exists in the account for rehearsing the judges' read-only live test.
 - **Exact error:** AccessDenied on `iam:SimulatePrincipalPolicy` (explicit deny).
 - **Request id:** not recorded.
-- **Who we told:** not recorded yet.
+- **Who we told:** Reported to the organisers by the team lead (confirmed by the team lead on 3 Nov, 11:15 PST); the contact name and time were not recorded.
 - **Limits:** the evidence-chain rehearsal. We can show that `tools/show_record.py` uses only read calls (S3 Get/List, Logs Insights, DynamoDB Get), but not prove it under a read-only identity.
 - **Meanwhile:** the script's code is limited to read APIs, and a test asserts it never calls a write API.
 
@@ -129,7 +129,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
   - the utility package named in the service's guide is readable from our account. It was downloaded, verified against its published SHA-512 sums, and installed outside the repo;
   - our synthetic silo datasets (generated by `silos/`, hashed in `silos/manifest.json`) stand in for organiser silos.
 - **Risk still open:** the CDK bootstrap and the utility's own stacks create IAM roles. Our account requires the `/bb26/` path and the permissions boundary, so both may be refused.
-- **Who we told:** TODO (user).
+- **Who we told:** Reported to the organisers by the team lead (confirmed by the team lead on 3 Nov, 11:15 PST); the contact name and time were not recorded.
 
 **Log**
 - 2 Nov about 18:10 PST: read-only `list-sessions` in us-west-2 returned an empty list with no access error.
@@ -148,7 +148,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
   - the tools Lambda checks the Gateway id as defence in depth;
   - the trace rebuild fails any tool call without a Gateway decision.
 - **Limits:** the claim "only the Gateway invokes our tools" holds for non-human principals only.
-- **Who we told:** TODO (user).
+- **Who we told:** Reported to the organisers by the team lead (confirmed by the team lead on 3 Nov, 11:15 PST); the contact name and time were not recorded.
 
 
 <a id="g-007"></a>
@@ -159,10 +159,10 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **What happens:** the SDK logs every twin HTTP call at INFO level, with the twin host in the line. It never logs the token. SageMaker job logs and any copy of them therefore contain the host address.
 - **Our mitigation:** our own evaluation job lowers those loggers before it makes any call, so its logs and the records it writes do not carry the host. Declarations say "address and token not recorded". Raw job logs are never mirrored into the repo.
 - **Limits:** other jobs that run the SDK's own code may still write the host into their CloudWatch logs in the team account (TODO: confirm per job). Those logs are not part of the hand-in.
-- **Who we told:** TODO (user).
+- **Who we told:** Reported to the organisers by the team lead (confirmed by the team lead on 3 Nov, 11:15 PST); the contact name and time were not recorded.
 
 **Log**
-- 3 Nov (time TODO): logged. Our evaluation job lowers the SDK's HTTP loggers.
+- 2 Nov 21:02 PST (3 Nov 05:02 UTC, commit `fed7c50`): logged. Our evaluation job lowers the SDK's HTTP loggers.
 
 <a id="g-008"></a>
 ## G-008 · Full RL training run crashed; the 50k checkpoint was scored instead
@@ -200,7 +200,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
   The Track 3 incident suite had the same cause and was re-frozen on AWS x86 as suite v4 (`t3.evals.suite-freeze-20261103T031439Z-32b3`; `DATA.md`).
 - **Fix:** re-freeze on AWS, and pin each evaluation to the instance type that froze it: execution evals run on ml.g5.2xlarge (the base execution run is declared on it), Track 3 evals on ml.m5.xlarge. A run on another instance type is not comparable and is not reported as such.
 - **Limits:** base and tuned runs of a unit must use the same instance type. Results from runs pinned to different instance types are not compared.
-- **Who we told:** TODO (user).
+- **Who we told:** Reported to the organisers by the team lead (confirmed by the team lead on 3 Nov, 11:15 PST); the contact name and time were not recorded.
 
 **Log**
 - 2 Nov 19:14 PST (3 Nov 03:14 UTC): first replay check on x86 (m5.xlarge) shows drift.
@@ -216,10 +216,10 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **What did not work:** the organisers' SageMaker execution role (`bb26-SageMakerExecution`) cannot call Bedrock, so Bedrock baselines for Track 1 cannot run under it.
 - **What we did:** a team role `/bb26/team13-sm-bedrock-eval`, created in CloudShell under the `/bb26/` path with the permissions boundary, runs the Bedrock baseline jobs.
 - **Related risk:** the SageMaker roles can read any Secrets Manager secret whose name starts with `AmazonSageMaker-`. Any secret we name that way is readable by every job role of that kind. We pass a job a Secrets Manager ARN, not the secret, in its `Environment`. TODO (user): confirm which roles this covers.
-- **Who we told:** TODO (user).
+- **Who we told:** Reported to the organisers by the team lead (confirmed by the team lead on 3 Nov, 11:15 PST); the contact name and time were not recorded.
 
 **Log**
-- 3 Nov (time TODO): role created in CloudShell.
+- 3 Nov, time not recorded: role created in CloudShell.
 
 <a id="g-011"></a>
 ## G-011 · The dashboard's phone approve page drives the simulator
@@ -230,7 +230,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Who we told:** not applicable (our own code).
 
 **Log**
-- 3 Nov (time TODO): gap logged; W7g started.
+- 2 Nov 21:02 PST (3 Nov 05:02 UTC, commit `fed7c50`): gap logged; W7g started.
 
 <a id="g-012"></a>
 ## G-012 · The independent checker could not recompute the gain metric (found and fixed)
@@ -242,8 +242,8 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Who we told:** not applicable (our own code).
 
 **Log**
-- 3 Nov (time TODO): found at `175860e` during the rehearsal.
-- 3 Nov (time TODO): fixed in `6f616c8`; rehearsal repeated, exit 0.
+- Time not recorded: found at `175860e` during the rehearsal.
+- 2 Nov 19:44 PST (3 Nov 03:44 UTC): fixed in `6f616c8`; rehearsal repeated, exit 0.
 
 <a id="g-013"></a>
 ## G-013 · The knowledge parser rejected bare-letter answers (harness defect, fixed)
@@ -266,10 +266,10 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **What happened:** on 2 Nov a push of a stream branch contained a real host address inside a literal in a test file. The pre-push scan had reported it, but the command was run through a pipe, which hid the scan's exit code, so the push went ahead.
 - **Response:** the remote branch was deleted within minutes and the history was rewritten (`008e4bc`) so no commit we push contains the value. Every push now goes through a script that runs the scan first and stops on its exit code.
 - **Limits:** the address was on the remote for a few minutes, until the branch was deleted. TODO (user): decide whether the address should be treated as exposed and changed.
-- **Who we told:** TODO (user).
+- **Who we told:** Reported to the organisers by the team lead (confirmed by the team lead on 3 Nov, 11:15 PST); the contact name and time were not recorded.
 
 **Log**
-- 2 Nov (time TODO): push, scan report, remote branch deleted, history rewritten in `008e4bc`.
+- 2 Nov, push and scan times not recorded: push, scan report, remote branch deleted; history rewritten in `008e4bc` at 21:27 PST (3 Nov 05:27 UTC).
 
 <a id="g-015"></a>
 ## G-015 · The first t3 deny run crashed (resolved)
@@ -282,7 +282,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Who we told:** not applicable (our own code).
 
 **Log**
-- 2 Nov about 21:15 PST (3 Nov 05:14 UTC): run declared (from the run id); crashed at item 23 (time TODO).
+- 2 Nov about 21:15 PST (3 Nov 05:14 UTC): run declared (from the run id); crashed at item 23 (time not recorded).
 - 51010f8: validator-safe guard form.
 - 3 Nov about 22:00 PST (3 Nov 06:01 UTC): the fresh deny run `t3.deny-20261103T054914Z` was checked.
 
@@ -307,7 +307,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Who we told:** not applicable (our own script and account).
 
 **Log**
-- 3 Nov (time TODO): missing seed rules noticed after the `614fc3b` deploy; created by hand.
+- After the `614fc3b` deploy (commit 2 Nov 21:31 PST = 3 Nov 05:31 UTC; exact time not recorded): missing seed rules noticed; created by hand.
 - `83f99f8`: paginated reads, printed failures, two-page test.
 
 <a id="g-018"></a>
@@ -340,7 +340,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Who we told:** not applicable (our own code).
 
 **Log**
-- 3 Nov (time TODO): launches refused; declarations left without jobs.
+- Time not recorded (before the fix `33c47be`, 2 Nov 22:11 PST = 3 Nov 06:11 UTC): launches refused; declarations left without jobs.
 - `33c47be`, `2e8f846`: empty `InputDataConfig` left out; request validation added.
 
 <a id="g-020"></a>
@@ -353,7 +353,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Who we told:** not applicable (our own code).
 
 **Log**
-- 3 Nov (time TODO): both defects found while the runs were being checked.
+- Time not recorded (fixed in `538dc66` at 22:36 and `8ca61a4` at 22:43 PST, 2 Nov): both defects found while the runs were being checked.
 - `538dc66`, `8ca61a4`: fixes.
 - 2 Nov about 22:50 PST (3 Nov 06:52 UTC): relaunch `t1.knowledge-bedrock-gpt-oss-20b-3` landed: 0.568 against 0.70, MISSED, check_unit parts a, b, c and e pass. The `t2.compare.federated_vs_B` relaunch (`...063916Z`) also landed: lower bound -0.041, a missed target reported as a result.
 
@@ -383,7 +383,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **What this limits:** the Viavi rung (R3) is one measurement with no AWS-attested window. The ladder's R3 retention (R3 gain divided by R2 gain) is not produced. The ladder otherwise stands on R1 and R2 only (`t3.trust.ladder_healthy-20261103T045624Z`).
 - **Future work, recorded and not done:** federated learning on Viavi, one operator per Viavi region, which needs machine access to the RSG and a per-cell model.
 - **Related:** the Bridge was not attempted (G-018).
-- **Who we told:** TODO (user).
+- **Who we told:** Reported to the organisers by the team lead (confirmed by the team lead on 3 Nov, 11:15 PST); the contact name and time were not recorded.
 
 **Log**
 - 3 Nov about 07:45 UTC: read-only handshake through the signed-in browser session; 302 to sign-in from the twin host's adapter.
