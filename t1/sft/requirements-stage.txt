@@ -1,0 +1,5 @@
+# CPU job t1.sft.stage_base on pytorch-training:2.8.0-cpu-py312 (torch from the image).
+transformers==4.57.6
+accelerate>=1.0,<2
+safetensors>=0.4.3,<1
+boto3>=1.34
