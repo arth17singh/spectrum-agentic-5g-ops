@@ -107,3 +107,56 @@ def consortium_view(split: str = "disjoint"):
     except Exception as e:  # noqa: BLE001
         return _unavailable(e)
     return {**consortium.build(manifest, preview, results, split), "source": _source(r)}
+
+
+# ---------------------------------------------------------------------------- Viavi sites (context only)
+
+VIAVI_GLOB = "outputs/viavi-sites/*/viavi_sites.json"
+
+
+def _num(v: Any) -> float | None:
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v == v else None
+
+
+def viavi_sites_view(doc: Any) -> dict | None:
+    """The extract as the panel draws it; only the documented fields are kept. A site with no usable
+    coordinate keeps its name and cells but no lat/lon. None if the document is not the expected shape."""
+    if not isinstance(doc, dict) or not isinstance(doc.get("scenarios"), list):
+        return None
+    out = []
+    for sc in doc["scenarios"]:
+        if not isinstance(sc, dict) or not isinstance(sc.get("name"), str):
+            continue
+        sites = []
+        for s in sc.get("sites") or []:
+            if not isinstance(s, dict):
+                continue
+            lat, lon = _num(s.get("lat")), _num(s.get("lon"))
+            ok = lat is not None and lon is not None and -90 <= lat <= 90 and -180 <= lon <= 180
+            sites.append({"name": str(s.get("name") or "?"), "cells": _num(s.get("cells")),
+                          "lat": lat if ok else None, "lon": lon if ok else None})
+        out.append({"name": sc["name"], "cells": _num(sc.get("cells")), "ues": _num(sc.get("ues")),
+                    "note": sc.get("note") if isinstance(sc.get("note"), str) else None, "sites": sites})
+    return {"source": doc.get("source") if isinstance(doc.get("source"), str) else None,
+            "read_at": doc.get("read_at") if isinstance(doc.get("read_at"), str) else None, "scenarios": out}
+
+
+@router.get("/viavi-sites")
+def viavi_sites():
+    """The newest Viavi RSG site extract mirrored from S3 (outputs/viavi-sites/<UTC>/viavi_sites.json).
+    Organiser data shown for context only; it is never committed. {"loaded": false} until it exists."""
+    try:
+        r = _reader()
+        root = getattr(r, "dir", None)
+        if root is None:
+            return {"loaded": False, "reason": "the Viavi extract is read from a local evidence mirror"}
+        files = sorted(Path(root).glob(VIAVI_GLOB))
+        if not files:
+            return {"loaded": False}
+        newest = files[-1]
+        view = viavi_sites_view(json.loads(newest.read_text(encoding="utf-8")))
+    except Exception as e:  # noqa: BLE001
+        return _unavailable(e)
+    if view is None:
+        return {"loaded": False, "reason": f"{newest.parent.name}/viavi_sites.json is not the expected shape"}
+    return {"loaded": True, "extract": newest.parent.name, **view}
