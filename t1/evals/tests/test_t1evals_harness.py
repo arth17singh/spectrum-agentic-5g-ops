@@ -87,7 +87,8 @@ def test_gain_interface_and_same_set_enforced(tmp_path):
                         "--run-id", "t1.if-t", "--baseline-run-id", base["run_id"]))
     g = tuned["details"]["gain"]
     assert g["paired_n"] == base["n_items"]
-    assert g["value"] == pytest.approx(tuned["value"] - base["value"])
+    assert g["value"] == pytest.approx(tuned["details"]["pass_rate"] - base["value"])
+    assert tuned["metric"] == "gain_ci_low_vs_base" and tuned["value"] == g["ci_low"]  # tuned default target
     # a baseline on a different item selection is refused
     with pytest.raises(SystemExit):
         R.run(_args(tmp_path, "--unit", "interface", "--client", "fake", "--run-id", "t1.if-x",

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from t1.evals import run as R
@@ -54,7 +56,8 @@ def test_check_unit_part_e_passes_on_a_ci_low_target(tmp_path):
 
 
 def test_check_unit_replays_a_gain_beside_a_plain_target(tmp_path):
-    _, tuned = _pair(tmp_path, "safety")
+    _, tuned = _pair(tmp_path, "safety", "--target-metric", "pass_rate", "--target-op", ">=", "--target-value", "0.95",
+                     "--target-unit", "ratio")
     e = _part_e(tmp_path, tuned["run_id"])
     assert e.state == "PASS", e.lines
     assert any("details.gain interval" in line and "replayed" in line for line in e.lines)
@@ -104,3 +107,35 @@ def test_v1_matches_check_unit_on_known_values():
     v, lo, hi, _ = check_unit.paired_bootstrap_v1(d, [f"i{k}" for k in sorted(range(10), key=lambda k: f"i{k}")],
                                                   R.CI_SEED, 500, 0.95)
     assert (g["value"], g["ci_low"], g["ci_high"]) == (v, lo, hi) and g["value"] == 0.5
+
+
+@pytest.mark.parametrize("unit,bound", [("execution", 0.0), ("safety", 0.0), ("interface", -0.02), ("knowledge", -0.03)])
+def test_tuned_default_target_and_secondary_checks_are_declared(unit, bound, capsys):
+    if unit == "execution":
+        pytest.importorskip("ran_rl")
+    R.main(["--unit", unit, "--client", "fake", "--fake-profile", "tuned", "--baseline-run-id", "t1.x-base",
+            "--print-declaration"])
+    d = json.loads(capsys.readouterr().out)
+    assert d["target"]["metric"] == "gain_ci_low_vs_base" and d["target"]["op"] == ">" and d["target"]["value"] == bound
+    checks = d["decoding"]["secondary_checks"]
+    assert checks == R.SECONDARY_TUNED[unit] and all({"name", "metric", "op", "value"} <= set(c) for c in checks)
+
+
+def test_price_latency_keeps_p95_target_with_secondaries(capsys):
+    R.main(["--unit", "price_latency", "--client", "fake", "--baseline-run-id", "t1.x-base", "--print-declaration"])
+    d = json.loads(capsys.readouterr().out)
+    assert d["target"] == {"metric": "p95_latency_ms", "op": "<=", "value": 3000.0, "unit": "ms"}
+    assert [c["metric"] for c in d["decoding"]["secondary_checks"]] == ["p95_ratio_to_base", "cost_per_1k_usd"]
+    R.main(["--unit", "price_latency", "--client", "fake", "--print-declaration"])  # base run
+    assert [c["metric"] for c in json.loads(capsys.readouterr().out)["decoding"]["secondary_checks"]] == ["cost_per_1k_usd"]
+
+
+def test_secondary_checks_are_evaluated_in_the_result(tmp_path):
+    _, tuned = _pair(tmp_path, "safety")
+    sc = {c["metric"]: c for c in tuned["details"]["secondary_checks"]}
+    assert set(sc) == {"pass_rate", "gain_value", "over_refusal_rate"}
+    assert sc["gain_value"]["measured"] == tuned["details"]["gain"]["value"]
+    assert all(c["verdict"] in ("PASS", "FAIL") for c in sc.values())
+    _, pl = _pair(tmp_path / "pl", "price_latency")
+    pc = {c["metric"]: c for c in pl["details"]["secondary_checks"]}
+    assert pc["p95_ratio_to_base"]["measured"] > 0 and pc["cost_per_1k_usd"]["verdict"] in ("PASS", "FAIL")
