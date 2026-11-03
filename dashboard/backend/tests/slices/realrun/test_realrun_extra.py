@@ -64,3 +64,19 @@ def test_failed_check_or_incomplete_never_reads_pass(tmp_path):
     assert live["t3.deny-b"]["state"] == "check failed" and "27" in live["t3.deny-b"]["why"][0]
     assert live["t3.deny-c"]["state"] == "pass"
     assert logic.run_summary(st, "t3.deny-b")["result"]["recomputed"] == "check failed"
+
+
+def test_viavi_operate_shows_declared_then_items_and_result(tmp_path):
+    run = "t1.rl.viavi_operate-20990101T000000Z-x"
+    tv = {"metric": "n_items", "op": "==", "unit": "count", "value": 5}
+    w(tmp_path, f"declared/{run}.json", {"run_id": run, "unit": "t1.rl.viavi_operate", "target": tv, "n_items": 5,
+                                          "declared_at": "2099-01-01T00:00:00Z"})
+    st = logic.Store(tmp_path)
+    v = extra.viavi_operate(st, st.run_ids())
+    assert v["run_id"] == run and v["result"] is None and v["items"] == []
+    w(tmp_path, f"records/{run}/item/aaaaaaaaaaaaaaaaaaaaaaaa.json", {"item_id": "step-0", "requested_action": [1, 2], "objective": 3.2})
+    w(tmp_path, f"results/{run}.json", {"run_id": run, "unit": "t1.rl.viavi_operate", "metric": "n_items", "value": 5, "passed": True})
+    w(tmp_path, f".sync/checks/{run}.json", {"exit_code": 2, "summary": {"parts": {"c": {"state": "CANNOT CHECK", "lines": ["no AWS window"]}}}})
+    v = extra.viavi_operate(st, st.run_ids())
+    assert v["items"][0]["objective"] == 3.2 and v["check"]["parts"]["c"] == "CANNOT CHECK"
+    assert v["result"]["state"] == "unverified"  # part c not PASS: never shown as a pass

@@ -44,6 +44,7 @@ def overview():
             "t2": logic.track2(st, runs),
             "t2_consortium": extra.track2_consortium(st, runs),
             "judged": extra.judged(st),
+            "viavi_operate": extra.viavi_operate(st, runs),
             "curves": {"t2_convergence": extra.latest_unit(st, runs, "t2.fl_convergence"),
                        "t1": extra.latest_unit(st, runs, "t1.curves")},
             "empty": not runs,

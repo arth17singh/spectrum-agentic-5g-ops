@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { get } from '@/core/api'
 import { Button, EmptyState, PageHeader, Panel, RealChip } from '@/ui'
 import { LadderPanel, SyntheticTag } from './LadderPanel'
+import { ViaviRung } from './ViaviRung'
 import manifest from './manifest'
 import { TrustChart } from './TrustChart'
 import type { ChangeRow, ChangesResponse, LadderResponse, ModelsResponse, ModelSummary, PauseEvent, Thresholds } from './types'
@@ -105,6 +106,7 @@ export default function TrustGatePage() {
       )}
 
       <div className="mt-4"><LadderPanel ladders={ladder?.ladders ?? null} error={ladder?.error ?? null} /></div>
+      <div className="mt-4"><ViaviRung /></div>
     </div>
   )
 }
@@ -141,7 +143,7 @@ function TrustPanel({ m }: { m: ModelSummary }) {
             </div>
           </div>
         )}
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+      <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-2">
         <PauseEvents events={m.pauses} />
         <RuleBox th={m.thresholds} />
       </div>
@@ -151,7 +153,7 @@ function TrustPanel({ m }: { m: ModelSummary }) {
 
 function PauseEvents({ events }: { events: PauseEvent[] }) {
   return (
-    <div>
+    <div className="min-w-0">
       <h4 className="mb-1.5 text-cap font-medium text-ink-2">Pause and resume events</h4>
       {events.length === 0 ? <div className="text-cap text-ink-3">None. This model version has never been paused.</div> : (
         <ul className="space-y-2">
@@ -163,11 +165,11 @@ function PauseEvents({ events }: { events: PauseEvent[] }) {
                   {auto
                     ? <span className="inline-flex items-center gap-1 font-bold text-critical-ink"><OctagonX size={13} aria-hidden />{e.action === 'pause' ? 'AUTO-PAUSE BY TRUST GATE' : 'RESUMED BY TRUST GATE'}</span>
                     : <span className="inline-flex items-center gap-1 font-semibold text-ink-1"><User size={13} aria-hidden />{e.action === 'pause' ? 'PAUSED BY A PERSON' : 'RESUMED BY A PERSON'}</span>}
-                  <span className="mono text-ink-2">{e.by}</span>
+                  <span className="mono min-w-0 break-all text-ink-2">{e.by}</span>
                   <span className="tnum ml-auto text-ink-3">{utc(e.time)}</span>
                 </div>
-                <div className="mt-1 text-ink-2">{e.reason || 'No reason recorded.'}</div>
-                {e.policy_name && <div className="mono mt-0.5 text-micro text-ink-3">{e.policy_name}</div>}
+                <div className="mt-1 break-words text-ink-2">{e.reason || 'No reason recorded.'}</div>
+                {e.policy_name && <div className="mono mt-0.5 break-all text-micro text-ink-3">{e.policy_name}</div>}
               </li>
             )
           })}

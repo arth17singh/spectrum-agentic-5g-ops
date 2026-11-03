@@ -34,6 +34,7 @@ export interface Overview {
   t2_consortium: Rec
   judged: Rec | null
   curves?: { t2_convergence: Rec | null; t1: Rec | null }
+  viavi_operate?: Rec | null
   empty: boolean
 }
 
