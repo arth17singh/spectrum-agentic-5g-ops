@@ -22,9 +22,15 @@ from tools.sm import run as runner
 
 REPO = Path(__file__).resolve().parents[2]
 HEAD = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True).stdout.strip()
-BUCKET = spec.BUCKET
+FAKE_ACCOUNT = "000000000000"  # the fake STS account (evfake); never a real id in this repo
+BUCKET = f"bb26-p-team13-data-{FAKE_ACCOUNT}-use2"
 EVIDENCE = f"s3://{BUCKET}/evidence/"
 T0 = "2026-11-03T02:00:00.250Z"
+
+
+@pytest.fixture(autouse=True)
+def _no_bucket_override(monkeypatch):
+    monkeypatch.delenv(spec.BUCKET_ENV, raising=False)
 
 
 def base_args(run_id: str, *extra: str) -> list[str]:
@@ -149,8 +155,31 @@ def test_secret_looking_or_reserved_env_is_refused(key):
         spec.check_env({key: "v"})
 
 
+def test_data_bucket_comes_from_the_environment_or_the_account(monkeypatch):
+    assert spec.data_bucket("111122223333") == "bb26-p-team13-data-111122223333-use2"
+    assert spec.data_bucket(None) == "bb26-p-team13-data-<account>-use2"
+    monkeypatch.setenv(spec.BUCKET_ENV, "some-team-bucket")
+    assert spec.data_bucket("111122223333") == "some-team-bucket"
+    assert not hasattr(spec, "BUCKET")  # no bucket literal: its name holds the account id
+
+
+def test_dry_run_derives_the_bucket_from_the_sts_account(clean_tree, monkeypatch):
+    out: list[str] = []
+    args = [x for x in base_args("t.sm-bucket", "--dry-run") if x not in ("--account", FAKE_ACCOUNT)]
+    assert runner.main(args, aws=FakeAws(now=T0), out=out.append) == 0  # account from the fake STS
+    req, _ = dry_run_parts(out)
+    assert req["HyperParameters"]["sagemaker_submit_directory"] == json.dumps(
+        f"s3://{BUCKET}/jobs/t.sm-bucket/source/sourcedir.tar.gz")
+    assert req["OutputDataConfig"]["S3OutputPath"] == f"s3://{BUCKET}/jobs/t.sm-bucket/output"
+    out.clear()
+    monkeypatch.setenv(spec.BUCKET_ENV, "override-bucket")
+    assert runner.main(base_args("t.sm-bucket2", "--dry-run"), aws=FakeAws(now=T0), out=out.append) == 0
+    req, _ = dry_run_parts(out)
+    assert req["InputDataConfig"][0]["DataSource"]["S3DataSource"]["S3Uri"].startswith("s3://override-bucket/")
+
+
 def test_secrets_must_be_secrets_manager_arns():
-    spec.check_secrets({"RAN_RL_ADAPTER_TOKEN": "arn:aws:secretsmanager:us-east-2:483598626742:secret:AmazonSageMaker-twin-AbCdEf"})
+    spec.check_secrets({"RAN_RL_ADAPTER_TOKEN": "arn:aws:secretsmanager:us-east-2:111122223333:secret:AmazonSageMaker-twin-AbCdEf"})
     with pytest.raises(spec.SpecError):
         spec.check_secrets({"RAN_RL_ADAPTER_TOKEN": "hunter2"})
 

@@ -167,6 +167,10 @@ def plan(a, aws=None) -> dict[str, Any]:
     account has to come from STS."""
     if not evlib.RUN_ID_RE.match(a.run_id or ""):
         raise Refusal(f"--run-id must match {evlib.RUN_ID_RE.pattern}")
+    account = a.account
+    if not account and aws is not None:
+        account = aws.client("sts").get_caller_identity()["Account"]
+    a.bucket = a.bucket or spec.data_bucket(account)  # never a literal in the repo: it holds the account id
     sha = package.resolve_commit(REPO, a.commit)
     dirty = package.tree_dirty(REPO)
     if dirty and not a.allow_dirty:
@@ -227,9 +231,6 @@ def plan(a, aws=None) -> dict[str, Any]:
         runner["dirty_note"] = (f"{len(dirty)} tracked file(s) had uncommitted changes at launch; they were NOT "
                                 f"shipped: the job ran commit {sha}")
     decl = build_declaration(a, sha, runner)
-    account = a.account
-    if not account and aws is not None:
-        account = aws.client("sts").get_caller_identity()["Account"]
     role_arn = spec.role_arn(account or "<account>", a.role)
     try:
         request = spec.build_request(run_id=a.run_id, job=job, role_arn=role_arn, region=a.region, bucket=a.bucket,
@@ -362,6 +363,9 @@ def launch(a, aws, out: Callable[[str], None] = print, waiter: Callable[..., int
 
 def finish(a, aws, out: Callable[[str], None] = print, waiter: Callable[..., int] = cli_waiter) -> int:
     rid = a.run_id
+    if not a.bucket:
+        a.bucket = spec.data_bucket(None if os.environ.get(spec.BUCKET_ENV) else
+                                    (a.account or aws.client("sts").get_caller_identity()["Account"]))
     store = evlib.S3Store(f"s3://{a.bucket}/{spec.EVIDENCE_PREFIX}", client=aws.client("s3"), region=a.region)
     raw = store.get(f"outputs/{rid}/job-map.json")
     if raw is None:
@@ -469,7 +473,8 @@ def parser() -> argparse.ArgumentParser:
     w.add_argument("--gap-s", type=float, default=2.0)
     w.add_argument("--profile", default=os.environ.get("AWS_PROFILE"))
     w.add_argument("--region", default=spec.REGION)
-    w.add_argument("--bucket", default=spec.BUCKET)
+    w.add_argument("--bucket", help=f"team data bucket (default ${spec.BUCKET_ENV}, else bb26-p-team13-data-"
+                                    "<account from STS>-use2)")
     w.add_argument("--account", help="account id for the role ARN (default: STS)")
     return ap
 
