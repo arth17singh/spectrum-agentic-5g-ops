@@ -189,7 +189,7 @@ def track2_consortium(store: Store, runs: list[str]) -> dict:
             S["central"] = base
         elif kind == "fedavg_local":
             S["fedavg_local"] = {**base, "label": det.get("label")}
-        elif kind.startswith("fl"):
+        elif kind.startswith("fl") and kind != "fl_convergence":  # a curve run, not a score of the shared test
             facts = {}
             objs = [("result", det), ("declaration", d)]
             for name, keys in FACT_KEYS.items():
@@ -223,3 +223,26 @@ def track2_consortium(store: Store, runs: list[str]) -> dict:
             "how": "difference of the recorded mean scaled MAE on the whole shared test (federated minus central); a paired interval appears when a t2.compare run exists"}
     return {"splits": sorted(by_split.values(), key=lambda x: x["split"]),
             "score_note": "score = mean per-row scaled MAE on the shared test (declared scales); lower is better. No-op = predicting no change."}
+
+
+# --------------------------------------------------------------------- training curves
+
+def latest_unit(store: Store, runs: list[str], unit: str) -> dict | None:
+    """The newest non-superseded run of `unit` that has a result: its details are passed through as recorded
+    (curves are drawn from them, never recomputed), with the governed verdict. None until such a run exists."""
+    sup = superseded(store)
+    best = None
+    for run in runs:
+        if run in sup:
+            continue
+        d, r = store.declared(run) or {}, store.result(run)
+        if not isinstance(r, dict) or (d.get("unit") or r.get("unit")) != unit:
+            continue
+        if best is None or (r.get("checked_at") or "") > (best[1].get("checked_at") or ""):
+            best = (run, r, d)
+    if best is None:
+        return None
+    run, r, d = best
+    return {"run_id": run, "unit": unit, "checked_at": r.get("checked_at"), "state": verdict(store, r, d) or "inconsistent",
+            "why": verdict_why(store, r), "synthetic": bool(r.get("synthetic") or d.get("synthetic")),
+            "details": r.get("details") if isinstance(r.get("details"), dict) else {}}

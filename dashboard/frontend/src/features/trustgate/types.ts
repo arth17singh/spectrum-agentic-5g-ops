@@ -76,6 +76,10 @@ export interface ModelSummary {
   pause_below: number | null
   n_changes: number
   n_scored: number
+  /** when this version went live (model record AWS time, else its first record) and the basis of that time */
+  live_since?: string | null
+  live_since_basis?: string | null
+  last_scored_at?: string | null
   n_unscored: number
   n_direction_agree: number
   n_direction_known: number
@@ -89,7 +93,7 @@ export interface ModelDetail extends ModelSummary { rows: ChangeRow[] }
 
 /** check_unit governs "verified" for the runs behind the screen; synthetic counts describe the inputs. */
 export interface Verification { state: string; label: string; note: string; runs: string[]; n_synthetic_inputs: number; detail?: string[] }
-export interface ModelsResponse { source: unknown; error: string | null; models: ModelSummary[]; probes: ChangeRow[]; verification?: Verification }
+export interface ModelsResponse { source: unknown; error: string | null; models: ModelSummary[]; probes: ChangeRow[]; verification?: Verification; default_key?: [string, string] | null }
 export interface ChangesResponse extends ModelDetail { source: unknown; error: string | null }
 
 export type RungLabel = 'MAVERIC' | 'REHEARSAL (Viavi-like Maveric)' | 'VIAVI'
