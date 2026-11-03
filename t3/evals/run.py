@@ -46,7 +46,7 @@ from t3.evals.changes import canon, nonzero
 from t3.evals.evshim import EVLIB, Evidence, code_dirty, code_sha, new_run_id, utc_now
 from t3.evals.graders import GRADER_ID, TARGETS_PATH, action_stats, grade_kpis, load_targets
 from t3.evals.operators import make
-from t3.evals.stats import paired_bootstrap
+from t3.evals.stats import ci_spec, paired_bootstrap
 from t3.evals.twin_backend import BACKEND, ReplayTwin, graded, twin_version
 
 DEFAULT_EVIDENCE = Path(__file__).with_name("evidence")
@@ -59,7 +59,23 @@ def sha256_text(s: str) -> str:
 
 
 def _close(a: dict[str, float], b: dict[str, float], keys) -> bool:
-    return all(math.isclose(a[k], b[k], rel_tol=REPLAY_TOL, abs_tol=1e-8) for k in keys)
+    return not replay_diffs(a, b, keys)
+
+
+def replay_diffs(got: dict[str, float], frozen: dict[str, float], keys) -> list[str]:
+    """One line per KPI that misses the replay tolerance: value replayed, value frozen, difference."""
+    out = []
+    for k in keys:
+        if not math.isclose(got[k], frozen[k], rel_tol=REPLAY_TOL, abs_tol=1e-8):
+            d = got[k] - frozen[k]
+            rel = abs(d) / max(abs(frozen[k]), 1e-12)
+            out.append(f"{k}: replayed {got[k]!r} vs frozen {frozen[k]!r} (diff {d:+.3e}, rel {rel:.3e}, "
+                       f"tolerance rel {REPLAY_TOL:g})")
+    return out
+
+
+class ReplayMismatch(RuntimeError):
+    """The twin on this machine does not reproduce the frozen suite (wrong backend or platform)."""
 
 
 def run_incident(incident: dict[str, Any], op: Any, targets: dict[str, Any], run_id: str = "adhoc") -> dict[str, Any]:
@@ -70,8 +86,14 @@ def run_incident(incident: dict[str, Any], op: Any, targets: dict[str, Any], run
     twin.reset()
     for change in inc_mod.script(incident, targets, with_fault=True):
         state = twin.apply(change)
-    if not _close(graded(state), incident["post_fault_kpis"], keys):
-        raise RuntimeError(f"{incident['incident_id']}: replayed post-fault KPIs differ from the frozen suite")
+    diffs = replay_diffs(graded(state), incident["post_fault_kpis"], keys)
+    if diffs:
+        import platform
+
+        raise ReplayMismatch(
+            f"{incident['incident_id']}: replayed post-fault KPIs differ from the frozen suite "
+            f"(twin backend {BACKEND}, platform {platform.system()}-{platform.machine()}; see "
+            f"suite/incidents-meta.json for where it was frozen): " + "; ".join(diffs))
     ctx = {"twin": twin, "targets": targets, "run_id": run_id}
     if hasattr(op, "begin"):
         op.begin(incident, ctx)
@@ -187,8 +209,9 @@ def gains_against(ev: Evidence, items: list[dict[str, Any]], baseline_ids: list[
         g = paired_bootstrap(cand, {b["item_id"]: b["score"] for b in base}, boot["resamples"], boot["seed"], boot["ci"])
         gs = paired_bootstrap(cand_s, {b["item_id"]: float(b["passed"]) for b in base}, boot["resamples"],
                               boot["seed"], boot["ci"])
-        out.append({**g, "baseline_run_id": bid, "baseline_model_id": decl.get("model_id"),
-                    "metric": "recovery", "success_rate_gain": gs})
+        mid = decl.get("model_id")
+        out.append({**ci_spec(boot, bid, mid, "score"), **g, "metric": "recovery",
+                    "success_rate_gain": None if gs is None else {**ci_spec(boot, bid, mid, "passed"), **gs}})
     return out
 
 
@@ -209,7 +232,7 @@ def baseline_by_model(ev: Evidence, baseline_ids: list[str], pred) -> tuple[str,
 
 
 def swarm_primary(ev: Evidence, items: list[dict[str, Any]], baseline_ids: list[str],
-                  boot: dict[str, Any], tier: str = "masked") -> dict[str, Any]:
+                  boot: dict[str, Any], tier: str = "masked", run_subset: str | None = None) -> dict[str, Any]:
     """Paired recovery gain over config_revert on one tier, plus the declared secondary numbers."""
     found = baseline_by_model(ev, baseline_ids, lambda m: m == CONFIG_REVERT_MODEL)
     if found is None:
@@ -235,8 +258,12 @@ def swarm_primary(ev: Evidence, items: list[dict[str, Any]], baseline_ids: list[
         rw = sum(b["extra"]["wrong_cell_actions"] for b in ritems if b["item_id"] in ids)
         secondary.update(rule_baseline=rid, rule_baseline_wrong_cell_actions=rw,
                          wrong_cell_not_worse_than_rule=secondary["wrong_cell_actions"] <= rw)
-    return {"gain": {**g, "baseline_run_id": bid, "baseline_model_id": CONFIG_REVERT_MODEL, "tier": tier},
-            "secondary": secondary}
+    # The interval is over this run's items of one tier. If the run already holds only that tier
+    # (--subset masked), the replay needs no filter; otherwise it filters on the item's tier.
+    spans_tiers = run_subset is None
+    subset_spec = {"field": "extra.incident.tier", "equals": tier} if spans_tiers else None
+    spec = ci_spec(boot, bid, (ev.read_declared(bid) or {}).get("model_id", CONFIG_REVERT_MODEL), "score", subset_spec)
+    return {"gain": {**spec, **g, "tier": tier}, "secondary": secondary}
 
 
 def compare(value: float, op: str, target: float) -> bool:
@@ -256,7 +283,7 @@ REGION = "us-east-2"  # the team's region (where this evidence is kept); the run
 
 def build_declared(run_id: str, operator: str, op: Any, unit: dict[str, Any], incidents: list[dict[str, Any]],
                    digest: str, baseline_run_ids: list[str], targets: dict[str, Any],
-                   subset: str | None = None) -> dict[str, Any]:
+                   subset: str | None = None, suite_path: str = "t3/evals/suite/incidents-test.jsonl") -> dict[str, Any]:
     d = {
         "run_id": run_id,
         "synthetic": bool(getattr(op, "synthetic", False)),
@@ -276,7 +303,7 @@ def build_declared(run_id: str, operator: str, op: Any, unit: dict[str, Any], in
             "seed": min(i["seed"] for i in incidents),
             "config": {
                 "backend": BACKEND,
-                "suite": "t3/evals/suite/incidents-test.jsonl",
+                "suite": suite_path,
                 "suite_version": inc_mod.SUITE_VERSION,
                 "presets": sorted({i["preset"] for i in incidents}),
                 "tiers": sorted({i.get("tier", "visible") for i in incidents}),
@@ -306,11 +333,17 @@ def build_declared(run_id: str, operator: str, op: Any, unit: dict[str, Any], in
 
 def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers: int = 1,
         allow_dirty: bool = False, op_kwargs: dict[str, Any] | None = None, run_id: str | None = None,
-        subset: str | None = None) -> dict[str, Any]:
+        subset: str | None = None, suite: str | Path | None = None,
+        baseline_evidence: str | Path | None = None) -> dict[str, Any]:
     single_thread()
     targets = load_targets()
     unit = targets["units"][operator]
-    incidents, digest = inc_mod.load_test()
+    suite_file = Path(suite) if suite else inc_mod.TEST_PATH
+    incidents, digest = inc_mod.load_test(suite_file)
+    try:
+        suite_label = suite_file.resolve().relative_to(inc_mod.SUITE_DIR.parents[2].resolve()).as_posix()
+    except ValueError:
+        suite_label = f"(outside the repo) {suite_file.name}"
     if subset is not None:
         if subset not in SUBSETS:
             raise SystemExit(f"unknown subset {subset!r}; known: {sorted(SUBSETS)}")
@@ -321,9 +354,11 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
     kw = dict(op_kwargs or {})
     op = make(operator, **kw)
     ev = Evidence(evidence_dir)
+    bev = Evidence(baseline_evidence) if baseline_evidence else ev  # where the baseline runs' items live
     run_id = run_id or new_run_id(f"t3.evals.{operator}")
     synthetic = bool(getattr(op, "synthetic", False))
-    declared = build_declared(run_id, operator, op, unit, incidents, digest, baseline_run_ids, targets, subset)
+    declared = build_declared(run_id, operator, op, unit, incidents, digest, baseline_run_ids, targets, subset,
+                              suite_label)
     ev.write_declared(declared)
     t0 = time.time()
     if workers > 1 and operator != "swarm":
@@ -335,7 +370,7 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
         it["synthetic"] = synthetic
     ev.append_records(run_id, "item", items)
     summary = summarize(items)
-    gains = gains_against(ev, items, baseline_run_ids, targets["bootstrap"]) if baseline_run_ids else []
+    gains = gains_against(bev, items, baseline_run_ids, targets["bootstrap"]) if baseline_run_ids else []
     metric = unit["target"]["metric"]
     if metric == "mean_score":
         value = summary["mean_recovery"]
@@ -344,12 +379,15 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
         if not na:
             raise SystemExit(f"{operator}'s target needs a no_action baseline: pass --baseline-run-id <no_action run>")
         value = na[0]["ci_low"]
+        target_gain = na[0]
     elif metric == "gain_ci_low_vs_config_revert_masked":
-        sp = swarm_primary(ev, items, baseline_run_ids, targets["bootstrap"])
+        sp = swarm_primary(bev, items, baseline_run_ids, targets["bootstrap"], run_subset=subset)
         value = sp["gain"]["ci_low"]
     else:
         raise SystemExit(f"unknown target metric {metric}")
     primary = gains[0] if gains else None
+    if metric == "gain_ci_low_vs_no_action":
+        primary = target_gain  # details.gain is the interval the target's value comes from
     extra_details: dict[str, Any] = {"subset": SUBSETS.get(subset) if subset else None,
                                      "mode": getattr(op, "mode", None)}
     if metric == "gain_ci_low_vs_config_revert_masked":
@@ -372,8 +410,7 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
             "model_id": op.model_id,
             "test_set_sha256": digest,
             "wall_s": round(time.time() - t0, 3),
-            "gain": None if primary is None else {k: primary[k] for k in
-                                                  ("value", "ci_low", "ci_high", "baseline_run_id", "paired_n")},
+            "gain": None if primary is None else {k: v for k, v in primary.items() if k != "success_rate_gain"},
             "gains": gains,
             **extra_details,
         },
@@ -406,6 +443,12 @@ def main(argv: list[str] | None = None) -> int:
                     help="swarm only. proposal: each step is one front-door case stopped at the approval refusal; "
                          "the proposed change is graded on our twin (no approvals). full: real approvals.")
     ap.add_argument("--proposal-steps", type=int, default=3, help="swarm proposal mode: cases per incident")
+    ap.add_argument("--baseline-evidence", default=None,
+                    help="evidence store holding the baseline runs (a directory or s3://bucket/evidence/; in a "
+                         "runner job: {evidence_s3}); default: --evidence-dir")
+    ap.add_argument("--suite", type=Path, default=None,
+                    help="incident file to score (default: the frozen t3/evals/suite/incidents-test.jsonl, whose "
+                         "sha256 is checked against suite/incidents-test.sha256)")
     ap.add_argument("--subset", choices=sorted(SUBSETS), default=None,
                     help="masked = the masked-tier incidents of the frozen test split")
     ap.add_argument("--run-id", default=None)
@@ -413,7 +456,7 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     res = run(a.operator, a.evidence_dir, a.baseline_run_id, a.workers, a.allow_dirty,
               {"ppo_path": a.ppo_path, "swarm_client": a.swarm_client, "swarm_mode": a.mode,
-               "proposal_steps": a.proposal_steps}, a.run_id, a.subset)
+               "proposal_steps": a.proposal_steps}, a.run_id, a.subset, a.suite, a.baseline_evidence)
     d = res["details"]
     print(json.dumps({
         "run_id": res["run_id"], "synthetic": res["synthetic"], "metric": res["metric"], "value": res["value"],

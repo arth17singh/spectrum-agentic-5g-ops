@@ -103,6 +103,19 @@ def write_sha256sums(root: str | os.PathLike, name: str = "SHA256SUMS") -> tuple
 
 # --------------------------------------------------------------------------- JSON
 
+def finite(obj: Any) -> Any:
+    """A copy with every NaN/Infinity float replaced by None (evidence JSON never carries them)."""
+    import math
+
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: finite(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [finite(v) for v in obj]
+    return obj
+
+
 def dumps_doc(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
 
@@ -253,14 +266,70 @@ def versions(*modules: str) -> dict[str, str | None]:
     return out
 
 
-def evidence_store(evidence: str | None):
-    """evlib store for records: --evidence (s3:// prefix or a directory), else evlib's default
-    (EVIDENCE_S3 / EVIDENCE_DIR), else None (no records written)."""
+# --------------------------------------------------------------------------- evidence (tools/sm runner)
+#
+# Under tools/sm/run.py the launcher stores declared/<run_id>.json in S3 BEFORE the job starts and sets
+# RUN_ID, EVIDENCE_S3 and CODE_SHA in the job. A job here:
+#   - reads that stored declaration (its target and unit are what the result must carry);
+#   - writes its item records and result into a local evlib store, --evidence-dir {evidence_dir}; the
+#     runner's entry uploads them, attests their sha256 in the job log, and check_unit recomputes the
+#     result from the items (part e);
+#   - writes its model record straight to S3 (EVIDENCE_S3): the runner collects records and results only.
+
+def stored_declaration(run_id: str, path: str | None = None) -> dict[str, Any]:
+    """The declaration the launcher stored before the job (EVIDENCE_S3), or a JSON file (local runs, tests)."""
     from tools import evlib
 
-    if evidence:
-        return evlib.S3Store(evidence) if is_s3(evidence) else evlib.LocalStore(evidence)
-    try:
-        return evlib.default_store()
-    except RuntimeError:
+    if path:
+        d = json.loads(Path(path).read_text())
+    else:
+        s3 = os.environ.get("EVIDENCE_S3", "").strip()
+        if not s3:
+            raise JobError("no declaration: the runner sets EVIDENCE_S3 (a local run passes --declared FILE)")
+        d = evlib.read_declared(run_id, evlib.S3Store(s3))
+        if d is None:
+            raise JobError(f"no declaration for {run_id} in {s3}: the launcher writes it before the job")
+    if d.get("run_id") != run_id:
+        raise JobError(f"the declaration is for run {d.get('run_id')!r}, not {run_id!r}")
+    return d
+
+
+def check_test_set(decl: dict[str, Any], actual_sha256: str, what: str) -> None:
+    """The input this job is about to grade is the test set the declaration names (by sha256)."""
+    want = decl.get("test_set_sha256")
+    if want != actual_sha256:
+        raise JobError(f"{what} has sha256 {actual_sha256}, the declaration's test_set_sha256 is {want}")
+    log(f"test set {what} sha256 {actual_sha256} = declared")
+
+
+def write_evidence(evidence_dir: str | os.PathLike, decl: dict[str, Any], items: list[dict[str, Any]],
+                   script: str, code_sha: str | None, details: dict[str, Any]) -> dict[str, Any]:
+    """Item records + the result computed from them (evlib.make_result: the same metric check_unit
+    recomputes), into a local evlib store. Returns the result."""
+    from tools import evlib
+
+    store = evlib.LocalStore(evidence_dir)
+    evlib.append_records(decl["run_id"], "item", items, store=store)
+    res = evlib.make_result(decl, items, script, code_sha or decl.get("code_sha"), details=details)
+    evlib.write_result(res, store=store)
+    return res
+
+
+def model_store(explicit: str | None = None):
+    """Where model records go: --model-evidence (s3:// prefix or dir), else EVIDENCE_S3, else None."""
+    from tools import evlib
+
+    target = explicit or os.environ.get("EVIDENCE_S3", "").strip() or None
+    if not target:
         return None
+    return evlib.S3Store(target) if is_s3(target) else evlib.LocalStore(target)
+
+
+def copy_to(summary_dir: str | os.PathLike | None, *files: str | os.PathLike) -> None:
+    """Small summaries also go to the job's {output_dir} (kept in the job's output.tar.gz)."""
+    if not summary_dir:
+        return
+    d = Path(summary_dir)
+    d.mkdir(parents=True, exist_ok=True)
+    for f in files:
+        shutil.copy2(f, d / Path(f).name)

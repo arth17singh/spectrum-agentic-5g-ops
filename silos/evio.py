@@ -63,14 +63,21 @@ def region() -> str:
     return os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-2"
 
 
+NO_TWIN = {"kind": "none", "version": "none", "scenario": "none", "seed": 0}
+POPULATION = "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data"
+
+
 def declaration(*, run_id: str, unit: str, target: dict, n_items: int, test_set_sha256: str, model_id: str, grader: str,
-                code_sha: str, extra: dict | None = None) -> dict:
-    d = {"run_id": run_id, "unit": unit, "track": TRACK, "target": target, "n_items": int(n_items),
-         "test_set_sha256": test_set_sha256, "model_id": model_id, "grader": grader, "code_sha": code_sha,
-         "region": region(), "synthetic": False,
-         "population": "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data"}
-    d.update(extra or {})
-    return d
+                code_sha: str, extra: dict | None = None, twin: dict | None = None) -> dict:
+    """A declared record that the contracts library accepts: only contract fields at the top level. What we say beyond
+    the contract (population label, note, scales, comparison details) is in twin.config.details."""
+    t = dict(twin or NO_TWIN)
+    cfg = dict(t.get("config") or {})
+    cfg["details"] = {"population": POPULATION, **(extra or {})}
+    t["config"] = cfg
+    return {"run_id": run_id, "unit": unit, "track": TRACK, "target": target, "n_items": int(n_items),
+            "test_set_sha256": test_set_sha256, "model_id": model_id, "grader": grader, "code_sha": code_sha,
+            "region": region(), "synthetic": False, "twin": t}
 
 
 def declare_first(declared: dict) -> None:
@@ -95,30 +102,128 @@ class Sink:
             ev._prepare(self.run_id, kind, recs)
 
     def flush(self, store=None) -> list[str]:
+        """Write each kind. On S3: one object per record (evlib's "objects" layout, so check_unit can give every record
+        an AWS time from its own LastModified), 32 puts in parallel. Locally: one JSONL file per kind."""
         ev = get_evlib()
         store = store or ev.default_store()
-        out = []
+        out: list[str] = []
         for kind, recs in sorted(self.records.items()):
-            if recs:
+            if not recs:
+                continue
+            if isinstance(store, ev.S3Store):
+                out += put_objects(ev, store, self.run_id, kind, recs)
+            else:
                 out.append(ev.write_records_jsonl(self.run_id, kind, recs, store=store))
         return out
 
 
+def put_objects(ev, store, run_id: str, kind: str, recs: list[dict], workers: int = 32) -> list[str]:
+    """What evlib.append_records(layout="objects") does, concurrently (it puts one record at a time)."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    lines = ev._prepare(run_id, kind, recs)
+
+    def one(line: bytes) -> str:
+        rel = f"records/{run_id}/{kind}/{ev.record_key(line)}.json"
+        try:
+            return store.put_new(rel, line)
+        except FileExistsError:
+            if store.get(rel) != line:  # same key, different bytes: never silently accept
+                raise
+            return store.uri(rel)
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return list(pool.map(one, lines))
+
+
+def read_records_fast(run_id: str, kind: str, store=None, workers: int = 32) -> list[dict]:
+    """evlib.read_records, with the per-record objects fetched concurrently (a score run has one per test row)."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    ev = get_evlib()
+    store = store or ev.default_store()
+    lay = ev._record_layout(run_id, store).get(kind)
+    if not lay:
+        return []
+    out: list[dict] = []
+    if lay["jsonl"]:
+        out += [json.loads(x) for x in (store.get(lay["jsonl"]) or b"").decode("utf-8").splitlines() if x.strip()]
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        out += list(pool.map(lambda rel: json.loads((store.get(rel) or b"{}").decode("utf-8")), sorted(lay["objects"])))
+    return out
+
+
+RUNNER_KEYS = ("unit", "track", "target", "baseline_run_id", "n_items", "n_cases", "test_set_sha256", "subset", "prompt_sha256",
+               "parser", "decoding", "model_id", "grader", "twin", "synthetic")
+JUDGED = ("unit", "track", "target", "n_items", "test_set_sha256", "model_id", "grader", "code_sha")
+
+
+def runner_declaration(decl: dict, twin: dict | None = None) -> dict:
+    """The declaration in the form the job runner (`python -m tools.sm.run --declaration`) accepts: only the contract's
+    keys, no run_id / code_sha / region (the runner sets them). Everything else we say about the run (population label,
+    note, scales, comparison details) travels in twin.config.details."""
+    out = {k: decl[k] for k in RUNNER_KEYS if k in decl}
+    extras = {k: v for k, v in decl.items() if k not in RUNNER_KEYS and k not in ("run_id", "code_sha", "region")}
+    t = dict(twin or decl.get("twin") or NO_TWIN)
+    cfg = dict(t.get("config") or {})
+    cfg["details"] = {**(cfg.get("details") or {}), **extras}
+    t["config"] = cfg
+    out["twin"] = t
+    out.setdefault("synthetic", False)
+    return out
+
+
+def reconcile(declared: dict) -> dict:
+    """Inside a runner job the declaration already stored in S3 is the one check_unit judges. Refuse to run if it
+    disagrees with what this code would have declared; return the stored one so the result is built from it."""
+    if not os.environ.get("EVIDENCE_S3"):
+        return declared
+    ev = get_evlib()
+    stored = ev.read_declared(declared["run_id"], ev.default_store())
+    if stored is None:
+        return declared
+    bad = [k for k in JUDGED if stored.get(k) != declared.get(k)]
+    if bad:
+        raise SystemExit("the stored declaration disagrees with this code on " + ", ".join(
+            f"{k}: stored {stored.get(k)!r} vs code {declared.get(k)!r}" for k in bad) + "; refusing to run")
+    return stored
+
+
+ITEM_FIELDS = ("score", "passed", "latency_ms", "cost_usd")  # the contract's optional top-level item fields
+
+
 def item(*, item_id: str, input_sha256: str, output_sha256: str, grader: str, backend: str, **fields: Any) -> dict:
+    """An item record the contracts library accepts: everything that is not a contract field goes in item.extra."""
     d = {"item_id": item_id, "input_sha256": input_sha256, "output_sha256": output_sha256, "grader": grader, "backend": backend}
-    d.update(fields)
+    extra = {}
+    for k, v in fields.items():
+        (d if k in ITEM_FIELDS else extra)[k] = v
+    if extra:
+        d["extra"] = extra
     return d
 
 
 def finish(*, declared: dict, items: list[dict], script: str, code_sha: str, details: dict, dry_run: bool, sink: Sink,
-           extra_records: dict[str, list[dict]] | None = None) -> dict:
+           extra_records: dict[str, list[dict]] | None = None, value_override: float | None = None) -> dict:
     """Build the result from the item records with evlib.make_result (so check_unit recomputes it), validate all
-    records, and (unless dry_run) write items, extra records and the result. Returns a summary dict."""
+    records, and (unless dry_run) write items, extra records and the result. Returns a summary dict.
+
+    value_override: for a target that is not one of evlib's item metrics (a paired-bootstrap bound such as
+    score_gain_ci_low): the result carries this value, compared with the declared target; check_unit replays it
+    from the items with the spec recorded in details.gain."""
     ev = get_evlib()
+    declared = reconcile(declared)
     sink.add("item", items)
     for kind, recs in (extra_records or {}).items():
         sink.add(kind, recs)
-    result = ev.make_result(declared, items, script, code_sha, details)
+    if value_override is None:
+        result = ev.make_result(declared, items, script, code_sha, details)
+    else:
+        t = declared["target"]
+        result = {"run_id": declared["run_id"], "unit": declared["unit"], "metric": t["metric"], "value": float(value_override),
+                  "target": dict(t), "passed": ev.compare(float(value_override), t["op"], t["value"]), "n_items": len(items),
+                  "checked_at": ev.utc_now(), "checker": {"script": script, "code_sha": code_sha}, "details": details,
+                  "synthetic": bool(declared.get("synthetic", False))}
     sink.validate()
     ev.validate(ev._envelope(result, "result", declared["run_id"]))
     written: list[str] = []

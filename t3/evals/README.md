@@ -2,39 +2,42 @@
 
 A frozen suite of misconfiguration incidents on the in-process Maveric twin. Every grade comes from a replay of the twin, never from a model. `PY` below is the shared env: `/private/tmp/claude-501/-Users-satyabratsrikumar-firstmate-homes-AWS-Hackathon/b281b863-2729-4833-baf6-93b1e8b525db/scratchpad/venv-t3/bin/python`. Run every command from the repo root.
 
-- **The suite:** `suite/incidents-test.jsonl` holds 33 test incidents: 15 on the visible tier and 18 on the masked tier, 15 on the official preset and 18 on the viavi-like one. Its sha256 is in `suite/incidents-test.sha256`. The dev split and the generator metadata sit next to it. Generate it with `incidents.py`.
+- **The suite:** `suite/incidents-test.jsonl` holds the test incidents of record (v4, frozen on x86_64 in SageMaker by run t3.evals.suite-freeze-20261103T031439Z-32b3: 33, of which 15 visible and 18 masked). Its sha256 is in `suite/incidents-test.sha256`. The dev split and the generator metadata sit next to it. Generate it with `incidents.py`. Its input, the 84 candidate specs, is `suite/candidates.jsonl`.
 - **Targets and tolerances:** `targets.json`. Every run records this file's sha256 in `declared.twin.config.eval.targets_sha256`.
 - **Graders:** `graders.py`. Operators: `operators.py` and `swarm.py`. Runner and paired bootstrap gains: `run.py` and `stats.py`.
 - **Evidence:** `evidence/` uses the contract layout: `declared/`, `records/<run_id>/item.jsonl` and `results/`.
 
-## After merging W2 (`twin/`) and W6 (`tools/evlib.py`): the integrator's procedure
+## Platform of record: the suite is frozen and scored in SageMaker (x86_64)
 
-`twin_backend.py` picks W2's `twin.replay` and `twin.kpis` automatically once they import. `evshim.py` does the same for W6's `tools.evlib`. Until then, the labelled stand-ins `twin_standin.py` and the local shim are used. The frozen suite and the four offline runs were produced with those stand-ins.
+The twin is a float32 Gaussian-process model, so frozen KPIs replay to the 1e-6 tolerance only on the platform that froze them. A suite frozen on this Mac (arm64) misses that tolerance in an x86_64 SageMaker job. That happened to suite v3 (`485b3bde…`): `inc-off-mas-4102-tilt+5` failed to replay there. So:
 
-1. Check the suite against W2's real twin:
-   ```
-   PY -m t3.evals.incidents --check
-   PY -m pytest -q t3/evals/tests
-   ```
-   You expect `"matches_frozen": true` and every test passing. Confirm that W2's twin is the one in use with `PY -c "import t3.evals.twin_backend as b; print(b.BACKEND)"`, which should print `maveric-inprocess`.
-2. **If the bytes match:** you're done. The offline runs in `evidence/` stand. Go to "Scoring the swarm".
-3. **If the bytes differ: re-freeze once, before any swarm run.** Never do this after a swarm run has used the suite.
-   ```
-   PY -m t3.evals.incidents --write
-   ```
-   (`--write` refuses to freeze unless the real twin is the backend, and records `frozen_at` and the superseded hashes in `suite/incidents-meta.json`.)
-   - Put the new sha256 into `FROZEN_SHA` in `tests/test_incidents.py`.
-   - Leave the old runs in `evidence/` untouched (they stay in history) and list them in `evidence/superseded.json` with the reason and the run ids that replace them; they were graded against the old suite.
-   - Commit: tests green, message "re-freeze suite against W2 twin".
-   - Redo the four offline runs from the committed tree (the runner refuses a dirty tree). Each run prints its `run_id`; use those ids in the later commands.
-     ```
-     PY -m t3.evals.run --operator no_action
-     PY -m t3.evals.run --operator rule_baseline --baseline-run-id <no_action>
-     PY -m t3.evals.run --operator config_revert --baseline-run-id <no_action>
-     PY -m t3.evals.run --operator oracle --workers 10 --baseline-run-id <no_action> <rule> <config_revert>
-     ```
-     The first three take a few seconds each; the oracle takes about 7 minutes with 10 workers.
-   - Commit `t3/evals/evidence/`.
+- **Where the suite of record is frozen:** inside a SageMaker job started by `tools/sm/run.py`, on ml.m5.xlarge with the CPU image, using the real twin (`twin/` must be in the shipped pathspec).
+- **Where it is scored:** every scored run that replays it (all baselines and the swarm) runs as a runner job on the same instance family.
+- **What the freeze job declares:** `test_set_sha256` = sha256 of `suite/candidates.jsonl`, the generator's input (84 candidate specs, one canonical line each, committed).
+- **What the freeze job writes:**
+  - one `item` per candidate: input = canonical spec, output = canonical incident or drop record;
+  - a `result` with `n_items == 84`, written through evlib so that `tools/check_unit.py` applies;
+  - the four suite files into `{output_dir}/suite`, never into the code tree.
+- **Commit the suite only from the job's output.** Copy the four files into `t3/evals/suite/` and set `FROZEN_SHA` in `tests/test_incidents.py`.
+- **Re-declare the baselines.** Re-run them as runner jobs and mark every earlier recorded run as superseded in `evidence/superseded.json`.
+- **What still runs locally:** tests and local runs use incidents built on the local machine (`tests/_local.py`, `run.py --suite`). `test_regenerating_the_suite_reproduces_the_frozen_bytes` runs only where `incidents-meta.json`'s platform, backend and suite version match the local ones, and skips elsewhere.
+- **Replay errors name the KPI:** a replay mismatch reports each KPI that missed the tolerance, with the replayed value, the frozen value and the difference.
+- **No git in a job:** `evshim` takes the commit from `CODE_SHA` / `TEAM13_CODE_SHA` in a job and never calls git there; locally it uses `tools/evlib`.
+
+Freeze job (CPU, ml.m5.xlarge):
+```
+python -m tools.sm.run --run-id t3.evals.suite-freeze-<UTC>-x86 \
+  --declaration tools/sm/examples/t3-evals-suite-freeze.json \
+  --entry "-m t3.evals.incidents --out {output_dir}/suite --evidence-dir {evidence_dir} --run-id {run_id}" \
+  --instance-type ml.m5.xlarge --max-run 1800 \
+  --paths contracts --paths t3 --paths tools --paths twin [--dry-run]
+```
+
+Local checks (any platform):
+```
+PY -m pytest -q t3/evals/tests                      # also with PYTHONPATH=contracts
+PY -m t3.evals.incidents --out /tmp/x/suite         # a local freeze, for comparison only
+```
 
 ## Scoring the swarm (declared target in `targets.json` → `units.swarm`)
 

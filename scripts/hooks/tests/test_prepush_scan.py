@@ -31,6 +31,7 @@ FAKE_ACCOUNT = "9" * 4 + "8" * 4 + "7" * 4
 FAKE_COGNITO = "https://x." + "auth.us-east-2." + "amazon" + "cognito.com/login"
 FAKE_SIG = "X-Amz-" + "Signature=abc"
 FAKE_EC2 = "ec2-1-2-3-4.us-east-2.compute." + "amazon" + "aws.com"
+FAKE_FL_NAME = "Cross" + "Trainer"  # the FL service's product name, assembled so this file does not hold it
 KIT_SECRET = "kitsecret-" + "Zq8WmN3rT5yV1xB7cD9eF2gH"
 
 
@@ -71,7 +72,7 @@ def scan(repo: Path, *extra, kit=None, env=None):
     ("jwt", f"t = '{FAKE_JWT}'\n", "JWT"),
     ("bearer", f"Authorization: {FAKE_BEARER}\n", "Bearer token"),
     ("ip", f"host = {FAKE_IP}\n", "IPv4 address"),
-    ("account", f"arn:aws:iam::{FAKE_ACCOUNT}:role/x\n", "12-digit account id"),
+    ("fl name", f"the {FAKE_FL_NAME} service\n", "FL service product name"),
     ("cognito", f"url = {FAKE_COGNITO}\n", "amazoncognito"),
     ("signature", f"u?{FAKE_SIG}\n", "X-Amz-Signature"),
     ("ec2 host", f"ssh {FAKE_EC2}\n", "EC2 public host name"),
@@ -87,11 +88,35 @@ def test_content_rule_blocks_and_never_prints_the_match(repo, name, content, exp
 
 
 @pytest.mark.parametrize("value", [
-    "127.0.0.1", "0.0.0.0", "10.0.0.5", "10.0.0.200", "192.0.2.1", "198.51.100.9", "203.0.113.4", "255.255.255.255",
+    "127.0.0.1", "127.9.8.7", "0.0.0.0", "255.255.255.255",
+    "192.0.2.1", "198.51.100.9", "203.0.113.4",  # RFC 5737 documentation
+    "10.0.0.5", "10.200.31.7", "172.16.0.1", "172.31.255.254", "192.168.0.9", "192.168.77.3",  # RFC 1918 private
 ])
 def test_allowlisted_ip_values_pass(repo, value):
     commit(repo, {"fixtures/net.json": json.dumps({"ip": value}) + "\n"})
     assert scan(repo, "--refs", "HEAD", "--no-evidence").returncode == 0
+
+
+@pytest.mark.parametrize("parts", [
+    (172, 15, 0, 1), (172, 32, 0, 1), (192, 167, 1, 1), (192, 169, 1, 1), (11, 0, 0, 1), (8, 8, 8, 8), (203, 0, 114, 7), (52, 14, 9, 200),
+])
+def test_public_and_near_miss_ips_block(repo, parts):
+    value = ".".join(map(str, parts))  # built at run time: this file must not hold a public address
+    commit(repo, {"cfg.txt": f"host = {value}\n"})
+    res = scan(repo, "--refs", "HEAD", "--no-evidence")
+    assert res.returncode == 1 and "IPv4 address" in res.stderr and value not in res.stderr + res.stdout
+
+
+def test_kit_host_blocks_by_value_even_inside_a_private_range(repo, tmp_path):
+    kit = make_kit(tmp_path)
+    host = "10.20.30.40." + KIT_SECRET + ".host.example.invalid"  # private IP inside: the IP rule alone would pass it
+    (kit / "kit.json").write_text(json.dumps({"builder_host": host, "name": "team13"}))
+    commit(repo, {"a.txt": "plain private address 10.20.30.40 is fine\n"})
+    assert scan(repo, "--refs", "HEAD", "--no-evidence", kit=kit).returncode == 0
+    commit(repo, {"b.txt": "ssh " + host + "\n"})
+    res = scan(repo, "--refs", "HEAD", "--no-evidence", kit=kit)
+    assert res.returncode == 1 and "kit secret (kit.json:builder_host)" in res.stderr
+    assert host not in res.stderr + res.stdout and KIT_SECRET not in res.stderr + res.stdout
 
 
 def test_version_strings_and_hashes_are_not_ips_or_accounts(repo):
@@ -102,6 +127,52 @@ def test_version_strings_and_hashes_are_not_ips_or_accounts(repo):
 
 def test_documented_example_account_ids_pass(repo):
     commit(repo, {"x.txt": "arn:aws:iam::123456789012:role/x and 000000000000\n"})
+    assert scan(repo, "--refs", "HEAD", "--no-evidence").returncode == 0
+
+
+@pytest.mark.parametrize("text", [
+    'change_id = "chg-' + "0" * 11 + '1"',  # the dashboard test fixture's dummy id
+    "chg-" + "0" * 8 + "0042",
+    "0" * 6 + "999999",  # the largest value below the floor
+])
+def test_zero_padded_dummy_ids_are_not_account_ids(repo, text):
+    commit(repo, {"tests/fixture.py": text + "\n"})
+    assert scan(repo, "--refs", "HEAD", "--no-evidence").returncode == 0
+
+
+# DECISION 2 Nov 2026: 12-digit numbers, the team account id included, are informational, never blocking.
+@pytest.mark.parametrize("value", ["0" * 5 + "1" + "0" * 6, FAKE_ACCOUNT, "1" + "0" * 11])
+def test_twelve_digit_numbers_are_informational_not_blocking(repo, value):
+    commit(repo, {"tests/fixture.py": f"change_id = 'chg-{value}'\n"})
+    res = scan(repo, "--refs", "HEAD", "--no-evidence")
+    assert res.returncode == 0, res.stderr
+    assert "informational (not blocking)" in res.stderr and "BLOCKED" not in res.stderr
+    assert value not in res.stderr + res.stdout
+
+
+def test_team_account_id_from_the_kit_is_labelled_informational(repo, tmp_path):
+    kit = make_kit(tmp_path)
+    state = json.loads((kit / "kit-state.json").read_text())
+    state["gateway_arn"] = "arn:aws:bedrock-agentcore:us-east-2:" + FAKE_ACCOUNT + ":gateway/g-fake-0001"
+    (kit / "kit-state.json").write_text(json.dumps(state))
+    commit(repo, {"cfg.txt": "bucket-" + FAKE_ACCOUNT + "-use2\n"})
+    res = scan(repo, "--refs", "HEAD", "--no-evidence", kit=kit)
+    assert res.returncode == 0 and "team account id (informational)" in res.stderr
+    assert FAKE_ACCOUNT not in res.stderr + res.stdout
+    # the full gateway ARN is still a kit secret and still blocks
+    commit(repo, {"cfg2.txt": state["gateway_arn"] + "\n"})
+    res = scan(repo, "--refs", "HEAD", "--no-evidence", kit=kit)
+    assert res.returncode == 1 and "kit secret" in res.stderr and FAKE_ACCOUNT not in res.stderr + res.stdout
+
+
+def test_other_rules_still_block_next_to_an_informational_hit(repo):
+    commit(repo, {"a.txt": f"id {FAKE_ACCOUNT} and key {FAKE_AKIA}\n"})
+    res = scan(repo, "--refs", "HEAD", "--no-evidence")
+    assert res.returncode == 1 and "AWS access key id" in res.stderr and "informational" in res.stderr
+
+
+def test_the_public_dlc_registry_id_passes(repo):
+    commit(repo, {"job.json": '{"image": "' + "763104" + "351884" + '.dkr.ecr.us-east-2.example.invalid/x:1"}\n'})
     assert scan(repo, "--refs", "HEAD", "--no-evidence").returncode == 0
 
 
