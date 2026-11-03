@@ -126,7 +126,7 @@ class Proving:
                        "stage_t": 0.0, "stages": [{"id": s["id"], "label": s["label"], "state": "queued",
                                                    "progress": 0.0, "duration": None} for s in STAGES],
                        "result": None, "state": "running",
-                       "execution_arn": f"arn:aws:states:us-west-2:111122223333:execution:proving-ground:{rid}"}
+                       "execution_arn": f"arn:aws:states:us-west-2:<account>:execution:proving-ground:{rid}"}
         self.active["stages"][0]["state"] = "running"
         self.bus.emit("eval.run", "verify", f"{rid}: evaluating {model_id}", {"run": self.active}, "notice",
                       "proving-ground")
@@ -236,7 +236,7 @@ class Proving:
                                        for o in OPERATORS]},
             "evaluation": {"suite": "spectrum-netops-eval v1.3", "dataset_hash": sha256_hex("eval-suite-1.3"),
                            "redteam_hash": sha256_hex("redteam-64"), "scorer": "judge+validators v0.9"},
-            "signer": {"key": "arn:aws:kms:us-west-2:111122223333:alias/spectrum-aibom", "alg": "Ed25519"},
+            "signer": {"key": "arn:aws:kms:us-west-2:<account>:alias/spectrum-aibom", "alg": "Ed25519"},
         }
         from ..core import canonical
         digest = sha256_hex(canonical(bom))
