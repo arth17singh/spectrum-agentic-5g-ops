@@ -3,7 +3,7 @@ import { CircleCheck, CircleDashed, CircleX, ExternalLink, TriangleAlert } from 
 import { Link } from 'react-router-dom'
 import type { Rec } from '@/core/types'
 import { Panel } from '@/ui'
-import { num, targetText, utc, value } from './format'
+import { human, num, targetText, utc, value } from './format'
 import { shortReason, useOverview } from './overview'
 import { TrainingCurves } from './Curves'
 
@@ -70,7 +70,7 @@ export const Verdict = ({ s, why }: { s: string; why?: string[] }) => {
   return (
     <span className="inline-flex flex-col">
       <span className="inline-flex items-center gap-1 text-micro font-semibold tracking-[0.04em]" style={{ color: x.color }} data-verdict={s}><x.Icon size={13} aria-hidden />{x.word}</span>
-      {(why ?? []).map((w) => <span key={w} className="max-w-[46ch] text-micro font-normal break-words" style={{ color: x.color }}>{w}</span>)}
+      {(why ?? []).map((w) => <span key={w} className="max-w-[46ch] text-micro font-normal break-words" style={{ color: x.color }}>{human(w)}</span>)}
     </span>
   )
 }
@@ -93,7 +93,7 @@ export default function RealRuns() {
   return (
     <div className="mt-4 space-y-4" data-testid="real-runs">
       <div className="text-micro text-ink-3">
-        Read from the byte-exact mirror of the S3 evidence prefix, synced {utc(ov.source.synced_at)}. Times marked AWS come from SageMaker (DescribeTrainingJob) or S3 LastModified; declared/checked times are what our code wrote.
+        Read from the byte-exact mirror of the S3 evidence prefix, synced {utc(ov.source.synced_at)}. Times marked AWS come from SageMaker (DescribeTrainingJob) or AWS S3 (stored); declared/checked times are what our code wrote.
       </div>
       <Track1 t1={ov.t1} />
       <div className="grid grid-cols-12 items-start gap-4">

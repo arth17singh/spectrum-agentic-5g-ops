@@ -34,3 +34,6 @@ export const gainText = (g?: { value?: unknown; ci_low?: unknown; ci_high?: unkn
 
 /** Real wall-clock UTC. */
 export const utc = (iso?: string | null): string => (!iso ? '—' : `${iso.slice(0, 10)} ${iso.slice(11, 19)}Z`)
+
+/** On-screen words for evidence text: the raw S3 key name becomes the label the AWS-time component uses. */
+export const human = (t?: string | null): string => (t ?? '').replace(/s3:LastModified/g, 'AWS S3 (stored)')
