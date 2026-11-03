@@ -1,0 +1,39 @@
+{
+  "unit": "t1.sft.train",
+  "track": "track-1",
+  "target": {"metric": "mean_score", "op": "<=", "value": 0.5, "unit": "ratio"},
+  "baseline_run_id": "{{stage_run_id}}",
+  "n_items": "{{n_dev}}",
+  "subset": "{{subset}}",
+  "test_set_sha256": "{{dev_jsonl_sha256}}",
+  "prompt": "t1/evals/prompt.txt",
+  "parser": "t1-parse-v1",
+  "model_id": "t1-otel-1.7b-lora",
+  "grader": "t1/sft/train_lora.py:dev_loss (one item per dev example: score = token-mean cross-entropy over the supervised span after training / the same on the base weights at step 0, adapters zero)",
+  "synthetic": false,
+  "decoding": {
+    "test_set_is": "sha256 of dev.jsonl in dataset run {{data_run_id}} (listed in its manifest.json)",
+    "inputs": {"base_run_id": "{{stage_run_id}}", "base": "s3://<team-bucket>/models/base/otel-llm-1.7b-it-bf16/{{stage_run_id}}/ (channel model)",
+               "data_run_id": "{{data_run_id}}", "data": "s3://<team-bucket>/datasets/t1-sft/{{data_run_id}}/ (channel data)",
+               "data_manifest_sha256": "{{data_manifest_sha256}}"},
+    "job": {"entry": "t1.sft.train_lora", "method": "PEFT LoRA SFT", "lora_r": 16, "lora_alpha": 32, "lora_dropout": 0.05,
+            "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+            "lr": 0.0002, "scheduler": "cosine, 3% warmup", "epochs": "{{epochs}}", "micro_batch": 8,
+            "grad_accum": "{{grad_accum}}", "max_steps": "{{max_steps}}",
+            "precision": "bf16 autocast, LoRA weights fp32", "gradient_checkpointing": true, "grad_clip": 1.0,
+            "seed": 13, "max_len": 2048, "truncation": "none (the job stops if any example is longer)",
+            "instance_type": "ml.g6.2xlarge", "max_run_s": 7200, "train_budget_s": 5400,
+            "merge": "fp32 merge_and_unload, saved bf16 safetensors",
+            "output": "s3://<team-bucket>/models/t1-otel-1.7b-lora/<run_id>/ (adapter/, merged/, train_metrics.json, SHA256SUMS)"},
+    "chat_template": {"template": "the base model's own Qwen3 chat_template.jinja", "enable_thinking": false,
+                      "supervised": "the empty <think> block, the JSON answer and <|im_end|> (everything after '<|im_start|>assistant\\n')",
+                      "invariant": "the eval harness's thinking-off prompt is a byte-exact prefix of every training text"},
+    "planned_eval_targets": {
+      "note": "Pre-registered here; each is declared on its own eval run with baseline_run_id = the base model's run on the same frozen test split. Plan v5 (17:00 draft) lists other bars for execution and safety; the eval runs' declarations are binding.",
+      "t1.execution": "tuned - base mean twin-graded score > 0, paired 95% CI lower bound > 0",
+      "t1.interface": "exact match >= base + 0.10",
+      "t1.safety": "correct handling >= base - 0.02, and over-refusal on benign items <= base + 0.05",
+      "t1.knowledge": "exact match >= base - 0.03 (forgetting check)"
+    }
+  }
+}

@@ -1,11 +1,11 @@
 """Build the Track 1 SFT dataset: execution (twin-labelled), interface and safety examples.
 
-CPU SageMaker job (ml.c5.4xlarge: 16 vCPU; one twin per worker process). Nothing heavy runs on a
-laptop: --dry-run builds a handful of template examples and the overlap index, no twin, no AWS.
+Runs as a CPU SageMaker job through the team runner (tools/sm/run.py; ml.c5.4xlarge, 16 vCPU, one twin
+per worker process; the runner's sdk channel installs ran-rl 1.2.9). Nothing heavy runs on a laptop:
+--dry-run builds a handful of template examples and the overlap index, no twin, no AWS.
 
-    python -m t1.sft.build --run-id R --out s3://<team-bucket>/evidence/datasets/t1-sft/R/ \\
-        --sdk-wheel s3://<team-bucket>/sdk/1.2.9/ran_rl-1.2.9-py3-none-any.whl \\
-        --evidence s3://<team-bucket>/evidence/ --code-sha <sha> [--write-result] [--dry-run]
+    --entry "-m t1.sft.build --run-id {run_id} --out s3://<team-bucket>/datasets/t1-sft/{run_id}/
+             --evidence-dir {evidence_dir} --summary-dir {output_dir} --n-execution 2000 ..."
 
 Rules it enforces (t1/evals/README.md "Rules for anyone building training data"):
   - execution states use twin seeds below 900000 (eval items use 900000 and up);
@@ -14,12 +14,14 @@ Rules it enforces (t1/evals/README.md "Rules for anyone building training data")
   - zero overlap with the frozen eval items (all five files, dev and test), by content hashes
     (t1/sft/overlap.py): an example is dropped if its item hash, answer-free input hash, exact prompt
     hash or (scenario, seed, step) matches any eval item; duplicates inside the set are dropped too;
-    the written files are then re-hashed and re-checked (declared target eval_overlap_count == 0);
+    the written files are then re-hashed and re-checked;
   - no GSMA ot-lite (a test set), no TeleLogs (left out of v1), no knowledge examples.
 
 Outputs at --out: train.jsonl, dev.jsonl (one example per line: messages + the template input,
 answer, meta and hashes), manifest.json (counts, seed ranges, overlap report, hashes, timings) and
 SHA256SUMS. The chat template is applied by train_lora.py, so this job needs no tokenizer.
+Evidence (--evidence-dir): one item record per frozen eval item (1,220), passed when no written row
+matches it by any hash; declared target fail_count == 0, which check_unit recomputes from the items.
 """
 
 from __future__ import annotations
@@ -40,7 +42,8 @@ from typing import Any
 from t1.sft import common as K
 
 UNIT = "t1.sft.data"
-METRIC = "eval_overlap_count"
+METRIC = "fail_count"  # declared: eval items that any written row matches
+OVERLAP = "eval_overlap_count"  # written rows that match any eval item (must also be 0)
 REQUIRED_SDK = "1.2.9"
 SPLIT_SALT = "t1-sft-split-v1"
 ANSWER_KEYS = {  # the reply object's keys, in the order prompt.txt shows them
@@ -238,9 +241,11 @@ def build(a: argparse.Namespace, out_dir: Path) -> dict[str, Any]:
              "dev.jsonl": write_jsonl(out_dir / "dev.jsonl", dev)}
     reread = overlap.read_jsonl(out_dir / "train.jsonl") + overlap.read_jsonl(out_dir / "dev.jsonl")
     final = overlap.check_disjoint(reread, idx)
+    backend = f"{os.environ.get('SM_CURRENT_INSTANCE_TYPE', 'local')}; python hash sets over the written files"
+    eval_items = overlap.eval_item_records(reread, idx, backend)
+    final["eval_items_checked"] = len(eval_items)
+    final["eval_items_overlapped"] = sum(not it["passed"] for it in eval_items)
     timings["filter_write_check_s"] = round(time.time() - t, 1)
-    if final[METRIC] != 0 or final["within_set_duplicates"] != 0:
-        raise K.JobError(f"overlap check failed on the written files: {final}")
 
     seeds = [r["meta"]["seed"] for r in rows if r["unit"] == "execution"]
     sdk = {"ran_rl": _sdk_version()}
@@ -287,7 +292,7 @@ def build(a: argparse.Namespace, out_dir: Path) -> dict[str, Any]:
         "files": files, "timings": {**timings, "total_s": round(time.time() - t_start, 1)},
         "versions": {**K.versions("numpy", "torch", "gpytorch", "pydantic"), **sdk},
     }
-    return manifest
+    return manifest, eval_items
 
 
 def _sdk_version() -> str | None:
@@ -306,51 +311,51 @@ def _filter_check_or_none():
         return None
 
 
-def result_record(run_id: str, code_sha: str, manifest: dict[str, Any], manifest_sha: str) -> dict[str, Any]:
-    final = manifest["overlap"]["final_check"]
-    v = final[METRIC]
-    return {"run_id": run_id, "unit": UNIT, "metric": METRIC, "value": v,
-            "target": {"metric": METRIC, "op": "==", "value": 0, "unit": "count"}, "passed": v == 0,
-            "n_items": final["rows_checked"], "checker": {"script": "t1/sft/overlap.py:check_disjoint",
-                                                          "code_sha": code_sha},
-            "details": {"manifest_sha256": manifest_sha, "hash_method": final["hash_method"],
-                        "generated": manifest["overlap"]["generated"],
-                        "dropped_eval_overlap": manifest["overlap"]["dropped_eval_overlap"],
-                        "dropped_duplicate": manifest["overlap"]["dropped_duplicate"],
-                        "kept": manifest["overlap"]["kept"]}}
-
-
 def run(a: argparse.Namespace) -> dict[str, Any]:
     K.check_run_id(a.run_id)
     a.code_sha = K.code_sha_from_env(a.code_sha)
+    decl = None if a.dry_run else K.stored_declaration(a.run_id, a.declared)  # the target comes from here
     work = Path(a.workdir or tempfile.mkdtemp(prefix="sft-build-"))
     out_dir = work / "out"
     out_dir.mkdir(parents=True, exist_ok=False)
     if not a.dry_run:
         sdk = ensure_sdk(a.sdk_wheel, work, a.region)
         K.log(f"sdk: {sdk}")
-    manifest = build(a, out_dir)
+    manifest, eval_items = build(a, out_dir)
     if not a.dry_run:
         manifest["sdk_install"] = sdk
     manifest_sha = K.write_json(out_dir / "manifest.json", manifest)
     _, sums_sha = K.write_sha256sums(out_dir)
-    K.log(f"manifest sha256 {manifest_sha}; counts {manifest['counts']['written']['by_unit']}; overlap "
-          f"{manifest['overlap']['final_check']}")
+    final = manifest["overlap"]["final_check"]
+    ok = final[OVERLAP] == 0 and final["within_set_duplicates"] == 0 and final["eval_items_overlapped"] == 0
+    K.log(f"manifest sha256 {manifest_sha}; counts {manifest['counts']['written']['by_unit']}; overlap {final}")
     summary = {"run_id": a.run_id, "out": a.out, "manifest_sha256": manifest_sha, "sha256sums_sha256": sums_sha,
                "counts": manifest["counts"]["written"], "overlap": {k: manifest["overlap"][k] for k in (
                    "generated", "dropped_eval_overlap", "dropped_eval_by_hash", "dropped_duplicate", "kept")},
-               "final_check": manifest["overlap"]["final_check"], "local_dir": str(out_dir)}
+               "final_check": final, "local_dir": str(out_dir), "uploaded": False,
+               "eval_items": {"n": len(eval_items), "failed": final["eval_items_overlapped"]}}
     if a.dry_run:
         return summary
-    K.upload_tree(out_dir, a.out, region=a.region)
-    K.log(f"uploaded to {a.out}")
-    store = K.evidence_store(a.evidence)
-    if a.write_result:
-        if store is None or not a.code_sha:
-            raise K.JobError("--write-result needs an evidence store and --code-sha")
-        from tools import evlib
-
-        K.log(f"result record: {evlib.write_result(result_record(a.run_id, a.code_sha, manifest, manifest_sha), store=store)}")
+    if ok:
+        K.upload_tree(out_dir, a.out, region=a.region)
+        summary["uploaded"] = True
+        K.log(f"uploaded to {a.out}")
+    else:
+        K.log(f"NOT uploaded: the written files overlap the eval or repeat ({final}); evidence records which")
+    K.copy_to(a.summary_dir, out_dir / "manifest.json")
+    res = K.write_evidence(a.evidence_dir, decl, eval_items, "t1/sft/build.py", a.code_sha,
+                           {"dataset_uri": a.out if summary["uploaded"] else None, "manifest_sha256": manifest_sha,
+                            "sha256sums_sha256": sums_sha, "uploaded": summary["uploaded"],
+                            "hash_method": final["hash_method"], "rows_written": final["rows_checked"],
+                            "rows_overlapping_eval": final[OVERLAP], "within_set_duplicates": final["within_set_duplicates"],
+                            "generated": manifest["overlap"]["generated"],
+                            "dropped_eval_overlap": manifest["overlap"]["dropped_eval_overlap"],
+                            "dropped_duplicate": manifest["overlap"]["dropped_duplicate"],
+                            "kept": manifest["overlap"]["kept"], "counts": manifest["counts"]["written"],
+                            "stopped_by": manifest["execution"]["generation"].get("stopped_by")})
+    K.log(f"result: {res['metric']} = {res['value']} over {res['n_items']} eval items -> "
+          f"{'PASSED' if res['passed'] else 'MISSED'}")
+    summary["result"] = {k: res[k] for k in ("metric", "value", "passed", "n_items")}
     return summary
 
 
@@ -358,7 +363,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(prog="python -m t1.sft.build", description=__doc__.split("\n")[0])
     ap.add_argument("--run-id", required=True)
     ap.add_argument("--out", help="s3:// prefix or local dir for train.jsonl, dev.jsonl, manifest.json, SHA256SUMS")
-    ap.add_argument("--evidence", help="evidence store (s3:// prefix or dir); else EVIDENCE_S3 / EVIDENCE_DIR")
+    ap.add_argument("--evidence-dir", help="local evlib store for the items + result ({evidence_dir})")
+    ap.add_argument("--declared", help="the run's declaration as a JSON file (default: read from EVIDENCE_S3)")
+    ap.add_argument("--summary-dir", help="also copy manifest.json here ({output_dir})")
     ap.add_argument("--code-sha", help="commit the job runs (else CODE_SHA)")
     ap.add_argument("--region", default=os.environ.get("AWS_REGION", K.DEFAULT_REGION))
     ap.add_argument("--sdk-wheel", help="ran-rl 1.2.9 wheel: s3:// object or prefix, file or dir (else SM_CHANNEL_SDK)")
@@ -371,13 +378,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--labeler", default="t1.evals.gen_execution:reference", help="module:function(spec) -> ref | None")
     ap.add_argument("--items-dir", help="frozen eval items (default t1/evals/items)")
     ap.add_argument("--workdir")
-    ap.add_argument("--write-result", action="store_true", help="also write results/<run_id>.json")
     ap.add_argument("--dry-run", action="store_true", help="no twin, no AWS: a few template examples + the overlap index")
     a = ap.parse_args(argv)
     if a.dry_run:
         a.n_interface, a.n_safety = min(a.n_interface, 40), min(a.n_safety, 70)
-    elif not a.out:
-        ap.error("--out is required")
+    elif not (a.out and a.evidence_dir):
+        ap.error("--out and --evidence-dir are required")
     return a
 
 

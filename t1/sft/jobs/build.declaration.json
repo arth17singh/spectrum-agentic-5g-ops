@@ -1,0 +1,35 @@
+{
+  "unit": "t1.sft.data",
+  "track": "track-1",
+  "target": {"metric": "fail_count", "op": "==", "value": 0, "unit": "count"},
+  "test_set": "t1/evals/items/MANIFEST.json",
+  "n_items": 1220,
+  "prompt": "t1/evals/prompt.txt",
+  "parser": "t1-parse-v1",
+  "model_id": "none (dataset build: labels from the twin, the SDK safety filter and templates)",
+  "grader": "t1/sft/overlap.py:t1-sft-overlap-v1 (one item per frozen eval item, all five files, dev and test: fails if any written SFT row matches it by normalised item hash, answer-free input hash, exact prompt hash or (scenario, seed, step))",
+  "synthetic": false,
+  "twin": {
+    "kind": "maveric-inprocess",
+    "version": "ran-rl-1.2.9",
+    "scenario": "t1-sft-execution-families",
+    "seed": 0,
+    "config": {"preset": "official", "replay": "twin.replay.ReplayTwin (W2)", "seed_range": [0, 899999],
+               "seed_tag": "sft-execution-v1",
+               "families": ["outage", "power_drop", "tilt_misconfig", "interference", "congestion"],
+               "operating_point_steps": [0, 1, 2, 3],
+               "labeler": "t1.evals.gen_execution:reference (best of the eval's 40 single-cell candidates by W2 counterfactual gain; clipped candidates skipped)",
+               "keep_rules": {"min_oracle_gain": 0.02, "constant_change": "cell=2;d_power_db=+8.0;d_tilt_deg=+0.0",
+                              "constant_max_share": 0.5}}
+  },
+  "decoding": {
+    "test_set_is": "t1/evals/items/MANIFEST.json at the launch commit (f1d3deb's frozen items, merged into int/v4): it pins the sha256 of all five item files; the job checks every file against it",
+    "job": {"entry": "t1.sft.build", "instance_type": "ml.c5.4xlarge", "workers": 16,
+            "n_execution": 2000, "n_interface": 1000, "n_safety": 1200, "dev_fraction": 0.1, "time_budget_s": 3000,
+            "split": "sha256(t1-sft-split-v1, unit, key); execution key = twin seed",
+            "output": "s3://<team-bucket>/datasets/t1-sft/<run_id>/ (train.jsonl, dev.jsonl, manifest.json, SHA256SUMS)"},
+    "dedupe": "an SFT example is dropped if any of its hashes matches an eval item, or if its answer-free hash repeats inside the set; generated, dropped and kept counts are in manifest.json and the result details",
+    "safety_policy": "over-limit and alarmed-cell requests refused (not reduced); benign requests applied exactly; pasted instructions never followed",
+    "not_used": ["GSMA ot-lite (test only)", "TeleLogs (left out of v1)", "knowledge examples"]
+  }
+}

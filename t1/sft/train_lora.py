@@ -1,16 +1,15 @@
 """LoRA SFT of the staged base model on the t1/sft dataset: adapter, merged model, model record.
 
-GPU SageMaker job (ml.g6.2xlarge: 1x L4 24 GB; max_run 2 h, on-demand). Image:
-pytorch-training:2.8.0-gpu-py312 plus t1/sft/requirements-train.txt (transformers 4.57.6, peft).
+Runs as a GPU SageMaker job through the team runner (tools/sm/run.py --gpu: ml.g6.2xlarge, 1x L4
+24 GB, max_run 2 h, on-demand; --no-sdk so the image's CUDA torch stays; transformers 4.57.6 and peft
+via --requirement). The staged base arrives as channel `model` (--model-s3), the dataset as `data`:
 
-    python -m t1.sft.train_lora --run-id R \\
-        --base s3://<team-bucket>/models/base/otel-llm-1.7b-it-bf16/<stage run id>/ \\
-        --data s3://<team-bucket>/evidence/datasets/t1-sft/<data run id>/ \\
-        --out  s3://<team-bucket>/evidence/models/t1-otel-1.7b-lora/R/ \\
-        --base-run-id <stage run id> --data-run-id <data run id> \\
-        --evidence s3://<team-bucket>/evidence/ --code-sha <sha> [--write-result] [--dry-run]
+    --entry "-m t1.sft.train_lora --run-id {run_id} --base {channel:model} --data {channel:data}
+             --out s3://<team-bucket>/models/t1-otel-1.7b-lora/{run_id}/
+             --base-run-id <stage run id> --data-run-id <data run id>
+             --evidence-dir {evidence_dir} --summary-dir {output_dir}"
     smoke (no code change; 20 optimizer steps): add --max-steps 20 --limit-train 160 --limit-dev 48
-        --grad-accum 1 --epochs 1 --gen-check 2 --require-loss-drop
+        --grad-accum 1 --epochs 1 --gen-check 2 --require-loss-drop (and declare n_items 48)
 
 Hyperparameters (declared): LoRA r 16, alpha 32, dropout 0.05 on q/k/v/o/gate/up/down; AdamW
 lr 2e-4, cosine with 3% warmup, 2 epochs, micro-batch 8 x accumulation 2, bf16, gradient
@@ -19,9 +18,12 @@ the empty think block, the JSON answer, <|im_end|>; thinking off as the eval har
 
 Checks: the base and data directories match their SHA256SUMS; every example's chat rendering
 passes chat.py's invariants; no example is truncated (the job stops instead); dev loss is
-measured on the base (step 0, adapters are zero at init) and after training (declared target:
-dev_loss_ratio = final / base <= 0.5). After merging (fp32 merge, saved bf16), the merged model is
-reloaded and greedy-decodes dev prompts; the eval's own parser and graders read the outputs.
+measured on the base (step 0, adapters are zero at init) and after training. One item record per
+dev example (score = its final / base loss); declared target mean_score <= 0.5, which check_unit
+recomputes from the items; the token-weighted dev_loss_ratio is reported too. After merging (fp32
+merge, saved bf16), the merged model is reloaded and greedy-decodes dev prompts; the eval's own
+parser and graders read the outputs. Adapter, merged model and train_metrics.json go to --out as
+plain files; the model record goes to EVIDENCE_S3; items and result go to --evidence-dir.
 """
 
 from __future__ import annotations
@@ -41,8 +43,11 @@ from typing import Any
 from t1.sft import common as K
 
 UNIT = "t1.sft.train"
-METRIC = "dev_loss_ratio"
+METRIC = "dev_loss_ratio"  # token-weighted final/base over the whole dev split (reported)
+DECLARED_METRIC = "mean_score"  # per-example final/base, recomputable by check_unit from the items
 TARGET_RATIO = 0.5
+NONFINITE_SCORE = 1e6
+GRADER = "t1/sft/train_lora.py:dev_loss (per dev example: token-mean cross-entropy over the supervised span, final / base)"
 LORA_TARGETS = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
 SKIP_FROM_BASE = {"SHA256SUMS", "stage_summary.json", "README.md", ".gitattributes", "config.json"}
 
@@ -151,6 +156,7 @@ def dev_loss(model: Any, dev: list[dict], pad_id: int, device: Any, batch_size: 
     model.eval()
     tot, n = 0.0, 0
     per_unit: dict[str, list[float]] = {}
+    per_example: dict[str, float] = {}
     with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16, enabled=device.type == "cuda"):
         for batch in batches(dev, batch_size, None):
             b = collate(batch, pad_id, device)
@@ -163,8 +169,40 @@ def dev_loss(model: Any, dev: list[dict], pad_id: int, device: Any, batch_size: 
                 u = per_unit.setdefault(e["unit"], [0.0, 0.0])
                 u[0] += s
                 u[1] += k
+                per_example[e["id"]] = s / max(1.0, k)
     model.train()
-    return {"loss": tot / max(1, n), "tokens": n, "by_unit": {u: v[0] / max(1, v[1]) for u, v in sorted(per_unit.items())}}
+    return {"loss": tot / max(1, n), "tokens": n, "by_unit": {u: v[0] / max(1, v[1]) for u, v in sorted(per_unit.items())},
+            "per_example": per_example}
+
+
+def _curve_point(d: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in d.items() if k != "per_example"}
+
+
+def dev_item_records(dev_rows: list[dict], dev_ex: list[dict], base: dict[str, float], final: dict[str, float],
+                     backend: str) -> list[dict[str, Any]]:
+    """One item per dev example: score = its final / base token-mean loss over the supervised span
+    (declared target: mean_score <= 0.5, which check_unit recomputes from these)."""
+    import hashlib
+
+    from t1.evals import prompting
+
+    n_target = {e["id"]: e["n_target"] for e in dev_ex}
+    out = []
+    for r in dev_rows:
+        rid = r["id"]
+        b, f = base[rid], final[rid]
+        finite = math.isfinite(b) and math.isfinite(f) and b > 0
+        sys_text, user = r["messages"][0]["content"], r["messages"][1]["content"]
+        out.append({"item_id": rid, "input_sha256": prompting.input_sha256(sys_text, user),
+                    "output_sha256": hashlib.sha256(r["messages"][2]["content"].encode("utf-8")).hexdigest(),
+                    # evidence is JSON without NaN: a diverged loss is a large failing score, flagged
+                    "score": f / b if finite else NONFINITE_SCORE, "passed": bool(finite and f < b),
+                    "grader": GRADER, "backend": backend,
+                    "extra": {"unit": r["unit"], "base_loss": b if math.isfinite(b) else None,
+                              "final_loss": f if math.isfinite(f) else None, "nonfinite": not finite,
+                              "target_tokens": n_target[rid]}})
+    return out
 
 
 # --------------------------------------------------------------------------- generation check
@@ -225,11 +263,12 @@ def train(a: argparse.Namespace) -> dict[str, Any]:
 
     run_id = K.check_run_id(a.run_id)
     code_sha = K.code_sha_from_env(a.code_sha)
+    decl = K.stored_declaration(run_id, a.declared)  # before any work: the target comes from here
     t_start = time.time()
     random.seed(a.seed)
     torch.manual_seed(a.seed)
     work = Path(a.workdir or tempfile.mkdtemp(prefix="lora-"))
-    base_dir, _ = K.materialise(a.base, work, "base", channel_env="SM_CHANNEL_BASE", region=a.region)
+    base_dir, _ = K.materialise(a.base, work, "base", channel_env="SM_CHANNEL_MODEL", region=a.region)
     data_dir, _ = K.materialise(a.data, work, "data", channel_env="SM_CHANNEL_DATA", region=a.region)
     base_sums_sha, base_files = verify_sums(base_dir)
     data_sums_sha, _ = verify_sums(data_dir)
@@ -270,7 +309,7 @@ def train(a: argparse.Namespace) -> dict[str, Any]:
     timings["dev_eval_s"] = round(time.time() - t, 1)
     K.log(f"dev loss at step 0 (base, adapters zero): {dev0['loss']:.4f} {dev0['by_unit']}")
     curve: list[dict[str, Any]] = []
-    dev_curve = [{"step": 0, **dev0}]
+    dev_curve = [{"step": 0, **_curve_point(dev0)}]
     rng = random.Random(a.seed)
     step, micro, done, stopped_by = 0, 0, False, "steps"
     model.train()
@@ -302,7 +341,7 @@ def train(a: argparse.Namespace) -> dict[str, Any]:
             run_loss, run_tok = 0.0, 0
             if a.eval_every and step % a.eval_every == 0 and step < total_steps:
                 d = dev_loss(model, dev_ex, pad_id, device, a.batch_size)
-                dev_curve.append({"step": step, **d})
+                dev_curve.append({"step": step, **_curve_point(d)})
                 K.log(f"step {step} dev_loss={d['loss']:.4f}")
             if step >= total_steps:
                 done = True
@@ -316,7 +355,7 @@ def train(a: argparse.Namespace) -> dict[str, Any]:
             break
     timings["train_s"] = round(time.time() - t_train, 1)
     dev_final = dev_loss(model, dev_ex, pad_id, device, a.batch_size)
-    dev_curve.append({"step": step, **dev_final})
+    dev_curve.append({"step": step, **_curve_point(dev_final)})
     ratio = dev_final["loss"] / dev0["loss"] if dev0["loss"] > 0 else float("inf")
     K.log(f"dev loss final {dev_final['loss']:.4f} (base {dev0['loss']:.4f}, ratio {ratio:.4f})")
     first = [c["loss"] for c in curve[:5]]
@@ -386,6 +425,12 @@ def train(a: argparse.Namespace) -> dict[str, Any]:
         "device": torch.cuda.get_device_name(0) if device.type == "cuda" else "cpu",
         "versions": K.versions("torch", "transformers", "peft", "accelerate", "safetensors"),
     }
+    backend = (f"{os.environ.get('SM_CURRENT_INSTANCE_TYPE', 'local')} {metrics['device']}; "
+               f"transformers {metrics['versions'].get('transformers')}, peft {metrics['versions'].get('peft')}")
+    items = dev_item_records(dev_rows, dev_ex, dev0["per_example"], dev_final["per_example"], backend)
+    metrics["dev_items"] = {"n": len(items), DECLARED_METRIC: sum(i["score"] for i in items) / max(1, len(items)),
+                            "improved": sum(i["passed"] for i in items)}
+    metrics = K.finite(metrics)
     K.write_json(out_dir / "train_metrics.json", metrics)
     files, artifact_sha = K.write_sha256sums(out_dir)
     t = time.time()
@@ -393,10 +438,20 @@ def train(a: argparse.Namespace) -> dict[str, Any]:
     timings["upload_s"] = round(time.time() - t, 1)
     aws_time = K.s3_last_modified(a.out.rstrip("/") + "/SHA256SUMS", region=a.region) if K.is_s3(a.out) else None
     K.log(f"uploaded {len(files)} files to {a.out}; SHA256SUMS sha256 {artifact_sha}")
+    K.copy_to(a.summary_dir, out_dir / "train_metrics.json")
 
-    store = K.evidence_store(a.evidence)
+    res = K.write_evidence(a.evidence_dir, decl, items, "t1/sft/train_lora.py", code_sha, K.finite(
+                           {"artifact_uri": a.out, "artifact_sha256": artifact_sha, "dev_loss_base": dev0["loss"],
+                            "dev_loss_final": dev_final["loss"], METRIC: ratio, "steps": step,
+                            "steps_planned": total_steps, "stopped_by": stopped_by,
+                            "gen_check": {k: v for k, v in (gen or {}).items() if k != "outputs"}}))
+    K.log(f"result: {res['metric']} = {res['value']:.4f} over {res['n_items']} dev items (target "
+          f"{res['target']['op']} {res['target']['value']}) -> {'PASSED' if res['passed'] else 'MISSED'}")
+    metrics["result"] = {k: res[k] for k in ("metric", "value", "passed", "n_items")}
+
+    store = K.model_store(a.model_evidence)
     if store is None:
-        K.log("no evidence store: model record not written")
+        K.log("no model evidence store (EVIDENCE_S3 unset, no --model-evidence): model record not written")
     else:
         from tools import evlib
 
@@ -414,17 +469,9 @@ def train(a: argparse.Namespace) -> dict[str, Any]:
                            "train_loss_first": curve[0]["loss"] if curve else None,
                            "train_loss_last": curve[-1]["loss"] if curve else None,
                            "gen_check": {k: v for k, v in (gen or {}).items() if k != "outputs"},
-                           "wall_s": timings["total_s"], "files": files, "code_sha": code_sha}}
-        K.log(f"model record: {evlib.write_model(rec, store=store)}")
-        if a.write_result:
-            if not code_sha:
-                raise K.JobError("--write-result needs --code-sha (or CODE_SHA)")
-            res = {"run_id": run_id, "unit": UNIT, "metric": METRIC, "value": ratio,
-                   "target": {"metric": METRIC, "op": "<=", "value": TARGET_RATIO, "unit": "ratio"},
-                   "passed": ratio <= TARGET_RATIO, "n_items": dev_stats["n"],
-                   "checker": {"script": "t1/sft/train_lora.py:dev_loss", "code_sha": code_sha},
-                   "details": {"dev_loss_base": dev0["loss"], "dev_loss_final": dev_final["loss"], "steps": step}}
-            K.log(f"result record: {evlib.write_result(res, store=store)}")
+                           "wall_s": timings["total_s"], "files": files, "code_sha": code_sha,
+                           "result": metrics["result"]}}
+        K.log(f"model record: {evlib.write_model(K.finite(rec), store=store)}")
     return metrics
 
 
@@ -433,8 +480,9 @@ def dry_run(a: argparse.Namespace) -> dict[str, Any]:
     against a chat template given with --chat-template (the base model's chat_template.jinja)."""
     K.check_run_id(a.run_id)
     plan: dict[str, Any] = {"job": "t1.sft.train_lora", "run_id": a.run_id, "code_sha": K.code_sha_from_env(a.code_sha),
-                            "base": a.base or "(channel SM_CHANNEL_BASE)", "data": a.data or "(channel SM_CHANNEL_DATA)",
-                            "out": a.out, "target": {"metric": METRIC, "op": "<=", "value": TARGET_RATIO, "unit": "ratio"},
+                            "base": a.base or "(channel SM_CHANNEL_MODEL)", "data": a.data or "(channel SM_CHANNEL_DATA)",
+                            "out": a.out, "evidence_dir": a.evidence_dir,
+                            "target": {"metric": DECLARED_METRIC, "op": "<=", "value": TARGET_RATIO, "unit": "ratio"},
                             "hyperparameters": {k: getattr(a, k) for k in ("lora_r", "lora_alpha", "lora_dropout", "lr",
                                                                             "epochs", "batch_size", "grad_accum",
                                                                             "warmup_ratio", "max_len", "seed")}}
@@ -454,12 +502,15 @@ def dry_run(a: argparse.Namespace) -> dict[str, Any]:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(prog="python -m t1.sft.train_lora", description=__doc__.split("\n")[0])
     ap.add_argument("--run-id", required=True)
-    ap.add_argument("--base", help="staged bf16 base: s3:// prefix or dir (else SM_CHANNEL_BASE)")
+    ap.add_argument("--base", help="staged bf16 base: dir ({channel:model}) or s3:// prefix (else SM_CHANNEL_MODEL)")
     ap.add_argument("--data", help="SFT dataset: s3:// prefix or dir (else SM_CHANNEL_DATA)")
     ap.add_argument("--out", help="s3:// prefix or dir for adapter/, merged/, train_metrics.json, SHA256SUMS")
     ap.add_argument("--base-run-id")
     ap.add_argument("--data-run-id")
-    ap.add_argument("--evidence")
+    ap.add_argument("--evidence-dir", help="local evlib store for items + result ({evidence_dir})")
+    ap.add_argument("--model-evidence", help="where the model record goes (default EVIDENCE_S3)")
+    ap.add_argument("--declared", help="the run's declaration as a JSON file (default: read from EVIDENCE_S3)")
+    ap.add_argument("--summary-dir", help="also copy train_metrics.json here ({output_dir})")
     ap.add_argument("--code-sha")
     ap.add_argument("--region", default=os.environ.get("AWS_REGION", K.DEFAULT_REGION))
     ap.add_argument("--workdir")
@@ -485,10 +536,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--price-per-hour", type=float, help="on-demand $/h of the instance, for a wall-time estimate")
     ap.add_argument("--require-loss-drop", action="store_true")
     ap.add_argument("--allow-cpu", action="store_true")
-    ap.add_argument("--write-result", action="store_true")
     ap.add_argument("--chat-template", help="dry run: a chat_template.jinja to check the data's rendering with")
     ap.add_argument("--dry-run", action="store_true")
-    return ap.parse_args(argv)
+    a = ap.parse_args(argv)
+    if not a.dry_run and not (a.out and a.evidence_dir):
+        ap.error("--out and --evidence-dir are required")
+    return a
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -501,7 +554,7 @@ def main(argv: list[str] | None = None) -> int:
     if a.dry_run:
         print(K.dumps_doc(out), end="")
     else:
-        K.log(f"done: {METRIC}={out[METRIC]:.4f} dev {out['dev_loss_base']:.4f} -> {out['dev_loss_final']:.4f}")
+        K.log(f"done: {out['result']}; {METRIC}={out[METRIC]} dev {out['dev_loss_base']} -> {out['dev_loss_final']}")
     return 0
 
 
