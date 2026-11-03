@@ -41,7 +41,8 @@ class FakeTok:
         body = "".join(f"<{m['role']}>{m['content']}" for m in messages)
         return body + ("<assistant>" if enable_thinking else "<assistant><think></think>")
 
-    def __call__(self, text, return_tensors, add_special_tokens):
+    def __call__(self, text, return_tensors, add_special_tokens, truncation=True):
+        assert truncation is False  # prompts are never cut to model_max_length
         n = max(1, len(text) // 50)
         return {"input_ids": torch.ones((1, n), dtype=torch.long), "attention_mask": torch.ones((1, n), dtype=torch.long)}
 
@@ -155,6 +156,7 @@ def _tiny_qwen3(tmp_path: Path) -> tuple[Path, Path]:
     if not tok_dir or not Path(tok_dir, "tokenizer.json").is_file():
         pytest.skip("set T1_QWEN3_TOKENIZER_DIR to a directory with the Qwen3 tokenizer files")
     tok = transformers.AutoTokenizer.from_pretrained(tok_dir)
+    tok.model_max_length = 1100  # as in the OTel base's tokenizer_config; must not cut prompts
     torch.manual_seed(0)
     cfg = transformers.Qwen3Config(vocab_size=len(tok), hidden_size=32, intermediate_size=64, num_hidden_layers=2,
                                    num_attention_heads=2, num_key_value_heads=1, head_dim=16,
@@ -190,3 +192,17 @@ def test_tiny_qwen3_through_the_cli(tmp_path, with_adapter, capsys):
     assert d["thinking_flag_honoured"] is True  # the Qwen3 template really changes with enable_thinking
     assert d["adapter"] is with_adapter and d["adapter_merged"] is with_adapter
     assert ("adapter_dir_sha256" in d) is with_adapter
+
+
+def test_long_prompts_are_not_truncated(tmp_path):
+    """Knowledge prompts reach ~2,000 tokens; the OTel tokenizer says model_max_length 1100."""
+    mdir, _ = _tiny_qwen3(tmp_path)
+    from t1.evals import freeze
+    from t1.evals.prompting import render
+
+    longest = max(freeze.load_items("knowledge"), key=lambda it: len(render(it)[1]))
+    c = LocalHFClient(str(mdir), "tiny", warmup=0, hash_files=False)
+    assert c.tok.model_max_length == 1100
+    out = c.generate(*render(longest), 4)
+    assert out.error is None and out.tokens_in > 1100
+    assert c.decoding(4)["truncation"] is False and c.decoding(4)["model_max_length_ignored"] == 1100

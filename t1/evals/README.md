@@ -143,6 +143,12 @@ python -m tools.sm.run --run-id t1.execution.replay-check-x86-1 --declaration /t
 - **First x86 check** (`t1.execution.replay-check-x86-1`, CPU DLC, torch 2.9.0+cpu): 75 of 80 items reproduced exactly.
   - In 5 items, one value moved by one user's worth (1/200 to 1/300 of a ratio): ex-outage-006 `constant_gain` 5.0e-3, ex-power_drop-009 `rule_gain` 1.67e-2, ex-tilt_misconfig-001 `oracle_gain` 3.3e-3, ex-tilt_misconfig-009 and -013 `constant_gain` 5.0e-3.
   - `noop_kpi` never moved.
+- **Re-freeze** (`t1.execution.refreeze-x86-1`, GPU DLC on ml.g5.2xlarge, torch 2.9.0+cu130), adopted:
+  - 45 of 80 items changed.
+  - In 43 of them, the 2-decimal state text in the prompt changed: float32 RSRP/SINR round differently in the last digit.
+  - No best-of-K or rule choice changed, and every item still passes the item filter.
+  - Reference values moved in 6 items by one user's worth. ex-tilt_misconfig-002, -004 and -005 moved on the GPU image although they matched on the CPU image.
+  - So **the CPU and GPU DLCs do not replay identically either**. The execution items now replay exactly only on the GPU image (`items/execution.platform.json`). Run every execution eval, and its confirming replay check, on the GPU image.
 
 ### Which units depend on platform numerics
 
@@ -153,9 +159,9 @@ Only execution does.
 
 None of these four calls the twin, torch or a transcendental function.
 
-### Bedrock baselines (CPU jobs with a Bedrock-enabled role)
+### Bedrock baselines (jobs with a Bedrock-enabled role)
 
-The organisers' job role, `bb26-SageMakerExecution`, has no Bedrock actions, so `--client bedrock` cannot run in a job under it. The Bedrock runs use `tools.sm.run --role bb26/team13-sm-bedrock-eval`, which the user creates in CloudShell. They run on ml.m5.xlarge.
+The organisers' job role, `bb26-SageMakerExecution`, has no Bedrock actions, so `--client bedrock` cannot run in a job under it. The Bedrock runs use `tools.sm.run --role bb26/team13-sm-bedrock-eval`, which the user creates in CloudShell. They run on ml.m5.xlarge, except **execution**, whose grader replays the twin: it must run on the GPU image the items were frozen on (`--gpu`, ml.g6.xlarge is the cheapest GPU type), or the grader stops with TwinDrift.
 
 - **Prices**: `python -m t1.evals.bedrock_prices --model-id <id>` reads the AWS Price List (read-only) and prints the price flags. It fails closed if there is not exactly one standard on-demand input price and one output price.
   - Read 2026-11-02, effective 2026-10-01, us-east-2, per 1M tokens: gpt-oss-20b costs 0.07 in and 0.30 out; Qwen3-32B costs 0.15 in and 0.60 out.
@@ -169,18 +175,20 @@ The organisers' job role, `bb26-SageMakerExecution`, has no Bedrock actions, so 
 
 ## Superseded hashes
 
-These were frozen at commit `2959c9b` and replaced before any model ran on them.
+`items/superseded.json` lists every replaced freeze, and `MANIFEST.json` repeats it under `superseded`. Never declare a run against these hashes. None of them was ever used by a model run.
 
-| unit | superseded file sha256 | superseded test-split sha256 |
-|---|---|---|
-| execution | `4686121964eaf4811fec665ac73927af8ee8f32ffe5375e3c4074f87dc80b72c` | `8ac4c54536f8affdfdc75bccbed02f4d0ece78ad81e6ef0d93e44e858cdc0feb` |
+| replaced by | unit | superseded file sha256 | superseded test-split sha256 |
+|---|---|---|---|
+| commit 2959c9b → W2 twin, W1 canon | execution | `4686121964eaf4811fec665ac73927af8ee8f32ffe5375e3c4074f87dc80b72c` | `8ac4c54536f8affdfdc75bccbed02f4d0ece78ad81e6ef0d93e44e858cdc0feb` |
+| run t1.execution.refreeze-x86-1 (x86 GPU image) | execution | `63d04053892d118721eed5c40460c9ae0c878043d464db7b9edc10e2223efd74` | `5dbc837713851902e455d750534f7aee49c9b7a1b7836439c280f2606615fc22` |
+| run t1.execution.refreeze-x86-1 (x86 GPU image) | price_latency | `4d55adddb52171878f30000e7d7fa969d77bb41cd6e0f33c041927cde185b408` | `802e3621d2bc13d5202caa33af7df7b2585d89d6fc7c27c72216d8a4533f6c44` |
 
-Why they were replaced:
-- the execution items were built on a local stand-in twin, before W2's `ReplayTwin` was merged;
-- change strings came from a local canon that dropped zero-change cells.
+**First replacement.**
+- Why: the execution items were built on a local stand-in twin before W2's `ReplayTwin` was merged, and change strings came from a local canon that dropped zero-change cells.
+- What changed: the same items were rebuilt, with the reference values now stored unrounded and `meta.twin` naming the W2 replay.
 
-Both now come from W2 and W1. Regenerating on W2's twin reproduced the same 80 item ids, specs, states and prompt text, and the same change strings. What changed:
-- the reference values (`noop_kpi` and the rule, best-of-K and fixed-answer gains) are now stored unrounded. They used to be rounded to 6 decimals, so they differed from the replay by up to 3.3e-7, and the drift check is now exact to 1e-9;
-- `meta.twin` names the W2 replay.
+**Second replacement.** The Mac-frozen values did not replay exactly on x86. The items were re-frozen on the GPU image the evals run on: same ids, splits, scenarios, seeds and prefixes. price_latency changed with them, because it copies execution prompt text.
 
-The other four files are byte-identical; price_latency keeps its hash because the prompt text it copies is unchanged. Never declare a run against the hashes above. The same list is in `MANIFEST.json` under `superseded`.
+**Current hashes** (file / test split):
+- execution: `e7d58194bab6b276c44a8ea73f70b273413e425eb5d951a0c9c2e67897200df2` / `5bf3773ffe1b7e776486b79197e9518e2bd7b634c018ffd17f85b00365e39383`
+- price_latency: `c459173aa269a80276d07983b0adb0c0c97aa09bdd4c9976a133479274b56f12` / `17d7d80720e56671af96d6646cb6e1c76c470fc4e3b58f17e444b75b890f5ec2`

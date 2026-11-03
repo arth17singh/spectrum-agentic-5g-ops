@@ -39,15 +39,17 @@ def _validate_run(root, run_id):
     return recs
 
 
-@FROZEN_HERE
 def test_replay_check_job_writes_valid_records(tmp_path, monkeypatch):
+    """Runs anywhere (valid records, the platform reported); exact agreement only where frozen."""
     pytest.importorskip("ran_rl")
     _few(monkeypatch)
     assert J.main(["check", "--run-id", "t1.rc-test", "--evidence-dir", str(tmp_path), "--code-sha", "c" * 40]) == 0
     decl, res, *items = _validate_run(tmp_path, "t1.rc-test")
-    assert len(items) == 3 and all(it["passed"] and it["score"] == 0.0 for it in items)
-    assert res["passed"] is True and res["value"] == 1.0 and res["details"]["n_drifted"] == 0
-    assert set(items[0]["extra"]["frozen"]) == set(J.KEYS) and res["details"]["platform"]["machine"]
+    assert len(items) == 3 and set(items[0]["extra"]["frozen"]) == set(J.KEYS) and res["details"]["platform"]["machine"]
+    assert res["details"]["n_drifted"] == sum(not it["passed"] for it in items)
+    if on_freezing_platform():
+        assert all(it["passed"] and it["score"] == 0.0 for it in items)
+        assert res["passed"] is True and res["value"] == 1.0 and res["details"]["n_drifted"] == 0
 
 
 @FROZEN_HERE
