@@ -197,6 +197,18 @@ class Sync:
                 out.setdefault(run, [])
                 if (kind, name) not in out[run]:
                     out[run].append((kind, name))
+        for rec in sorted((self.dest / "records").glob("*/job/*.json")):  # runs with a job record but no job-map
+            run = rec.parent.parent.name
+            try:
+                d = json.loads(rec.read_text())
+            except ValueError:
+                continue
+            name = d.get("job_name") or d.get("TrainingJobName")
+            kind = "processing" if d.get("job_kind") == "processing" else "training"
+            if isinstance(name, str) and re.match(r"^[A-Za-z0-9][A-Za-z0-9-]{0,62}$", name):
+                out.setdefault(run, [])
+                if (kind, name) not in out[run]:
+                    out[run].append((kind, name))
         return out
 
     def describe_jobs(self) -> None:
