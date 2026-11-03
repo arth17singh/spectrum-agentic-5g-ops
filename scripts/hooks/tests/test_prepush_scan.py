@@ -31,6 +31,7 @@ FAKE_ACCOUNT = "9" * 4 + "8" * 4 + "7" * 4
 FAKE_COGNITO = "https://x." + "auth.us-east-2." + "amazon" + "cognito.com/login"
 FAKE_SIG = "X-Amz-" + "Signature=abc"
 FAKE_EC2 = "ec2-1-2-3-4.us-east-2.compute." + "amazon" + "aws.com"
+FAKE_FL_NAME = "Cross" + "Trainer"  # the FL service's product name, assembled so this file does not hold it
 KIT_SECRET = "kitsecret-" + "Zq8WmN3rT5yV1xB7cD9eF2gH"
 
 
@@ -71,7 +72,7 @@ def scan(repo: Path, *extra, kit=None, env=None):
     ("jwt", f"t = '{FAKE_JWT}'\n", "JWT"),
     ("bearer", f"Authorization: {FAKE_BEARER}\n", "Bearer token"),
     ("ip", f"host = {FAKE_IP}\n", "IPv4 address"),
-    ("account", f"arn:aws:iam::{FAKE_ACCOUNT}:role/x\n", "12-digit account id"),
+    ("fl name", f"the {FAKE_FL_NAME} service\n", "FL service product name"),
     ("cognito", f"url = {FAKE_COGNITO}\n", "amazoncognito"),
     ("signature", f"u?{FAKE_SIG}\n", "X-Amz-Signature"),
     ("ec2 host", f"ssh {FAKE_EC2}\n", "EC2 public host name"),
@@ -115,21 +116,35 @@ def test_zero_padded_dummy_ids_are_not_account_ids(repo, text):
     assert scan(repo, "--refs", "HEAD", "--no-evidence").returncode == 0
 
 
+# DECISION 2 Nov 2026: 12-digit numbers, the team account id included, are informational, never blocking.
 @pytest.mark.parametrize("value", ["0" * 5 + "1" + "0" * 6, FAKE_ACCOUNT, "1" + "0" * 11])
-def test_real_looking_ids_are_still_blocked(repo, value):
+def test_twelve_digit_numbers_are_informational_not_blocking(repo, value):
     commit(repo, {"tests/fixture.py": f"change_id = 'chg-{value}'\n"})
     res = scan(repo, "--refs", "HEAD", "--no-evidence")
-    assert res.returncode == 1 and "12-digit account id" in res.stderr and value not in res.stderr
+    assert res.returncode == 0, res.stderr
+    assert "informational (not blocking)" in res.stderr and "BLOCKED" not in res.stderr
+    assert value not in res.stderr + res.stdout
 
 
-def test_account_id_from_the_kit_is_blocked(repo, tmp_path):
+def test_team_account_id_from_the_kit_is_labelled_informational(repo, tmp_path):
     kit = make_kit(tmp_path)
     state = json.loads((kit / "kit-state.json").read_text())
     state["gateway_arn"] = "arn:aws:bedrock-agentcore:us-east-2:" + FAKE_ACCOUNT + ":gateway/g-fake-0001"
     (kit / "kit-state.json").write_text(json.dumps(state))
     commit(repo, {"cfg.txt": "bucket-" + FAKE_ACCOUNT + "-use2\n"})
     res = scan(repo, "--refs", "HEAD", "--no-evidence", kit=kit)
-    assert res.returncode == 1 and "12-digit account id" in res.stderr and FAKE_ACCOUNT not in res.stderr
+    assert res.returncode == 0 and "team account id (informational)" in res.stderr
+    assert FAKE_ACCOUNT not in res.stderr + res.stdout
+    # the full gateway ARN is still a kit secret and still blocks
+    commit(repo, {"cfg2.txt": state["gateway_arn"] + "\n"})
+    res = scan(repo, "--refs", "HEAD", "--no-evidence", kit=kit)
+    assert res.returncode == 1 and "kit secret" in res.stderr and FAKE_ACCOUNT not in res.stderr + res.stdout
+
+
+def test_other_rules_still_block_next_to_an_informational_hit(repo):
+    commit(repo, {"a.txt": f"id {FAKE_ACCOUNT} and key {FAKE_AKIA}\n"})
+    res = scan(repo, "--refs", "HEAD", "--no-evidence")
+    assert res.returncode == 1 and "AWS access key id" in res.stderr and "informational" in res.stderr
 
 
 def test_the_public_dlc_registry_id_passes(repo):

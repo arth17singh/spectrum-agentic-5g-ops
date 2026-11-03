@@ -65,6 +65,12 @@ ALLOWED_ACCOUNT_IDS = {
 # A 12-digit run below this value is a counter or dummy id padded with zeros (for example chg-000000000001),
 # not an account id: real ids are issued far above it.
 ACCOUNT_ID_FLOOR = 10**6
+
+# DECISION (user, 2 Nov 2026, about 20:20 PST): the team's own AWS account id may appear in the repo. The repo is
+# private, the organisers and judges know the account, and an account id is not a credential. So 12-digit numbers
+# are reported as INFORMATIONAL: counted and listed, never blocking. Everything else stays blocking.
+INFO_RULES = {"12-digit number (informational)", "team account id (informational)"}
+TEAM_ACCOUNT_ID: bytes | None = None  # set from the kit at run time; never printed
 # kit.json / kit-state.json keys whose values are public names, already written in our docs and code.
 PUBLIC_KIT_KEYS = {"bedrock_log_group", "specialists", "lead", "may_change", "name", "region"}
 
@@ -92,7 +98,10 @@ CONTENT_RULES = [
     ("JWT", "any", re.compile(rb"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}")),
     ("Bearer token", "text", re.compile(rb"Bearer\s+[A-Za-z0-9._~+/=-]{20,}")),
     ("IPv4 address", "text", re.compile(rb"(?<![\d.])" + _OCTET.encode() + rb"(?:\." + _OCTET.encode() + rb"){3}(?!\d|\.\d)")),
-    ("12-digit account id", "text", re.compile(rb"(?<![0-9A-Fa-f.])\d{12}(?![0-9A-Fa-f]|\.\d)")),
+    ("12-digit number", "text", re.compile(rb"(?<![0-9A-Fa-f.])\d{12}(?![0-9A-Fa-f]|\.\d)")),
+    # The FL service's product name must not appear in published files. It is assembled from two halves so that
+    # this file does not contain it either.
+    ("FL service product name", "any", re.compile((b"cross" + b"trainer"), re.I)),
     ("amazoncognito", "any", re.compile(rb"amazoncognito", re.I)),
     ("presigned URL signature (X-Amz-Signature)", "any", re.compile(rb"X-Amz-Signature", re.I)),
     ("EC2 public host name", "any", re.compile(rb"\bec2-[0-9a-z.-]+\.amazonaws\.com", re.I)),
@@ -104,6 +113,10 @@ class Finding:
 
     def __init__(self, rule: str, where: str, line: int | None = None):
         self.rule, self.where, self.line = rule, where, line
+
+    @property
+    def blocking(self) -> bool:
+        return self.rule.removesuffix(" in commit message") not in INFO_RULES
 
     def key(self):
         return (self.rule, self.where, self.line or 0)
@@ -177,6 +190,17 @@ def load_kit_secrets(kit_dir: str | None) -> tuple[dict[bytes, str], str]:
     return secrets, "loaded"
 
 
+def load_team_account_id(kit_dir: str | None) -> bytes | None:
+    """The team's account id, read from the kit's gateway ARN at run time (used only to label findings)."""
+    p = os.path.join(kit_dir or "", "kit-state.json")
+    try:
+        arn = json.loads(Path(p).read_text()).get("gateway_arn", "")
+    except (OSError, ValueError, AttributeError):
+        return None
+    m = re.search(r"(?<!\d)\d{12}(?!\d)", arn if isinstance(arn, str) else "")
+    return m.group(0).encode() if m else None
+
+
 def load_local_key_files(root: str) -> dict[bytes, str]:
     """The evidence ledger's private key, wherever it sits in the working tree."""
     out: dict[bytes, str] = {}
@@ -215,8 +239,10 @@ def scan_content(data: bytes, secrets: dict[bytes, str], path: str = "") -> list
             text = m.group(0)
             if rule == "IPv4 address" and any(a.match(text.decode()) for a in ALLOWED_IPV4):
                 continue
-            if rule == "12-digit account id" and (text.decode() in ALLOWED_ACCOUNT_IDS or int(text) < ACCOUNT_ID_FLOOR):
-                continue
+            if rule == "12-digit number":
+                if text.decode() in ALLOWED_ACCOUNT_IDS or int(text) < ACCOUNT_ID_FLOOR:
+                    continue
+                rule = "team account id (informational)" if text == TEAM_ACCOUNT_ID else "12-digit number (informational)"
             out.append((rule, line_of(m.start())))
             break  # one finding per rule per file is enough to act on
     for value, label in secrets.items():
@@ -340,12 +366,22 @@ def report(findings: list[Finding], stats: str, out=sys.stderr) -> int:
         if f.key() not in seen:
             seen.add(f.key())
             uniq.append(f)
+    blocking = [f for f in uniq if f.blocking]
+    info = [f for f in uniq if not f.blocking]
     print(f"pre-push scan: {stats}", file=out)
-    if not uniq:
-        print("pre-push scan: clean", file=out)
+    if info:
+        files = {f.where.split(" [blob")[0] for f in info}
+        kinds = sorted({f.rule.removesuffix(" in commit message") for f in info})
+        print(f"pre-push scan: informational (not blocking): {len(info)} hit(s) in {len(files)} place(s): {'; '.join(kinds)}", file=out)
+        for f in sorted(info, key=Finding.key)[:10]:
+            print(f"  info  {f}", file=out)
+        if len(info) > 10:
+            print(f"  info  ... and {len(info) - 10} more", file=out)
+    if not blocking:
+        print("pre-push scan: clean (no blocking findings)", file=out)
         return 0
-    print(f"pre-push scan: BLOCKED, {len(uniq)} finding(s). Rule and file only; matched text is never printed.", file=out)
-    for f in sorted(uniq, key=Finding.key):
+    print(f"pre-push scan: BLOCKED, {len(blocking)} finding(s). Rule and file only; matched text is never printed.", file=out)
+    for f in sorted(blocking, key=Finding.key):
         print(f"  {f}", file=out)
     print("Fix the file, rewrite the commit, then push again. (Bypass is not offered here; talk to the lead.)", file=out)
     return 1
@@ -367,6 +403,8 @@ def main(argv: list[str] | None = None) -> int:
         repo = args.repo or toplevel()
         secrets, kit_status = load_kit_secrets(args.kit_dir)
         secrets.update(load_local_key_files(repo))
+        global TEAM_ACCOUNT_ID
+        TEAM_ACCOUNT_ID = load_team_account_id(args.kit_dir)
         if kit_status == "missing":
             print("pre-push scan: WARNING kit folder not found; kit secret values were NOT checked "
                   "(pattern rules still run). Set TEAM13_KIT_DIR to enable.", file=sys.stderr)
