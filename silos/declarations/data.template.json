@@ -1,13 +1,7 @@
 {
- "code_sha": "<CODE_SHA: 40-hex commit the job was packaged from>",
- "entry": "python -m silos.job_data",
  "grader": "silos.checks (schema, ranges, seeds, proportional rows, operating points) + SHA-256 read-back from S3",
  "model_id": "t2-simulated-silos@v1",
  "n_items": 14,
- "note": "Provenance of the simulated-silo datasets. test_set_sha256 is the sha256 of the generator config (silos/config.yaml, canonical JSON). The comparison with the earlier laptop copy is a measurement, not a target.",
- "population": "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data",
- "region": "<AWS_REGION>",
- "run_id": "<RUN_ID>",
  "synthetic": false,
  "target": {
   "metric": "pass_count",
@@ -17,5 +11,18 @@
  },
  "test_set_sha256": "ecf8b521a9e4b9a658d5a71d9614abfc67b3f2c7cc21b19850da6dd65258dc42",
  "track": "track-2",
+ "twin": {
+  "config": {
+   "details": {
+    "entry": "python -m silos.job_data",
+    "note": "Provenance of the simulated-silo datasets. test_set_sha256 is the sha256 of the generator config (silos/config.yaml, canonical JSON). The comparison with the earlier laptop copy is a measurement, not a target.",
+    "population": "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data"
+   }
+  },
+  "kind": "maveric-inprocess",
+  "scenario": "silo-generator",
+  "seed": 0,
+  "version": "ran-rl 1.2.9"
+ },
  "unit": "t2.silo_data"
 }
