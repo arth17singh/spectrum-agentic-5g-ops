@@ -413,3 +413,12 @@ def test_allow_pause_and_trust_units_have_their_own_expectation(monkeypatch, tmp
     # an unknown unit keeps the full declared sequence
     j = _case_status(monkeypatch, tmp_path / "u", "other-20261103T000000Z", [_dec("c", "ran___observe", "ALLOW", "2026-11-03T05:50:00Z")])
     assert j["cases"][0]["check_passed"] is False
+
+
+def test_a_declaration_counts_when_s3_stored_it(monkeypatch, tmp_path):
+    from spectrum.slices.twinview import logic
+
+    decl = {"run_id": RUN, "declared_at": "2026-11-03T05:00:00Z", "unit": "t3.allow"}
+    assert logic.case_prov({**decl, awstime.STORED_KEY: "2026-11-03T05:00:01Z"})["real"] is True
+    assert logic.case_prov(decl)["real"] is False
+    assert logic.case_prov({"run_id": RUN, "kind": "change", awstime.STORED_KEY: "2026-11-03T05:00:01Z"})["real"] is False

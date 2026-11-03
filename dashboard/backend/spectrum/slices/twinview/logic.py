@@ -104,8 +104,12 @@ def case_prov(rec: Rec) -> Rec:
     Date): the S3 stored time alone does not make a record real, and a Lambda clock is not AWS time at all."""
     synthetic = rec.get("synthetic") is True
     t = awstime.resolve(rec)
-    return {"synthetic": synthetic, "real": (not synthetic) and t["aws_time_source"] in awstime.EVENT_SOURCES, **t,
-            "no_event_reason": awstime.no_event_reason(rec)}
+    ok = t["aws_time_source"] in awstime.EVENT_SOURCES
+    # a declaration (written before the run) is not an event: what AWS evidences for it is when S3 stored it
+    if not ok and "declared_at" in rec and t["aws_time_source"] == "s3_stored":
+        ok = True
+    return {"synthetic": synthetic, "real": (not synthetic) and ok, **t,
+            "no_event_reason": None if ok else awstime.no_event_reason(rec)}
 
 
 def _provenance(ps: list[Rec]) -> Rec:
