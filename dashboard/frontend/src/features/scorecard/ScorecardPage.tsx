@@ -18,7 +18,9 @@ interface Row {
   track: string; unit: string; run_id: string
   target: { metric: string; op: string; value: number; unit?: string } | null
   measured: number | null
-  state: 'pass' | 'fail' | 'not checked' | 'inconsistent'
+  state: 'pass' | 'fail' | 'not checked' | 'inconsistent' | 'check failed' | 'unverified' | 'incomplete' | 'superseded'
+  evidence_reason?: string
+  superseded?: { reason: string; by: string[] }
   recomputed: 'pass' | 'fail' | null
   stored_passed: boolean | null
   n_items: number | null; declared_n_items: number | null
@@ -30,10 +32,11 @@ interface Row {
   synthetic: boolean
   problems: Problem[]
 }
-interface TrackGroup { track: string; declared: number; passed: number; failed: number; not_checked: number; inconsistent: number; units: Row[] }
+interface Counts { declared: number; passed: number; failed: number; not_checked: number; inconsistent: number; check_failed?: number; unverified?: number; incomplete?: number; superseded?: number }
+interface TrackGroup extends Counts { track: string; units: Row[] }
 interface Card {
   tracks: TrackGroup[]
-  totals: { declared: number; passed: number; failed: number; not_checked: number; inconsistent: number }
+  totals: Counts
   synthetic_rows: number
   orphans: { run_id: string; reason: string; unit?: string; synthetic?: boolean }[]
   empty: boolean
@@ -45,13 +48,19 @@ const STATE = {
   fail: { Icon: CircleX, color: 'var(--critical-ink)', word: 'Fail' },
   'not checked': { Icon: CircleDashed, color: 'var(--ink-3)', word: 'Not checked' },
   inconsistent: { Icon: TriangleAlert, color: 'var(--warn-ink)', word: 'Inconsistent' },
+  'check failed': { Icon: CircleX, color: 'var(--critical-ink)', word: 'FAIL (check_unit)' },
+  unverified: { Icon: TriangleAlert, color: 'var(--warn-ink)', word: 'Unverified' },
+  incomplete: { Icon: TriangleAlert, color: 'var(--warn-ink)', word: 'Incomplete' },
+  superseded: { Icon: CircleDashed, color: 'var(--ink-3)', word: 'Superseded' },
 } as const
 
 function StateCell({ r }: { r: Row }) {
   const s = STATE[r.state]
   const title = r.state === 'inconsistent'
     ? `The record contradicts itself, so no verdict is given.${r.recomputed ? ` Recomputed from the measured value and the declared target: ${r.recomputed}.` : ''}`
-    : r.state === 'not checked' ? 'Declared, but no result exists yet. Not a pass.' : undefined
+    : r.state === 'not checked' ? 'Declared, but no result exists yet. Not a pass.'
+    : r.state === 'superseded' ? r.superseded?.reason
+    : r.evidence_reason
   return (
     <span className="inline-flex items-center gap-1.5 font-medium whitespace-nowrap" style={{ color: s.color }} title={title}>
       <s.Icon size={15} aria-hidden />{s.word}
@@ -135,7 +144,9 @@ export default function ScorecardPage() {
                       {t.track}
                       <span className="tnum ml-3 font-normal text-ink-2" data-testid="track-count">{t.passed} of {t.declared} unit{t.declared === 1 ? '' : 's'} passed</span>
                       <span className="ml-3 text-micro font-normal text-ink-3">
-                        {[t.failed && `${t.failed} failed`, t.not_checked && `${t.not_checked} not checked`, t.inconsistent && `${t.inconsistent} inconsistent`].filter(Boolean).join(' · ')}
+                        {[t.failed && `${t.failed} failed`, t.check_failed && `${t.check_failed} FAIL (check_unit)`, t.unverified && `${t.unverified} unverified`,
+                          t.incomplete && `${t.incomplete} incomplete`, t.not_checked && `${t.not_checked} not checked`, t.inconsistent && `${t.inconsistent} inconsistent`,
+                          t.superseded && `${t.superseded} superseded`].filter(Boolean).join(' · ')}
                       </span>
                     </th>
                   </tr>
@@ -171,15 +182,20 @@ export default function ScorecardPage() {
 }
 
 function Summary({ card }: { card: Card }) {
+  const T = card.totals
   const tiles: [string, ReactNode, string?][] = [
-    ['Units declared', card.totals.declared],
-    ['Passed', card.totals.passed],
-    ['Failed', card.totals.failed],
-    ['Not checked', card.totals.not_checked, 'declared, no result yet'],
-    ['Inconsistent', card.totals.inconsistent, 'record contradicts itself'],
+    ['Units declared', T.declared, T.superseded ? `plus ${T.superseded} superseded, listed apart` : undefined],
+    ['Passed', T.passed],
+    ['Failed', T.failed, 'missed the declared target'],
+    ...(T.check_failed ? [['FAIL (check_unit)', T.check_failed, 'a check_unit part failed'] as [string, ReactNode, string]] : []),
+    ...(T.unverified ? [['Unverified', T.unverified, 'check_unit part c: no AWS window'] as [string, ReactNode, string]] : []),
+    ...(T.incomplete ? [['Incomplete', T.incomplete, 'result says complete: false'] as [string, ReactNode, string]] : []),
+    ['Not checked', T.not_checked, 'declared, no result yet'],
+    ['Inconsistent', T.inconsistent, 'record contradicts itself'],
+    ...(T.superseded ? [['Superseded', T.superseded, 'withdrawn in superseded.json'] as [string, ReactNode, string]] : []),
   ]
   return (
-    <div className="grid grid-cols-2 gap-4 rounded-[10px] border border-line bg-s1 px-5 py-4 md:grid-cols-5" data-testid="scorecard-summary">
+    <div className="grid grid-cols-2 gap-4 rounded-[10px] border border-line bg-s1 px-5 py-4 md:grid-cols-4 xl:grid-cols-8" data-testid="scorecard-summary">
       {tiles.map(([label, v, sub]) => (
         <div key={label} className="min-w-0 border-l border-line pl-4 first:border-l-0 first:pl-0">
           <div className="text-micro text-ink-3">{label}</div>
@@ -210,6 +226,7 @@ function UnitRow({ r, open, onToggle }: { r: Row; open: boolean; onToggle: () =>
         {r.state === 'not checked'
           ? <span className="text-ink-3">not checked</span>
           : <span className={clsx('tnum font-medium', r.state === 'fail' && 'text-critical-ink', r.state === 'inconsistent' && 'text-warn-ink', r.state === 'pass' && 'text-ink-1')}>{value(r.measured, unit)}</span>}
+        {(r.evidence_reason || r.superseded) && <div className="max-w-[30ch] truncate text-micro text-ink-3" title={r.evidence_reason ?? r.superseded?.reason}>{r.evidence_reason ?? r.superseded?.reason}</div>}
         {r.state === 'inconsistent' && r.problems.length > 0 && <div className="max-w-[26ch] truncate text-micro text-warn-ink" title={r.problems.map((p) => p.detail).join('\n')}>{r.problems[0].detail}</div>}
       </td>
       <td className="px-3 whitespace-nowrap">
