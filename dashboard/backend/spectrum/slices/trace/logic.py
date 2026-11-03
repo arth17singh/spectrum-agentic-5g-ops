@@ -153,6 +153,33 @@ def _control_event(rec: Rec) -> Rec:
     }
 
 
+# The t3.pause run writes no decision or change records and no case id: its evidence is the suite's per-call `item`
+# records (each call, what the Gateway answered, the Gateway's own Date header) and the pause/resume `control` records.
+# Trace shows that run as one group, "calls around a model pause", built from exactly those records.
+PAUSE_CASE = "(pause window)"
+PAUSE_LABEL = "calls around a model pause (this run records per-call results, no case id)"
+
+
+def pause_run(run_id: str | None) -> bool:
+    return unit_of(run_id) == "t3.pause"
+
+
+def _item_event(rec: Rec) -> Rec:
+    ex = rec.get("extra") if isinstance(rec.get("extra"), dict) else {}
+    dec = str(ex.get("decision") or "").upper() or None
+    return {
+        "time": event_time(rec, "item"), "source": "pause suite", "agent": None, "tool": ex.get("call") or rec.get("item_id"),
+        "decision": dec, "deciding_rule": None, "reason": ex.get("what"), "guardrail_scores": None, "approval_id": None,
+        "detail": {"item_id": rec.get("item_id"), "passed": rec.get("passed")},
+        "kind": "item", "step": "tool_call", "category": "pause" if dec == "DENY" else "allow", **_prov(rec),
+    }
+
+
+def build_pause_timeline(items: Iterable[Rec], controls: Iterable[Rec]) -> list[Rec]:
+    ev = [_item_event(r) for r in items] + [_control_event(r) for r in controls]
+    return _sorted(ev)
+
+
 def _sorted(events: list[Rec]) -> list[Rec]:
     """Order by time. Log times have one-second resolution in places, so events with the same time are put in
     the declared sequence order (an unordered tie is not a violation); an undated event goes after the dated ones."""
@@ -249,7 +276,7 @@ def unit_of(run_id: str | None) -> str | None:
 
 
 def case_label(case_id: str | None) -> str | None:
-    return NO_CASE_LABEL if case_id in NO_CASE_IDS else None
+    return NO_CASE_LABEL if case_id in NO_CASE_IDS else PAUSE_LABEL if case_id == PAUSE_CASE else None
 
 
 def _hms(iso: str | None) -> str:
@@ -310,6 +337,19 @@ def check_for_unit(run_id: str | None, timeline: list[Rec]) -> Rec:
         refused = any(e["decision"] == "DENY" for e in dec)
         return build("a refusal is recorded (DENY) and no change is applied", ["refusal"], {"refusal": refused}, not applied,
                      ["A change was applied in a deny case."] if applied else [])
+    if unit == "t3.pause" and any(e["kind"] == "item" for e in timeline):
+        calls = [e for e in timeline if e["kind"] == "item"]
+        first_deny = next((i for i, e in enumerate(calls) if e["decision"] == "DENY"), None)
+        last_deny = max((i for i, e in enumerate(calls) if e["decision"] == "DENY"), default=None)
+        present = {
+            "allowed_before": first_deny is not None and any(e["decision"] == "ALLOW" for e in calls[:first_deny]),
+            "paused_refusal": first_deny is not None,
+            "allowed_after_resume": last_deny is not None and any(e["decision"] == "ALLOW" for e in calls[last_deny + 1:]),
+        }
+        failed = [e["detail"]["item_id"] for e in calls if e["detail"].get("passed") is False]
+        return build("allowed before the pause, refused while paused, allowed again after the resume",
+                     ["allowed_before", "paused_refusal", "allowed_after_resume"], present,
+                     not failed, [f"The suite marked these calls as failed: {', '.join(failed)}."] if failed else [])
     if unit == "t3.pause":
         return build("a refusal because the model is paused is recorded", ["paused_refusal"],
                      {"paused_refusal": any(_is_pause_event(e) for e in timeline)})
@@ -378,7 +418,7 @@ def _group(records: Iterable[Rec]) -> dict[tuple[str, str], list[Rec]]:
 def summarize(run_id: str, case_id: str, timeline: list[Rec], check: Rec) -> Rec:
     times = [e["time"] for e in timeline if e["time"]]
     parsed = sorted(((_parse(t), t) for t in times if _parse(t)), key=lambda p: p[0])
-    dec = [e for e in timeline if e["kind"] == "decision"]
+    dec = [e for e in timeline if e["kind"] in ("decision", "item")]
     return {
         "case_id": case_id, "run_id": run_id or None, "unit": unit_of(run_id), "case_label": case_label(case_id),
         "first_time": parsed[0][1] if parsed else None, "last_time": parsed[-1][1] if parsed else None,
@@ -393,7 +433,15 @@ def summarize(run_id: str, case_id: str, timeline: list[Rec], check: Rec) -> Rec
     }
 
 
-def build_overview(decisions: list[Rec], changes: list[Rec], controls: list[Rec]) -> Rec:
+def _pause_groups(pause_items: dict[str, list[Rec]] | None, controls: list[Rec]) -> list[tuple[str, list[Rec]]]:
+    out = []
+    for run_id, items in sorted((pause_items or {}).items()):
+        if items and pause_run(run_id):
+            out.append((run_id, build_pause_timeline(items, [c for c in controls if c.get("run_id") == run_id])))
+    return out
+
+
+def build_overview(decisions: list[Rec], changes: list[Rec], controls: list[Rec], pause_items: dict[str, list[Rec]] | None = None) -> Rec:
     """One row per (run_id, case_id), newest first, plus the provenance of every record displayed across them
     (a control shown in several case windows is counted once). A case exists when it has at least one decision
     or change."""
@@ -409,6 +457,9 @@ def build_overview(decisions: list[Rec], changes: list[Rec], controls: list[Rec]
                     continue
                 ctl_seen.add(e["record_id"])
             shown.append(e)
+    for run_id, tl in _pause_groups(pause_items, controls):
+        rows.append(summarize(run_id, PAUSE_CASE, tl, check_for_unit(run_id, tl)))
+        shown += tl
     far = ""
     rows.sort(key=lambda r: r["last_time"] or far, reverse=True)
     return {"cases": rows, "provenance": provenance(shown)}
@@ -419,10 +470,17 @@ def build_cases(decisions: list[Rec], changes: list[Rec], controls: list[Rec]) -
 
 
 def build_case(case_id: str, decisions: list[Rec], changes: list[Rec], controls: list[Rec],
-               run_id: str | None = None) -> Rec | None:
+               run_id: str | None = None, pause_items: dict[str, list[Rec]] | None = None) -> Rec | None:
     """Full detail for one case, or None when no record mentions it. With the same case id in several runs,
     the run with the latest record is used unless `run_id` names one; the others are listed in `other_runs`."""
     d, c = _group(decisions), _group(changes)
+    if case_id == PAUSE_CASE:
+        for rid, tl in _pause_groups(pause_items, controls):
+            if run_id in (None, rid):
+                check = check_for_unit(rid, tl)
+                return {**summarize(rid, PAUSE_CASE, tl, check), "timeline": tl, "check": check, "other_runs": [],
+                        "show_record": f"python3 tools/show_record.py --run-id {shlex.quote(rid)}"}
+        return None
     keys = sorted(k for k in set(d) | set(c) if k[1] == case_id and (run_id is None or k[0] == run_id))
     if not keys:
         return None
