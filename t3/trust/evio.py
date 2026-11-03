@@ -19,7 +19,8 @@ from collections import defaultdict
 from pathlib import Path
 
 try:  # W6's library wins when present
-    from tools import evlib as _evlib  # type: ignore
+    from ._evlib import get_evlib
+    _evlib = get_evlib()
 except Exception:  # pragma: no cover - before the merge
     _evlib = None
 

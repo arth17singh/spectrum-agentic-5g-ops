@@ -1,0 +1,36 @@
+{
+ "run_id": "<RUN_ID>",
+ "unit": "t3.ladder",
+ "track": "track-3",
+ "target": {
+  "metric": "mean_score",
+  "op": ">",
+  "value": 0,
+  "unit": "objective gain on MAVERIC (R1)"
+ },
+ "n_items": 20,
+ "test_set_sha256": "33d582a6a6c44e6075f1a36a74ed6fb89e27bb8bfedbacddf0b1e3c07692063c",
+ "model_id": "t2-response-v0@v0",
+ "grader": "t3.trust ladder: objective gain vs exact no-change counterfactual (twin.replay)",
+ "code_sha": "<CODE_SHA: 40-hex commit the job image runs>",
+ "region": "<AWS_REGION, e.g. us-east-2>",
+ "synthetic": false,
+ "twin": {
+  "kind": "maveric-inprocess",
+  "version": "<filled at run time from twin.replay>",
+  "scenario": "nominal (R1), viavi_stationary (R2)",
+  "seed": 3000,
+  "config": "official (R1), viavi-like (R2)"
+ },
+ "declared_also": "and the bootstrap 95 % CI lower bound of the healthy R1 mean gain > 0 (reported in details.declared_ci_condition; check_unit recomputes the mean only)",
+ "measured_not_targeted": [
+  "R2 (REHEARSAL) gain and CI",
+  "settings shift REHEARSAL / MAVERIC"
+ ],
+ "references": {
+  "laptop_run_commit": "f4a75a2",
+  "laptop_report": "t3/trust/runs/ladder_report.json"
+ },
+ "note": "Re-measurement on AWS of the laptop ladder run in f4a75a2 (t3/trust/runs/ladder_report.json), same seeds 3000-3019 and script; R2 and the settings shift are measurements, not targets.",
+ "entry": "python -m t3.trust.job_ladder --model healthy"
+}
