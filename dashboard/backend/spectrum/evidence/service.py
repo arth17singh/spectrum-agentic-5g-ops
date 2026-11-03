@@ -240,10 +240,11 @@ class EvidenceService:
                 self._emit_status(critical=True)
         return self.state == "ok"
 
-    def ingest(self, artifacts: list[Artifact]) -> dict:
+    def ingest(self, artifacts: list[Artifact], verified: bool = False) -> dict:
         counts = {"seen": len(artifacts), "new": 0, "changed": 0, "appended": 0, "missing": 0, "reappeared": 0,
                   "invalid": 0}
-        if not self.check_disk(force=True):  # re-read and re-verify from disk before every scan
+        # re-read and re-verify from disk before every scan (scan() has just done it off the event loop)
+        if not self.check_disk(force=not verified):
             counts["skipped"] = self.problem()
             return counts
         appended: list[dict] = []
@@ -374,7 +375,10 @@ class EvidenceService:
                 self.emit("evidence.scan", "prove", f"evidence scan failed: {self.source_error}",
                           {"error": self.source_error}, "warn", "evidence-ingester")
                 return {"error": self.source_error}
-            return self.ingest(arts)  # ledger appends on the event-loop thread
+            # the full re-read and signature re-verify (~3.5 s at 66k records) runs off the event loop; the
+            # appends stay on the event-loop thread, under the same lock, so nothing writes in between
+            ok = await asyncio.to_thread(self.check_disk, True)
+            return self.ingest(arts, verified=ok)
 
     async def run(self) -> None:
         if self.state != "ok":

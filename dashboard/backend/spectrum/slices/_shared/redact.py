@@ -21,12 +21,13 @@ A 64-hex sha256 cannot contain a standalone 12-digit run, so hashes shown on scr
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
 
 PERSON = "person:team13-op1"
-ACCOUNT = re.compile(r"(?<![0-9A-Za-z])\d{12}(?![0-9A-Za-z])")
+ACCOUNT = re.compile(r"(?<![0-9A-Za-z.])\d{12}(?![0-9A-Za-z])")  # not the fraction of a decimal
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
 ARN = re.compile(r"arn:aws[a-z-]*:([a-z0-9-]+):[a-z0-9-]*:[^:\s\"']*:([^\s\"',;)]*)")
 ECR = re.compile(r"[0-9<>a-z]+\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com(?:\.cn)?")
@@ -76,6 +77,10 @@ def redact(obj):
     return obj
 
 
+def _rewrite(body: bytes) -> bytes:
+    return json.dumps(redact(json.loads(body)), ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
+
+
 class RedactMiddleware:
     """Pure ASGI: buffers JSON responses under /api/ (except the raw signed chain) and rewrites their strings."""
 
@@ -103,9 +108,8 @@ class RedactMiddleware:
                 headers = [(k, v) for k, v in start.get("headers", []) if k.lower() != b"content-length"]
                 ctype = dict(start.get("headers", [])).get(b"content-type", b"")
                 if ctype.startswith(b"application/json"):
-                    try:
-                        body = json.dumps(redact(json.loads(body)), ensure_ascii=False, allow_nan=False,
-                                          separators=(",", ":")).encode("utf-8")
+                    try:  # large bodies are rewritten off the event loop
+                        body = await asyncio.to_thread(_rewrite, body) if len(body) > 65536 else _rewrite(body)
                     except (ValueError, RecursionError):
                         pass  # not JSON after all: pass it through unchanged
                 headers.append((b"content-length", str(len(body)).encode()))

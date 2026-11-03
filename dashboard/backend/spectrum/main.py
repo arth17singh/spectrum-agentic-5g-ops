@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -94,7 +94,8 @@ async def remote_flags():
 @app.get("/api/snapshot")
 async def snapshot():
     _evidence_fresh()  # the evidence part is re-checked against disk, as /api/evidence is
-    return {**engine.snapshot(), "evidence": _evidence_snapshot()}
+    ev = await asyncio.to_thread(_evidence_snapshot)  # built off the event loop, cached until the ledger changes
+    return {**engine.snapshot(), "evidence": ev}
 
 
 # --------------------------------------------------------------------------- simulation
@@ -361,15 +362,15 @@ async def dossier(incident: str):
 
 # --------------------------------------------------------------------------- evidence (REAL, persisted)
 
-REVERIFY_S = float(os.environ.get("SPECTRUM_EVIDENCE_REVERIFY_S") or 30)
-_last_reverify = [0.0]
+REVERIFY_S = float(os.environ.get("SPECTRUM_EVIDENCE_REVERIFY_S") or 600)
+_last_reverify = [time.monotonic()]  # startup already loaded and verified the ledger
 _snap_cache: dict = {}
 
 
 def _evidence_fresh() -> None:
     """Every read re-checks the ledger files' size and mtime against disk (any write is caught); a full
-    re-read and signature re-verify of every record runs at most every REVERIFY_S seconds here (the background
-    scan and every ingest also force one), because at ~66k records it takes ~3.5 s per call."""
+    re-read and signature re-verify of every record runs on the request path at most every REVERIFY_S seconds,
+    because at ~66k records it takes ~3.5 s; the background scan forces one before every poll (30 s) anyway."""
     now = time.monotonic()
     force = now - _last_reverify[0] >= REVERIFY_S
     evidence.check_disk(force=force)
@@ -390,18 +391,23 @@ def _evidence_snapshot() -> dict:
 @app.get("/api/evidence")
 async def evidence_snapshot():
     _evidence_fresh()
-    return _evidence_snapshot()
+    return await asyncio.to_thread(_evidence_snapshot)
 
 
 @app.get("/api/evidence/chain")
 async def evidence_chain():
-    evidence.check_disk(force=True)  # serve the records exactly as they are on disk now, for the browser to verify
-    return evidence.chain()
+    # serve the records exactly as they are on disk now, for the browser to verify; the re-verify and the
+    # tens-of-MB encode run off the event loop so other requests are not held behind them
+    def build() -> bytes:
+        evidence.check_disk(force=True)
+        return json.dumps(evidence.chain(), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+    return Response(await asyncio.to_thread(build), media_type="application/json")
 
 
 @app.get("/api/evidence/runs/{run_id}")
 async def evidence_run(run_id: str, offset: int = 0, limit: int = 300):
-    d = evidence.run_detail(run_id)
+    d = await asyncio.to_thread(evidence.run_detail, run_id)
     if d is None:
         raise HTTPException(404, f"no evidence for run {run_id!r}")
     recs = d["records"]  # a 10k-item run has ~10k ledger records (8 MB): page them
