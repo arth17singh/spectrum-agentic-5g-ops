@@ -71,6 +71,7 @@ import subprocess
 import sys
 import tarfile
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -97,6 +98,7 @@ TRAINING_LOG_GROUP = "/aws/sagemaker/TrainingJobs"
 ATTEST_MARK = "team13-evidence"  # printed by tools/sm/entry.py: {"run_id", "path", "sha256", ...}
 SOURCE_EXTRAS = ("requirements.txt",)  # the only untracked file tools/sm/run.py adds to a job's source
 MAX_SOURCE_BYTES = 512 * 1024 * 1024
+FETCH_WORKERS = 32  # parallel GETs of per-record S3 objects (one shared boto3 client; clients are thread-safe)
 
 
 # --------------------------------------------------------------------------- time
@@ -186,6 +188,46 @@ def tar_members(data: bytes) -> dict[str, bytes]:
 
 # --------------------------------------------------------------------------- evidence stores (read-only)
 
+class Fetched(dict):
+    """Results of fetch_parallel. A key whose call raised re-raises that exception when it is read, so a consumer
+    that walks the keys in order meets the same first failure a sequential loop would, and never sees one that a
+    sequential loop would not have reached (it may stop earlier)."""
+
+    def __init__(self):
+        super().__init__()
+        self.errors: dict = {}
+
+    def __getitem__(self, key):
+        if key in self.errors:
+            raise self.errors[key]
+        return super().__getitem__(key)
+
+
+def fetch_parallel(fn, keys: list[str], workers: int = FETCH_WORKERS) -> Fetched:
+    """{key: fn(key)} for every key, computed on a bounded thread pool. The outcome never depends on thread
+    timing: each key's result (or its exception) is stored under that key, and read back by key."""
+    keys = list(keys)
+    out = Fetched()
+
+    def one(k):
+        try:
+            return True, fn(k)
+        except Exception as e:  # noqa: BLE001 - re-raised on read, see Fetched
+            return False, e
+
+    if len(keys) <= 1 or workers <= 1:
+        results = [one(k) for k in keys]
+    else:
+        with ThreadPoolExecutor(max_workers=min(workers, len(keys))) as pool:
+            results = list(pool.map(one, keys))
+    for k, (ok, v) in zip(keys, results):
+        if ok:
+            dict.__setitem__(out, k, v)
+        else:
+            out.errors[k] = v
+    return out
+
+
 class S3Evidence:
     strong_times = True
 
@@ -214,6 +256,11 @@ class S3Evidence:
             if err_code(e) in NOT_FOUND:
                 return None
             raise
+
+    def get_many(self, rels: list[str], workers: int = FETCH_WORKERS) -> Fetched:
+        """get() for each rel, in parallel. Reading rels[k] from the result gives what get(rels[k]) gives, or
+        raises what it raised; walked in order, the first failure is the one a sequential loop would hit."""
+        return fetch_parallel(self.get, rels, workers)
 
     def time(self, rel: str) -> tuple[datetime | None, str]:
         lm = self.list(rel).get(rel)
@@ -247,6 +294,9 @@ class LocalEvidence:
         p = self.root / rel
         return p.read_bytes() if p.is_file() else None
 
+    def get_many(self, rels: list[str], workers: int = FETCH_WORKERS) -> Fetched:
+        return fetch_parallel(self.get, rels, 1)
+
     def time(self, rel: str) -> tuple[datetime | None, str]:
         p = (self.root / rel).resolve()
         if not p.is_file():
@@ -279,7 +329,15 @@ class RealAws:
 
         key = (service, region)
         if key not in self._clients:
-            self._clients[key] = boto3.client(service, region_name=region or REGIONS[0])
+            kw = {}
+            if service == "s3":
+                # one client shared by FETCH_WORKERS threads: a pool that size, and boto's own standard retry
+                # (backoff on throttling, a fixed number of attempts) so a busy bucket does not fail a read
+                from botocore.config import Config
+
+                kw["config"] = Config(max_pool_connections=FETCH_WORKERS * 2,
+                                      retries={"mode": "standard", "max_attempts": 8})
+            self._clients[key] = boto3.client(service, region_name=region or REGIONS[0], **kw)
         return self._clients[key]
 
 
@@ -560,8 +618,9 @@ class Checker:
         self.record_bytes: dict[str, bytes] = {}
         self.record_errors: list[str] = []
         objects: dict[str, list[tuple[str, str, dict]]] = {}
+        fetched = self.ev.get_many(sorted(self.record_files))  # parallel GETs; same bytes as one by one
         for rel in sorted(self.record_files):
-            b = self.ev.get(rel) or b""
+            b = fetched[rel] or b""
             self.record_bytes[rel] = b
             recs, err = read_jsonl(b)
             if err:
@@ -1341,12 +1400,16 @@ class Checker:
         if not RUN_ID_RE.match(run_id or ""):
             return None, f"baseline run id {run_id!r} is not a valid run id"
         out: list[dict] = []
+        rels = []
         for rel in sorted(self.ev.list(f"records/{run_id}/")):
             parts = rel.split("/")
             if not ((len(parts) == 3 and parts[2] == "item.jsonl")
                     or (len(parts) == 4 and parts[2] == "item" and parts[3].endswith(".json"))):
                 continue
-            recs, err = read_jsonl(self.ev.get(rel) or b"")
+            rels.append(rel)
+        fetched = self.ev.get_many(rels)
+        for rel in rels:
+            recs, err = read_jsonl(fetched[rel] or b"")
             if err:
                 return None, f"{rel}: {err}"
             out += recs

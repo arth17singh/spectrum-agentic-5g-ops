@@ -2,12 +2,15 @@
 # Live test for one run id, the way a judge would do it: READ-ONLY (S3 list/get, Logs Insights, DynamoDB get,
 # SageMaker Describe). It never calls a model, an agent, a Lambda or Athena, and writes nothing to AWS.
 #
-#   scripts/live_test.sh <run_id> [--item <item_id>]
+#   scripts/live_test.sh <run_id> [--item <item_id>] [--budget <seconds>]
 #
 # It (1) prints where each of the run's records lives (S3 key, Logs Insights query, DynamoDB key),
 # (2) prints the declaration and the result, (3) runs tools/check_unit.py against the S3 evidence prefix,
 # and, with --item, (4) runs tools/show_record.py for that item. It stops on its own at LIVE_TEST_BUDGET_S
-# seconds (default 150, i.e. 2:30), so a slow log query cannot run past the time a live test is allowed.
+# seconds (default 150, i.e. 2:30), so a slow log query cannot run past the time a live test is allowed. A run
+# with very many records (the 10,000-item T2 runs read ~10k S3 objects, about 1-2 minutes on a good link) may need
+# more: pass --budget <seconds> or set LIVE_TEST_BUDGET_S for that run. When the limit is hit the script says
+# "took Xs (over the Ys budget)" and stops; it never hangs.
 #
 # Environment (all optional):
 #   EVIDENCE_S3           evidence prefix, s3://bucket/evidence/  (default: the team data bucket)
@@ -15,17 +18,31 @@
 #   AWS_DEFAULT_REGION    default us-east-2
 #   PYTHON                interpreter with boto3 (default python3)
 #   EVIDENCE_CASES_TABLE  DynamoDB table of case rows (default team13-approvals)
-#   LIVE_TEST_BUDGET_S    total seconds allowed (default 150)
+#   LIVE_TEST_BUDGET_S    total seconds allowed (default 150; --budget overrides it for one run)
 # Exit code: that of check_unit.py (0 all four parts hold, 1 a part failed, 2 could not check); 3 bad usage.
 set -u
+set +m  # no job-control chatter ("Terminated: 15") when a limited command is stopped
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
 RUN_ID="${1:-}"
 ITEM=""
-if [ "${2:-}" = "--item" ]; then ITEM="${3:-}"; fi
-if [ -z "$RUN_ID" ] || ! [[ "$RUN_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$ ]]; then
-  echo "usage: scripts/live_test.sh <run_id> [--item <item_id>]   (run ids look like t1.knowledge-otel-base-1)" >&2
+BUDGET_ARG=""
+usage() {
+  echo "usage: scripts/live_test.sh <run_id> [--item <item_id>] [--budget <seconds>]   (run ids look like t1.knowledge-otel-base-1)" >&2
+  exit 3
+}
+if [ -z "$RUN_ID" ] || ! [[ "$RUN_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$ ]]; then usage; fi
+shift
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --item) ITEM="${2:-}"; [ -n "$ITEM" ] || usage; shift 2 ;;
+    --budget) BUDGET_ARG="${2:-}"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+if [ -n "$BUDGET_ARG" ] && ! [[ "$BUDGET_ARG" =~ ^[1-9][0-9]{0,5}$ ]]; then
+  echo "live_test: --budget wants whole seconds, e.g. --budget 300" >&2
   exit 3
 fi
 
@@ -33,9 +50,11 @@ export EVIDENCE_S3="${EVIDENCE_S3:-s3://bb26-p-team13-data-483598626742-use2/evi
 export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-2}"
 if [ -z "${AWS_ACCESS_KEY_ID:-}" ] && [ -z "${AWS_PROFILE:-}" ]; then export AWS_PROFILE=fyuz; fi
 PY="${PYTHON:-python3}"
-BUDGET="${LIVE_TEST_BUDGET_S:-150}"
+BUDGET="${BUDGET_ARG:-${LIVE_TEST_BUDGET_S:-150}}"
+if ! [[ "$BUDGET" =~ ^[1-9][0-9]{0,5}$ ]]; then echo "live_test: LIVE_TEST_BUDGET_S must be whole seconds, got '$BUDGET'" >&2; exit 3; fi
 CASES_TABLE="${EVIDENCE_CASES_TABLE:-team13-approvals}"
 START=$(date +%s)
+STOPPED=0
 LOG="$(mktemp -t live_test.XXXXXX)"
 
 if ! "$PY" -c "import boto3" 2> /dev/null; then
@@ -51,7 +70,7 @@ run_limited() {
   "$@" > "$LOG" 2>&1 &
   local pid=$! waited=0
   while kill -0 "$pid" 2> /dev/null; do
-    if [ "$waited" -ge "$limit" ]; then kill "$pid" 2> /dev/null; sleep 1; kill -9 "$pid" 2> /dev/null; wait "$pid" 2> /dev/null; return 124; fi
+    if [ "$waited" -ge "$limit" ]; then kill "$pid" 2> /dev/null; sleep 1; kill -9 "$pid" 2> /dev/null; { wait "$pid"; } 2> /dev/null; return 124; fi
     sleep 1; waited=$((waited + 1))
   done
   wait "$pid"
@@ -60,6 +79,7 @@ run_limited() {
 echo "live test for run id: $RUN_ID"
 echo "evidence prefix:      $EVIDENCE_S3"
 echo "mode:                 read-only (S3 list/get, Logs Insights, DynamoDB get, SageMaker Describe)"
+echo "budget:               ${BUDGET}s (default 150; --budget <seconds> or LIVE_TEST_BUDGET_S changes it for this run)"
 
 rule "1. Where this run's records live"
 RUN_ID="$RUN_ID" CASES_TABLE="$CASES_TABLE" "$PY" - << 'PYEOF'
@@ -110,16 +130,25 @@ if res:
     print("Result:")
     print(f"  {res.get('metric')} = {res.get('value')}   passed = {res.get('passed')}   items {res.get('n_items')}   checked_at {res.get('checked_at')}")
 
-# a case id, when the records carry one, names the DynamoDB row
-case_id = None
-for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=f"{prefix}records/{run_id}/"):
-    for o in page.get("Contents", []):
-        rec = get(o["Key"])
-        if isinstance(rec, dict) and rec.get("case_id"):
-            case_id = rec["case_id"]
-            break
-    if case_id:
+# a baseline run the result's interval is replayed against: check_unit reads that run's items too
+for key in ("gain", "bootstrap"):
+    spec = ((res or {}).get("details") or {}).get(key)
+    if isinstance(spec, dict) and spec.get("baseline_run_id"):
+        print(f"\nAlso read by check_unit (the interval's baseline run, details.{key}.baseline_run_id): {spec['baseline_run_id']}")
         break
+
+# a case id, when the records carry one, names the DynamoDB row (only t3 case runs print that row, so only they
+# need the lookup; scanning every record of a 10,000-item run for it cost one S3 GET per record)
+case_id = None
+if run_id.startswith("t3.") and not run_id.startswith("t3.evals."):
+    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=f"{prefix}records/{run_id}/"):
+        for o in page.get("Contents", []):
+            rec = get(o["Key"])
+            if isinstance(rec, dict) and rec.get("case_id"):
+                case_id = rec["case_id"]
+                break
+        if case_id:
+            break
 
 start = (decl or {}).get("declared_at", "<declared_at>")
 end = (res or {}).get("checked_at", "<checked_at>")
@@ -137,26 +166,35 @@ else:
 PYEOF
 
 rule "2. check_unit.py: do the declaration, code, records, ledger hashes and result hold?"
+echo "testing run $RUN_ID (records are read from ${EVIDENCE_S3}records/${RUN_ID}/)"
 LEFT=$(( BUDGET - $(elapsed) - 5 ))
 [ "$ITEM" != "" ] && LEFT=$(( LEFT * 2 / 3 ))
-run_limited "$LEFT" "$PY" "$REPO/tools/check_unit.py" "$RUN_ID" --s3 "$EVIDENCE_S3"
+[ "$LEFT" -lt 1 ] && LEFT=1
+T2=$(date +%s)
+run_limited "$LEFT" "$PY" "$REPO/tools/check_unit.py" "$RUN_ID" --s3 "$EVIDENCE_S3" 2> /dev/null
 RC=$?
+TOOK=$(( $(date +%s) - T2 ))
 if [ "$RC" -eq 124 ]; then
-  echo "TIMED OUT after ${LEFT}s (budget ${BUDGET}s). Full partial output: $LOG"; RC=2
+  echo "check_unit took ${TOOK}s (over the ${LEFT}s it was given out of the ${BUDGET}s budget) and was stopped. Partial output: $LOG"
+  echo "If this run has many records (check_unit reads each one), re-run with a larger budget, e.g.  scripts/live_test.sh $RUN_ID --budget 600"
+  RC=2; STOPPED=1
 else
   grep -E '^\[[a-e]\]|^RESULT' "$LOG"
   echo "(full check output, with per-record times: $LOG)"
+  echo "check_unit took ${TOOK}s"
 fi
 
 if [ -n "$ITEM" ]; then
   rule "3. show_record.py: the item's record and the matching AWS log events"
   LEFT=$(( BUDGET - $(elapsed) - 3 ))
-  run_limited "$LEFT" "$PY" "$REPO/tools/show_record.py" --run-id "$RUN_ID" --item "$ITEM" --s3 "$EVIDENCE_S3"
+  run_limited "$LEFT" "$PY" "$REPO/tools/show_record.py" --run-id "$RUN_ID" --item "$ITEM" --s3 "$EVIDENCE_S3" 2> /dev/null
   SR=$?
-  if [ "$SR" -eq 124 ]; then echo "TIMED OUT (budget ${BUDGET}s)"; else cut -c1-220 "$LOG" | head -60; fi
+  if [ "$SR" -eq 124 ]; then echo "show_record took over ${LEFT}s (over the ${BUDGET}s budget) and was stopped"; else cut -c1-220 "$LOG" | head -60; fi
 fi
 
 rule "done"
 SECS=$(elapsed)
-printf 'elapsed %d:%02d (limit %d:%02d)   check_unit exit %s\n' $((SECS / 60)) $((SECS % 60)) $((BUDGET / 60)) $((BUDGET % 60)) "$RC"
+if [ "$STOPPED" -eq 1 ]; then OVER="check_unit was stopped at its time limit (budget ${BUDGET}s)"
+elif [ "$SECS" -gt "$BUDGET" ]; then OVER="took ${SECS}s (over the ${BUDGET}s budget)"; else OVER="within the ${BUDGET}s budget"; fi
+printf 'elapsed %d:%02d (limit %d:%02d): %s   check_unit exit %s\n' $((SECS / 60)) $((SECS % 60)) $((BUDGET / 60)) $((BUDGET % 60)) "$OVER" "$RC"
 exit "$RC"

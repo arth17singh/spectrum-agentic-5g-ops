@@ -115,7 +115,7 @@ def test_check_scripts_import_nothing_from_spectrum_or_the_writer(script):
     assert not mods & {"spectrum", "evlib", "check_unit", "run_unit"}, mods
     # numpy: imported lazily by check_unit's paired-bootstrap replay only (the producers' intervals are numpy
     # PCG64 streams); a third-party library, not code shared with the writer or the dashboard
-    assert mods - {"evfake"} <= set(sys.stdlib_module_names) | {"boto3", "cryptography", "numpy", ""}, mods
+    assert mods - {"evfake"} <= set(sys.stdlib_module_names) | {"boto3", "botocore", "cryptography", "numpy", ""}, mods
 
 
 def test_window_never_comes_from_our_own_records(tmp_path):
