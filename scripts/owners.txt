@@ -53,6 +53,18 @@ W7e dashboard/backend/spectrum/slices/twinview/**
 W7e dashboard/backend/tests/slices/twinview/**
 W7e dashboard/frontend/src/features/twinview/**
 
+W7f dashboard/backend/spectrum/slices/asknoc/**
+W7f dashboard/backend/tests/slices/asknoc/**
+W7f dashboard/frontend/src/features/asknoc/**
+
+W7g dashboard/backend/spectrum/slices/kitapprovals/**
+W7g dashboard/backend/tests/slices/kitapprovals/**
+W7g dashboard/frontend/src/features/kitapprovals/**
+
+W7h dashboard/backend/spectrum/slices/realrun/**
+W7h dashboard/backend/tests/slices/realrun/**
+W7h tools/evidence_sync.py
+
 W8 t3/agents/**
 
 W9 t2/**
