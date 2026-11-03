@@ -45,8 +45,9 @@ def test_ladder_labels_and_fixed_shape_without_viavi():
              {"name": "rehearsal", "factory": FakeTwin, "scenario": "s", "config": "viavi-like", "twin_kind": "maveric-inprocess"}]
     lad = ladder(FakePredictor("v1"), rungs, fake_kpis, seeds=[1, 2, 3], changes=CHANGES[:6])
     d = lad["details"]
-    assert set(d) == {"rungs", "retention", "retention_ci", "model_id", "version", "retention_null_reason"}
-    assert "no VIAVI rung" in d["retention_null_reason"]
+    assert set(d) == {"rungs", "retention", "retention_ci", "model_id", "version", "retention_null_reason",
+                      "settings_shift", "has_real_viavi"}
+    assert "no VIAVI rung" in d["retention_null_reason"] and d["has_real_viavi"] is False
     assert [r["label"] for r in d["rungs"]] == ["MAVERIC", "REHEARSAL (Viavi-like Maveric)"]
     for r in d["rungs"]:
         assert set(r) == {"name", "label", "twin_kind", "n_cases", "gain", "gain_ci"}
@@ -60,6 +61,35 @@ def test_ladder_labels_and_fixed_shape_without_viavi():
     assert rec["metric"] == "gain_rehearsal" and rec["value"] == pytest.approx(d["rungs"][1]["gain"])
     assert rec["passed"] is True and rec["run_id"] == "r1.fake-resp-v1"
     check(rec)  # what evlib requires: numeric value, boolean passed, full target
+
+
+def test_result_record_carries_settings_shift_and_viavi_flag():
+    """W7c reads details.settings_shift {point, ci, what} and details.has_real_viavi from the RESULT record."""
+    rungs = [{"name": "maveric", "factory": FakeTwin, "scenario": "s", "config": "official", "twin_kind": "maveric-inprocess"},
+             {"name": "rehearsal", "factory": FakeTwin, "scenario": "s", "config": "viavi-like", "twin_kind": "maveric-inprocess"}]
+    lad = ladder(FakePredictor("v1"), rungs, fake_kpis, seeds=[1, 2, 3], changes=CHANGES[:6])
+    rec = ladder_result_record(lad, run_id="r1", n_items=6, code_sha="abc")
+    s = rec["details"]["settings_shift"]
+    assert s["point"] == s["value"] == pytest.approx(0.5) and s["ci"] == pytest.approx([0.5, 0.5])
+    assert "NOT retention" in s["what"] and "REHEARSAL / MAVERIC" in s["method"]
+    assert rec["details"]["has_real_viavi"] is False and rec["details"]["retention"] is None
+    check(rec)
+    import json
+    json.dumps(rec, allow_nan=False)
+
+
+def test_retention_needs_a_real_viavi_gain_and_a_rehearsal_gain():
+    # a rung named viavi whose twin is not Viavi: no retention, has_real_viavi false
+    fake_viavi = [{"name": "rehearsal", "factory": FakeTwin, "scenario": "s", "config": "official", "twin_kind": "maveric-inprocess"},
+                  {"name": "viavi", "factory": FakeTwin, "scenario": "s", "config": "viavi-like", "twin_kind": "maveric-inprocess"}]
+    d = ladder(FakePredictor("v1"), fake_viavi, fake_kpis, seeds=[1, 2], changes=CHANGES[:4])["details"]
+    assert d["has_real_viavi"] is False and d["retention"] is None and "no VIAVI rung" in d["retention_null_reason"]
+    # a real Viavi rung but no rehearsal rung: no retention either
+    no_reh = [{"name": "maveric", "factory": FakeTwin, "scenario": "s", "config": "official", "twin_kind": "maveric-inprocess"},
+              {"name": "viavi", "factory": FakeTwin, "scenario": "s", "config": "viavi-like", "twin_kind": "viavi"}]
+    d = ladder(FakePredictor("v1"), no_reh, fake_kpis, seeds=[1, 2], changes=CHANGES[:4])["details"]
+    assert d["has_real_viavi"] is True and d["retention"] is None and d["retention_null_reason"] == "rehearsal rung missing"
+    assert d["settings_shift"] is None
 
 
 def test_ladder_uses_counterfactual_when_the_twin_has_it():

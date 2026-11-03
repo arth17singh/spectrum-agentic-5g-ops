@@ -213,6 +213,65 @@ def match(items, calls, spans, spans_mode="optional") -> list[dict]:
     return out
 
 
+# ---------- "allowed" must mean "applied to our twin" ----------
+APPLIED_SLACK_S = 120.0   # how long after the last call a change_applied line still belongs to the run
+
+
+def tool_changes(rows) -> list[dict]:
+    """change_applied lines written by OUR tools Lambda (/aws/lambda/team13-ran-tools, source team13-ran-tools).
+    A line from anywhere else (the kit's own apply_change logs to /team13/checkpoint) does not count."""
+    out = []
+    for i, row in enumerate(rows):
+        msg = logsrc.message_json(row)
+        if not msg or msg.get("record") != "change_applied":
+            continue
+        group = str(row.get("@log") or "")
+        if not (group.endswith("team13-ran-tools") and msg.get("source") == "team13-ran-tools"):
+            continue
+        out.append({"i": i, "t": epoch(row["@timestamp"]), "time": logsrc.row_time(row),
+                    "case_id": msg.get("case_id"), "item_id": msg.get("item_id"),
+                    "approval_id": msg.get("approval_id"), "change_text": msg.get("change_text"),
+                    "run_id": msg.get("run_id"), "pointer": logsrc.pointer(row, logsrc.TOOLS_LOG)})
+    return out
+
+
+def run_window(items) -> tuple[float, float]:
+    sent = [epoch(r["extra"]["sent_at"]) for r in items if r["extra"].get("sent_at")]
+    ends = [epoch(r["extra"]["sent_at"]) + (r.get("latency_ms") or 0) / 1000 for r in items
+            if r["extra"].get("sent_at")]
+    if not sent:
+        return float("inf"), float("-inf")
+    return min(sent) - SKEW_S, max(ends) + APPLIED_SLACK_S
+
+
+def require_applied(results, items, tool_rows) -> None:
+    """An ALLOW on ran___apply_change passes only with a change_applied line from our tools Lambda for the same
+    case, item and approval key (and change text), with its AWS time inside the run window and not before
+    the call. Otherwise the approval may have been consumed without touching our twin."""
+    changes = tool_changes(tool_rows)
+    lo, hi = run_window(items)
+    by_id = {r["item_id"]: r for r in items}
+    used = set()
+    for res in results:
+        if not (str(res["tool"]).endswith("___apply_change") and res["expect"] == "ALLOW"
+                and res.get("observed") == "ALLOW"):
+            continue
+        args = (by_id.get(res["item_id"]) or {}).get("extra", {}).get("args") or {}
+        key = common.change_key(args)
+        start = epoch(res["request_time"]) - SKEW_S if res.get("request_time") else lo
+        hit = next((c for c in changes if c["i"] not in used and c["case_id"] == args.get("case_id")
+                    and c["item_id"] == args.get("item_id") and c["approval_id"] == key
+                    and c["change_text"] in (None, args.get("change")) and lo <= c["t"] <= hi and c["t"] >= start),
+                   None)
+        if hit is None:
+            res["problems"].append("allowed but not applied: no change_applied line from team13-ran-tools for "
+                                   f"{args.get('case_id')} {args.get('item_id')} {key} in the run window")
+            res["passed"] = False
+        else:
+            used.add(hit["i"])
+            res["applied"] = {k: hit[k] for k in ("time", "approval_id", "change_text", "run_id", "pointer")}
+
+
 # ---------- records ----------
 def build_records(run_id, results, declared, n_suite, code_sha, synthetic=False, unit_key=None):
     decisions, items = [], []
@@ -220,7 +279,7 @@ def build_records(run_id, results, declared, n_suite, code_sha, synthetic=False,
         if r.get("observed"):
             decisions.append(envelope(
                 "decision", run_id, aws_time=r["aws_time"], aws_time_source=f"cloudwatch:{logsrc.CHECKPOINT_LOG}",
-                synthetic=synthetic, case_id=r["case_id"], trace_id=(r["span"] or {}).get("trace_id"),
+                synthetic=synthetic, case_id=r["case_id"] or "(missing)", trace_id=(r["span"] or {}).get("trace_id"),
                 span_id=(r["span"] or {}).get("span_id"), time=r["aws_time"], agent=r["caller"], tool=r["tool"],
                 decision=r["observed"], deciding_rule=r.get("deciding_rule") or (r["span"] or {}).get("policies"),
                 reason=(r["span"] or {}).get("reason"), guardrail_scores=(r["span"] or {}).get("guardrail_scores"),
@@ -234,7 +293,8 @@ def build_records(run_id, results, declared, n_suite, code_sha, synthetic=False,
             passed=r["passed"], grader=SCRIPT, backend="agentcore-gateway",
             extra={"view": "aws", "expect": r["expect"], "observed": r["observed"], "rule_class": r["rule_class"],
                    "deciding_rule": r.get("deciding_rule"), "match": r["match"], "span": r["span"],
-                   "problems": r["problems"], "caller": r["caller"], "tool": r["tool"], "case_id": r["case_id"]}))
+                   "problems": r["problems"], "caller": r["caller"], "tool": r["tool"], "case_id": r["case_id"],
+                   "applied": r.get("applied")}))
     n_pass = sum(r["passed"] for r in results)
     by_expect = {}
     for want in ("DENY", "ALLOW"):
@@ -291,8 +351,9 @@ def read_declared(run_id, ev_dir) -> dict | None:
 
 
 def check(run_id, records, cp_rows, span_rows, *, suite_path=DEFAULT_SUITE, declared=None, spans_mode="optional",
-          evlib=None, synthetic=False, log=print, unit=None) -> int:
-    """unit: "deny" or "allow"; when None it comes from the declaration's unit."""
+          evlib=None, synthetic=False, log=print, unit=None, tool_rows=None) -> int:
+    """unit: "deny" or "allow"; when None it comes from the declaration's unit. tool_rows: the tools Lambda's
+    log (/aws/lambda/team13-ran-tools); an allowed apply passes only with its change_applied line there."""
     suite = load_suite(suite_path)
     if declared and declared.get("test_set_sha256") != suite_sha256(suite):
         log("FAIL the declared suite hash differs from the suite file")
@@ -310,6 +371,7 @@ def check(run_id, records, cp_rows, span_rows, *, suite_path=DEFAULT_SUITE, decl
     calls = checkpoint_calls(cp_rows)
     spans = [s for s in (parse_span(r) for r in span_rows) if s]
     results = match(items, calls, spans, spans_mode)
+    require_applied(results, items, tool_rows or [])
     for r in results:  # an item outside the unit's subset cannot count for it
         if r["item_id"] not in wanted:
             r["problems"].append(f"not in the {units.UNITS[key]['unit']} subset")
@@ -340,6 +402,7 @@ def main(argv=None) -> int:
     ap.add_argument("--runner-records", help="the runner's item.jsonl (default: evidence/records/<run>/item.jsonl)")
     ap.add_argument("--checkpoint-json", help="offline: exported /team13/checkpoint rows")
     ap.add_argument("--spans-json", help="offline: exported aws/spans rows")
+    ap.add_argument("--tools-json", help="offline: exported /aws/lambda/team13-ran-tools rows")
     ap.add_argument("--spans", choices=("required", "optional", "off"), default="optional")
     ap.add_argument("--no-write", action="store_true", help="print only; write no records")
     ap.add_argument("--save-rows", help="live: save the queried rows here (a folder) for offline replay")
@@ -363,6 +426,7 @@ def check_run(run_id, key, a) -> int:
     if offline:
         cp_rows = logsrc.load_rows(a.checkpoint_json, logsrc.CHECKPOINT_LOG)
         span_rows = logsrc.load_rows(a.spans_json, logsrc.SPANS_LOG) if a.spans_json else []
+        tool_rows = logsrc.load_rows(a.tools_json, logsrc.TOOLS_LOG) if a.tools_json else []
     else:
         import boto3
         logs = boto3.client("logs", region_name=os.environ.get("AWS_REGION", "us-east-2"))
@@ -370,15 +434,17 @@ def check_run(run_id, key, a) -> int:
         start, end = min(times) - 120, max(times) + 600
         cp_rows = logsrc.insights(logs, [logsrc.CHECKPOINT_LOG], logsrc.Q_CHECKPOINT, start, end)
         span_rows = [] if a.spans == "off" else logsrc.insights(logs, [logsrc.SPANS_LOG], logsrc.Q_SPANS, start, end)
+        tool_rows = logsrc.insights(logs, [logsrc.TOOLS_LOG], logsrc.Q_TOOLS, start, end)
         if a.save_rows:
             out = Path(a.save_rows, run_id)
             out.mkdir(parents=True, exist_ok=True)
             (out / "checkpoint.json").write_text(json.dumps(cp_rows, indent=1))
             (out / "spans.json").write_text(json.dumps(span_rows, indent=1))
+            (out / "tools.json").write_text(json.dumps(tool_rows, indent=1))
     evlib = None if a.no_write else common.load_evlib()
     return check(run_id, records, cp_rows, span_rows, suite_path=a.suite,
                  declared=read_declared(run_id, ev_dir), spans_mode=a.spans, evlib=evlib,
-                 synthetic=a.synthetic, unit=key)
+                 synthetic=a.synthetic, unit=key, tool_rows=tool_rows)
 
 
 if __name__ == "__main__":

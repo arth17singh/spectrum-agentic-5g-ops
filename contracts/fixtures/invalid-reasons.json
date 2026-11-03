@@ -4,6 +4,7 @@
   "change/invalid-change-text-no-decimal.json": "change_text values lack the explicit sign and one decimal",
   "change/invalid-missing-scored.json": "scored is missing",
   "change/invalid-ratio-above-one.json": "measured_kpis.coverage_ratio is 1.3; ratios are in [0, 1]",
+  "change/invalid-twin-state-share-above-one.json": "twin_state.after.per_cell[2].coverage_share is 1.2; shares are in [0, 1]",
   "control/invalid-action-not-in-enum.json": "action is \"stop\"; the enum is pause | resume",
   "control/invalid-by-not-pseudonym.json": "by is a bare name; must be person:<pseudonym> or trust-gate",
   "decision/invalid-decision-lowercase.json": "decision is \"deny\"; the enum is ALLOW | DENY",

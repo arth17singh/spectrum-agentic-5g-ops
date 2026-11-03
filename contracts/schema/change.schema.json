@@ -26,6 +26,142 @@
       "title": "CellChange",
       "type": "object"
     },
+    "CellState": {
+      "additionalProperties": false,
+      "description": "One cell's state in a twin snapshot. Non-finite twin values (e.g. -inf RSRP of a dark cell) go as null.",
+      "properties": {
+        "alarm": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The twin's per-cell alarm (bool in ran_rl).",
+          "title": "Alarm"
+        },
+        "asleep": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asleep"
+        },
+        "cell": {
+          "description": "Cell index (0-based).",
+          "minimum": 0,
+          "title": "Cell",
+          "type": "integer"
+        },
+        "coverage_share": {
+          "anyOf": [
+            {
+              "description": "A share in [0, 1].",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coverage Share"
+        },
+        "power_dbm": {
+          "title": "Power Dbm",
+          "type": "number"
+        },
+        "rsrp_mean_dbm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rsrp Mean Dbm"
+        },
+        "rsrp_p10_dbm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rsrp P10 Dbm"
+        },
+        "sinr_mean_db": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sinr Mean Db"
+        },
+        "sinr_p10_db": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sinr P10 Db"
+        },
+        "sla_share": {
+          "anyOf": [
+            {
+              "description": "A share in [0, 1].",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sla Share"
+        },
+        "tilt_deg": {
+          "title": "Tilt Deg",
+          "type": "number"
+        },
+        "ue_count": {
+          "minimum": 0,
+          "title": "Ue Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cell",
+        "power_dbm",
+        "tilt_deg",
+        "ue_count"
+      ],
+      "title": "CellState",
+      "type": "object"
+    },
     "ChangeTwin": {
       "additionalProperties": false,
       "properties": {
@@ -38,6 +174,20 @@
           ],
           "title": "Kind",
           "type": "string"
+        },
+        "preset": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Twin config preset name, e.g. \"official\" or \"viavi-like\" (tells R1 from R2).",
+          "title": "Preset"
         },
         "scenario": {
           "minLength": 1,
@@ -202,6 +352,79 @@
       ],
       "title": "ModelRef",
       "type": "object"
+    },
+    "TwinSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "coverage_ratio": {
+          "description": "A ratio in [0, 1].",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Coverage Ratio",
+          "type": "number"
+        },
+        "per_cell": {
+          "items": {
+            "$ref": "#/$defs/CellState"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Per Cell",
+          "type": "array"
+        },
+        "sla_ratio": {
+          "description": "A ratio in [0, 1].",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Sla Ratio",
+          "type": "number"
+        },
+        "step": {
+          "minimum": 0,
+          "title": "Step",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "step",
+        "coverage_ratio",
+        "sla_ratio",
+        "per_cell"
+      ],
+      "title": "TwinSnapshot",
+      "type": "object"
+    },
+    "TwinState": {
+      "additionalProperties": false,
+      "description": "Per-cell twin state around a change, for the Twin View.",
+      "properties": {
+        "after": {
+          "$ref": "#/$defs/TwinSnapshot",
+          "description": "State after the change plus one step."
+        },
+        "baseline": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TwinSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "No-change counterfactual at the same step as after."
+        },
+        "before": {
+          "$ref": "#/$defs/TwinSnapshot",
+          "description": "State the agents observed at twin.step."
+        }
+      },
+      "required": [
+        "before",
+        "after"
+      ],
+      "title": "TwinState",
+      "type": "object"
     }
   },
   "$id": "https://team13.invalid/contracts/change.schema.json",
@@ -209,6 +432,35 @@
   "additionalProperties": false,
   "description": "One applied change: measured KPI delta vs the no-change counterfactual, and the predicted delta.\n\nAmendment 1 (A2, A5, A14, A15). Stored as records/<run_id>/change/<change_id>.json\n(one object per record, Lambdas) or appended to records/<run_id>/change.jsonl (batch).\n\nPython-only rules:\n- change_text == canon(change) and change == parse(change_text) (store the rounded list);\n- measured_delta == measured_kpis - baseline_kpis (abs tol 1e-6);\n- error.<kpi> == |predicted_delta - measured_delta| (abs tol 1e-6); error needs predicted_delta;\n- scored: false requires unscored_reason (e.g. \"clipped\"); scored: true forbids it;\n- scored: true requires predictor, predicted_delta, error and direction_agree; scored: false\n  makes them optional (reasons: \"probe\", \"clipped\", \"no_prediction\" when ran___predict is paused).",
   "properties": {
+    "approved_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When the approval was decided (decided_at), UTC.",
+      "title": "Approved At"
+    },
+    "approved_by": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Approver as the kit's approvals table stores it (decided_by): a pseudonymous id, never a real name.",
+      "title": "Approved By"
+    },
     "aws_time": {
       "anyOf": [
         {
@@ -235,7 +487,7 @@
         }
       ],
       "default": null,
-      "description": "Where aws_time came from, e.g. cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime.",
+      "description": "Where aws_time came from, as <source>:<detail> with source one of lambda, sagemaker, cloudwatch, s3, unknown; e.g. lambda:clock (a Lambda's own clock), cloudwatch:/team13/checkpoint, s3:last_modified, sagemaker:CreationTime.",
       "title": "Aws Time Source"
     },
     "baseline_kpis": {
@@ -411,6 +663,18 @@
     },
     "twin": {
       "$ref": "#/$defs/ChangeTwin"
+    },
+    "twin_state": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TwinState"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Per-cell twin state before and after the change, and the no-change baseline."
     },
     "unscored_reason": {
       "anyOf": [
