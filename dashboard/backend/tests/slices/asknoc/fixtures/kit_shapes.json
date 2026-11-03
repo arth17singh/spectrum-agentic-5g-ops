@@ -1,0 +1,30 @@
+{
+  "_sources": {
+    "start_case": "checkpoint_kit.py L241-244 returns {case_id, state}",
+    "continue_case": "checkpoint_kit.py L247-249 returns {case_id, state}",
+    "case_status": "checkpoint_kit.py L252-262 returns {case_id, state, waiting_approvals[{approval_id, change: json string}]} and reply when not running",
+    "unknown_case": "checkpoint_kit.py L254-255",
+    "tool_error": "checkpoint_kit.py L269-276: any exception becomes {error: str(exc)} inside an allowed answer",
+    "deny_error": "team13-kit/check-full-2.log, the default-deny line",
+    "live": "the approved smoke run case-d59bd7e0 (2 Nov 2026): start_case answered at once; status saw SUBMITTED/WORKING about 19 times over about 120 s, then COMPLETED with this reply; no approval was created"
+  },
+  "running_states": ["TASK_STATE_SUBMITTED", "TASK_STATE_WORKING"],
+  "answers": {
+    "start_submitted": {"kind": "ok", "required_keys": ["case_id", "state"],
+      "data": {"case_id": "case-d59bd7e0", "state": "TASK_STATE_SUBMITTED"}},
+    "continue_submitted": {"kind": "ok", "required_keys": ["case_id", "state"],
+      "data": {"case_id": "case-d59bd7e0", "state": "TASK_STATE_SUBMITTED"}},
+    "status_working": {"kind": "ok", "required_keys": ["case_id", "state", "waiting_approvals"],
+      "data": {"case_id": "case-d59bd7e0", "state": "TASK_STATE_WORKING", "waiting_approvals": []}},
+    "status_completed_live": {"kind": "ok", "required_keys": ["case_id", "state", "waiting_approvals", "reply"],
+      "data": {"case_id": "case-d59bd7e0", "state": "TASK_STATE_COMPLETED", "waiting_approvals": [],
+        "reply": "ran_monitor reports cell 3 as the worst served, with low cell-edge SINR (verdict \"degraded\"; coverage 0.585, SLA 0.935, SINR p10 0.42 dB, mean 7.93 dB). Nothing was proposed or changed."}},
+    "status_completed_waiting": {"kind": "ok", "required_keys": ["case_id", "state", "waiting_approvals", "reply"],
+      "data": {"case_id": "case-1a2b3c4d", "state": "TASK_STATE_COMPLETED", "reply": "case-1a2b3c4d: waiting for approval chg-bde360f4d4b4",
+        "waiting_approvals": [{"approval_id": "chg-bde360f4d4b4", "change": "{\"item_id\": \"step-0\", \"change\": \"cell=2;d_power_db=-1.0;d_tilt_deg=+1.0\", \"reason\": \"edge SINR low\"}"}]}},
+    "status_unknown_case": {"kind": "tool_error", "data": {"error": "unknown case case-unknown0"}},
+    "start_a2a_timeout": {"kind": "tool_error", "data": {"error": "<urlopen error timed out>"}},
+    "start_a2a_error": {"kind": "tool_error", "data": {"error": "A2A error -32603: internal"}}
+  },
+  "deny_error": {"code": -32002, "message": "Tool Execution Denied: Tool call not allowed due to policy enforcement [No policy applies to the request (denied by default).]"}
+}
