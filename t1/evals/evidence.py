@@ -55,6 +55,13 @@ class Evidence:
         data = b"".join(evlib.dumps_line(r) for r in rows)
         return self.put_output(f"outputs/{run_id}/outputs-{n:04d}.jsonl", data)
 
+    def get_output(self, rel: str) -> bytes | None:
+        """A file under outputs/ from the local store, else from S3 when running under the runner."""
+        b = self.store.get(rel)
+        if b is None and self.side is not None:
+            b = self.side.get(rel)
+        return b
+
     def read_declared(self, run_id: str) -> dict | None:
         d = evlib.read_declared(run_id, store=self.store)
         if d is None and self.side is not None:

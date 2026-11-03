@@ -20,8 +20,8 @@ from pathlib import Path
 
 from t1.evals import common
 from t1.evals.common import ITEMS_DIR, dumps, lines_sha256, sha256_text
-from t1.evals.graders import GRADER_VERSION
-from t1.evals.parse import PARSER_VERSION
+from t1.evals.graders import grader_version
+from t1.evals.parse import parser_version
 from t1.evals.prompting import prompt_sha256
 
 MANIFEST = ITEMS_DIR / "MANIFEST.json"
@@ -138,8 +138,8 @@ def build_manifest() -> dict:
         "split": {"salt": common.SPLIT_SALT, "dev_fraction": common.DEV_FRACTION,
                   "rule": "dev if sha256(unit, item_id, salt)[:8] % 10000 < dev_fraction * 10000"},
         "prompt": {"file": "t1/evals/prompt.txt", "sha256": prompt_sha256()},
-        "parser": PARSER_VERSION,
-        "graders": GRADER_VERSION,
+        "parser": {u: parser_version(u) for u in common.UNITS},
+        "graders": {u: grader_version(u) for u in common.UNITS},
         "units": {u: unit_manifest(u) for u in common.UNITS if items_path(u).is_file()},
     }
 
@@ -170,7 +170,7 @@ def verify_unit(unit: str) -> list[str]:
     errs = []
     if want.get("prompt", {}).get("sha256") != prompt_sha256():
         errs.append("prompt.txt sha256 differs from MANIFEST")
-    if want.get("parser") != PARSER_VERSION or want.get("graders") != GRADER_VERSION:
+    if (want.get("parser") or {}).get(unit) != parser_version(unit) or (want.get("graders") or {}).get(unit) != grader_version(unit):
         errs.append("parser/grader version differs from MANIFEST")
     w = want["units"].get(unit)
     if w is None:
