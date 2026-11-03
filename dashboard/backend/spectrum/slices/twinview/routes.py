@@ -53,21 +53,16 @@ def _unavailable(e: Exception) -> JSONResponse:
 
 
 def _records(r, kind: str) -> list[dict]:
-    """The records of a kind; each one read from its own object carries, in a private field no response outputs, the
-    S3 LastModified AWS assigned when it stored that object (the fallback AWS time). A reader without that method
-    (a test double) just gives the records."""
-    stored = getattr(r, "all_records_stored", None)
-    if stored is None:
-        return list(r.all_records(kind))
-    return [{**rec, awstime.STORED_KEY: at} if at else rec for rec, at in stored(kind)]
+    """The records of a kind, each carrying the AWS times of its file (see awstime.read_records)."""
+    return awstime.read_records(r, kind)
 
 
 def _declared(r, run_ids) -> dict:
     out = {}
     for rid in sorted({x for x in run_ids if isinstance(x, str) and x}):
         d = r.declared(rid)
-        at = r.declared_stored(rid) if isinstance(d, dict) and hasattr(r, "declared_stored") else None
-        out[rid] = {**d, awstime.STORED_KEY: at} if at else d
+        t = r.declared_times(rid) if isinstance(d, dict) and hasattr(r, "declared_times") else None
+        out[rid] = awstime.with_times(d, t) if isinstance(d, dict) else d
     return out
 
 
@@ -104,6 +99,16 @@ def case(case_id: str, run_id: str | None = None):
     return {**out, "source": _source(r)}
 
 
+def _results(r) -> list[dict]:
+    """Every run's result record, each carrying the AWS times of its file (S3 stored, job attestation)."""
+    out = []
+    for rid in r.runs():
+        x = r.result(rid)
+        if isinstance(x, dict):
+            out.append(awstime.with_times(x, r.result_times(rid) if hasattr(r, "result_times") else None))
+    return out
+
+
 def _read_json(p: Path) -> Any:
     try:
         return json.loads(p.read_text(encoding="utf-8"))
@@ -120,7 +125,7 @@ def consortium_view(split: str = "disjoint"):
         manifest = _read_json(d / "manifest.json")
         preview = _read_json(d / "baselines_results.json")
         r = _reader()
-        results = [x for x in (r.result(rid) for rid in r.runs()) if isinstance(x, dict)]
+        results = _results(r)
     except Exception as e:  # noqa: BLE001
         return _unavailable(e)
     return {**consortium.build(manifest, preview, results, split), "source": _source(r)}

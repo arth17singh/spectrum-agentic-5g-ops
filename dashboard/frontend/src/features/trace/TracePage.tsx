@@ -26,7 +26,7 @@ const delta = (v: unknown) => {
 const caseKey = (c: Rec) => `${c.run_id ?? ''}\u0000${c.case_id}`
 
 type AwsSummary = { n: number; k: number; text: string; by_source: Record<string, number> }
-type Prov = { state: 'empty' | 'real' | 'synthetic' | 'mixed' | 'unverified'; label: string; note: string; claim: string; n_records: number; n_synthetic: number; n_unverified: number; aws_time_summary?: AwsSummary }
+type Prov = { state: 'empty' | 'real' | 'synthetic' | 'mixed' | 'unverified'; label: string; note: string; claim: string; n_records: number; n_synthetic: number; n_unverified: number; aws_time_summary?: AwsSummary; unverified_reasons?: { reason: string; n: number }[] }
 
 /** REAL (green) only when every displayed record has an AWS time and none is synthetic; anything else is amber. */
 function ProvenanceChip({ p }: { p: Prov }) {
@@ -77,7 +77,10 @@ export default function TracePage() {
         <div className="mb-4 flex items-start gap-2 rounded-md border px-4 py-2.5 text-cap text-ink-1" role="status" data-provenance={prov.state}
           style={{ borderColor: 'color-mix(in oklab, var(--warn) 55%, transparent)', background: 'color-mix(in oklab, var(--warn) 10%, transparent)' }}>
           <FlaskConical size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--warn-ink)' }} aria-hidden />
-          <span><span className="font-medium">{prov.note}</span> Do not read these numbers as a measured result.</span>
+          <span>
+            <span className="font-medium">{prov.note}</span> Do not read these numbers as a measured result.
+            {(prov.unverified_reasons ?? []).map((r) => <span key={r.reason} className="mt-0.5 block text-ink-2" data-testid="unverified-reason">{r.n}: {r.reason}</span>)}
+          </span>
         </div>
       )}
 
@@ -131,6 +134,7 @@ function CaseList({ rows, selected, onSelect, total, summary }: { rows: Rec[]; s
                 className={clsx('cursor-pointer border-b border-line/60', selected === k ? 'bg-s2' : 'hover:bg-s2/60')}>
                 <td className="min-w-0 px-3 py-2">
                   <div className="mono break-all text-ink-1">{c.case_id}</div>
+                  {c.case_label && <div className="text-micro text-ink-2" data-testid="case-label">{c.case_label}</div>}
                   <div className="mono break-all text-micro text-ink-3">{c.run_id ?? 'no run id'}{c.provenance?.state && c.provenance.state !== 'real' ? ` · ${String(c.provenance.label).toLowerCase()}` : ''}</div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                     {c.check_passed ? (c.provenance?.state === 'real' ? <StatusPill status="passed" size="sm">complete</StatusPill> : <StatusPill status="warning" size="sm" title="The sequence is complete, but these records are not verified as a real run">complete, not real</StatusPill>) : <StatusPill status="warning" size="sm">incomplete</StatusPill>}
@@ -189,7 +193,8 @@ function SequenceCheck({ c }: { c: Rec }) {
   const k: Rec = c.check
   const cmd: string = c.show_record
   return (
-    <Panel id="trace-check" plane="operate" title="Expected sequence" subtitle="case opened, agents asked, tools called, approval, change applied, observe"
+    <Panel id="trace-check" plane="operate" title={k.by_unit ? `Expected for ${k.unit}` : 'Expected sequence'}
+      subtitle={k.expected_label ?? 'case opened, agents asked, tools called, approval, change applied, observe'}
       actions={k.passed ? (c.provenance?.state === 'real' ? <StatusPill status="passed">Sequence complete</StatusPill> : <StatusPill status="warning" title="The sequence is complete, but these records are not verified as a real run">Complete, not a real run</StatusPill>) : <StatusPill status="blocked">{k.order_ok ? 'Sequence incomplete' : 'Out of order'}</StatusPill>}>
       <div data-state={k.passed ? 'pass' : 'fail'} className="flex flex-wrap items-center gap-1.5">
         {(k.steps as Rec[]).map((s, i) => {
@@ -210,7 +215,8 @@ function SequenceCheck({ c }: { c: Rec }) {
       {k.missing.length > 0 && <p className="mt-2 text-cap text-critical-ink">Missing: {(k.missing as string[]).map((m) => m.replace('_', ' ')).join(', ')}.</p>}
       {!k.order_ok && <p className="mt-2 text-cap text-critical-ink">The steps that are present did not happen in the declared order.</p>}
       {(k.notes as string[]).map((n) => <p key={n} className="mt-1 flex items-start gap-1.5 text-cap text-ink-2"><TriangleAlert size={13} className="mt-0.5 shrink-0" style={{ color: 'var(--warn-ink)' }} aria-hidden />{n}</p>)}
-      <p className="mt-2 text-micro text-ink-3">* ask agent may be absent; every other step is required. A refused call does not count as having happened.</p>
+      {c.case_label && <p className="mt-2 text-micro text-ink-3">{c.case_label}.</p>}
+      {!k.by_unit && <p className="mt-2 text-micro text-ink-3">* ask agent may be absent; every other step is required. A refused call does not count as having happened.</p>}
       {c.other_runs?.length > 0 && <p className="mt-1 text-micro text-ink-3">The same case id also appears in: {c.other_runs.join(', ')}. Showing run {c.run_id}.</p>}
       <div className="mt-3 flex min-w-0 items-center gap-2">
         <div className="min-w-0 flex-1"><CodeBlock code={cmd} lang="text" className="!py-1.5 whitespace-pre-wrap break-all" /></div>

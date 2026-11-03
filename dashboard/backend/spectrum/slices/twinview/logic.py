@@ -9,7 +9,7 @@ Nothing here reads a file or calls AWS, and nothing is filled in. In particular:
     when it is known to be another Maveric config; an unknown preset is said to be unknown;
   - an approver is shown only when a record names one; a decision ALLOW gives the time, not the person;
   - provenance is REAL only if every record shown is not synthetic and has a time AWS recorded for the event;
-  - every window and case also carries `aws_time` + `aws_time_source` (cloudwatch | s3_stored | policy_createdAt |
+  - every window and case also carries `aws_time` + `aws_time_source` (cloudwatch | cloudwatch_attest | s3_stored | policy_createdAt |
     gateway_date | none, see `_shared/awstime.py`) and `runner_time`, kept apart: a runner or Lambda clock is never
     reported as AWS time. `time` stays the sort key it was.
 """
@@ -98,23 +98,21 @@ def pseudonym(who: Any) -> str | None:
     return _ACCOUNT.sub("••••", s) or None
 
 
-def prov(rec: Rec) -> Rec:
-    """Synthetic / real flags by the older rule: any `aws_time` counts. Kept as it was for the Consortium view, whose
-    result records carry a SageMaker or FL-service time. The case views use `case_prov`."""
-    synthetic = rec.get("synthetic") is True
-    return {"synthetic": synthetic, "real": (not synthetic) and bool(rec.get("aws_time"))}
-
-
 def case_prov(rec: Rec) -> Rec:
     """Synthetic / real flags plus the record's AWS time, its source and its runner clock (see awstime.resolve).
-    `real` needs a time AWS recorded for the event (CloudWatch, policy createdAt, Gateway Date): the S3 stored
-    time alone does not make a record real, and a Lambda clock is not AWS time at all."""
+    `real` needs a time AWS recorded for the event (CloudWatch, a job's attestation line, policy createdAt, Gateway
+    Date): the S3 stored time alone does not make a record real, and a Lambda clock is not AWS time at all."""
     synthetic = rec.get("synthetic") is True
     t = awstime.resolve(rec)
-    return {"synthetic": synthetic, "real": (not synthetic) and t["aws_time_source"] in awstime.EVENT_SOURCES, **t}
+    ok = t["aws_time_source"] in awstime.EVENT_SOURCES
+    # a declaration (written before the run) is not an event: what AWS evidences for it is when S3 stored it
+    if not ok and "declared_at" in rec and t["aws_time_source"] == "s3_stored":
+        ok = True
+    return {"synthetic": synthetic, "real": (not synthetic) and ok, **t,
+            "no_event_reason": None if ok else awstime.no_event_reason(rec)}
 
 
-def _provenance(ps: list[Rec], what: str = "an AWS time") -> Rec:
+def _provenance(ps: list[Rec]) -> Rec:
     n = len(ps)
     n_syn = sum(1 for p in ps if p["synthetic"])
     n_unv = sum(1 for p in ps if not p["synthetic"] and not p["real"])
@@ -123,28 +121,23 @@ def _provenance(ps: list[Rec], what: str = "an AWS time") -> Rec:
     elif n_syn == n:
         state, label, note = "synthetic", "SYNTHETIC", "Synthetic records (test fixtures): not a real run."
     elif n_syn == 0 and n_unv == 0:
-        state, label, note = "real", "REAL", f"Every record shown has {what} and is not marked synthetic."
+        state, label, note = "real", "REAL", f"Every record shown has an AWS-recorded event time and is not marked synthetic."
     elif n_syn == 0:
         state, label = "unverified", "UNVERIFIED"
-        note = f"{n_unv} of {n} records have no {what.removeprefix('an ').removeprefix('a ')}, so they are not shown as real."
+        note = f"{n_unv} of {n} records have no AWS-recorded event time, so they are not shown as real."
     else:
         state, label = "mixed", "MIXED"
-        note = f"{n_syn} of {n} records synthetic" + (f"; {n_unv} more have no {what.removeprefix('an ').removeprefix('a ')}." if n_unv else ".")
+        note = f"{n_syn} of {n} records synthetic" + (f"; {n_unv} more have no AWS-recorded event time." if n_unv else ".")
     return {"state": state, "label": label, "note": note, "n_records": n, "n_synthetic": n_syn, "n_unverified": n_unv}
-
-
-def provenance(records: Iterable[Rec]) -> Rec:
-    """Same rule as the trace view: REAL only when every record shown has an AWS time and none is synthetic.
-    (The older `prov` rule, used by the Consortium view.)"""
-    return _provenance([prov(r) for r in records])
 
 
 def case_provenance(records: Iterable[Rec]) -> Rec:
     """REAL only when every record shown has a time AWS recorded for the event and none is synthetic.
     `aws_time_summary` is "AWS time on k of n (cloudwatch a, S3 stored b, ...)" over the same records."""
     ps = [case_prov(r) for r in records]
-    out = _provenance(ps, "an AWS-recorded event time")
+    out = _provenance(ps)
     out["aws_time_summary"] = awstime.summary(ps)
+    out["unverified_reasons"] = awstime.reasons(ps)
     return out
 
 

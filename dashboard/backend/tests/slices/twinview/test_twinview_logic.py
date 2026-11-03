@@ -45,13 +45,16 @@ def test_approved_by_on_the_change_is_the_first_source():
                  "source": "change.approved_by", "allowed_at": None}
 
 
-def test_provenance_real_only_when_every_record_is_aws_timed_and_not_synthetic():
-    real = change(aws_time="2026-11-02T20:00:01Z")
-    assert logic.provenance([real])["state"] == "real"
-    assert logic.provenance([change()])["state"] == "unverified"  # tools write aws_time null today
-    assert logic.provenance([real, change(synthetic=True)])["state"] == "mixed"
-    assert logic.provenance([change(synthetic=True, aws_time="2026-11-02T20:00:01Z")])["state"] == "synthetic"
-    assert logic.provenance([])["state"] == "empty"
+def test_provenance_real_only_when_every_record_has_an_aws_recorded_event_time_and_is_not_synthetic():
+    real = change(aws_time="2026-11-02T20:00:01Z", aws_time_source="cloudwatch:/team13/checkpoint")
+    assert logic.case_provenance([real])["state"] == "real"
+    assert logic.case_provenance([change()])["state"] == "unverified"  # tools write aws_time null today
+    assert logic.case_provenance([change(aws_time="2026-11-02T20:00:01Z")])["state"] == "unverified"  # no source: not trusted
+    assert logic.case_provenance([change(_stored_at="2026-11-02T20:00:09Z")])["state"] == "unverified"  # stored time only
+    assert logic.case_provenance([change(_attested_at="2026-11-02T20:00:09Z")])["state"] == "real"  # a job attests it in CloudWatch
+    assert logic.case_provenance([real, change(synthetic=True)])["state"] == "mixed"
+    assert logic.case_provenance([change(synthetic=True, aws_time="2026-11-02T20:00:01Z")])["state"] == "synthetic"
+    assert logic.case_provenance([])["state"] == "empty"
 
 
 def test_pseudonym_never_shows_an_account_id():

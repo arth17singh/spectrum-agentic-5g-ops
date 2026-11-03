@@ -79,11 +79,11 @@ def test_an_aws_time_equal_to_the_record_time_is_not_also_the_runner_clock():
 
 
 def test_summary_counts_by_source():
-    rows = [{"aws_time_source": s} for s in ("cloudwatch", "cloudwatch", "s3_stored", "policy_createdAt", "gateway_date", "none")]
+    rows = [{"aws_time_source": s} for s in ("cloudwatch", "cloudwatch", "s3_stored", "policy_createdAt", "gateway_date", "cloudwatch_attest", "none")]
     s = awstime.summary(rows)
-    assert (s["n"], s["k"]) == (6, 5)
-    assert s["by_source"] == {"cloudwatch": 2, "s3_stored": 1, "policy_createdAt": 1, "gateway_date": 1, "none": 1}
-    assert s["text"] == "AWS time on 5 of 6 (CloudWatch 2, S3 stored 1, policy createdAt 1, gateway Date 1)"
+    assert (s["n"], s["k"]) == (7, 6)
+    assert s["by_source"] == {"cloudwatch": 2, "cloudwatch_attest": 1, "policy_createdAt": 1, "gateway_date": 1, "s3_stored": 1, "none": 1}
+    assert s["text"] == "AWS time on 6 of 7 (CloudWatch 2, job attestation 1, policy createdAt 1, gateway Date 1, S3 stored 1)"
     assert awstime.summary([])["text"] == "AWS time on 0 of 0"
     assert awstime.summary([{"aws_time_source": "none"}])["text"] == "AWS time on 0 of 1"
 
@@ -247,9 +247,9 @@ def test_trace_events_carry_each_source_and_the_runner_clock_apart(monkeypatch, 
 def test_trace_summary_is_k_of_n_by_source(monkeypatch, tmp_path):
     c = _trace_client(monkeypatch, _evidence(tmp_path))
     s = c.get("/api/trace/cases").json()["provenance"]["aws_time_summary"]
-    assert s["by_source"] == {"cloudwatch": 1, "s3_stored": 2, "policy_createdAt": 1, "gateway_date": 1, "none": 3}
+    assert s["by_source"] == {"cloudwatch": 1, "cloudwatch_attest": 0, "policy_createdAt": 1, "gateway_date": 1, "s3_stored": 2, "none": 3}
     assert (s["k"], s["n"]) == (5, 8)
-    assert s["text"] == "AWS time on 5 of 8 (CloudWatch 1, S3 stored 2, policy createdAt 1, gateway Date 1)"
+    assert s["text"] == "AWS time on 5 of 8 (CloudWatch 1, policy createdAt 1, gateway Date 1, S3 stored 2)"
     case = c.get("/api/trace/case/case-1").json()
     assert case["provenance"]["aws_time_summary"]["n"] == 8
     # the case row in the listing carries its own summary
@@ -281,3 +281,161 @@ def test_twinview_windows_carry_aws_time_and_source(monkeypatch, tmp_path):
     listing = c.get("/api/twinview/cases").json()
     assert listing["provenance"]["aws_time_summary"]["n"] == 3
     assert awstime.STORED_KEY not in json.dumps(j)
+
+
+# ---------------------------------------------------------------------------------------------- job attestation
+
+def test_priority_cloudwatch_then_attestation_then_policy_gateway_then_s3():
+    cw = rec(aws_time="2026-11-03T05:50:00Z", aws_time_source="cloudwatch:/team13/checkpoint")
+    full = {awstime.ATTEST_KEY: "2026-11-03T05:51:00Z", awstime.STORED_KEY: "2026-11-03T05:52:00Z"}
+    assert awstime.resolve({**cw, **full})["aws_time_source"] == "cloudwatch"
+    pol = rec(aws_time="2026-11-03T05:50:20Z", aws_time_source="agentcore:policy.createdAt")
+    assert awstime.resolve({**pol, **full}) ["aws_time_source"] == "cloudwatch_attest"
+    assert awstime.resolve({**pol, awstime.STORED_KEY: "2026-11-03T05:52:00Z"})["aws_time_source"] == "policy_createdAt"
+    assert awstime.resolve(rec(**full))["aws_time_source"] == "cloudwatch_attest"
+    assert awstime.resolve(rec(**full))["aws_time"] == "2026-11-03T05:51:00Z"
+    assert awstime.resolve(rec(**{awstime.STORED_KEY: "2026-11-03T05:52:00Z"}))["aws_time_source"] == "s3_stored"
+    assert "cloudwatch_attest" in awstime.EVENT_SOURCES and "s3_stored" not in awstime.EVENT_SOURCES
+
+
+def _attest(root: Path, run: str, files: dict):
+    d = root / ".sync" / "attest"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{run}.json").write_text(json.dumps({"run_id": run, "files": files}))
+
+
+def _sha(root: Path, rel: str) -> str:
+    import hashlib
+    return hashlib.sha256((root / rel).read_bytes()).hexdigest()
+
+
+def test_attestation_is_used_only_for_a_matching_file(tmp_path):
+    root = _evidence(tmp_path)
+    ok = f"records/{RUN}/decision/stored.json"
+    other = f"records/{RUN}/decision/nomanifest.json"
+    bad_state = f"records/{RUN}/decision/badsize.json"
+    chg = f"records/{RUN}/change/lambda.json"
+    _attest(root, RUN, {
+        ok: {"job": "j", "log_time": "2026-11-03T06:00:09Z", "sha256": _sha(root, ok), "state": "match"},
+        other: {"job": "j", "log_time": "2026-11-03T06:00:10Z", "sha256": "0" * 64, "state": "match"},       # sha differs
+        bad_state: {"job": "j", "log_time": "2026-11-03T06:00:11Z", "sha256": _sha(root, bad_state), "state": "not attested"},
+        chg: {"job": "j", "log_time": "2026-11-03T06:00:12Z", "sha256": _sha(root, chg), "state": "match"},
+    })
+    r = RecordsReader(str(root))
+    by = {(x["tool"], x["time"]): m for x, m in r.all_records_times("decision")}
+    assert by[("front___start_case", "2026-11-03T05:49:59Z")]["attested"] == "2026-11-03T06:00:09Z"
+    assert by[("ran___observe", "2026-11-03T05:50:02Z")]["attested"] is None  # sha256 is not the file's
+    assert by[("ran___observe", "2026-11-03T05:50:03Z")]["attested"] is None  # state is not "match"
+    ch = {x["change_id"]: m for x, m in r.all_records_times("change")}
+    assert ch["chg-1"]["attested"] == "2026-11-03T06:00:12Z" and ch["chg-2"]["attested"] is None  # .jsonl: never
+    # an edited file no longer matches what the job attested
+    (root / chg).write_text((root / chg).read_text() + " ")
+    assert {x["change_id"]: m for x, m in RecordsReader(str(root)).all_records_times("change")}["chg-1"]["attested"] is None
+
+
+def test_trace_shows_attestation_as_the_aws_time_and_counts_it_as_an_event_time(monkeypatch, tmp_path):
+    root = _evidence(tmp_path)
+    chg = f"records/{RUN}/change/lambda.json"
+    _attest(root, RUN, {chg: {"job": "j", "log_time": "2026-11-03T05:50:30Z", "sha256": _sha(root, chg), "state": "match"}})
+    j = _trace_client(monkeypatch, root).get("/api/trace/case/case-1").json()
+    e = next(e for e in j["timeline"] if e["kind"] == "change" and e["detail"]["change_id"] == "chg-1")
+    assert (e["aws_time"], e["aws_time_source"], e["real"]) == ("2026-11-03T05:50:30Z", "cloudwatch_attest", True)
+    assert e["runner_time"] == "2026-11-03T05:50:30.545Z"
+    assert j["provenance"]["aws_time_summary"]["by_source"]["cloudwatch_attest"] == 1
+    assert "_attested_at" not in json.dumps(j)
+
+
+def test_a_record_without_an_event_time_says_why():
+    lam = rec(aws_time="2026-11-03T05:31:52.546Z", aws_time_source="lambda:clock", **{awstime.STORED_KEY: "2026-11-03T05:31:53Z"})
+    assert "Lambda's own clock" in awstime.no_event_reason(lam) and "S3 stored" in awstime.no_event_reason(lam)
+    assert awstime.no_event_reason(rec(run_id="t1.rl.viavi_operate-20261103T075351Z-25c0")) == awstime.VIAVI_REASON
+    assert awstime.no_event_reason(rec(twin={"kind": "viavi"})) == awstime.VIAVI_REASON
+    assert awstime.VIAVI_REASON == "ran outside AWS (through the team's browser session): no AWS-recorded time exists"
+    assert awstime.no_event_reason(rec(aws_time="2026-11-03T05:50:00Z", aws_time_source="cloudwatch:/x")) is None
+    assert awstime.no_event_reason(rec(**{awstime.ATTEST_KEY: "2026-11-03T05:50:00Z"})) is None
+    assert "no AWS time found" in awstime.no_event_reason(rec())
+
+
+def test_trace_lists_the_reasons_a_record_is_unverified(monkeypatch, tmp_path):
+    c = _trace_client(monkeypatch, _evidence(tmp_path))
+    why = {x["reason"]: x["n"] for x in c.get("/api/trace/cases").json()["provenance"]["unverified_reasons"]}
+    assert why  # the lambda-clock change, the .jsonl change and the two unmirrored decisions are named, not hidden
+    assert any("Lambda's own clock" in k for k in why) and sum(why.values()) == 5
+
+
+# ---------------------------------------------------------------------------------------------- per-unit case status
+
+def _case_status(monkeypatch, tmp_path, run, rows):
+    """rows: [(kind, record)] for one run id; returns the /cases listing."""
+    root = tmp_path
+    for i, (kind, r) in enumerate(rows):
+        _put(root, f"records/{run}/{kind}/{i:02d}.json", {**r, "run_id": run, "kind": kind})
+    return _trace_client(monkeypatch, root).get("/api/trace/cases").json()
+
+
+def _dec(case, tool, decision, t, **kw):
+    return ("decision", rec(case_id=case, tool=tool, decision=decision, time=t, created_at=t, **kw))
+
+
+def test_a_deny_case_is_complete_when_its_refusal_is_recorded(monkeypatch, tmp_path):
+    run = "t3.deny-20261103T000000Z"
+    j = _case_status(monkeypatch, tmp_path, run, [
+        _dec("case-1", "ran___observe", "DENY", "2026-11-03T05:50:00Z"),
+        _dec("(missing)", "front___start_case", "DENY", "2026-11-03T05:50:01Z"),
+        _dec("no-case", "ran___observe", "DENY", "2026-11-03T05:50:02Z"),
+        _dec("case-3", "ran___observe", "ALLOW", "2026-11-03T05:50:03Z")])
+    by = {c["case_id"]: c for c in j["cases"]}
+    assert by["case-1"]["check_passed"] and by["(missing)"]["check_passed"] and by["no-case"]["check_passed"]
+    assert not by["case-3"]["check_passed"]  # an ALLOWed call is not a refusal
+    assert by["(missing)"]["case_label"] == "calls without a case id (deny items that test the case-id rule)"
+    assert by["case-1"]["case_label"] is None and by["case-1"]["unit"] == "t3.deny"
+    d = _trace_client(monkeypatch, tmp_path).get(f"/api/trace/case/case-1?run_id={run}").json()
+    assert d["check"]["by_unit"] is True and d["check"]["expected"] == ["refusal"] and d["check"]["missing"] == []
+
+
+def test_a_deny_case_that_applied_a_change_is_not_complete(monkeypatch, tmp_path):
+    run = "t3.deny-20261103T000001Z"
+    j = _case_status(monkeypatch, tmp_path, run, [
+        _dec("case-1", "ran___observe", "DENY", "2026-11-03T05:50:00Z"),
+        ("change", rec(case_id="case-1", change_id="chg-9", created_at="2026-11-03T05:50:05Z"))])
+    assert j["cases"][0]["check_passed"] is False
+
+
+def test_allow_pause_and_trust_units_have_their_own_expectation(monkeypatch, tmp_path):
+    j = _case_status(monkeypatch, tmp_path, "t3.allow-20261103T000000Z", [_dec("c", "ran___observe", "ALLOW", "2026-11-03T05:50:00Z")])
+    assert j["cases"][0]["check_passed"] is True
+    j = _case_status(monkeypatch, tmp_path / "p", "t3.pause-20261103T000000Z",
+                     [_dec("c", "ran___predict", "DENY", "2026-11-03T05:50:00Z", deciding_rule="default_deny", reason="tool is paused")])
+    assert j["cases"][0]["check_passed"] is True and j["cases"][0]["pauses"] == 1
+    j = _case_status(monkeypatch, tmp_path / "t", "t3.trust.gate_v1_healthy-20261103T000000Z",
+                     [("change", rec(case_id="c", change_id="chg-1", created_at="2026-11-03T05:50:00Z"))])
+    assert j["cases"][0]["check_passed"] is True
+    # an unknown unit keeps the full declared sequence
+    j = _case_status(monkeypatch, tmp_path / "u", "other-20261103T000000Z", [_dec("c", "ran___observe", "ALLOW", "2026-11-03T05:50:00Z")])
+    assert j["cases"][0]["check_passed"] is False
+
+
+def test_a_declaration_counts_when_s3_stored_it(monkeypatch, tmp_path):
+    from spectrum.slices.twinview import logic
+
+    decl = {"run_id": RUN, "declared_at": "2026-11-03T05:00:00Z", "unit": "t3.allow"}
+    assert logic.case_prov({**decl, awstime.STORED_KEY: "2026-11-03T05:00:01Z"})["real"] is True
+    assert logic.case_prov(decl)["real"] is False
+    assert logic.case_prov({"run_id": RUN, "kind": "change", awstime.STORED_KEY: "2026-11-03T05:00:01Z"})["real"] is False
+
+
+def test_a_replaced_attest_file_is_picked_up_without_a_restart(tmp_path):
+    """The caches are keyed on the file's mtime and size, so an atomic replace (new file, same name) is read at once."""
+    import os
+
+    root = _evidence(tmp_path)
+    chg = f"records/{RUN}/change/lambda.json"
+    r = RecordsReader(str(root))
+    get = lambda: {x["change_id"]: m for x, m in r.all_records_times("change")}["chg-1"]["attested"]  # noqa: E731
+    assert get() is None
+    _attest(root, RUN, {chg: {"job": "j", "log_time": "2026-11-03T05:50:30Z", "sha256": _sha(root, chg), "state": "match"}})
+    assert get() == "2026-11-03T05:50:30Z"
+    new = root / ".sync" / "attest" / f"{RUN}.tmp"
+    new.write_text(json.dumps({"files": {chg: {"job": "j", "log_time": "2026-11-03T05:50:31Z", "sha256": _sha(root, chg), "state": "match"}}}))
+    os.replace(new, root / ".sync" / "attest" / f"{RUN}.json")
+    assert get() == "2026-11-03T05:50:31Z"

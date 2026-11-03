@@ -30,7 +30,8 @@ export function Banner({ p, extra }: { p: Prov; extra?: string }) {
     <div className="mb-4 flex items-start gap-2 rounded-md border px-4 py-2.5 text-cap text-ink-1" role="status" data-provenance={p.state}
       style={{ borderColor: amber.borderColor, background: amber.background }}>
       <FlaskConical size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--warn-ink)' }} aria-hidden />
-      <span><span className="font-medium">{p.label}: {p.note}</span> Do not read these numbers as a measured result.{extra ? ` ${extra}` : ''}</span>
+      <span><span className="font-medium">{p.label}: {p.note}</span> Do not read these numbers as a measured result.{extra ? ` ${extra}` : ''}
+        {(p.unverified_reasons ?? []).map((r) => <span key={r.reason} className="mt-0.5 block text-ink-2" data-testid="unverified-reason">{r.n}: {r.reason}</span>)}</span>
     </div>
   )
 }

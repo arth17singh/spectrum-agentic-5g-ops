@@ -1,6 +1,6 @@
 // Plain helpers and types for the Twin view (kept apart from components for fast refresh).
 
-export type Prov = { state: 'empty' | 'real' | 'synthetic' | 'mixed' | 'unverified'; label: string; note: string; n_records: number; n_synthetic: number; n_unverified: number }
+export type Prov = { state: 'empty' | 'real' | 'synthetic' | 'mixed' | 'unverified'; label: string; note: string; n_records: number; n_synthetic: number; n_unverified: number; unverified_reasons?: { reason: string; n: number }[] }
 
 export type Load<T> = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ok'; data: T }
 
