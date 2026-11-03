@@ -40,6 +40,7 @@ class Store(Protocol):
     def get_case(self, case_id: str) -> dict | None: ...
     def put_case(self, case: dict, expected_version: int | None) -> None: ...
     def active_run_id(self) -> str | None: ...
+    def mapped_run_id(self, case_id: str) -> str | None: ...
     def approval_status(self, key: str) -> str | None: ...
     def approval_item(self, key: str) -> dict | None: ...
     def model_paused(self, model_id: str, version: str) -> bool: ...
@@ -85,7 +86,16 @@ class LocalStore:
         tmp.replace(p)
 
     def get_case(self, case_id: str) -> dict | None:
-        return self._read(self._case_path(case_id))
+        row = self._read(self._case_path(case_id))
+        return row if row and "action_log" in row else None   # a mapping-only file is not a case yet
+
+    def mapped_run_id(self, case_id: str) -> str | None:
+        row = self._read(self._case_path(case_id)) or {}
+        return row.get("run_id") if "action_log" not in row else None
+
+    def map_case(self, case_id: str, run_id: str) -> None:
+        """Local stand-in for the suite runner's map_case: a mapping row without a case doc."""
+        self._write(self._case_path(case_id), {"case_id": case_id, "run_id": _safe(run_id)})
 
     def put_case(self, case: dict, expected_version: int | None) -> None:
         p = self._case_path(case["case_id"])
@@ -166,21 +176,33 @@ class DynamoStore:
     def _case_item(self, case: dict, expected_version: int | None) -> dict:
         item = {"pk": CASE_PREFIX + case["case_id"], "case_id": case["case_id"], "run_id": case["run_id"],
                 "doc": json.dumps(_body(case), separators=(",", ":")), "version": (expected_version or 0) + 1}
+        if expected_version is None:  # keep what the runner put on its mapping row (unit, source, ...)
+            mapped = self._get(item["pk"]) or {}
+            if not mapped.get("doc"):
+                item = {**{k: v for k, v in mapped.items() if k not in ("doc", "version", "status")}, **item}
         put = {"TableName": self.table, "Item": {k: self._ser.serialize(v) for k, v in item.items()}}
         if expected_version is None:
-            put["ConditionExpression"] = "attribute_not_exists(pk)"
+            # the first write creates the case, or fills in the runner's doc-less mapping row
+            put["ConditionExpression"] = "attribute_not_exists(pk) OR attribute_not_exists(doc)"
         else:
             put["ConditionExpression"] = "version = :v"
             put["ExpressionAttributeValues"] = {":v": {"N": str(expected_version)}}
         return put
 
     def get_case(self, case_id: str) -> dict | None:
+        """The case doc, or None if there is none yet. The suite runner maps a case to its run with a
+        row that has no `doc` (t3/suite/runner.py map_case): that is not a case yet."""
         row = self._get(CASE_PREFIX + _safe(case_id))
-        if not row:
+        if not row or not row.get("doc"):
             return None
         doc = json.loads(row["doc"])
-        doc["version"] = int(row["version"])
+        doc["version"] = int(row.get("version") or 0)
         return doc
+
+    def mapped_run_id(self, case_id: str) -> str | None:
+        """The run a runner-mapped case belongs to (a t3-<case_id> row without a doc)."""
+        row = self._get(CASE_PREFIX + _safe(case_id)) or {}
+        return row.get("run_id") if not row.get("doc") else None
 
     def put_case(self, case: dict, expected_version: int | None) -> None:
         from botocore.exceptions import ClientError
