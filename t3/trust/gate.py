@@ -39,6 +39,16 @@ from typing import Any, Callable
 from .records import direction_agreement, error_e, make_control_record, utc_now
 
 THRESHOLDS_PATH = Path(__file__).with_name("thresholds.json")
+# Declared threshold sets. v1 is the default until the lead approves a switch.
+THRESHOLDS_BY_VERSION = {"v1": THRESHOLDS_PATH, "v2": Path(__file__).with_name("thresholds_v2.json")}
+DEFAULT_THRESHOLDS_VERSION = "v1"
+
+
+def thresholds_path(version: str | None = None) -> Path:
+    v = version or DEFAULT_THRESHOLDS_VERSION
+    if v not in THRESHOLDS_BY_VERSION:
+        raise ValueError(f"unknown thresholds version {v!r}; known: {sorted(THRESHOLDS_BY_VERSION)}")
+    return THRESHOLDS_BY_VERSION[v]
 
 
 def load_thresholds(path: str | Path = THRESHOLDS_PATH) -> tuple[dict, str]:
@@ -99,6 +109,7 @@ class TrustGate:
         self.clock = clock or utc_now
         self.synthetic = synthetic
         self.last_control_paths: list[str] = []
+        self.last_control_error: str | None = None
         th = self.thresholds
         self.keys = list(th["keys"])
         self.scales = {k: float(th["scales"][k]) for k in self.keys}
@@ -229,14 +240,21 @@ class TrustGate:
                                   time=self.clock(),
                                   synthetic=self.synthetic or bool(res.get("dry_run")))
         self._write(run_id, rec)
+        if self.last_control_error:
+            raise RuntimeError(f"resume applied but its control record was not written: {self.last_control_error}")
         return rec
 
     def _write(self, run_id: str, rec: dict) -> None:
-        self.last_control_paths = []
+        """Write one control record. A failure is kept in ``last_control_error`` instead of raised:
+        on a pause the forbid already exists, so the pause stands and the caller reports the gap."""
+        self.last_control_paths, self.last_control_error = [], None
         if self.writer is None:
             return
         append = getattr(self.writer, "append_records", self.writer)
-        self.last_control_paths = list(append(run_id, "control", [rec]) or [])
+        try:
+            self.last_control_paths = list(append(run_id, "control", [rec]) or [])
+        except Exception as exc:  # noqa: BLE001
+            self.last_control_error = f"{type(exc).__name__}: {exc}"[:300]
 
     def state(self, model_id: str, version: str) -> dict[str, Any]:
         return self.store.get(model_id, version)
