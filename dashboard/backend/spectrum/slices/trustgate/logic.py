@@ -363,6 +363,10 @@ def ladder_view(result: dict) -> dict | None:
         })
     if not rungs:
         return None
+    synthetic = result.get("synthetic") is True
+    viavi = next((r for r in rungs if r["label"] == "VIAVI" and r["label_ok"]), None)
+    # A Viavi retention needs a Viavi gain: without one the figure is null whatever the record says.
+    no_viavi_gain = rungs[-1]["label"] == "VIAVI" and (viavi is None or viavi["gain"] is None)
     return {
         "run_id": result.get("run_id"),
         "checked_at": result.get("checked_at"),
@@ -370,13 +374,16 @@ def ladder_view(result: dict) -> dict | None:
         "version": ver,
         "rungs": rungs,
         "top_label": rungs[-1]["label"],
-        "has_viavi": any(r["label"] == "VIAVI" and r["label_ok"] for r in rungs),
+        "has_viavi": viavi is not None,
+        # real = a measured Viavi gain from a record that is not marked synthetic; only then may the page
+        # treat the Viavi rung as a result (colour, check mark, pass state)
+        "real_viavi": viavi is not None and viavi["gain"] is not None and not synthetic,
         "label_ok": all(r["label_ok"] for r in rungs),
-        "retention": num(d.get("retention")),
-        "retention_ci": _ci(d.get("retention_ci")),
-        "passed": result.get("passed") if isinstance(result.get("passed"), bool) else None,
+        "retention": None if no_viavi_gain else num(d.get("retention")),
+        "retention_ci": None if no_viavi_gain else _ci(d.get("retention_ci")),
+        "passed": None if no_viavi_gain else (result.get("passed") if isinstance(result.get("passed"), bool) else None),
         "target": result.get("target") if isinstance(result.get("target"), dict) else None,
-        "synthetic": result.get("synthetic") is True,
+        "synthetic": synthetic,
     }
 
 
