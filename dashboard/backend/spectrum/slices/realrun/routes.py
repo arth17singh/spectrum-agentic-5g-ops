@@ -7,7 +7,7 @@ import re
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from . import logic
+from . import extra, logic
 
 router = APIRouter(prefix="/api/realrun")
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
@@ -30,13 +30,20 @@ def overview():
         return _no_store()
     try:
         runs = st.run_ids()
+        sup = extra.superseded(st)
+        summaries = [logic.run_summary(st, r) for r in runs]
+        for x in summaries:
+            x["superseded"] = sup.get(x["run_id"])
         return {
             "source": st.source(),
-            "runs": [logic.run_summary(st, r) for r in runs],
-            "t1": logic.track1(st, runs),
+            "runs": summaries,
+            "t1": logic.track1(st, runs, sup),
             "rl": logic.rl(st, runs),
-            "t3": logic.track3(st, runs),
+            "t3": logic.track3(st, runs, sup),
+            "t3_live": extra.track3_live(st, runs),
             "t2": logic.track2(st, runs),
+            "t2_consortium": extra.track2_consortium(st, runs),
+            "judged": extra.judged(st),
             "empty": not runs,
         }
     except Exception as e:  # noqa: BLE001
@@ -53,6 +60,8 @@ def run(run_id: str):
     if run_id not in st.run_ids():
         return JSONResponse({"detail": f"no such run: {run_id}"}, status_code=404)
     try:
-        return logic.run_detail(st, run_id)
+        out = logic.run_detail(st, run_id)
+        out["superseded"] = extra.superseded(st).get(run_id)
+        return out
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"detail": f"evidence unavailable: {type(e).__name__}: {str(e)[:200]}"}, status_code=503)

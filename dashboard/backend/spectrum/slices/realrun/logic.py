@@ -289,7 +289,8 @@ def t1_cell(store: Store, run: str, declared: dict, result: dict | None) -> dict
     }
 
 
-def track1(store: Store, runs: list[str]) -> dict:
+def track1(store: Store, runs: list[str], sup: dict | None = None) -> dict:
+    sup = sup or {}
     by: dict[tuple[str, str], list[tuple[str, dict, dict | None]]] = {}
     labels: dict[str, str] = {}
     for run in runs:
@@ -310,13 +311,17 @@ def track1(store: Store, runs: list[str]) -> dict:
         cells = {}
         for c in cols:
             cand = by.get((u, c["variant"]), [])
-            with_result = [x for x in cand if isinstance(x[2], dict)]
-            pick = max(with_result or cand, key=lambda x: (x[2] or {}).get("checked_at") or x[1].get("declared_at") or "", default=None)
+            live = [x for x in cand if x[0] not in sup] or cand
+            with_result = [x for x in live if isinstance(x[2], dict)]
+            pick = max(with_result or live, key=lambda x: (x[2] or {}).get("checked_at") or x[1].get("declared_at") or "", default=None)
             if pick is None:
                 cells[c["variant"]] = None
             else:
                 cell = t1_cell(store, *pick)
-                cell["other_runs"] = [x[0] for x in cand if x[0] != pick[0]]
+                cell["other_runs"] = [x[0] for x in cand if x[0] != pick[0] and x[0] not in sup]
+                cell["superseded_runs"] = [{"run_id": x[0], **sup[x[0]], "value": num((x[2] or {}).get("value"))}
+                                           for x in cand if x[0] in sup and x[0] != pick[0]]
+                cell["superseded"] = sup.get(pick[0])
                 cells[c["variant"]] = cell
         units.append({"unit": u, "cells": cells})
     # the bar: interface vs execution, per model column
@@ -395,7 +400,8 @@ def rl(store: Store, runs: list[str]) -> dict | None:
 
 # --------------------------------------------------------------------- Track 3 / Track 2
 
-def track3(store: Store, runs: list[str]) -> list[dict]:
+def track3(store: Store, runs: list[str], sup: dict | None = None) -> list[dict]:
+    sup = sup or {}
     out = []
     for run in runs:
         if not run.startswith("t3.evals.") or NOT_HEADLINE.search(run):
@@ -412,9 +418,11 @@ def track3(store: Store, runs: list[str]) -> list[dict]:
     # newest per model id is current; older runs of the same model are kept and marked
     latest: dict[str, str] = {}
     for x in sorted(out, key=lambda x: x["checked_at"] or ""):
-        latest[x["model_id"]] = x["run_id"]
+        if x["run_id"] not in sup:
+            latest[x["model_id"]] = x["run_id"]
     for x in out:
         x["current"] = latest.get(x["model_id"]) == x["run_id"]
+        x["superseded"] = sup.get(x["run_id"])
     return sorted(out, key=lambda x: (not x["current"], -(x["mean_recovery"] or -9), x["run_id"]))
 
 
