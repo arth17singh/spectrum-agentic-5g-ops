@@ -52,7 +52,15 @@ python -m t1.evals.freeze --source-cache <dir>      # regenerate everything (ot-
 python -m t1.evals.run --unit interface --client fake --evidence-dir /tmp/ev   # dry run, synthetic
 ```
 
-For a real comparison, run the base model first. Then run the tuned model with the same flags plus `--baseline-run-id <base run id>`. The harness refuses a baseline that used other items, another prompt or another parser. Prices must be passed in: `--price-in-per-1m` and `--price-out-per-1m`, or `--instance-price-per-hour`. The default targets are placeholders, so declare the real ones with `--target-*`.
+For a real comparison, run the base model first. Then run the tuned model with the same flags plus `--baseline-run-id <base run id>`.
+
+**The gain over the baseline.** It is computed as `paired-bootstrap-v1`, the one method `tools/check_unit.py` part e replays from the item records:
+- **Pairs**: sorted `item_id` pairs; `passed` counts as 1/0.
+- **Resampling**: numpy `default_rng(20261102).integers`, 10,000 resamples. The statistic is the mean difference, and the interval is the linear-quantile 95% interval.
+- **What it is computed on**: execution gains are on `score`; interface, safety and knowledge gains are on `passed` (pass rate). `--gain-metric` overrides this.
+- **Where it is recorded**: the full spec goes in `result.details.gain`. Knowledge records one gain per group in `details.groups.<g>.gain`, each with `subset {field: extra.group}`.
+- **Claiming the interval**: when the claim is about the interval itself (for example "CI lower bound > 0"), declare the bound as the target: `--target-metric gain_ci_low_vs_base --target-op '>' --target-value 0`. The result's value is then `ci_low`, and check_unit replays it.
+- **Latency**: p95-latency gains are a difference of quantiles, which v1 does not cover. They appear only as `details.latency_gain_note` and are never a target. The harness refuses a baseline that used other items, another prompt or another parser. Prices must be passed in: `--price-in-per-1m` and `--price-out-per-1m`, or `--instance-price-per-hour`. The default targets are placeholders, so declare the real ones with `--target-*`.
 
 ## Running as a SageMaker job
 
