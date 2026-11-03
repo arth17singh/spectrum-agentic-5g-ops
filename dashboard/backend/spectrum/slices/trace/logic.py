@@ -49,6 +49,13 @@ def event_time(rec: Rec, kind: str) -> str | None:
     return rec.get("aws_time") or own or rec.get("created_at")
 
 
+def _prov(rec: Rec) -> Rec:
+    """Provenance of one displayed record. `real` needs both: not marked synthetic (fixtures and dry runs are),
+    and an AWS-sourced time. A record without either signal is never counted as real."""
+    synthetic = rec.get("synthetic") is True
+    return {"synthetic": synthetic, "real": (not synthetic) and bool(rec.get("aws_time"))}
+
+
 def _is_pause(rec: Rec) -> bool:
     text = f"{rec.get('deciding_rule') or ''} {rec.get('reason') or ''}".lower()
     return rec.get("decision") == "DENY" and "pause" in text
@@ -89,7 +96,7 @@ def _decision_event(rec: Rec) -> Rec:
         "reason": rec.get("reason"), "guardrail_scores": rec.get("guardrail_scores"),
         "approval_id": rec.get("approval_id"),
         "detail": {k: rec.get(k) for k in ("trace_id", "span_id", "log_pointer", "aws_time_source") if rec.get(k) is not None},
-        "kind": "decision", "step": step, "category": cat,
+        "kind": "decision", "step": step, "category": cat, **_prov(rec),
     }
 
 
@@ -105,7 +112,7 @@ def _change_event(rec: Rec, log_seen: bool = False) -> Rec:
         "time": event_time(rec, "change"), "source": "change", "agent": None, "tool": "apply_change",
         "decision": None, "deciding_rule": None, "reason": None, "guardrail_scores": None,
         "approval_id": rec.get("change_id"), "detail": detail,
-        "kind": "change", "step": "change_applied", "category": "applied",
+        "kind": "change", "step": "change_applied", "category": "applied", **_prov(rec),
     }
 
 
@@ -120,7 +127,7 @@ def _applied_log_event(rec: Rec) -> Rec:
         "time": event_time(rec, "decision"), "source": rec.get("source") or "/aws/lambda/team13-ran-tools", "agent": rec.get("agent"),
         "tool": rec.get("tool") or "ran___apply_change", "decision": None, "deciding_rule": None, "reason": None,
         "guardrail_scores": None, "approval_id": rec.get("approval_id"), "detail": detail,
-        "kind": "log", "step": "change_applied", "category": "applied",
+        "kind": "log", "step": "change_applied", "category": "applied", **_prov(rec),
     }
 
 
@@ -131,7 +138,8 @@ def _control_event(rec: Rec) -> Rec:
         "tool": rec.get("model_id"), "decision": str(rec.get("action") or "").upper() or None,
         "deciding_rule": rec.get("policy_name"), "reason": rec.get("reason"), "guardrail_scores": None,
         "approval_id": None, "detail": detail,
-        "kind": "control", "step": "control", "category": "control",
+        "kind": "control", "step": "control", "category": "control", **_prov(rec),
+        "record_id": f"{rec.get('run_id')}|{rec.get('model_id')}|{rec.get('version')}|{rec.get('action')}|{rec.get('time')}",
     }
 
 
@@ -218,6 +226,36 @@ def _is_pause_event(e: Rec) -> bool:
 
 # ---------------------------------------------------------------------------------------------- listing
 
+# ---------------------------------------------------------------------------------------------- provenance
+
+def provenance(events: Iterable[Rec]) -> Rec:
+    """What the screen may claim about the records it displays. `state`:
+      empty       nothing displayed
+      real        every record has an AWS time and none is marked synthetic
+      synthetic   every record is marked synthetic (test fixtures, dry runs)
+      mixed       some synthetic, some not
+      unverified  none synthetic, but some lack an AWS time (so not shown as real)
+    `note` is the text to show. `claim` ("Nothing here is simulated.") is non-empty only in the real state."""
+    ev = list(events)
+    n = len(ev)
+    n_syn = sum(1 for e in ev if e.get("synthetic"))
+    n_unv = sum(1 for e in ev if not e.get("synthetic") and not e.get("real"))
+    if n == 0:
+        state, label, note = "empty", "", ""
+    elif n_syn == n:
+        state, label, note = "synthetic", "SYNTHETIC", "Synthetic records (test fixtures): not a real run."
+    elif n_syn == 0 and n_unv == 0:
+        state, label, note = "real", "REAL", "Every record shown has an AWS time and is not marked synthetic."
+    elif n_syn == 0:
+        state, label = "unverified", "UNVERIFIED"
+        note = f"{n_unv} of {n} records have no AWS time, so they are not shown as real."
+    else:
+        state, label = "mixed", "MIXED"
+        note = f"{n_syn} of {n} records synthetic" + (f"; {n_unv} more have no AWS time." if n_unv else ".")
+    claim = "Nothing here is simulated." if state == "real" else ""
+    return {"state": state, "label": label, "note": note, "claim": claim, "n_records": n, "n_synthetic": n_syn, "n_unverified": n_unv}
+
+
 def _group(records: Iterable[Rec]) -> dict[tuple[str, str], list[Rec]]:
     out: dict[tuple[str, str], list[Rec]] = {}
     for r in records:
@@ -240,23 +278,34 @@ def summarize(run_id: str, case_id: str, timeline: list[Rec], check: Rec) -> Rec
         "pauses": sum(1 for e in dec if e["category"] == "pause"),
         "applied": sum(1 for e in timeline if e["step"] == "change_applied"),
         "check_passed": check["passed"],
-        "synthetic": False,
+        "synthetic": any(e.get("synthetic") for e in timeline),
+        "provenance": provenance(timeline),
     }
 
 
-def build_cases(decisions: list[Rec], changes: list[Rec], controls: list[Rec]) -> list[Rec]:
-    """One row per (run_id, case_id), newest first. A case exists when it has at least one decision or change."""
+def build_overview(decisions: list[Rec], changes: list[Rec], controls: list[Rec]) -> Rec:
+    """One row per (run_id, case_id), newest first, plus the provenance of every record displayed across them
+    (a control shown in several case windows is counted once). A case exists when it has at least one decision
+    or change."""
     d, c = _group(decisions), _group(changes)
-    rows = []
+    rows, shown, ctl_seen = [], [], set()
     for key in sorted(set(d) | set(c)):
         run_id, case_id = key
         tl = build_timeline(case_id, d.get(key, []), c.get(key, []), [x for x in controls if (x.get("run_id") or "") == run_id or not x.get("run_id")])
-        row = summarize(run_id, case_id, tl, check_sequence(tl))
-        row["synthetic"] = any(r.get("synthetic") is True for r in d.get(key, []) + c.get(key, []))
-        rows.append(row)
+        rows.append(summarize(run_id, case_id, tl, check_sequence(tl)))
+        for e in tl:
+            if e["kind"] == "control":
+                if e["record_id"] in ctl_seen:
+                    continue
+                ctl_seen.add(e["record_id"])
+            shown.append(e)
     far = ""
     rows.sort(key=lambda r: r["last_time"] or far, reverse=True)
-    return rows
+    return {"cases": rows, "provenance": provenance(shown)}
+
+
+def build_cases(decisions: list[Rec], changes: list[Rec], controls: list[Rec]) -> list[Rec]:
+    return build_overview(decisions, changes, controls)["cases"]
 
 
 def build_case(case_id: str, decisions: list[Rec], changes: list[Rec], controls: list[Rec],
@@ -273,8 +322,6 @@ def build_case(case_id: str, decisions: list[Rec], changes: list[Rec], controls:
     tl = build_timeline(case_id, d.get(key, []), c.get(key, []), ctl)
     check = check_sequence(tl)
     row = summarize(key[0], case_id, tl, check)
-    recs = d.get(key, []) + c.get(key, [])
-    row["synthetic"] = any(r.get("synthetic") is True for r in recs)
     return {
         **row, "timeline": tl, "check": check,
         "other_runs": [k[0] for k in keys if k != key],
