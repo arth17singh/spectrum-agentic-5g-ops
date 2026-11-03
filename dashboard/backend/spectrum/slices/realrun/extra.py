@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .logic import Store, _ci, jobs_for, num, recompute
+from .logic import Store, _ci, jobs_for, num, verdict, verdict_why
 
 REPO = Path(__file__).resolve().parents[5]
 
@@ -69,8 +69,8 @@ def judged(store: Store) -> dict | None:
 
     def status(rid: str) -> dict:
         decl, res = store.declared(rid), store.result(rid)
-        st = "missing" if not decl and not res else "declared" if not res else (recompute(res, decl) or "inconsistent")
-        return {"run_id": rid, "state": st, "value": num((res or {}).get("value")), "metric": (res or {}).get("metric"),
+        st = "missing" if not decl and not res else "declared" if not res else (verdict(store, res, decl) or "inconsistent")
+        return {"run_id": rid, "state": st, "why": verdict_why(store, res), "value": num((res or {}).get("value")), "metric": (res or {}).get("metric"),
                 "target": (decl or {}).get("target"), "checked_at": (res or {}).get("checked_at"),
                 "superseded": sup.get(rid), "check": (store.check(rid) or {}).get("exit_code")}
 
@@ -85,7 +85,7 @@ def judged(store: Store) -> dict | None:
     slots = [slot(s) for s in d.get("slots") or [] if isinstance(s, dict)]
     edges = [slot(s) for s in d.get("edge_cases") or [] if isinstance(s, dict)]
     listed = [r for r in d.get("run_ids") or [] if isinstance(r, str)]
-    return {"source": where, "primary_track": d.get("primary_track"), "slots": slots, "edge_cases": edges,
+    return {"source": "judging.json" if where else None, "primary_track": d.get("primary_track"), "slots": slots, "edge_cases": edges,
             "run_ids": [status(r) for r in listed], "supporting_run_ids": [r for r in d.get("supporting_run_ids") or [] if isinstance(r, str)],
             "filled": sum(1 for s in slots if s["runs"]), "total": len(slots)}
 
@@ -118,7 +118,8 @@ def track3_live(store: Store, runs: list[str]) -> list[dict]:
         d, r = store.declared(run) or {}, store.result(run)
         det = (r or {}).get("details") or {}
         out.append({"run_id": run, "unit": d.get("unit") or (r or {}).get("unit"), "model_id": d.get("model_id"),
-                    "state": (recompute(r, d) or "inconsistent") if r else "not checked", "value": num((r or {}).get("value")),
+                    "state": (verdict(store, r, d) or "inconsistent") if r else "not checked", "why": verdict_why(store, r),
+                    "value": num((r or {}).get("value")),
                     "metric": (r or {}).get("metric"), "target": d.get("target"), "n_items": (r or {}).get("n_items"),
                     "n_declared": d.get("n_items"), "facts": _facts(det), "ci": _ci(r) if r else None,
                     "checked_at": (r or {}).get("checked_at"), "declared_at": d.get("declared_at"),
@@ -197,7 +198,7 @@ def track2_consortium(store: Store, runs: list[str]) -> dict:
             S["federated"].append({**base, "variant": kind, "facts": facts, "note": ((((d.get("twin") or {}).get("config") or {}).get("details") or {}).get("note")),
                                    "population": ((((d.get("twin") or {}).get("config") or {}).get("details") or {}).get("population"))})
         elif kind == "compare":
-            S["compare"].append({"run_id": run, "name": ".".join(parts[2:-1]) or parts[2], "state": recompute(r, d) or "inconsistent",
+            S["compare"].append({"run_id": run, "name": ".".join(parts[2:-1]) or parts[2], "state": verdict(store, r, d) or "inconsistent",
                                  "target": d.get("target"), "value": num(r.get("value")), "ci": _ci(r), "x_run": det.get("x_run"),
                                  "y_run": det.get("y_run"), "x_model": det.get("x_model"), "y_model": det.get("y_model"),
                                  "mean_diff": num(det.get("mean_diff")), "kind": det.get("kind"), "checked_at": r.get("checked_at")})

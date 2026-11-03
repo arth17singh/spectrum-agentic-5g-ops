@@ -18,7 +18,7 @@ interface Cell {
   run_id: string; model_id: string; state: string; value: number | null; metric: string; target: Rec
   pass_rate: number | null; mean_score: number | null; n_items: number | null
   p50_ms: number | null; p95_ms: number | null; cost_per_1k_usd: number | null; instance_type?: string; price_source?: string
-  cost_method?: string; ci: Rec | null; checked_at?: string; declared_at?: string; declared_s3_time?: string; result_s3_time?: string
+  cost_method?: string; ci: Rec | null; why?: string[]; checked_at?: string; declared_at?: string; declared_s3_time?: string; result_s3_time?: string
   jobs: Job[]; other_runs: string[]; secondary: Rec[]
   superseded_runs?: { run_id: string; reason: string; by: string[]; value: number | null }[]
 }
@@ -57,10 +57,19 @@ const STATE: Record<string, { Icon: typeof CircleCheck; color: string; word: str
   fail: { Icon: CircleX, color: 'var(--critical-ink)', word: 'MISS' },
   'not checked': { Icon: CircleDashed, color: 'var(--ink-3)', word: 'NO RESULT YET' },
   inconsistent: { Icon: TriangleAlert, color: 'var(--warn-ink)', word: 'INCONSISTENT' },
+  incomplete: { Icon: TriangleAlert, color: 'var(--warn-ink)', word: 'INCOMPLETE' },
+  'check failed': { Icon: CircleX, color: 'var(--critical-ink)', word: 'FAIL (check_unit)' },
+  unverified: { Icon: TriangleAlert, color: 'var(--warn-ink)', word: 'UNVERIFIED' },
 }
-export const Verdict = ({ s }: { s: string }) => {
+/** A status. `why` (from the server) explains an override: complete:false or a failed check_unit part. */
+export const Verdict = ({ s, why }: { s: string; why?: string[] }) => {
   const x = STATE[s] ?? STATE.inconsistent
-  return <span className="inline-flex items-center gap-1 text-micro font-semibold tracking-[0.04em]" style={{ color: x.color }}><x.Icon size={13} aria-hidden />{x.word}</span>
+  return (
+    <span className="inline-flex flex-col">
+      <span className="inline-flex items-center gap-1 text-micro font-semibold tracking-[0.04em]" style={{ color: x.color }} data-verdict={s}><x.Icon size={13} aria-hidden />{x.word}</span>
+      {(why ?? []).map((w) => <span key={w} className="max-w-[46ch] text-micro font-normal break-words" style={{ color: x.color }}>{w}</span>)}
+    </span>
+  )
 }
 
 const NotRun = ({ what = 'not run yet' }: { what?: string }) => (
@@ -140,7 +149,7 @@ function T1Cell({ c }: { c: Cell }) {
   return (
     <div className="space-y-0.5" data-run={c.run_id} data-state={c.state}>
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <Verdict s={c.state} />
+        <Verdict s={c.state} why={c.why} />
         <span className={clsx('tnum text-[15px] font-semibold', c.state === 'fail' ? 'text-critical-ink' : 'text-ink-1')}>{c.state === 'not checked' ? '—' : value(c.value, unit)}</span>
         <span className="tnum text-micro text-ink-3">target {targetText(c.target)} · {c.metric}</span>
       </div>
@@ -205,7 +214,7 @@ function RL({ rl }: { rl: Rec }) {
   const tj: Job | undefined = tr?.jobs?.[0]
   return (
     <Panel id="realrun-rl" plane="verify" title="Track 1 RL: the SDK gate" subtitle={`${(rl.items ?? []).filter((i: Rec) => i.passed).length} of ${(rl.items ?? []).length} items pass · run passes only if all pass`}>
-      <div className="mb-2 flex flex-wrap items-baseline gap-2"><Verdict s={rl.result?.recomputed ?? 'inconsistent'} /><span className="tnum text-cap text-ink-1">{num(rl.result?.value)} {rl.result?.metric}</span><span className="text-micro text-ink-3">target {targetText(rl.result?.target)}</span><RunLink id={rl.run_id} /></div>
+      <div className="mb-2 flex flex-wrap items-baseline gap-2"><Verdict s={rl.result?.recomputed ?? 'inconsistent'} why={rl.result?.why} /><span className="tnum text-cap text-ink-1">{num(rl.result?.value)} {rl.result?.metric}</span><span className="text-micro text-ink-3">target {targetText(rl.result?.target)}</span><RunLink id={rl.run_id} /></div>
       <ul className="grid gap-1.5 sm:grid-cols-2" data-testid="rl-items">
         {(rl.items ?? []).map((i: Rec) => (
           <li key={i.id} className={clsx('rounded-md border px-2.5 py-1.5', i.passed ? 'border-line' : 'border-critical/60 bg-critical/10')}>
@@ -258,7 +267,7 @@ function Track3({ rows }: { rows: Rec[] }) {
               {rows.map((r) => (
                 <tr key={r.run_id} className={clsx('border-b border-line/60 align-top', !r.current && 'opacity-60')}>
                   <td className="px-3 py-2"><div className="font-medium text-ink-1">{r.model_id}{r.mode === 'masked' || /masked/.test(r.run_id) ? ' (masked)' : ''}</div><RunLink id={r.run_id} />{r.superseded ? <div><Superseded reason={r.superseded.reason} /></div> : !r.current && <div className="text-micro text-ink-3">earlier run of the same policy</div>}</td>
-                  <td className="px-3 py-2"><Verdict s={r.recomputed ?? 'inconsistent'} /><div className="tnum text-micro text-ink-3">{r.metric} {targetText(r.target)}</div></td>
+                  <td className="px-3 py-2"><Verdict s={r.recomputed ?? 'inconsistent'} why={r.why} /><div className="tnum text-micro text-ink-3">{r.metric} {targetText(r.target)}</div></td>
                   <td className="tnum px-3 py-2 text-ink-1">{num(r.mean_recovery)}</td>
                   <td className="tnum px-3 py-2 text-ink-2">{pct(r.success_rate)}</td>
                   <td className="px-3 py-2"><CIBar ci={r.ci} /></td>
@@ -283,7 +292,7 @@ function Track3Live({ rows }: { rows: Rec[] }) {
             <div key={r.run_id} className={clsx('grid gap-2 px-4 py-3 md:grid-cols-[220px_1fr]', r.superseded && 'opacity-60')}>
               <div>
                 <div className="font-medium text-ink-1">{r.unit}</div>
-                <Verdict s={r.state} /> <span className="tnum text-cap text-ink-1">{num(r.value)} {r.metric}</span>
+                <Verdict s={r.state} why={r.why} /> <span className="tnum text-cap text-ink-1">{num(r.value)} {r.metric}</span>
                 <div className="tnum text-micro text-ink-3">target {targetText(r.target)} · n = {r.n_items ?? '—'}{r.n_declared != null && r.n_declared !== r.n_items ? ` of ${r.n_declared} declared` : ''}</div>
                 <RunLink id={r.run_id} />
                 {r.superseded && <div><Superseded reason={r.superseded.reason} /></div>}
@@ -302,22 +311,32 @@ function Track3Live({ rows }: { rows: Rec[] }) {
   )
 }
 
+/** "t2.local_only.B.disjoint" -> "local-only (silo B)"; read from the unit name, never a guess at the model. */
+function t2Method(r: Rec): string {
+  const p = String(r.unit ?? '').split('.')
+  const k = p[1] ?? ''
+  if (k === 'local_only') return `local-only (silo ${p[2] ?? '?'})`
+  if (k === 'central') return 'central (pooled reference)'
+  if (k === 'fedavg_local') return 'local FedAvg (our simulation)'
+  if (k.startsWith('fl')) return 'federated (FL service)'
+  if (k === 'compare') return `comparison: ${p.slice(2, -1).join('.')}`
+  if (k === 'silo_data') return 'silo data check'
+  return String(r.method ?? r.unit ?? '—')
+}
+
 function Track2({ rows }: { rows: Rec[] }) {
   return (
-    <Panel id="realrun-t2" plane="learn" title="Track 2 baselines (simulated silos)" subtitle="per-silo and pooled training on disjoint synthetic silo data; federated runs arrive later" flush>
+    <Panel id="realrun-t2" plane="learn" title="Track 2 baselines (simulated silos)" subtitle="per-silo, pooled and federated models on the shared test of simulated silos · score = scaled MAE, lower is better" flush>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-cap" data-testid="t2-table">
-          <thead><tr className="border-b border-line text-left text-micro text-ink-3">{['Run', 'Method', 'Silo', 'Mean score', 'No-op score', 'MAE', 'Direction acc.', 'n', 'AWS job'].map((h) => <th key={h} className="px-3 py-2 font-medium whitespace-nowrap">{h}</th>)}</tr></thead>
+          <thead><tr className="border-b border-line text-left text-micro text-ink-3">{['Run', 'Method', 'Mean score', 'No-op score', 'n', 'AWS job'].map((h) => <th key={h} className="px-3 py-2 font-medium whitespace-nowrap">{h}</th>)}</tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.run_id} className="border-b border-line/60 align-top">
                 <td className="px-3 py-2"><RunLink id={r.run_id} /></td>
-                <td className="px-3 py-2 text-ink-1">{r.method ?? r.unit}</td>
-                <td className="px-3 py-2 text-ink-2">{r.silo ?? '—'}</td>
+                <td className="px-3 py-2 text-ink-1">{t2Method(r)}</td>
                 <td className="tnum px-3 py-2 text-ink-1">{num(r.mean_score)}</td>
                 <td className="tnum px-3 py-2 text-ink-3">{num(r.mean_score_noop)}</td>
-                <td className="tnum px-3 py-2 text-ink-2">{num(r.mae)}</td>
-                <td className="tnum px-3 py-2 text-ink-2">{pct(r.direction_accuracy)}</td>
                 <td className="tnum px-3 py-2 text-ink-2">{r.n_items ?? '—'}</td>
                 <td className="px-3 py-2">{(r.jobs ?? []).map((j: Job) => <JobLine key={j.name} j={j} />)}</td>
               </tr>

@@ -35,6 +35,17 @@ def _source(r) -> Any:
         return None
 
 
+def _govern_listing(out: dict) -> dict:
+    """check_unit governs "verified": each case's provenance by its run, the listing's by all runs shown."""
+    from spectrum.slices._shared.verified import govern
+
+    for c in out.get("cases") or []:
+        if isinstance(c, dict):
+            c["provenance"] = govern(c.get("provenance"), [c.get("run_id")])
+    out["provenance"] = govern(out.get("provenance"), [c.get("run_id") for c in out.get("cases") or [] if isinstance(c, dict)])
+    return out
+
+
 def _unavailable(e: Exception) -> JSONResponse:
     return JSONResponse({"detail": f"records unavailable: {type(e).__name__}: {e}"}, status_code=503)
 
@@ -52,8 +63,8 @@ def cases():
     except Exception as e:  # noqa: BLE001 - shown as an error, never as "no records"
         return _unavailable(e)
     ov = logic.build_overview(changes, decl)
-    return {"cases": ov["cases"], "n_cases": len(ov["cases"]), "n_changes": len(changes),
-            "provenance": ov["provenance"], "field_spec": logic.FIELD_SPEC, "source": _source(r)}
+    return _govern_listing({"cases": ov["cases"], "n_cases": len(ov["cases"]), "n_changes": len(changes),
+                            "provenance": ov["provenance"], "field_spec": logic.FIELD_SPEC, "source": _source(r)})
 
 
 @router.get("/case/{case_id}")
@@ -62,13 +73,17 @@ def case(case_id: str, run_id: str | None = None):
         r = _reader()
         changes = list(r.all_records("change"))
         decisions = list(r.all_records("decision"))
-        items = list(r.all_records("item"))
-        decl = _declared(r, [c.get("run_id") for c in changes if c.get("case_id") == case_id])
+        case_runs = sorted({c.get("run_id") for c in changes if c.get("case_id") == case_id and isinstance(c.get("run_id"), str)})
+        items = [x for rid in case_runs for x in r.records(rid, "item")]
+        decl = _declared(r, case_runs)
     except Exception as e:  # noqa: BLE001
         return _unavailable(e)
     out = logic.build_case(case_id, changes, decisions, items, decl, run_id)
     if out is None:
         return JSONResponse({"detail": f"unknown case: {case_id}"}, status_code=404)
+    from spectrum.slices._shared.verified import govern
+
+    out["provenance"] = govern(out.get("provenance"), [out.get("run_id")])
     return {**out, "source": _source(r)}
 
 

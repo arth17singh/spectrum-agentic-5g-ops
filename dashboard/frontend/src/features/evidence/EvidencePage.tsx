@@ -307,7 +307,7 @@ function RunDetail({ runId, summary, bv, records, fp }: { runId: string; summary
       <div className="col-span-12 min-w-0 2xl:col-span-8">
         <div className="mb-2 flex items-center gap-2">
           <span className="text-micro font-medium text-ink-3">Signed chain for this run</span>
-          <span className="text-micro text-ink-3">{recs.length} record{recs.length === 1 ? '' : 's'}; links are checked against the full ledger</span>
+          <span className="text-micro text-ink-3">{d?.total_records != null && d.total_records > recs.length ? `first ${recs.length} of ${d.total_records} records` : `${recs.length} record${recs.length === 1 ? '' : 's'}`}; links are checked against the full ledger</span>
           <Button size="sm" className="ml-auto" icon={<ShieldCheck size={13} />} disabled={bv.phase === 'running'} onClick={(e) => { e.stopPropagation(); bv.run() }}>
             {bv.phase === 'running' ? 'Verifying…' : 'Verify in browser'}
           </Button>

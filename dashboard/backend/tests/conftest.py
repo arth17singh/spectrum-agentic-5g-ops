@@ -16,3 +16,4 @@ os.environ["SPECTRUM_EVIDENCE_KEY"] = os.path.join(_tmp, "evidence-key")
 os.environ.pop("SPECTRUM_EVIDENCE_S3", None)
 os.environ["SPECTRUM_RECORDS_ROOT"] = "file://" + os.path.join(_tmp, "evidence")
 os.environ["SPECTRUM_OFFLINE"] = "1"
+os.environ["SPECTRUM_EVIDENCE_REVERIFY_S"] = "0"  # tests tamper and read at once: re-verify on every read

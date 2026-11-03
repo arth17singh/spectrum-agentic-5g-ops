@@ -173,6 +173,67 @@ def recompute(result: dict | None, declared: dict | None) -> str | None:
     return "pass" if OPS[op](v, tv) else "fail"
 
 
+def failed_parts(store: Store, run: str | None) -> list[str]:
+    """check_unit parts that FAILED for this run (from the cached --json output), as "[e] <first line>"."""
+    c = store.check(run) if isinstance(run, str) else None
+    if not isinstance(c, dict) or c.get("exit_code") != 1:
+        return []
+    parts = ((c.get("summary") or {}).get("parts")) or {}
+    out = [f"[{k}] {_fail_line(p.get('lines') or [])}" for k, p in parts.items() if isinstance(p, dict) and p.get("state") == "FAIL"]
+    return out or ["check_unit exited 1"]
+
+
+def _fail_line(lines: list) -> str:
+    """The line that says why a part failed (it starts with FAIL), else the part's last line."""
+    return _clean_line(next((str(x) for x in lines if str(x).startswith("FAIL")), str(lines[-1]) if lines else ""))
+
+
+def verdict(store: Store, result: dict | None, declared: dict | None) -> str | None:
+    """The status shown anywhere: the recomputed PASS/FAIL, overridden by the run's own evidence checks.
+    A result with details.complete == false is "incomplete"; a cached check_unit that FAILED a part is
+    "check failed". Neither can ever read as a pass."""
+    base = recompute(result, declared)
+    if not isinstance(result, dict):
+        return base
+    if ((result.get("details") or {}).get("complete")) is False:
+        return "incomplete"
+    if failed_parts(store, result.get("run_id")):
+        return "check failed"
+    if part_c_not_pass(store, result.get("run_id")):
+        return "unverified"
+    return base
+
+
+def part_c_not_pass(store: Store, run: str | None) -> str | None:
+    """check_unit part c (records keyed to the run, times agree with AWS) cached and not PASS -> its first line."""
+    c = store.check(run) if isinstance(run, str) else None
+    p = ((((c or {}).get("summary") or {}).get("parts")) or {}).get("c")
+    if not isinstance(p, dict) or p.get("state") == "PASS":
+        return None
+    return f"[c] {p.get('state')}: {(p.get('lines') or [''])[-1]}"
+
+
+def verdict_why(store: Store, result: dict | None) -> list[str]:
+    if not isinstance(result, dict):
+        return []
+    why = []
+    if ((result.get("details") or {}).get("complete")) is False:
+        why.append("the result says complete: false (the run did not finish its declared items)")
+    why += [f"check_unit {x}" for x in failed_parts(store, result.get("run_id"))]
+    c = part_c_not_pass(store, result.get("run_id"))
+    if c and not any(w.startswith("check_unit [c]") for w in why):
+        why.append(f"UNVERIFIED: check_unit {c}")
+    return why
+
+
+_REPO_NAME = re.compile(r"(is (?:not )?a commit) in \S+")
+
+
+def _clean_line(s: str) -> str:
+    """check_unit names the local checkout it ran in ("is a commit in <dir>"); show the commit only."""
+    return _REPO_NAME.sub(r"\1 in the team repo", s)
+
+
 def check_parts(store: Store, run: str) -> dict | None:
     c = store.check(run)
     if not isinstance(c, dict):
@@ -183,7 +244,7 @@ def check_parts(store: Store, run: str) -> dict | None:
     for k, p in (raw.items() if isinstance(raw, dict) else []):
         if isinstance(p, dict):
             lines = p.get("lines") if isinstance(p.get("lines"), list) else []
-            parts.append({"id": k, "state": p.get("state"), "title": p.get("title"), "lines": [str(x) for x in lines[:14]],
+            parts.append({"id": k, "state": p.get("state"), "title": p.get("title"), "lines": [_clean_line(str(x)) for x in lines[:14]],
                           "more_lines": max(0, len(lines) - 14)})
     return {"exit_code": c.get("exit_code"), "checked_at": c.get("checked_at"), "elapsed_s": c.get("elapsed_s"),
             "verdict": {0: "all parts passed", 1: "a part failed", 2: "nothing failed, a part could not be checked"}.get(c.get("exit_code"), "unknown"),
@@ -218,7 +279,8 @@ def run_summary(store: Store, run: str) -> dict:
         "result": None if r is None else {
             "metric": r.get("metric"), "value": num(r.get("value")), "n_items": r.get("n_items"),
             "checked_at": r.get("checked_at"), "stored_passed": r.get("passed"),
-            "recomputed": recompute(r, d) if d else None, "s3_time": store.s3_time(f"results/{run}.json")},
+            "recomputed": verdict(store, r, d) if d else None, "why": verdict_why(store, r),
+            "s3_time": store.s3_time(f"results/{run}.json")},
         "jobs": jobs,
         "cost_usd": sum(j["cost_usd"] for j in jobs if j.get("cost_usd") is not None) if any(j.get("cost_usd") is not None for j in jobs) else None,
         "attest": a.get("counts"),
@@ -267,7 +329,8 @@ def t1_cell(store: Store, run: str, declared: dict, result: dict | None) -> dict
         "run_id": run,
         "model_id": declared.get("model_id"),
         "target": declared.get("target"),
-        "state": (recompute(result, declared) or "inconsistent") if result else "not checked",
+        "state": (verdict(store, result, declared) or "inconsistent") if result else "not checked",
+        "why": verdict_why(store, result),
         "value": num((result or {}).get("value")),
         "metric": (result or {}).get("metric"),
         "pass_rate": num(det.get("pass_rate")),
@@ -386,7 +449,8 @@ def rl(store: Store, runs: list[str]) -> dict | None:
     return {
         "run_id": run,
         "result": {"value": num(res.get("value")), "metric": res.get("metric"), "n_items": res.get("n_items"),
-                   "target": decl.get("target"), "recomputed": recompute(res, decl), "checked_at": res.get("checked_at")},
+                   "target": decl.get("target"), "recomputed": verdict(store, res, decl), "why": verdict_why(store, res),
+                   "checked_at": res.get("checked_at")},
         "items": items, "model_overall": mo, "baseline_overall": bo, "thresholds": th,
         "checkpoint_steps": det.get("checkpoint_steps"), "checkpoint_sha256": det.get("checkpoint_sha256"),
         "release": det.get("release"), "model_form": det.get("model_form"),
@@ -412,7 +476,7 @@ def track3(store: Store, runs: list[str], sup: dict | None = None) -> list[dict]
         det = r.get("details") or {}
         out.append({"run_id": run, "model_id": det.get("model_id") or d.get("model_id"), "mode": det.get("mode"),
                     "subset": det.get("subset"), "n_items": r.get("n_items"), "metric": r.get("metric"),
-                    "value": num(r.get("value")), "target": d.get("target"), "recomputed": recompute(r, d),
+                    "value": num(r.get("value")), "target": d.get("target"), "recomputed": verdict(store, r, d), "why": verdict_why(store, r),
                     "mean_recovery": num(det.get("mean_recovery")), "success_rate": num(det.get("success_rate")),
                     "ci": _ci(r), "checked_at": r.get("checked_at"), "jobs": jobs_for(store, run)})
     # newest per model id is current; older runs of the same model are kept and marked
@@ -436,7 +500,7 @@ def track2(store: Store, runs: list[str]) -> list[dict]:
         out.append({"run_id": run, "unit": d.get("unit"), "method": det.get("method"), "silo": det.get("silo"),
                     "mean_score": num(det.get("mean_score")), "mean_score_noop": num(det.get("mean_score_noop")),
                     "mae": num(det.get("mae")), "direction_accuracy": num(det.get("direction_accuracy")),
-                    "n_items": (r or {}).get("n_items"), "state": recompute(r, d) if r else "not checked",
+                    "n_items": (r or {}).get("n_items"), "state": verdict(store, r, d) if r else "not checked",
                     "target": d.get("target"), "checked_at": (r or {}).get("checked_at"), "jobs": jobs_for(store, run)})
     return out
 

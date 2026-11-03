@@ -14,7 +14,7 @@ const RunState = ({ r }: { r: Rec }) => (
     {r.state === 'missing'
       ? <span className="text-micro text-warn-ink">listed, but not in the evidence mirror</span>
       : r.state === 'declared' ? <span className="text-micro text-ink-3">declared, no result yet</span>
-      : <><Verdict s={r.state} /><span className="tnum text-micro text-ink-1">{num(r.value)} {r.metric}</span><span className="text-micro text-ink-3">target {targetText(r.target)}</span></>}
+      : <><Verdict s={r.state} why={r.why} /><span className="tnum text-micro text-ink-1">{num(r.value)} {r.metric}</span><span className="text-micro text-ink-3">target {targetText(r.target)}</span></>}
     <RunLink id={r.run_id} />
     {r.check != null && <span className="text-micro text-ink-3">check_unit exit {r.check}</span>}
     {r.superseded && <Superseded reason={r.superseded.reason} by={r.superseded.by} />}
@@ -45,7 +45,7 @@ export default function JudgedRuns() {
   const j: Rec | null | undefined = ov?.judged
   return (
     <Panel id="judged-runs" plane="prove" className="mt-4" title="Judged runs"
-      subtitle={j ? `${j.filled} of ${j.total} slots filled · primary ${j.primary_track ?? '—'} · from ${j.source}` : 'judging.json'}>
+      subtitle={j ? `${j.filled} of ${j.total} slots filled · primary ${j.primary_track ?? '—'} · judging.json` : 'judging.json'}>
       {err && !ov && <div className="text-cap text-critical-ink">Unavailable: <span className="mono">{err}</span></div>}
       {ov && !j && <div className="text-cap text-ink-2">No judging.json found. Copy it from the hand-in branch with <span className="mono">make evidence-sync HANDIN=&lt;branch&gt;</span>.</div>}
       {j && (

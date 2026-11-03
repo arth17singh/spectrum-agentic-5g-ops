@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom'
 import { get } from '@/core/api'
 import type { Rec } from '@/core/types'
 import { CodeBlock, Panel } from '@/ui'
-import { JobLine, Verdict, type Job, type Overview } from '../scorecard/RealRuns'
+import { JobLine, Superseded, Verdict, type Job, type Overview } from '../scorecard/RealRuns'
 import { num, targetText, utc } from '../scorecard/format'
 
 // Run id -> declaration -> SageMaker job -> records -> result -> check_unit, read from the local mirror of
@@ -82,6 +82,7 @@ function Chain({ id }: { id: string }) {
   const cu: Rec | null = d.check_unit
   return (
     <div className="mt-4 grid grid-cols-12 gap-4" data-testid="run-chain" data-run={id}>
+      {d.superseded && <div className="col-span-12 rounded-md border border-dashed border-line px-3 py-2"><Superseded reason={d.superseded.reason} by={d.superseded.by} /><div className="text-micro text-ink-3">{d.superseded.reason}</div></div>}
       <ol className="col-span-12 lg:col-span-6">
         <Step n={1} title="Declaration" ok={d.declared ? d.declared_before_job ?? null : false}>
           {d.declared ? <>
@@ -117,7 +118,7 @@ function Chain({ id }: { id: string }) {
         </Step>
         <Step n={4} title="Result" ok={d.result ? d.result.recomputed === 'pass' : null}>
           {d.result ? <>
-            <div className="flex flex-wrap items-baseline gap-2"><Verdict s={d.result.recomputed ?? 'inconsistent'} /><span className="tnum text-cap text-ink-1">{num(d.result.value)} {d.result.metric}</span><span>n = {d.result.n_items}</span></div>
+            <div className="flex flex-wrap items-baseline gap-2"><Verdict s={d.result.recomputed ?? 'inconsistent'} why={d.result.why} /><span className="tnum text-cap text-ink-1">{num(d.result.value)} {d.result.metric}</span><span>n = {d.result.n_items}</span></div>
             <div>checked_at (our clock) <span className="mono">{utc(d.result.checked_at)}</span> · stored in S3 <span className="mono">{utc(d.result.s3_time)}</span></div>
             {d.result.stored_passed !== (d.result.recomputed === 'pass') && d.result.recomputed && <div className="text-warn-ink">stored passed={String(d.result.stored_passed)} disagrees with the recomputed verdict</div>}
           </> : <div>No result yet.</div>}
