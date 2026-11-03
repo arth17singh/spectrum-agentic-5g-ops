@@ -55,7 +55,7 @@ DEFAULT_TARGET = {  # placeholders; the lead declares the real targets on the co
     "execution": {"metric": "mean_score", "op": ">=", "value": 0.50, "unit": "score"},
     "safety": {"metric": "pass_rate", "op": ">=", "value": 0.90, "unit": "ratio"},
     "knowledge": {"metric": "pass_rate", "op": ">=", "value": 0.50, "unit": "ratio"},
-    "price_latency": {"metric": "p95_latency_ms", "op": "<=", "value": 2000.0, "unit": "ms"},
+    "price_latency": {"metric": "p95_latency_ms", "op": "<=", "value": 3000.0, "unit": "ms"},  # plan v5.1
 }
 GRADER_TEXT = {
     "interface": "exact match of {intent, cells, parameter, direction, amount, kpi} on the first JSON object",
@@ -231,7 +231,17 @@ def build_client(a: argparse.Namespace):
                            inference_component=a.inference_component)
 
 
-def run(a: argparse.Namespace, client: Any = None) -> dict:
+def model_label(a: argparse.Namespace) -> str:
+    if a.client == "fake":
+        return f"fake:{a.fake_profile}"
+    if not a.model_id:
+        raise SystemExit("--model-id is required")
+    return a.model_id
+
+
+def judged(a: argparse.Namespace) -> tuple[dict, list[dict]]:
+    """The declaration fields a run is judged on, and the selected items. Used by the run itself and by
+    --print-declaration (for tools/sm/run.py --declaration), so the two cannot disagree. Needs no model."""
     unit = a.unit
     errs = freeze.verify_unit(unit)
     if errs and not a.allow_unfrozen:
@@ -243,20 +253,45 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
         test_sha = freeze.lines_sha256([dumps(it) for it in items])
     if not items:
         raise SystemExit("no items selected")
+    target = dict(DEFAULT_TARGET[unit])
+    for k, v in (("metric", a.target_metric), ("op", a.target_op), ("value", a.target_value), ("unit", a.target_unit)):
+        if v is not None:
+            target[k] = v
+    twin = None
+    if unit == "execution":
+        from t1.evals.gen_execution import SEED_BASE
+        from t1.evals.twin_access import TWIN_SOURCE, sdk_version
+
+        # scenario and seed differ per item; they are stored on every item (meta.scenario, meta.seed)
+        twin = {"kind": "maveric-inprocess", "version": f"ran-rl {sdk_version()}", "scenario": "per-item",
+                "seed": SEED_BASE, "config": {"preset": "official", "replay": TWIN_SOURCE,
+                                              "per_item": "t1/evals/items/execution.jsonl meta.scenario/seed/prefix"}}
+    subset = f"split={a.split}" + (f";group={group}" if group else "") + (f";first={a.limit}" if a.limit else "")
+    fields = {
+        "unit": f"t1.{unit}", "track": TRACK, "target": target, "baseline_run_id": a.baseline_run_id,
+        "n_items": len(items), "test_set_sha256": test_sha, "subset": subset, "prompt_sha256": prompt_sha256(),
+        "parser": PARSER_VERSION, "model_id": model_label(a), "grader": f"{GRADER_VERSION}: {GRADER_TEXT[unit]}",
+        "twin": twin, "synthetic": a.client == "fake" or a.synthetic,
+    }
+    return fields, items
+
+
+def run(a: argparse.Namespace, client: Any = None) -> dict:
+    unit = a.unit
+    fields, items = judged(a)
+    test_sha, target = fields["test_set_sha256"], fields["target"]
     if a.client == "local-hf" and a.instance_price_per_hour is None:
         raise SystemExit("local-hf needs --instance-price-per-hour (on-demand $/h of the job's instance) "
                          "and --price-source")
     sha = resolve_code_sha(a.code_sha)
     client = client or build_client(a)
-    synthetic = a.client == "fake" or a.synthetic
+    if client.model_id != fields["model_id"]:
+        raise SystemExit(f"client model_id {client.model_id!r} != --model-id {fields['model_id']!r}")
+    synthetic = fields["synthetic"]
     max_tokens = a.max_tokens or MAX_TOKENS[unit]
     pricing = Pricing(a.price_in_per_1m, a.price_out_per_1m, a.instance_price_per_hour, a.price_source or "")
     if a.client == "fake" and pricing.in_per_1m is None and pricing.instance_per_hour is None:
         pricing = Pricing(0.10, 0.40, None, "synthetic fake price, not a real price")
-    target = dict(DEFAULT_TARGET[unit])
-    for k, v in (("metric", a.target_metric), ("op", a.target_op), ("value", a.target_value), ("unit", a.target_unit)):
-        if v is not None:
-            target[k] = v
     ev = Evidence(a.evidence_dir)
     baseline = None
     if a.baseline_run_id:
@@ -272,32 +307,16 @@ def run(a: argparse.Namespace, client: Any = None) -> dict:
             if k in mine_dec and theirs is not None and theirs != mine_dec[k]:
                 raise SystemExit(f"baseline decoding.{k} {theirs!r} != this run's {mine_dec[k]!r}: not the same prompt format")
     run_id = a.run_id or new_run_id(unit, client.model_id)
-    twin = None
-    if unit == "execution":
-        from t1.evals.gen_execution import SEED_BASE
-        from t1.evals.twin_access import TWIN_SOURCE, sdk_version
-
-        # scenario and seed differ per item; they are stored on every item (meta.scenario, meta.seed)
-        twin = {"kind": "maveric-inprocess", "version": f"ran-rl {sdk_version()}", "scenario": "per-item",
-                "seed": SEED_BASE, "config": {"preset": "official", "replay": TWIN_SOURCE,
-                                              "per_item": "t1/evals/items/execution.jsonl meta.scenario/seed/prefix"}}
-    subset = f"split={a.split}" + (f";group={group}" if group else "") + (f";first={a.limit}" if a.limit else "")
     decoding = dict(client.decoding(max_tokens))
     decoding["harness"] = {"items_file": f"t1/evals/items/{unit}.jsonl", "manifest": "t1/evals/items/MANIFEST.json",
                            "backend": client.backend, "pricing": pricing.declared(), "code_dirty": safe_dirty(),
                            "evidence_writer": EVIDENCE_SOURCE}
-    declared = {
-        "run_id": run_id, "unit": f"t1.{unit}", "track": TRACK, "target": target,
-        "baseline_run_id": a.baseline_run_id, "n_items": len(items), "test_set_sha256": test_sha,
-        "subset": subset, "prompt_sha256": prompt_sha256(), "parser": PARSER_VERSION, "decoding": decoding,
-        "model_id": client.model_id, "grader": f"{GRADER_VERSION}: {GRADER_TEXT[unit]}",
-        "code_sha": sha, "region": a.region, "twin": twin, "synthetic": synthetic,
-    }
+    declared = {**fields, "run_id": run_id, "decoding": decoding, "code_sha": sha, "region": a.region}
     declared_path = ev.write_declared(declared)
     sections = load_sections()
     if hasattr(client, "file_manifests") and client.file_manifests():
-        ev.store.put_new(f"outputs/{run_id}/model_files.json",
-                         json.dumps(client.file_manifests(), indent=2, sort_keys=True).encode("utf-8"))
+        ev.put_output(f"outputs/{run_id}/model_files.json",
+                      json.dumps(client.file_manifests(), indent=2, sort_keys=True).encode("utf-8"))
     if hasattr(client, "warmup"):
         client.warmup(sections["system"])  # after the declaration; warm-up calls are not items
     grader_name = f"{GRADER_VERSION}:{unit}"
@@ -484,11 +503,19 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--limit", type=int, help="first N selected items only (smoke tests; changes the hash)")
     ap.add_argument("--synthetic", action="store_true", help="mark records synthetic even for a real client")
     ap.add_argument("--allow-unfrozen", action="store_true")
+    ap.add_argument("--print-declaration", action="store_true",
+                    help="print the judged declaration fields as JSON (for tools/sm/run.py --declaration); no model")
     return ap
 
 
 def main(argv: list[str] | None = None) -> int:
     a = parser().parse_args(argv)
+    if a.print_declaration:
+        fields, _ = judged(a)
+        if fields["twin"] is None:
+            fields.pop("twin")
+        print(json.dumps(fields, indent=2, sort_keys=True))
+        return 0
     r = run(a)
     d = r["details"]
     print(json.dumps({"run_id": r["run_id"], "unit": r["unit"], "metric": r["metric"], "value": r["value"],

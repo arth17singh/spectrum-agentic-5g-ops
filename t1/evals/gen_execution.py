@@ -115,9 +115,11 @@ def build_state(spec: dict[str, Any]) -> Any:
     return case(spec["scenario"], spec["seed"], spec["prefix"])
 
 
-def reference(spec: dict[str, Any]) -> dict[str, Any] | None:
+def reference(spec: dict[str, Any], apply_filter: bool = True) -> dict[str, Any] | None:
     """Best-of-K, rule baseline and fixed-answer outcomes, each from W2's counterfactual (the
-    change and the no-change step from the same state and random stream)."""
+    change and the no-change step from the same state and random stream). With apply_filter, None
+    for a state the item filter rejects; without it (re-freezing an existing item on another
+    platform) the values are returned and `kept_by_filter` says what the filter would do."""
     from t1.evals.twin_access import outcome, rule_baseline_change
 
     tw = build_state(spec)
@@ -134,9 +136,11 @@ def reference(spec: dict[str, Any]) -> dict[str, Any] | None:
     rule = rule_baseline_change(state)
     rule_gain = outcome(tw, rule)["gain"]
     const_gain = outcome(tw, CONSTANT_CHANGE)["gain"]
-    if best_gain < MIN_ORACLE_GAIN or const_gain > CONSTANT_MAX_SHARE * best_gain:
+    kept = not (best_gain < MIN_ORACLE_GAIN or const_gain > CONSTANT_MAX_SHARE * best_gain)
+    if apply_filter and not kept:
         return None
     return {
+        "kept_by_filter": kept,
         "state": state,
         "noop_kpi": noop_k,
         "oracle_change": best,
