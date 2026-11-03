@@ -66,3 +66,13 @@ def replay(scenario: str, seed: int, config: Any, changes: list[list[dict[str, A
 
 def requested_changes(twin: Any) -> list[list[dict[str, Any]]]:
     return [entry["change"] for entry in twin.action_log]
+
+
+def single_thread() -> None:
+    """One torch thread: the GP twin is faster, and freeze and replay use the same reduction order."""
+    try:
+        import torch
+
+        torch.set_num_threads(1)
+    except ImportError:
+        pass

@@ -1,0 +1,905 @@
+{
+ "PriceList": [
+  {
+   "product": {
+    "attributes": {
+     "feature": "On-demand Inference",
+     "inferenceType": "Input tokens",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "Qwen3 32B",
+     "operation": "",
+     "provider": "Qwen",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-Qwen3-32B-input-tokens"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "REQSN4M8AVCDU8BK"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "REQSN4M8AVCDU8BK.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "REQSN4M8AVCDU8BK.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.00015 per 1K input tokens for Qwen3 32B in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0001500000"
+        },
+        "rateCode": "REQSN4M8AVCDU8BK.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "REQSN4M8AVCDU8BK",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "Batch Inference",
+     "inferenceType": "Input tokens",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "Qwen3 32B",
+     "operation": "",
+     "provider": "Qwen",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-Qwen3-32B-input-tokens-batch"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "TRMSKNUYWDDGTWWB"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "TRMSKNUYWDDGTWWB.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "TRMSKNUYWDDGTWWB.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.000075 per 1K input tokens for Qwen3 32B in US East (Ohio) for Batch",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0000750000"
+        },
+        "rateCode": "TRMSKNUYWDDGTWWB.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "TRMSKNUYWDDGTWWB",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "On-demand Inference",
+     "inferenceType": "Input tokens flex",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "Qwen3 32B",
+     "operation": "",
+     "provider": "Qwen",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-Qwen3-32B-input-tokens-flex"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "TEZW9T8A3V45ZSY5"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "TEZW9T8A3V45ZSY5.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "TEZW9T8A3V45ZSY5.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.000075 per 1K input tokens flex for Qwen3 32B in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0000750000"
+        },
+        "rateCode": "TEZW9T8A3V45ZSY5.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "TEZW9T8A3V45ZSY5",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "On-demand Inference",
+     "inferenceType": "Input tokens priority",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "Qwen3 32B",
+     "operation": "",
+     "provider": "Qwen",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-Qwen3-32B-input-tokens-priority"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "SF9N44YYYTRAHB4R"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "SF9N44YYYTRAHB4R.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "SF9N44YYYTRAHB4R.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.0002625 per 1K input tokens priority for Qwen3 32B in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0002625000"
+        },
+        "rateCode": "SF9N44YYYTRAHB4R.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "SF9N44YYYTRAHB4R",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "On-demand Inference",
+     "inferenceType": "Output tokens",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "Qwen3 32B",
+     "operation": "",
+     "provider": "Qwen",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-Qwen3-32B-output-tokens"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "SQ4MM597ZHN23FMA"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "SQ4MM597ZHN23FMA.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "SQ4MM597ZHN23FMA.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.0006 per 1K output tokens for Qwen3 32B in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0006000000"
+        },
+        "rateCode": "SQ4MM597ZHN23FMA.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "SQ4MM597ZHN23FMA",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "Batch Inference",
+     "inferenceType": "Output tokens",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "Qwen3 32B",
+     "operation": "",
+     "provider": "Qwen",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-Qwen3-32B-output-tokens-batch"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "66YTMDPKVTRX9252"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "66YTMDPKVTRX9252.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "66YTMDPKVTRX9252.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.0003 per 1K output tokens for Qwen3 32B in US East (Ohio) for Batch",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0003000000"
+        },
+        "rateCode": "66YTMDPKVTRX9252.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "66YTMDPKVTRX9252",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "On-demand Inference",
+     "inferenceType": "Output tokens flex",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "Qwen3 32B",
+     "operation": "",
+     "provider": "Qwen",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-Qwen3-32B-output-tokens-flex"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "U8DS4ED4BCYK6MHQ"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "U8DS4ED4BCYK6MHQ.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "U8DS4ED4BCYK6MHQ.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.0003 per 1K output tokens flex for Qwen3 32B in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0003000000"
+        },
+        "rateCode": "U8DS4ED4BCYK6MHQ.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "U8DS4ED4BCYK6MHQ",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "On-demand Inference",
+     "inferenceType": "Output tokens priority",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "Qwen3 32B",
+     "operation": "",
+     "provider": "Qwen",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-Qwen3-32B-output-tokens-priority"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "QX7CN77ZC63JMG84"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "QX7CN77ZC63JMG84.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "QX7CN77ZC63JMG84.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.00105 per 1K output tokens priority for Qwen3 32B in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0010500000"
+        },
+        "rateCode": "QX7CN77ZC63JMG84.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "QX7CN77ZC63JMG84",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "On-demand Inference",
+     "inferenceType": "Input tokens",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "gpt-oss-20b",
+     "operation": "",
+     "provider": "OpenAI",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-gpt-oss-20b-input-tokens"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "JCY2US7YYMMS444E"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "JCY2US7YYMMS444E.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "JCY2US7YYMMS444E.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.00007 per 1K input tokens for gpt-oss-20b in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0000700000"
+        },
+        "rateCode": "JCY2US7YYMMS444E.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "JCY2US7YYMMS444E",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "Batch Inference",
+     "inferenceType": "Input tokens",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "gpt-oss-20b",
+     "operation": "",
+     "provider": "OpenAI",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-gpt-oss-20b-input-tokens-batch"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "JD8SJMQYHZN5CD93"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "JD8SJMQYHZN5CD93.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "JD8SJMQYHZN5CD93.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.000035 per 1K input tokens for gpt-oss-20b in US East (Ohio) for Batch",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0000350000"
+        },
+        "rateCode": "JD8SJMQYHZN5CD93.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "JD8SJMQYHZN5CD93",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "On-demand Inference",
+     "inferenceType": "Input tokens flex",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "gpt-oss-20b",
+     "operation": "",
+     "provider": "OpenAI",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-gpt-oss-20b-input-tokens-flex"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "TCUF76QTPAWWA8MR"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "TCUF76QTPAWWA8MR.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "TCUF76QTPAWWA8MR.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.000035 per 1K input tokens flex for gpt-oss-20b in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0000350000"
+        },
+        "rateCode": "TCUF76QTPAWWA8MR.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "TCUF76QTPAWWA8MR",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "On-demand Inference",
+     "inferenceType": "Input tokens priority",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "gpt-oss-20b",
+     "operation": "",
+     "provider": "OpenAI",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-gpt-oss-20b-input-tokens-priority"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "2GC2DMUT9UFPX6R3"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "2GC2DMUT9UFPX6R3.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "2GC2DMUT9UFPX6R3.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.0001225 per 1K input tokens priority for gpt-oss-20b in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0001225000"
+        },
+        "rateCode": "2GC2DMUT9UFPX6R3.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "2GC2DMUT9UFPX6R3",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "On-demand Inference",
+     "inferenceType": "Output tokens",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "gpt-oss-20b",
+     "operation": "",
+     "provider": "OpenAI",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-gpt-oss-20b-output-tokens"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "FUYC2RNKG6TXX6JY"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "FUYC2RNKG6TXX6JY.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "FUYC2RNKG6TXX6JY.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.0003 per 1K output tokens for gpt-oss-20b in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0003000000"
+        },
+        "rateCode": "FUYC2RNKG6TXX6JY.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "FUYC2RNKG6TXX6JY",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "Batch Inference",
+     "inferenceType": "Output tokens",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "gpt-oss-20b",
+     "operation": "",
+     "provider": "OpenAI",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-gpt-oss-20b-output-tokens-batch"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "G28H472ATTUG4QCZ"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "G28H472ATTUG4QCZ.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "G28H472ATTUG4QCZ.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.00015 per 1K output tokens for gpt-oss-20b in US East (Ohio) for Batch",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0001500000"
+        },
+        "rateCode": "G28H472ATTUG4QCZ.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "G28H472ATTUG4QCZ",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "On-demand Inference",
+     "inferenceType": "Output tokens flex",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "gpt-oss-20b",
+     "operation": "",
+     "provider": "OpenAI",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-gpt-oss-20b-output-tokens-flex"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "RQJ5PZD3GPSANQNJ"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "RQJ5PZD3GPSANQNJ.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "RQJ5PZD3GPSANQNJ.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.00015 per 1K output tokens flex for gpt-oss-20b in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0001500000"
+        },
+        "rateCode": "RQJ5PZD3GPSANQNJ.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "RQJ5PZD3GPSANQNJ",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "feature": "On-demand Inference",
+     "inferenceType": "Output tokens priority",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "gpt-oss-20b",
+     "operation": "",
+     "provider": "OpenAI",
+     "regionCode": "us-east-2",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-gpt-oss-20b-output-tokens-priority"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "NZMDTFTFNFHS2TJ6"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "NZMDTFTFNFHS2TJ6.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "NZMDTFTFNFHS2TJ6.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.000525 per 1K output tokens priority for gpt-oss-20b in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0005250000"
+        },
+        "rateCode": "NZMDTFTFNFHS2TJ6.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "NZMDTFTFNFHS2TJ6",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "inferenceType": "input tokens batch",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "Qwen3 32B",
+     "operation": "",
+     "provider": "Qwen",
+     "regionCode": "us-east-2",
+     "service_tier": "batch",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-qwen.qwen3-32b-mantle-input-tokens-batch"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "WK973DPHJTVECJ99"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "WK973DPHJTVECJ99.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "WK973DPHJTVECJ99.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.000075 per 1K token for qwen.qwen3-32b-mantle-input-tokens-batch in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0000750000"
+        },
+        "rateCode": "WK973DPHJTVECJ99.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "WK973DPHJTVECJ99",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "inferenceType": "Input tokens flex",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "Qwen3 32B",
+     "operation": "",
+     "provider": "Qwen",
+     "regionCode": "us-east-2",
+     "service_tier": "flex",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-qwen.qwen3-32b-mantle-input-tokens-flex"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "BJD35TA5WWXDFUX3"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "BJD35TA5WWXDFUX3.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "BJD35TA5WWXDFUX3.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.000075 per 1K token for qwen.qwen3-32b-mantle-input-tokens-flex in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0000750000"
+        },
+        "rateCode": "BJD35TA5WWXDFUX3.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "BJD35TA5WWXDFUX3",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "inferenceType": "Input tokens priority",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "Qwen3 32B",
+     "operation": "",
+     "provider": "Qwen",
+     "regionCode": "us-east-2",
+     "service_tier": "priority",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-qwen.qwen3-32b-mantle-input-tokens-priority"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "2QA4M4Z9KKNKGXCW"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "2QA4M4Z9KKNKGXCW.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "2QA4M4Z9KKNKGXCW.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.0002625 per 1K token for qwen.qwen3-32b-mantle-input-tokens-priority in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0002625000"
+        },
+        "rateCode": "2QA4M4Z9KKNKGXCW.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "2QA4M4Z9KKNKGXCW",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  },
+  {
+   "product": {
+    "attributes": {
+     "inferenceType": "Input tokens",
+     "location": "US East (Ohio)",
+     "locationType": "AWS Region",
+     "model": "Qwen3 32B",
+     "operation": "",
+     "provider": "Qwen",
+     "regionCode": "us-east-2",
+     "service_tier": "standard",
+     "servicecode": "AmazonBedrock",
+     "servicename": "Amazon Bedrock",
+     "usagetype": "USE2-qwen.qwen3-32b-mantle-input-tokens-standard"
+    },
+    "productFamily": "Amazon Bedrock",
+    "sku": "GZZ8V8J6HYW9Y86C"
+   },
+   "publicationDate": "2026-11-02T16:50:15Z",
+   "serviceCode": "AmazonBedrock",
+   "terms": {
+    "OnDemand": {
+     "GZZ8V8J6HYW9Y86C.JRTCKXETXF": {
+      "effectiveDate": "2026-10-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "GZZ8V8J6HYW9Y86C.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.00015 per 1K token for qwen.qwen3-32b-mantle-input-tokens-standard in US East (Ohio)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0001500000"
+        },
+        "rateCode": "GZZ8V8J6HYW9Y86C.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "1K tokens"
+       }
+      },
+      "sku": "GZZ8V8J6HYW9Y86C",
+      "termAttributes": {}
+     }
+    }
+   },
+   "version": "20261102165015"
+  }
+ ],
+ "_note": "subset of `aws pricing get-products --service-code AmazonBedrock` (regionCode us-east-2), read 2026-11-02, for tests"
+}

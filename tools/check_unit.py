@@ -31,6 +31,11 @@ This script verifies them as five checks:
   [d] unchanged: each evidence file's sha256 matches the evidence ledger's entries (when a ledger is
       available); a records file may only have grown by whole lines (append), never been edited.
   [e] result: results/<run_id>.json exists and its value and pass/fail recompute from the item records.
+      A target that is a bootstrap bound (gain_ci_low_*, ..._ci_high) is replayed from this run's items and
+      the baseline run's items (same store, same test set, declared first) with the spec the result records
+      in details.gain: method paired-bootstrap-v1, seed, resamples, level, pair_key, score_field,
+      baseline_run_id, cluster_field, subset (see CI_FIELDS), matched within 1e-9; a missing field is named
+      and the part is CANNOT CHECK. An interval recorded beside a plain target is replayed the same way.
 
 The run's AWS window is read from platform sources only, never from our own records or our own log
 events: SageMaker Describe*Job CreationTime and end time for each job the run names (job records and the
@@ -431,6 +436,54 @@ def recompute(metric: str, items: list[dict]) -> float:
         return xs_sorted[0]
     total = math.fsum(xs)
     return {"mean_score": total / n, "total_cost_usd": total, "cost_per_1k_usd": total / n * 1000}[metric]
+
+
+# --------------------------------------------------------------------------- paired bootstrap (own replay)
+# A target such as gain_ci_low_vs_no_action is a bound of a bootstrap interval. It recomputes only from a
+# fully recorded spec in result.details.gain (or details.bootstrap), never from guessed defaults:
+#   method          "paired-bootstrap-v1" (the algorithm below; nothing else is replayed)
+#   seed, resamples, level          numpy.random.default_rng(seed), number of resamples, e.g. 0.95
+#   pair_key        "item_id"       pairs are the ids both runs have, in sorted order
+#   score_field     "score" | "passed"   (passed counts 1.0 / 0.0)
+#   baseline_run_id run whose items are subtracted (same evidence store), or null: this run's items
+#                   already hold the per-item differences
+#   cluster_field   null (each pair is its own cluster) or a dotted item path, e.g. "extra.seed"
+#   subset          null or {"field": "<dotted item path>", "equals": <value>}: filter on this run's items
+#   value, ci_low, ci_high, paired_n    the producer's numbers, compared within CI_TOL
+# Algorithm: d = candidate - baseline per pair; clusters = np.unique(groups); per resample, draw
+# rng.integers(0, n_clusters, size=(resamples, n_clusters)) and take sum(d of drawn clusters) / rows drawn;
+# interval = np.quantile(stats, [(1 - level) / 2, 1 - (1 - level) / 2]) (linear). With one pair per cluster
+# this is exactly W10's t3/evals/stats.py; with cluster_field it is W11's silos.nn_core cluster bootstrap.
+CI_METHOD = "paired-bootstrap-v1"
+CI_FIELDS = ("method", "seed", "resamples", "level", "pair_key", "score_field", "baseline_run_id", "cluster_field",
+             "subset", "value", "ci_low", "ci_high", "paired_n")
+CI_TOL = 1e-9
+CI_METRIC_RE = re.compile(r"(^|_)ci_(low|high)(_|$)")
+
+
+def dotted(obj, path: str):
+    for part in path.split("."):
+        if not isinstance(obj, dict) or part not in obj:
+            raise KeyError(path)
+        obj = obj[part]
+    return obj
+
+
+def paired_bootstrap_v1(diffs: list[float], groups: list, seed: int, resamples: int,
+                        level: float) -> tuple[float, float, float, str]:
+    """(mean difference, interval low, interval high, numpy version). Needs numpy (its PCG64 stream)."""
+    import numpy as np
+
+    d = np.asarray(diffs, dtype=np.float64)
+    rng = np.random.default_rng(seed)
+    uniq, inv = np.unique(np.asarray(groups), return_inverse=True)
+    g_sum = np.bincount(inv, weights=d, minlength=len(uniq))
+    g_n = np.bincount(inv, minlength=len(uniq)).astype(np.float64)
+    idx = rng.integers(0, len(uniq), size=(resamples, len(uniq)))
+    stats = g_sum[idx].sum(axis=1) / g_n[idx].sum(axis=1)
+    a = (1.0 - level) / 2.0
+    lo, hi = np.quantile(stats, [a, 1.0 - a])
+    return float(d.mean()), float(lo), float(hi), np.__version__
 
 
 def holds(value: float, op: str, target: float) -> bool:
@@ -1248,6 +1301,9 @@ class Checker:
             e.fail(f"declared n_items {d['n_items']}, found {len(items)} item records")
         if res.get("n_items") != len(items):
             e.fail(f"result n_items {res.get('n_items')!r}, found {len(items)} item records")
+        if CI_METRIC_RE.search(str(target.get("metric"))):
+            self.check_ci(res, target, d, items, is_target=True)
+            return
         try:
             value = recompute(target["metric"], items)
         except KeyError:
@@ -1266,6 +1322,179 @@ class Checker:
         e.note(f"{target['metric']} = {value:.6g} (recomputed from {len(items)} items) {target['op']} "
                f"{target['value']} -> target {verdict}; results file agrees" if e.state == PASS else
                f"recomputed {target['metric']} = {value:.6g} {target['op']} {target['value']} -> {verdict}")
+        spec, where = self.ci_spec(res)
+        if spec is not None:  # an interval recorded beside a plain target: replayed when fully specified
+            self.check_ci(res, target, d, items, is_target=False)
+
+    # ----------------------------------------------------------------- paired-bootstrap intervals
+
+    @staticmethod
+    def ci_spec(res: dict) -> tuple[dict | None, str]:
+        det = res.get("details") if isinstance(res.get("details"), dict) else {}
+        for key in ("gain", "bootstrap"):
+            if isinstance(det.get(key), dict):
+                return det[key], f"details.{key}"
+        return None, "details.gain"
+
+    def run_items(self, run_id: str) -> tuple[list[dict] | None, str | None]:
+        """Another run's item records from the same evidence store (both layouts)."""
+        if not RUN_ID_RE.match(run_id or ""):
+            return None, f"baseline run id {run_id!r} is not a valid run id"
+        out: list[dict] = []
+        for rel in sorted(self.ev.list(f"records/{run_id}/")):
+            parts = rel.split("/")
+            if not ((len(parts) == 3 and parts[2] == "item.jsonl")
+                    or (len(parts) == 4 and parts[2] == "item" and parts[3].endswith(".json"))):
+                continue
+            recs, err = read_jsonl(self.ev.get(rel) or b"")
+            if err:
+                return None, f"{rel}: {err}"
+            out += recs
+        return out, None
+
+    def check_ci(self, res: dict, target: dict, decl: dict, items: list[dict], is_target: bool) -> None:
+        """Replay a paired-bootstrap interval from the item records with the recorded spec (see CI_METHOD)."""
+        e = self.parts["e"]
+        metric = target["metric"]
+        say_missing = e.cannot if is_target else e.note
+        spec, where = self.ci_spec(res)
+        if spec is None:
+            say_missing(f"{metric} is a paired-bootstrap bound, but the result has no {where}; it must record "
+                        f"{', '.join(CI_FIELDS)} ({CI_METHOD})")
+            return
+        missing = [k for k in CI_FIELDS if k not in spec]
+        if missing:
+            say_missing(f"{where} does not record {', '.join(missing)}: "
+                        f"{metric if is_target else 'its interval'} cannot be replayed without guessing "
+                        f"(spec {CI_METHOD}: see check_unit.CI_FIELDS)")
+            return
+        if spec["method"] != CI_METHOD:
+            say_missing(f"{where}.method is {spec['method']!r}; this checker replays only {CI_METHOD!r}")
+            return
+        seed, resamples, level = spec["seed"], spec["resamples"], spec["level"]
+        bad = []
+        if not (isinstance(seed, int) and not isinstance(seed, bool) and seed >= 0):
+            bad.append("seed must be a non-negative integer")
+        if not (isinstance(resamples, int) and not isinstance(resamples, bool) and 1 <= resamples <= 1_000_000):
+            bad.append("resamples must be an integer in 1..1000000")
+        if not (_num(level) and 0 < level < 1):
+            bad.append("level must be a number in (0, 1)")
+        if spec["pair_key"] != "item_id":
+            bad.append(f"pair_key {spec['pair_key']!r}: only item_id is supported")
+        if spec["score_field"] not in ("score", "passed"):
+            bad.append(f"score_field {spec['score_field']!r}: score or passed")
+        sub = spec["subset"]
+        if sub is not None and not (isinstance(sub, dict) and isinstance(sub.get("field"), str) and "equals" in sub):
+            bad.append("subset must be null or {field, equals}")
+        if spec["cluster_field"] is not None and not isinstance(spec["cluster_field"], str):
+            bad.append("cluster_field must be null or a dotted item path")
+        if bad:
+            e.fail(f"{where}: " + "; ".join(bad))
+            return
+        field = spec["score_field"]
+
+        def val(it: dict) -> float:
+            v = it.get(field)
+            if field == "passed":
+                if not isinstance(v, bool):
+                    raise ValueError(f"item {it.get('item_id')!r} has no true/false passed")
+                return 1.0 if v else 0.0
+            if not _num(v):
+                raise ValueError(f"item {it.get('item_id')!r} has no numeric {field}")
+            return float(v)
+
+        try:
+            cand = [it for it in items if sub is None or dotted(it, sub["field"]) == sub["equals"]]
+        except KeyError as ex:
+            e.fail(f"subset field {ex.args[0]!r} is missing on an item of this run")
+            return
+        c_by = {it.get("item_id"): it for it in cand}
+        bid = spec["baseline_run_id"]
+        base_note = "no baseline: this run's items hold the differences"
+        try:
+            if bid:
+                base, err = self.run_items(bid)
+                if base is None or err:
+                    e.fail(f"baseline {bid}: {err}")
+                    return
+                if not base:
+                    e.fail(f"baseline run {bid} has no item records in this evidence store")
+                    return
+                b_ids = [b.get("item_id") for b in base]
+                if len(set(b_ids)) != len(b_ids):
+                    e.fail(f"baseline run {bid} repeats item ids, so the pairing is ambiguous")
+                    return
+                b_raw = self.ev.get(f"declared/{bid}.json")
+                b_decl = json.loads(b_raw.decode("utf-8")) if b_raw else None
+                if not isinstance(b_decl, dict):
+                    e.fail(f"baseline run {bid} has no declaration in this evidence store")
+                    return
+                if b_decl.get("test_set_sha256") != decl.get("test_set_sha256"):
+                    e.fail(f"baseline {bid} declared test set {str(b_decl.get('test_set_sha256'))[:12]}..., "
+                           f"this run {str(decl.get('test_set_sha256'))[:12]}...: not the same items")
+                    return
+                if isinstance(self.ev, S3Evidence) and getattr(self, "decl_time", (None,))[0] is not None:
+                    bt, _ = self.ev.time(f"declared/{bid}.json")
+                    if bt is not None and bt > self.decl_time[0]:
+                        e.fail(f"baseline {bid} was declared ({iso(bt)}) after this run ({iso(self.decl_time[0])})")
+                b_by = dict(zip(b_ids, base))
+                ids = sorted(set(c_by) & set(b_by))
+                diffs = [val(c_by[i]) - val(b_by[i]) for i in ids]
+                base_note = f"baseline {bid} (declared model {b_decl.get('model_id')!r})"
+                if decl.get("baseline_run_id") not in (None, bid):
+                    base_note += f"; this run declared baseline_run_id {decl.get('baseline_run_id')}"
+            else:
+                ids = sorted(c_by)
+                diffs = [val(c_by[i]) for i in ids]
+            groups = [dotted(c_by[i], spec["cluster_field"]) for i in ids] if spec["cluster_field"] else ids
+        except ValueError as ex:
+            e.fail(f"cannot pair the items: {ex}")
+            return
+        except KeyError as ex:
+            e.fail(f"cluster field {ex.args[0]!r} is missing on an item of this run")
+            return
+        if not ids:
+            e.fail(f"no pairs: this run and {bid or 'its subset'} share no item ids")
+            return
+        try:
+            value, lo, hi, npv = paired_bootstrap_v1(diffs, groups, seed, resamples, level)
+        except ImportError:
+            e.cannot("numpy is needed to replay the bootstrap (numpy's PCG64 stream); install it and re-run")
+            return
+        deltas = {"value": value - spec["value"] if _num(spec["value"]) else None,
+                  "ci_low": lo - spec["ci_low"] if _num(spec["ci_low"]) else None,
+                  "ci_high": hi - spec["ci_high"] if _num(spec["ci_high"]) else None}
+        for k, dv in deltas.items():
+            if dv is None:
+                e.fail(f"{where}.{k} is not a number")
+            elif abs(dv) > CI_TOL:
+                e.fail(f"{where}.{k} {spec[k]!r} does not replay: recomputed {(value, lo, hi)[('value', 'ci_low', 'ci_high').index(k)]!r} "
+                       f"(difference {dv:+.3e}, tolerance {CI_TOL:g})")
+        if spec["paired_n"] != len(ids):
+            e.fail(f"{where}.paired_n {spec['paired_n']!r}, recomputed {len(ids)} pairs")
+        worst = max(abs(dv) for dv in deltas.values() if dv is not None) if any(
+            dv is not None for dv in deltas.values()) else float("nan")
+        how = (f"{CI_METHOD}: seed {seed}, {resamples} resamples, level {level}, {len(ids)} pairs on item_id"
+               + (f", clusters {spec['cluster_field']} ({len(set(map(str, groups)))})" if spec["cluster_field"] else "")
+               + (f", subset {sub['field']}={sub['equals']!r}" if sub else "") + f"; numpy {npv}")
+        if not is_target:
+            if e.state != FAIL:
+                e.note(f"{where} interval [{lo:.6g}, {hi:.6g}] replayed ({how}; {base_note}); max |difference| "
+                       f"{worst:.1e} <= {CI_TOL:g}")
+            return
+        bound = lo if "ci_low" in metric else hi
+        passed = holds(bound, target["op"], target["value"])
+        rv = res.get("value")
+        if not _num(rv) or abs(rv - bound) > CI_TOL:
+            e.fail(f"result value {rv!r}, replayed {metric} = {bound!r}")
+        if res.get("passed") is not passed:
+            e.fail(f"result passed={res.get('passed')!r}, replayed passed={passed}")
+        verdict = "PASSED" if passed else "MISSED"
+        if e.state == PASS:
+            e.note(f"{metric} = {bound:.10g} replayed from the items ({how}; {base_note}); max |difference| "
+                   f"{worst:.1e} <= {CI_TOL:g}; {target['op']} {target['value']} -> target {verdict}; results file agrees")
+        else:
+            e.note(f"replayed {metric} = {bound:.10g} ({how}) {target['op']} {target['value']} -> {verdict}")
 
     # ----------------------------------------------------------------- run
 

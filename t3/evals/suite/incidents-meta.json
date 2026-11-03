@@ -1,10 +1,12 @@
 {
   "candidates": 84,
+  "candidates_sha256": "38b12e6ceae350bf9aee93ab95bba2c35bfb4b6d414618af1f538e7fbe07a705",
   "counts": {
     "dev": 35,
     "dropped": 16,
     "test": 33
   },
+  "dev_sha256": "4d92d60f2661da230cad3b2746eb8373a204c2f4c86734c714ab6249aab1df94",
   "dropped": [
     {
       "fault": [
@@ -247,17 +249,28 @@
       "tier": "masked"
     }
   ],
-  "frozen_at": "2026-11-02T21:19:31Z",
-  "note": "float bits can differ across CPU architectures; regenerate with --check on the same platform",
-  "platform": "Darwin-arm64",
+  "freeze_job": {
+    "code_sha": "4539d59c453d09c511f8fdc629c31f53ff6c7eb3",
+    "instance_type": "ml.m5.xlarge",
+    "job_meta_sha256": "91053c38d5b45670ce7bba37e8802b0eb05347c3bb5efef814a6859405090df3",
+    "job_name": "t3-evals-suite-freeze-20261103T031439Z-32b3-b31cff",
+    "launcher": "tools/sm/run.py",
+    "note": "incidents-test.jsonl, incidents-dev.jsonl and incidents-test.sha256 are byte-identical to the job's output; this meta file is the job's, with only this freeze_job block added. The job's result (n_items 84 == 84, PASS) and 84 item records are in the S3 evidence prefix (evidence/records and evidence/results) under the run id; check_unit parts a, b, c, e passed (d skipped: no ledger), as reported by the lead.",
+    "output_s3": "s3://bb26-p-team13-data-483598626742-use2/jobs/t3.evals.suite-freeze-20261103T031439Z-32b3/output/t3-evals-suite-freeze-20261103T031439Z-32b3-b31cff/output/output.tar.gz",
+    "output_tar_sha256": "f4199e419d74cd11bead3c8744aabe420a72a06294bdd39c1f7825b6e4edc146",
+    "run_id": "t3.evals.suite-freeze-20261103T031439Z-32b3"
+  },
+  "frozen_at": "2026-11-03T03:17:39Z",
+  "note": "the twin is a float32 GP: frozen KPIs replay to 1e-6 only on the platform that froze them; score this suite on that platform (the runner's x86_64 CPU image)",
+  "platform": "Linux-x86_64",
   "presets": [
     "official",
     "viavi-like"
   ],
-  "python": "3.12.7",
+  "python": "3.12.10",
   "seed_base": 4100,
   "split_salt": "t3-evals-split-v1",
-  "suite": "t3-incidents-v3",
+  "suite": "t3-incidents-v4",
   "supersedes": [
     {
       "reason": "every cell started identical, so a config-diff heuristic solved it; replaced by the masked tier",
@@ -270,6 +283,13 @@
       "suite": "t3-incidents-v2",
       "test_sha256": "20f9013399da360b26214e11de15c9f9edbb8dcb9bcc4cf1d89fb7e194d3dd12",
       "twin_backend": "maveric-inprocess-standin"
+    },
+    {
+      "platform": "Darwin-arm64",
+      "reason": "frozen on the real twin but on Apple arm64; a SageMaker x86_64 job replays the float32 GP twin beyond the 1e-6 replay tolerance (inc-off-mas-4102-tilt+5). Re-frozen on x86_64 in a SageMaker job (the platform of record) before any swarm or model run.",
+      "suite": "t3-incidents-v3",
+      "test_sha256": "485b3bde1dc974a07e5950115e1fc1a8fa0dd2cb6cfc88e377a4ac7a01588a63",
+      "twin_backend": "maveric-inprocess"
     }
   ],
   "templates": [
@@ -281,7 +301,7 @@
     "power-6+tilt+5",
     "two-cell:power-6|tilt+5"
   ],
-  "test_sha256": "485b3bde1dc974a07e5950115e1fc1a8fa0dd2cb6cfc88e377a4ac7a01588a63",
+  "test_sha256": "128b229489d3b1e050223a03c7a23bb2e0bec995cb480a6e44552d2d51984638",
   "tiers": [
     "visible",
     "masked"

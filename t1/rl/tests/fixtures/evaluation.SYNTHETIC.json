@@ -1,0 +1,262 @@
+{
+  "_synthetic": "SYNTHETIC TEST FIXTURE: SDK-shaped (ran_rl.evaluation.evaluate 1.2.9 output), invented numbers, not a measurement",
+  "model": {
+    "name": "model.zip",
+    "path": "/synthetic/model.zip",
+    "checksum": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "scenario_set_version": "2026-10-v1",
+  "seeds": {
+    "nominal": [
+      101,
+      102,
+      103,
+      104,
+      105
+    ],
+    "congestion": [
+      200,
+      201,
+      202,
+      203,
+      204
+    ],
+    "interference": [
+      300,
+      301,
+      302,
+      303,
+      304
+    ],
+    "outage": [
+      400,
+      401,
+      402,
+      403,
+      404
+    ]
+  },
+  "twin": {
+    "name": "HttpTwin",
+    "version": "1.2.9"
+  },
+  "config_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "use_case": "cco",
+  "objective_version": "cco-v1",
+  "gate_thresholds": {
+    "sla_tolerance": 0.02,
+    "objective_uplift": 1.05,
+    "repeat_tolerance": 0.01
+  },
+  "episodes": [],
+  "aggregates": {
+    "overall": {
+      "episodes": 20,
+      "reward_mean": 30.0,
+      "reward_std": 0.5,
+      "reward_p5": 29.0,
+      "reward_p50": 30.0,
+      "reward_p95": 31.0,
+      "objective_mean": 12.6,
+      "objective_std": 0.4,
+      "objective_p5": 11.799999999999999,
+      "objective_p50": 12.6,
+      "objective_p95": 13.4,
+      "safety_violations": 0,
+      "sla_ratio_mean": 0.95,
+      "coverage_mean": 0.9
+    },
+    "per_scenario": {
+      "nominal": {
+        "episodes": 5,
+        "reward_mean": 30.0,
+        "reward_std": 0.5,
+        "reward_p5": 29.0,
+        "reward_p50": 30.0,
+        "reward_p95": 31.0,
+        "objective_mean": 12.6,
+        "objective_std": 0.4,
+        "objective_p5": 11.799999999999999,
+        "objective_p50": 12.6,
+        "objective_p95": 13.4,
+        "safety_violations": 0,
+        "sla_ratio_mean": 0.95,
+        "coverage_mean": 0.9
+      },
+      "congestion": {
+        "episodes": 5,
+        "reward_mean": 30.0,
+        "reward_std": 0.5,
+        "reward_p5": 29.0,
+        "reward_p50": 30.0,
+        "reward_p95": 31.0,
+        "objective_mean": 12.6,
+        "objective_std": 0.4,
+        "objective_p5": 11.799999999999999,
+        "objective_p50": 12.6,
+        "objective_p95": 13.4,
+        "safety_violations": 0,
+        "sla_ratio_mean": 0.95,
+        "coverage_mean": 0.9
+      },
+      "interference": {
+        "episodes": 5,
+        "reward_mean": 30.0,
+        "reward_std": 0.5,
+        "reward_p5": 29.0,
+        "reward_p50": 30.0,
+        "reward_p95": 31.0,
+        "objective_mean": 12.6,
+        "objective_std": 0.4,
+        "objective_p5": 11.799999999999999,
+        "objective_p50": 12.6,
+        "objective_p95": 13.4,
+        "safety_violations": 0,
+        "sla_ratio_mean": 0.95,
+        "coverage_mean": 0.9
+      },
+      "outage": {
+        "episodes": 5,
+        "reward_mean": 30.0,
+        "reward_std": 0.5,
+        "reward_p5": 29.0,
+        "reward_p50": 30.0,
+        "reward_p95": 31.0,
+        "objective_mean": 12.6,
+        "objective_std": 0.4,
+        "objective_p5": 11.799999999999999,
+        "objective_p50": 12.6,
+        "objective_p95": 13.4,
+        "safety_violations": 0,
+        "sla_ratio_mean": 0.95,
+        "coverage_mean": 0.9
+      }
+    }
+  },
+  "repeat": {
+    "max_relative_diff": 0.0,
+    "aggregates": {
+      "overall": {
+        "episodes": 20,
+        "reward_mean": 30.0,
+        "reward_std": 0.5,
+        "reward_p5": 29.0,
+        "reward_p50": 30.0,
+        "reward_p95": 31.0,
+        "objective_mean": 12.6,
+        "objective_std": 0.4,
+        "objective_p5": 11.799999999999999,
+        "objective_p50": 12.6,
+        "objective_p95": 13.4,
+        "safety_violations": 0,
+        "sla_ratio_mean": 0.95,
+        "coverage_mean": 0.9
+      },
+      "per_scenario": {
+        "nominal": {
+          "episodes": 5,
+          "reward_mean": 30.0,
+          "reward_std": 0.5,
+          "reward_p5": 29.0,
+          "reward_p50": 30.0,
+          "reward_p95": 31.0,
+          "objective_mean": 12.6,
+          "objective_std": 0.4,
+          "objective_p5": 11.799999999999999,
+          "objective_p50": 12.6,
+          "objective_p95": 13.4,
+          "safety_violations": 0,
+          "sla_ratio_mean": 0.95,
+          "coverage_mean": 0.9
+        },
+        "congestion": {
+          "episodes": 5,
+          "reward_mean": 30.0,
+          "reward_std": 0.5,
+          "reward_p5": 29.0,
+          "reward_p50": 30.0,
+          "reward_p95": 31.0,
+          "objective_mean": 12.6,
+          "objective_std": 0.4,
+          "objective_p5": 11.799999999999999,
+          "objective_p50": 12.6,
+          "objective_p95": 13.4,
+          "safety_violations": 0,
+          "sla_ratio_mean": 0.95,
+          "coverage_mean": 0.9
+        },
+        "interference": {
+          "episodes": 5,
+          "reward_mean": 30.0,
+          "reward_std": 0.5,
+          "reward_p5": 29.0,
+          "reward_p50": 30.0,
+          "reward_p95": 31.0,
+          "objective_mean": 12.6,
+          "objective_std": 0.4,
+          "objective_p5": 11.799999999999999,
+          "objective_p50": 12.6,
+          "objective_p95": 13.4,
+          "safety_violations": 0,
+          "sla_ratio_mean": 0.95,
+          "coverage_mean": 0.9
+        },
+        "outage": {
+          "episodes": 5,
+          "reward_mean": 30.0,
+          "reward_std": 0.5,
+          "reward_p5": 29.0,
+          "reward_p50": 30.0,
+          "reward_p95": 31.0,
+          "objective_mean": 12.6,
+          "objective_std": 0.4,
+          "objective_p5": 11.799999999999999,
+          "objective_p50": 12.6,
+          "objective_p95": 13.4,
+          "safety_violations": 0,
+          "sla_ratio_mean": 0.95,
+          "coverage_mean": 0.9
+        }
+      }
+    }
+  },
+  "gates": {
+    "SAFETY": {
+      "requirement": "no hard safety violations",
+      "pass": true,
+      "status": "measured",
+      "measured": 0,
+      "threshold": 0
+    },
+    "SERVICE": {
+      "requirement": "SLA >= baseline - tolerance",
+      "pass": true,
+      "status": "measured",
+      "measured": 0.95,
+      "threshold": 0.9199999999999999
+    },
+    "UPLIFT": {
+      "requirement": "mean episode objective >= baseline x uplift",
+      "pass": true,
+      "status": "measured",
+      "measured": 12.6,
+      "threshold": 11.55,
+      "baseline_objective_mean": 11.0,
+      "baseline_reward_mean": 25.0
+    },
+    "REPEAT": {
+      "requirement": "repeat run within relative tolerance",
+      "pass": true,
+      "status": "measured",
+      "measured": 0.0,
+      "threshold": 0.01
+    },
+    "TRACE": {
+      "requirement": "checksum, config hash, scenario-set version, twin version and use case present",
+      "pass": true,
+      "status": "measured",
+      "measured": "all present",
+      "threshold": "all present"
+    }
+  }
+}

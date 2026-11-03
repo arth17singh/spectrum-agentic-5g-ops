@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from silos import declarations, evio, features as F, generate as G, job_baselines, job_compare, job_data, job_evaluate, launch, nn_core as nn, scorerun as sr
+from silos import declarations, evio, features as F, generate as G, job_baselines, job_compare, job_data, job_evaluate, nn_core as nn, scorerun as sr
 from silos.tests.test_silos import tiny_cfg
 
 CODE_SHA = "a" * 40
@@ -122,7 +122,7 @@ def test_job_data_print_declaration(capsys):
     assert job_data.main(["--print-declaration"]) == 0
     d = json.loads(capsys.readouterr().out)
     assert d["unit"] == "t2.silo_data" and d["target"] == {"metric": "pass_count", "op": ">=", "value": 14, "unit": "files (checked, uploaded, SHA-256 verified)"}
-    assert "simulated silos" in d["population"] and d["track"] == "track-2"
+    assert "simulated silos" in d["twin"]["config"]["details"]["population"] and d["track"] == "track-2"
 
 
 @pytest.mark.parametrize("args", [["--method", "local", "--silo", "B"], ["--method", "central"], ["--method", "fedavg"]])
@@ -144,7 +144,7 @@ def test_job_baselines_real_run_writes_a_recomputable_unit(job_env, monkeypatch)
     assert decl["unit"] == "t2.local_only.C.disjoint" and decl["target"]["metric"] == "n_items" and decl["code_sha"] == CODE_SHA
     assert res["passed"] and res["value"] == len(items) == decl["n_items"] == 50
     assert abs(ev.summarize_items(items, "n_items") - res["value"]) == 0
-    assert all(np.isfinite(it["score"]) and len(it["pred"]) == 4 for it in items)
+    assert all(np.isfinite(it["score"]) and len(it["extra"]["pred"]) == 4 for it in items)
     mdl = ev.read_model("t2-response-local-c-disjoint", "v1", store)
     assert mdl["model_kind"] == "t2-response" and mdl["artifact_uri"].endswith("model.safetensors")
     blob = (Path(os.environ["MODEL_DIR"]) / "model.safetensors").read_bytes()
@@ -176,16 +176,18 @@ def test_evaluate_then_compare_beats_and_measure(job_env, monkeypatch, tmp_path,
     out1 = json.loads(capsys.readouterr().out)
     res = ev.read_result("t2-test-cmp", ev.default_store())
     items = ev.read_records("t2-test-cmp", "item", ev.default_store())
-    assert res["details"]["bootstrap"]["method"].startswith("paired bootstrap resampling clusters")
-    assert res["target"]["metric"] == "mean_score" and res["value"] == pytest.approx(out1["mean_diff"]) == pytest.approx(np.mean([it["score"] for it in items]))
-    assert all(it["score"] == pytest.approx(it["y_score"] - it["x_score"]) for it in items)
+    assert res["details"]["bootstrap_detail"]["method"].startswith("paired bootstrap resampling clusters")
+    g = res["details"]["gain"]
+    assert res["target"]["metric"] == "score_gain_ci_low" and res["value"] == pytest.approx(g["ci_low"]) and g["value"] == pytest.approx(out1["mean_diff"])
+    assert g["value"] == pytest.approx(np.mean([it["score"] for it in items])) and g["paired_n"] == len(items)
+    assert all(it["score"] == pytest.approx(it["extra"]["y_score"] - it["extra"]["x_score"]) for it in items)
     monkeypatch.setenv("RUN_ID", "t2-test-cmp2")
     rc2 = job_compare.main(["--kind", "beats", "--x", "t2-test-init", "--y", "t2-test-trained", "--name", "b_vs_a", "--split", "disjoint", "--declare-first"])
     out2 = json.loads(capsys.readouterr().out)
     assert out2["mean_diff"] == pytest.approx(-out1["mean_diff"])
-    # the declaration can fail: it needs the mean AND the interval lower bound above zero, and at most one direction can pass
-    assert rc1 == (0 if out1["mean_diff"] > 0 and out1["ci_lower_gt0"] else 1)
-    assert rc2 == (0 if out2["mean_diff"] > 0 and out2["ci_lower_gt0"] else 1)
+    # the declaration can fail: the target is the interval's lower bound above zero, and at most one direction can pass
+    assert rc1 == (0 if out1["ci_lower_gt0"] else 1)
+    assert rc2 == (0 if out2["ci_lower_gt0"] else 1)
     assert not (rc1 == 0 and rc2 == 0)
     # a measurement never fails on the sign
     monkeypatch.setenv("RUN_ID", "t2-test-cmp3")
@@ -203,44 +205,8 @@ def test_compare_refuses_runs_on_different_test_sets(job_env, monkeypatch, tmp_p
 
 
 # ---------------------------------------------------------------------------------------------
-# launch request, packaging, declaration templates
+# runner compatibility and declaration templates
 # ---------------------------------------------------------------------------------------------
-def test_launch_request_is_complete_and_never_calls_aws(monkeypatch, capsys):
-    for k, v in {"ROLE_ARN": "arn:aws:iam::111122223333:role/x", "IMAGE_URI": "img", "SOURCE_S3_URI": "s3://b/src.tgz", "OUTPUT_S3": "s3://b/out/",
-                 "EVIDENCE_S3": "s3://b/evidence/", "CODE_SHA": CODE_SHA, "DATA_COPY_S3": "s3://b/t2-silos/r/", "SDK_S3_URI": "s3://b/sdk.zip",
-                 "SILO_BUCKET_A": "a", "SILO_BUCKET_B": "b", "SILO_BUCKET_C": "c"}.items():
-        monkeypatch.setenv(k, v)
-    assert launch.main(["data", "--dry-run"]) == 0
-    cap = capsys.readouterr()
-    req = json.loads(cap.out)
-    assert req["Environment"]["JOB_MODULE"] == "silos.job_data" and req["Environment"]["JOB_NEEDS_SDK"] == "1"
-    assert req["ResourceConfig"]["InstanceType"] == "ml.m5.4xlarge" and req["StoppingCondition"]["MaxRuntimeInSeconds"] == 3600
-    assert json.loads(req["HyperParameters"]["sagemaker_program"]) == "run_job.py"
-    assert "estimate" in cap.err and "unset" not in cap.err
-    assert launch.main(["baseline", "--method", "local", "--silo", "B", "--split", "overlap"]) == 0
-    req2 = json.loads(capsys.readouterr().out)
-    assert req2["Environment"]["JOB_ARGS"].startswith("--method local --silo B --split overlap")
-    assert len(req2["TrainingJobName"]) <= 63 and "_" not in req2["TrainingJobName"]
-
-
-def test_launch_prints_placeholders_when_unset(monkeypatch, capsys):
-    for k in ("ROLE_ARN", "IMAGE_URI", "SOURCE_S3_URI", "OUTPUT_S3", "EVIDENCE_S3", "CODE_SHA", "DATA_COPY_S3", "SDK_S3_URI", "SILO_BUCKET_A", "SILO_BUCKET_B", "SILO_BUCKET_C", "RUN_ID"):
-        monkeypatch.delenv(k, raising=False)
-    launch.main(["compare", "--kind", "beats", "--x", "r1", "--y", "r2", "--name", "n"])
-    cap = capsys.readouterr()
-    assert "<ROLE_ARN>" in cap.out and "ROLE_ARN" in cap.err
-
-
-def test_package_contains_code_evlib_and_shim_but_no_tests_or_data(tmp_path):
-    import tarfile
-
-    info = launch.package(tmp_path / "src.tgz")
-    names = set(tarfile.open(tmp_path / "src.tgz").getnames())
-    assert {"run_job.py", "requirements.txt", "tools/evlib.py", "silos/job_data.py", "silos/config.yaml", "silos/manifest.json"} <= names
-    assert not any("tests" in n or n.endswith(".csv") or "__pycache__" in n for n in names)
-    assert len(info["sha256"]) == 64
-
-
 def test_committed_templates_match_what_the_code_generates():
     cur = declarations.build_all()
     on_disk = {p.name.replace(".template.json", ""): json.loads(p.read_text()) for p in declarations.DIR.glob("*.template.json")}
@@ -249,18 +215,85 @@ def test_committed_templates_match_what_the_code_generates():
         assert json.loads(json.dumps(cur[k], sort_keys=True)) == on_disk[k], k
 
 
-def test_declarations_say_what_they_must():
+RUNNER_DECLARED_KEYS = {"unit", "track", "target", "baseline_run_id", "n_items", "n_cases", "test_set_sha256", "subset", "prompt_sha256", "parser",
+                        "decoding", "model_id", "grader", "twin", "synthetic"}  # tools/sm/run.py DECLARED_KEYS
+
+
+def test_declarations_are_in_runner_form_and_say_what_they_must():
     t = declarations.build_all()
-    assert t["compare_federated_vs_B_disjoint"]["target"]["op"] == ">" and "bootstrap" in t["compare_federated_vs_B_disjoint"]
-    assert t["compare_federated_vs_C_disjoint"]["declared_also"].count("lower bound") == 1
-    assert t["fl_dp_disjoint"]["privacy"]["epsilon"] == 3.0 and "1e-5" in t["fl_dp_disjoint"]["privacy"]["planning_value_not_used"]
-    assert t["fl_dp_disjoint"]["privacy"]["delta_by_silo"]["A"] == pytest.approx(1 / 24000**2)
+    assert t["compare_federated_vs_B_disjoint"]["target"]["op"] == ">"
+    det = lambda k: t[k]["twin"]["config"]["details"]
+    assert "bootstrap" in det("compare_federated_vs_B_disjoint") and det("compare_federated_vs_C_disjoint")["claim"].count("lower bound") == 1
+    assert det("fl_dp_disjoint")["privacy"]["epsilon"] == 3.0 and "1e-5" in det("fl_dp_disjoint")["privacy"]["planning_value_not_used"]
+    assert det("fl_dp_disjoint")["privacy"]["delta_by_silo"]["A"] == pytest.approx(1 / 24000**2)
     for k, d in t.items():
-        assert d["track"] == "track-2" and "simulated silos" in d["population"] and d["run_id"] == "<RUN_ID>", k
+        assert set(d) <= RUNNER_DECLARED_KEYS and d["track"] == "track-2", k  # nothing the runner would refuse
+        assert "simulated silos" in d["twin"]["config"]["details"]["population"], k
+        assert not {"run_id", "code_sha", "region"} & set(d), k  # the runner sets these
+    assert t["data"]["twin"]["kind"] == "maveric-inprocess" and t["central_disjoint"]["twin"]["kind"] == "none"
     text = json.dumps(t).lower()
     assert ("cross" + "trainer") not in text and ("4835" + "98626742") not in text
     for k in ("local_only_A_disjoint", "central_disjoint", "fl_federated_disjoint", "compare_dp_cost_disjoint", "compare_distance_to_central_disjoint"):
-        assert t[k]["target"]["op"] in (">=", ">") and t[k]["target"]["metric"] in ("n_items", "mean_score")
+        assert t[k]["target"]["op"] in (">=", ">") and t[k]["target"]["metric"] in ("n_items", "score_gain_ci_low")
+
+
+def test_print_runner_declaration_matches_the_template_shape(job_env, monkeypatch, capsys):
+    monkeypatch.setenv("RUN_ID", "r")
+    assert job_baselines.main(["--method", "local", "--silo", "A", "--split", "disjoint", "--print-runner-declaration"]) == 0
+    d = json.loads(capsys.readouterr().out)
+    assert set(d) <= RUNNER_DECLARED_KEYS and d["unit"] == "t2.local_only.A.disjoint" and d["n_items"] == 50
+    assert d["twin"]["config"]["details"]["method"] == "local"
+
+
+def test_reconcile_uses_the_stored_declaration_and_refuses_a_different_one(tmp_path, monkeypatch):
+    ev = evio.get_evlib()
+    store = ev.LocalStore(tmp_path / "ev")
+    monkeypatch.setattr(ev, "default_store", lambda: store)
+    monkeypatch.setenv("EVIDENCE_S3", "s3://not-used/evidence/")
+    mine = evio.declaration(run_id="r-rec", unit="u", target={"metric": "n_items", "op": ">=", "value": 5, "unit": "count"}, n_items=5,
+                            test_set_sha256="b" * 64, model_id="m@v1", grader="g", code_sha=CODE_SHA)
+    assert evio.reconcile(mine) is mine  # nothing stored yet: standalone use
+    ev.write_declared({**mine, "twin": {"kind": "none", "version": "none", "scenario": "none", "seed": 0}}, store)
+    got = evio.reconcile(mine)
+    assert got["twin"]["kind"] == "none" and got["unit"] == "u"
+    with pytest.raises(SystemExit):
+        evio.reconcile({**mine, "n_items": 6})
+
+
+def test_parallel_object_writes_equal_evlib_layout(tmp_path):
+    ev = evio.get_evlib()
+    store = ev.LocalStore(tmp_path / "ev")
+    recs = [evio.item(item_id=f"i{k}", input_sha256="a" * 64, output_sha256="b" * 64, grader="g", backend="b", score=float(k)) for k in range(40)]
+    uris = evio.put_objects(ev, store, "r-par", "item", recs, workers=8)
+    assert len(uris) == 40 and len(set(uris)) == 40
+    got = evio.read_records_fast("r-par", "item", store)
+    assert sorted(r["item_id"] for r in got) == sorted(r["item_id"] for r in recs) == sorted(r["item_id"] for r in ev.read_records("r-par", "item", store))
+
+
+def test_job_runs_under_the_runner_entry_without_git_or_cwd_assumptions(tree, tmp_path, monkeypatch, capsys):
+    """tools/sm/entry.py runs '-m module args' with runpy in a process that has no .git; CODE_SHA names the commit."""
+    import runpy
+    import subprocess
+
+    def no_git(*a, **k):
+        raise AssertionError("a job must not call git: " + repr(a[0] if a else k))
+
+    monkeypatch.setattr(subprocess, "check_output", no_git)
+    monkeypatch.setattr(subprocess, "run", no_git)
+    monkeypatch.setenv("CODE_SHA", CODE_SHA)
+    monkeypatch.setenv("RUN_ID", "dryrun-under-runner")
+    monkeypatch.setenv("EVIDENCE_DIR", str(tmp_path / "ev"))
+    monkeypatch.setattr("sys.argv", ["silos.job_baselines", "--method", "local", "--silo", "C", "--split", "disjoint", "--data-dir", str(tree), "--dry-run"])
+    monkeypatch.delenv("DATA_DIR", raising=False)
+    with pytest.raises(SystemExit) as e:
+        runpy.run_module("silos.job_baselines", run_name="__main__", alter_sys=True)
+    assert e.value.code == 0
+    monkeypatch.setattr("sys.argv", ["silos.job_data", "--dry-run", "--out-dir", str(tmp_path / "out"), "--workers", "2"])
+    with pytest.raises(SystemExit) as e2:
+        runpy.run_module("silos.job_data", run_name="__main__", alter_sys=True)
+    assert e2.value.code == 0
+    man = json.loads((tmp_path / "out" / "manifest.json").read_text())
+    assert man["generator_commit"] == CODE_SHA and man["generator_tree_dirty"] is False
 
 
 def test_dp_accounting_service_vs_standard_counts():
@@ -279,3 +312,69 @@ def test_declare_only_writes_the_declaration_and_nothing_else(job_env, monkeypat
     d = ev.read_declared("t2-test-declare-only", ev.default_store())
     assert d["unit"] == "t2.central.disjoint" and d["code_sha"] == CODE_SHA and d["declared_at"]
     assert ev.read_result("t2-test-declare-only", ev.default_store()) is None and ev.record_kinds("t2-test-declare-only", ev.default_store()) == []
+
+
+def test_every_record_kind_we_write_passes_the_contracts_library():
+    """Run with PYTHONPATH=contracts: the library rejects unknown top-level fields (declared, item)."""
+    pytest.importorskip("team13_contracts")
+    ev = evio.get_evlib()
+    decls = [job_data.declaration_for(G.load_config(), "r-c", CODE_SHA)]
+    decls += [json.loads(json.dumps(d)) for d in declarations.build_all().values()]
+    for d in decls:
+        d = {**d, "run_id": "r-c", "code_sha": CODE_SHA, "region": "us-east-2", "test_set_sha256": "c" * 64}
+        ev.validate(ev._envelope({**d, "declared_at": ev.utc_now()}, "declared", "r-c"))
+    it = evio.item(item_id="a:1:2", input_sha256="a" * 64, output_sha256="b" * 64, grader="g", backend="b", score=0.5, segment="s", seed=1,
+                   pred=[0.1, 0.2, 0.3, 0.4], rows=3, uploaded_to=["s3://x/y"], laptop_comparison=None)
+    assert set(it) <= {"item_id", "input_sha256", "output_sha256", "grader", "backend", "score", "extra"} and it["extra"]["seed"] == 1
+    ev.validate(ev._envelope(it, "item", "r-c"))
+
+
+def _check_unit_module():
+    import importlib.util
+    import sys
+
+    path = Path(__file__).resolve().parents[2] / "tools" / "check_unit.py"
+    spec = importlib.util.spec_from_file_location("check_unit_for_silos", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["check_unit_for_silos"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_check_unit_part_e_replays_the_compare_bound_from_our_own_producer(job_env, monkeypatch, capsys):
+    """Two score runs, then job_compare (kind beats and kind measure) write real records into a local evidence dir;
+    tools/check_unit.py part e recomputes the interval from the item records with the recorded spec."""
+    cu = _check_unit_module()
+    monkeypatch.setenv("RUN_ID", "t2-ce-x")
+    assert job_baselines.main(["--method", "local", "--silo", "B", "--split", "disjoint", "--epochs", "30", "--declare-first"]) == 0
+    w = job_env.parent / "init.safetensors"
+    w.write_bytes(nn.safetensors_dumps(nn.init_params(7)))
+    monkeypatch.setenv("RUN_ID", "t2-ce-y")
+    assert job_evaluate.main(["--label", "federated", "--split", "disjoint", "--weights", str(w), "--declare-first"]) == 0
+    for run, kind in (("t2-ce-beats", "beats"), ("t2-ce-measure", "measure"), ("t2-ce-reverse", "beats")):
+        monkeypatch.setenv("RUN_ID", run)
+        x, y = ("t2-ce-y", "t2-ce-x") if run == "t2-ce-reverse" else ("t2-ce-x", "t2-ce-y")
+        job_compare.main(["--kind", kind, "--x", x, "--y", y, "--name", "ce", "--split", "disjoint", "--declare-first"])
+        capsys.readouterr()
+        ck = cu.Checker(run, cu.LocalEvidence(job_env), None, None, poll_s=0.0)
+        ck.load()
+        ck.part_e()
+        lines = "\n".join(ck.parts["e"].lines)
+        assert ck.parts["e"].state == "PASS", (run, lines)
+        assert "replayed" in lines and "paired-bootstrap-v1" in lines and "clusters extra.seed" in lines
+        ev = evio.get_evlib()
+        res = ev.read_result(run, ev.default_store())
+        if kind == "beats":  # the bound is the declared target, replayed exactly (it may be MISSED: the part still passes)
+            assert res["metric"] == "score_gain_ci_low" and f"score_gain_ci_low = " in lines
+            assert ("target PASSED" in lines) == res["passed"]
+    # a tampered bound no longer replays
+    import json as _json
+
+    f = job_env / "results" / "t2-ce-beats.json"
+    doc = _json.loads(f.read_text())
+    doc["details"]["gain"]["ci_low"] += 1e-6
+    f.write_text(_json.dumps(doc))
+    ck = cu.Checker("t2-ce-beats", cu.LocalEvidence(job_env), None, None, poll_s=0.0)
+    ck.load()
+    ck.part_e()
+    assert ck.parts["e"].state == "FAIL"

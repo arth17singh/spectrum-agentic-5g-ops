@@ -1,0 +1,223 @@
+{
+  "_synthetic": "SYNTHETIC TEST FIXTURE: SDK-shaped (ran_rl.evaluation.evaluate 1.2.9 output), invented numbers, not a measurement",
+  "model": {
+    "name": "baseline",
+    "path": "baseline",
+    "checksum": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "scenario_set_version": "2026-10-v1",
+  "seeds": {
+    "nominal": [
+      101,
+      102,
+      103,
+      104,
+      105
+    ],
+    "congestion": [
+      200,
+      201,
+      202,
+      203,
+      204
+    ],
+    "interference": [
+      300,
+      301,
+      302,
+      303,
+      304
+    ],
+    "outage": [
+      400,
+      401,
+      402,
+      403,
+      404
+    ]
+  },
+  "twin": {
+    "name": "HttpTwin",
+    "version": "1.2.9"
+  },
+  "config_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "use_case": "cco",
+  "objective_version": "cco-v1",
+  "gate_thresholds": {
+    "sla_tolerance": 0.02,
+    "objective_uplift": 1.05,
+    "repeat_tolerance": 0.01
+  },
+  "episodes": [],
+  "aggregates": {
+    "overall": {
+      "episodes": 20,
+      "reward_mean": 25.0,
+      "reward_std": 0.5,
+      "reward_p5": 24.0,
+      "reward_p50": 25.0,
+      "reward_p95": 26.0,
+      "objective_mean": 11.0,
+      "objective_std": 0.4,
+      "objective_p5": 10.2,
+      "objective_p50": 11.0,
+      "objective_p95": 11.8,
+      "safety_violations": 0,
+      "sla_ratio_mean": 0.94,
+      "coverage_mean": 0.86
+    },
+    "per_scenario": {
+      "nominal": {
+        "episodes": 5,
+        "reward_mean": 25.0,
+        "reward_std": 0.5,
+        "reward_p5": 24.0,
+        "reward_p50": 25.0,
+        "reward_p95": 26.0,
+        "objective_mean": 11.0,
+        "objective_std": 0.4,
+        "objective_p5": 10.2,
+        "objective_p50": 11.0,
+        "objective_p95": 11.8,
+        "safety_violations": 0,
+        "sla_ratio_mean": 0.94,
+        "coverage_mean": 0.86
+      },
+      "congestion": {
+        "episodes": 5,
+        "reward_mean": 25.0,
+        "reward_std": 0.5,
+        "reward_p5": 24.0,
+        "reward_p50": 25.0,
+        "reward_p95": 26.0,
+        "objective_mean": 11.0,
+        "objective_std": 0.4,
+        "objective_p5": 10.2,
+        "objective_p50": 11.0,
+        "objective_p95": 11.8,
+        "safety_violations": 0,
+        "sla_ratio_mean": 0.94,
+        "coverage_mean": 0.86
+      },
+      "interference": {
+        "episodes": 5,
+        "reward_mean": 25.0,
+        "reward_std": 0.5,
+        "reward_p5": 24.0,
+        "reward_p50": 25.0,
+        "reward_p95": 26.0,
+        "objective_mean": 11.0,
+        "objective_std": 0.4,
+        "objective_p5": 10.2,
+        "objective_p50": 11.0,
+        "objective_p95": 11.8,
+        "safety_violations": 0,
+        "sla_ratio_mean": 0.94,
+        "coverage_mean": 0.86
+      },
+      "outage": {
+        "episodes": 5,
+        "reward_mean": 25.0,
+        "reward_std": 0.5,
+        "reward_p5": 24.0,
+        "reward_p50": 25.0,
+        "reward_p95": 26.0,
+        "objective_mean": 11.0,
+        "objective_std": 0.4,
+        "objective_p5": 10.2,
+        "objective_p50": 11.0,
+        "objective_p95": 11.8,
+        "safety_violations": 0,
+        "sla_ratio_mean": 0.94,
+        "coverage_mean": 0.86
+      }
+    }
+  },
+  "repeat": {
+    "max_relative_diff": 0.0,
+    "aggregates": {
+      "overall": {
+        "episodes": 20,
+        "reward_mean": 25.0,
+        "reward_std": 0.5,
+        "reward_p5": 24.0,
+        "reward_p50": 25.0,
+        "reward_p95": 26.0,
+        "objective_mean": 11.0,
+        "objective_std": 0.4,
+        "objective_p5": 10.2,
+        "objective_p50": 11.0,
+        "objective_p95": 11.8,
+        "safety_violations": 0,
+        "sla_ratio_mean": 0.94,
+        "coverage_mean": 0.86
+      },
+      "per_scenario": {
+        "nominal": {
+          "episodes": 5,
+          "reward_mean": 25.0,
+          "reward_std": 0.5,
+          "reward_p5": 24.0,
+          "reward_p50": 25.0,
+          "reward_p95": 26.0,
+          "objective_mean": 11.0,
+          "objective_std": 0.4,
+          "objective_p5": 10.2,
+          "objective_p50": 11.0,
+          "objective_p95": 11.8,
+          "safety_violations": 0,
+          "sla_ratio_mean": 0.94,
+          "coverage_mean": 0.86
+        },
+        "congestion": {
+          "episodes": 5,
+          "reward_mean": 25.0,
+          "reward_std": 0.5,
+          "reward_p5": 24.0,
+          "reward_p50": 25.0,
+          "reward_p95": 26.0,
+          "objective_mean": 11.0,
+          "objective_std": 0.4,
+          "objective_p5": 10.2,
+          "objective_p50": 11.0,
+          "objective_p95": 11.8,
+          "safety_violations": 0,
+          "sla_ratio_mean": 0.94,
+          "coverage_mean": 0.86
+        },
+        "interference": {
+          "episodes": 5,
+          "reward_mean": 25.0,
+          "reward_std": 0.5,
+          "reward_p5": 24.0,
+          "reward_p50": 25.0,
+          "reward_p95": 26.0,
+          "objective_mean": 11.0,
+          "objective_std": 0.4,
+          "objective_p5": 10.2,
+          "objective_p50": 11.0,
+          "objective_p95": 11.8,
+          "safety_violations": 0,
+          "sla_ratio_mean": 0.94,
+          "coverage_mean": 0.86
+        },
+        "outage": {
+          "episodes": 5,
+          "reward_mean": 25.0,
+          "reward_std": 0.5,
+          "reward_p5": 24.0,
+          "reward_p50": 25.0,
+          "reward_p95": 26.0,
+          "objective_mean": 11.0,
+          "objective_std": 0.4,
+          "objective_p5": 10.2,
+          "objective_p50": 11.0,
+          "objective_p95": 11.8,
+          "safety_violations": 0,
+          "sla_ratio_mean": 0.94,
+          "coverage_mean": 0.86
+        }
+      }
+    }
+  }
+}

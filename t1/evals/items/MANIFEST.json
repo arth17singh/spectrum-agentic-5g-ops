@@ -11,16 +11,32 @@
     "rule": "dev if sha256(unit, item_id, salt)[:8] % 10000 < dev_fraction * 10000",
     "salt": "t1-split-v1"
   },
-  "superseded": {
-    "commit": "2959c9b",
-    "reason": "built on twin_standin.py and a local canonical-change fallback; re-frozen on W2 twin.replay.ReplayTwin and W1 team13_contracts.change before any model was run. Same 80 item ids, specs and prompt text; the reference values (noop_kpi, rule/oracle/constant gain) are now stored unrounded (they were rounded to 6 decimals, so they differed from the replay by up to 3.3e-7) and meta.twin names the W2 replay",
-    "units": {
-      "execution": {
-        "sha256": "4686121964eaf4811fec665ac73927af8ee8f32ffe5375e3c4074f87dc80b72c",
-        "test_sha256": "8ac4c54536f8affdfdc75bccbed02f4d0ece78ad81e6ef0d93e44e858cdc0feb"
+  "superseded": [
+    {
+      "commit": "2959c9b",
+      "reason": "built on twin_standin.py and a local canonical-change fallback; re-frozen on W2 twin.replay.ReplayTwin and W1 team13_contracts.change before any model was run. Same 80 item ids, specs and prompt text; the reference values (noop_kpi, rule/oracle/constant gain) are now stored unrounded (they were rounded to 6 decimals, so they differed from the replay by up to 3.3e-7) and meta.twin names the W2 replay",
+      "units": {
+        "execution": {
+          "sha256": "4686121964eaf4811fec665ac73927af8ee8f32ffe5375e3c4074f87dc80b72c",
+          "test_sha256": "8ac4c54536f8affdfdc75bccbed02f4d0ece78ad81e6ef0d93e44e858cdc0feb"
+        }
+      }
+    },
+    {
+      "reason": "re-frozen on the job platform (Linux x86_64, torch 2.9.0+cu130) because the frozen twin values did not replay there exactly (t1/evals/replay_job.py check); same item ids, splits, scenarios, seeds and prefixes",
+      "run_id": "t1.execution.refreeze-x86-1",
+      "units": {
+        "execution": {
+          "sha256": "63d04053892d118721eed5c40460c9ae0c878043d464db7b9edc10e2223efd74",
+          "test_sha256": "5dbc837713851902e455d750534f7aee49c9b7a1b7836439c280f2606615fc22"
+        },
+        "price_latency": {
+          "sha256": "4d55adddb52171878f30000e7d7fa969d77bb41cd6e0f33c041927cde185b408",
+          "test_sha256": "802e3621d2bc13d5202caa33af7df7b2585d89d6fc7c27c72216d8a4533f6c44"
+        }
       }
     }
-  },
+  ],
   "units": {
     "execution": {
       "families": {
@@ -31,17 +47,63 @@
         "tilt_misconfig": 16
       },
       "file": "t1/evals/items/execution.jsonl",
+      "frozen_on": {
+        "changes": {
+          "n_changed": 45,
+          "n_changes_changed": 0,
+          "n_not_kept_by_filter_here": 0,
+          "n_state_text_changed": 43
+        },
+        "frozen_on": {
+          "machine": "x86_64",
+          "python": "3.12.10",
+          "system": "Linux",
+          "versions": {
+            "gpytorch": "1.15.2",
+            "linear-operator": "0.6.1",
+            "numpy": "2.5.3",
+            "ran-rl": "1.2.9",
+            "torch": "2.9.0+cu130"
+          }
+        },
+        "how": "python -m t1.evals.replay_job refreeze, run t1.execution.refreeze-x86-1",
+        "previous": [
+          {
+            "frozen_on": {
+              "machine": "arm64",
+              "python": "3.12.7",
+              "system": "Darwin",
+              "versions": {
+                "gpytorch": "1.15.2",
+                "linear-operator": "0.6.1",
+                "numpy": "2.5.4",
+                "ran-rl": "1.2.9",
+                "torch": "2.15.0"
+              }
+            },
+            "how": "python -m t1.evals.freeze on the team Mac (commit f1d3deb)",
+            "replay_checks": [
+              {
+                "n_drifted": 5,
+                "pass_rate": 0.9375,
+                "platform": "Linux x86_64, torch 2.9.0+cpu (pytorch-training 2.9.0 cpu DLC, ml.m5.xlarge)",
+                "run_id": "t1.execution.replay-check-x86-1"
+              }
+            ]
+          }
+        ]
+      },
       "generator": "t1/evals/gen_execution.py",
       "n_items": 80,
-      "sha256": "63d04053892d118721eed5c40460c9ae0c878043d464db7b9edc10e2223efd74",
+      "sha256": "e7d58194bab6b276c44a8ea73f70b273413e425eb5d951a0c9c2e67897200df2",
       "splits": {
         "dev": {
           "n": 17,
-          "sha256": "44a8e421a6bd50b8fe83406c28a220421a66cca9fda87be5b92f771fe977e069"
+          "sha256": "7c89204a6824833e0116bfd9cc469a476f77225ee10f8afa956bb055fd98bf85"
         },
         "test": {
           "n": 63,
-          "sha256": "5dbc837713851902e455d750534f7aee49c9b7a1b7836439c280f2606615fc22"
+          "sha256": "5bf3773ffe1b7e776486b79197e9518e2bd7b634c018ffd17f85b00365e39383"
         }
       },
       "twin": {
@@ -197,7 +259,7 @@
       "file": "t1/evals/items/price_latency.jsonl",
       "generator": "t1/evals/gen_price_latency.py",
       "n_items": 50,
-      "sha256": "4d55adddb52171878f30000e7d7fa969d77bb41cd6e0f33c041927cde185b408",
+      "sha256": "c459173aa269a80276d07983b0adb0c0c97aa09bdd4c9976a133479274b56f12",
       "splits": {
         "dev": {
           "n": 12,
@@ -205,7 +267,7 @@
         },
         "test": {
           "n": 38,
-          "sha256": "802e3621d2bc13d5202caa33af7df7b2585d89d6fc7c27c72216d8a4533f6c44"
+          "sha256": "17d7d80720e56671af96d6646cb6e1c76c470fc4e3b58f17e444b75b890f5ec2"
         }
       }
     },

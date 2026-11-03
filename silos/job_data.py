@@ -40,6 +40,7 @@ UNIT = "t2.silo_data"
 GRADER = "silos.checks (schema, ranges, seeds, proportional rows, operating points) + SHA-256 read-back from S3"
 BACKEND = "silos.generate on the in-process Maveric twin, CPU job"
 MODEL_ID = "t2-simulated-silos@v1"
+RUNNER_TWIN = {"kind": "maveric-inprocess", "version": "ran-rl 1.2.9", "scenario": "silo-generator", "seed": 0}
 SILOS = ("A", "B", "C")
 SPLITS = ("disjoint", "overlap")
 
@@ -69,7 +70,7 @@ def declaration_for(cfg: dict, run_id: str, code_sha: str) -> dict:
     return evio.declaration(
         run_id=run_id, unit=UNIT, target={"metric": "pass_count", "op": ">=", "value": n, "unit": "files (checked, uploaded, SHA-256 verified)"},
         n_items=n, test_set_sha256=config_sha256(cfg), model_id=MODEL_ID, grader=GRADER, code_sha=code_sha,
-        extra={"note": "Provenance of the simulated-silo datasets. test_set_sha256 is the sha256 of the generator config "
+        twin=RUNNER_TWIN, extra={"note": "Provenance of the simulated-silo datasets. test_set_sha256 is the sha256 of the generator config "
                        "(silos/config.yaml, canonical JSON). The comparison with the earlier laptop copy is a measurement, "
                        "not a target.",
                "entry": "python -m silos.job_data"})
@@ -117,6 +118,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true", help="tiny config; no S3, no evidence writes")
     ap.add_argument("--print-declaration", action="store_true")
+    ap.add_argument("--print-runner-declaration", action="store_true", help="print the declaration in the form `python -m tools.sm.run --declaration` accepts")
     ap.add_argument("--declare-only", action="store_true", help="write the declaration via evlib and exit (the runner does this BEFORE launching the job)")
     ap.add_argument("--declare-first", action="store_true", help="write the declaration via evlib before running")
     ap.add_argument("--out-dir", default=None)
@@ -126,18 +128,23 @@ def main(argv=None) -> int:
     cfg = load_config(DEFAULT_CONFIG)
     if a.dry_run:
         cfg = tiny_config(cfg)
-    run_id = evio.env_run_id() or ("dryrun-t2-silo-data" if a.dry_run or a.print_declaration else None)
+    run_id = evio.env_run_id() or ("dryrun-t2-silo-data" if a.dry_run or a.print_declaration or a.print_runner_declaration else None)
     if not run_id:
         sys.exit("set RUN_ID (or EVIDENCE_RUN_ID)")
-    code_sha = evio.env_code_sha(required=not (a.dry_run or a.print_declaration))
+    code_sha = evio.env_code_sha(required=not (a.dry_run or a.print_declaration or a.print_runner_declaration))
     declared = declaration_for(cfg, run_id, code_sha)
     if a.print_declaration:
         evio.print_json(declared)
+        return 0
+    if a.print_runner_declaration:
+        evio.print_json(evio.runner_declaration(declared))
         return 0
     if a.declare_only:
         evio.get_evlib().write_declared(declared)
         print(f"declared {declared['run_id']} ({declared['unit']})")
         return 0
+    if not a.dry_run:
+        declared = evio.reconcile(declared)  # inside a runner job: the stored declaration must agree with this code
     if a.declare_first and not a.dry_run:
         evio.declare_first(declared)
 

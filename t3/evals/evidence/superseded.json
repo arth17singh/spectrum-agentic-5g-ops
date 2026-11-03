@@ -1,5 +1,5 @@
 {
-  "about": "Runs kept in this store (and in git history) that must not be used for scoring. Each was graded against a test set that has since been re-frozen.",
+  "about": "Every run in this local store is superseded: none may be used for scoring. They stay in place (and in git history) as a record. The suite of record is t3-incidents-v4 (sha256 128b229489d3b1e050223a03c7a23bb2e0bec995cb480a6e44552d2d51984638), frozen on x86_64 in SageMaker by run t3.evals.suite-freeze-20261103T031439Z-32b3; its baselines are re-measured as tools/sm/run.py jobs and their evidence lives in the team's S3 evidence prefix.",
   "superseded": [
     {
       "run_ids": [
@@ -9,17 +9,29 @@
         "t3.evals.oracle-20261102T205510Z-4345"
       ],
       "test_set_sha256": "20f9013399da360b26214e11de15c9f9edbb8dcb9bcc4cf1d89fb7e194d3dd12",
+      "suite": "t3-incidents-v2",
       "twin_backend": "maveric-inprocess-standin",
-      "reason": "suite t3-incidents-v2 was frozen on t3/evals' stand-in twin; after W2's twin.replay (ran-rl 1.2.9 Maveric, user-share-weighted pooled p10 KPIs) merged, its frozen KPIs no longer replay. Re-frozen once as t3-incidents-v3 before any swarm or model run.",
-      "superseded_by": {
-        "test_set_sha256": "485b3bde1dc974a07e5950115e1fc1a8fa0dd2cb6cfc88e377a4ac7a01588a63",
-        "run_ids": [
-          "t3.evals.no_action-20261102T212105Z-c5e6",
-          "t3.evals.rule_baseline-20261102T212116Z-a342",
-          "t3.evals.config_revert-20261102T212119Z-cab1",
-          "t3.evals.oracle-20261102T212127Z-2106"
-        ]
-      }
+      "platform": "Darwin-arm64",
+      "reason": "suite v2 was frozen on t3/evals' stand-in twin; after W2's twin.replay (ran-rl 1.2.9 Maveric, user-share-weighted pooled p10 KPIs) merged, its frozen KPIs no longer replay."
+    },
+    {
+      "run_ids": [
+        "t3.evals.no_action-20261102T212105Z-c5e6",
+        "t3.evals.rule_baseline-20261102T212116Z-a342",
+        "t3.evals.config_revert-20261102T212119Z-cab1",
+        "t3.evals.oracle-20261102T212127Z-2106"
+      ],
+      "test_set_sha256": "485b3bde1dc974a07e5950115e1fc1a8fa0dd2cb6cfc88e377a4ac7a01588a63",
+      "suite": "t3-incidents-v3",
+      "twin_backend": "maveric-inprocess",
+      "platform": "Darwin-arm64",
+      "reason": "suite v3 was frozen on the real twin but on Apple arm64, and these runs ran locally (not as runner jobs). The twin is a float32 GP: an x86_64 SageMaker job could not replay v3 to the 1e-6 tolerance (inc-off-mas-4102-tilt+5), and the x86 freeze differs from the arm64 one by up to 0.038 in a KPI. Superseded by suite v4 (x86_64) and its runner-job baselines."
     }
-  ]
+  ],
+  "superseded_by": {
+    "suite": "t3-incidents-v4",
+    "test_set_sha256": "128b229489d3b1e050223a03c7a23bb2e0bec995cb480a6e44552d2d51984638",
+    "freeze_run_id": "t3.evals.suite-freeze-20261103T031439Z-32b3",
+    "baselines": "re-measured as runner jobs (no_action, rule_baseline, config_revert, config_revert on the masked tier); run ids recorded when they land"
+  }
 }

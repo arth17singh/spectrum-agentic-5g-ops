@@ -167,6 +167,10 @@ def plan(a, aws=None) -> dict[str, Any]:
     account has to come from STS."""
     if not evlib.RUN_ID_RE.match(a.run_id or ""):
         raise Refusal(f"--run-id must match {evlib.RUN_ID_RE.pattern}")
+    account = a.account
+    if not account and aws is not None:
+        account = aws.client("sts").get_caller_identity()["Account"]
+    a.bucket = a.bucket or spec.data_bucket(account)  # never a literal in the repo: it holds the account id
     sha = package.resolve_commit(REPO, a.commit)
     dirty = package.tree_dirty(REPO)
     if dirty and not a.allow_dirty:
@@ -177,6 +181,7 @@ def plan(a, aws=None) -> dict[str, Any]:
         if not a.gpu and device == "gpu":
             raise spec.SpecError(f"{a.instance_type} is a GPU type: pass --gpu")
         price = spec.price_per_hour(a.instance_type, a.price_per_hour)
+        spec.check_role(a.role)
         env = spec.parse_kv(a.env, "--env")
         spec.check_env(env)
         secrets = spec.parse_kv(a.secret, "--secret")
@@ -215,7 +220,7 @@ def plan(a, aws=None) -> dict[str, Any]:
     volume = a.volume_gb or spec.DEFAULT_VOLUME_GB[device]
     image = spec.image_uri(device, a.region)
     runner = {
-        "launcher": "tools/sm/run.py", "job_name": job, "image": image, "instance_type": a.instance_type,
+        "launcher": "tools/sm/run.py", "job_name": job, "role": a.role, "image": image, "instance_type": a.instance_type,
         "max_run_s": a.max_run, "entry": argv, "source_uri": source_uri, "archive_sha256": src_sha,
         "archive_bytes": len(source), "pathspec": list(paths), "files": len(files),
         "requirements_sha256": evlib.sha256_bytes(reqs.encode("utf-8")),
@@ -226,10 +231,7 @@ def plan(a, aws=None) -> dict[str, Any]:
         runner["dirty_note"] = (f"{len(dirty)} tracked file(s) had uncommitted changes at launch; they were NOT "
                                 f"shipped: the job ran commit {sha}")
     decl = build_declaration(a, sha, runner)
-    account = a.account
-    if not account and aws is not None:
-        account = aws.client("sts").get_caller_identity()["Account"]
-    role_arn = f"arn:aws:iam::{account or '<account>'}:role/{spec.ROLE_NAME}"
+    role_arn = spec.role_arn(account or "<account>", a.role)
     try:
         request = spec.build_request(run_id=a.run_id, job=job, role_arn=role_arn, region=a.region, bucket=a.bucket,
                                      device=device, instance_type=a.instance_type, volume_gb=volume,
@@ -252,6 +254,7 @@ def print_plan(p: dict[str, Any], a, out: Callable[[str], None]) -> None:
     out(f"source      {len(p['files'])} files from {p['paths']} + requirements.txt -> {p['source_uri']}")
     out(f"            sha256 {p['source_sha256']}, {len(p['source'])} bytes")
     out(f"image       {p['image']}")
+    out(f"role        {p['role_arn']}")
     out(f"entry       {' '.join(p['argv'])}")
     out("requirements.txt:")
     for line in p["requirements"].splitlines():
@@ -266,6 +269,13 @@ def preflight(p: dict[str, Any], a, aws, store, out) -> None:
     found += store.list(f"records/{rid}/")[:3] + store.list(f"outputs/{rid}/")[:3]
     if found:
         raise Refusal(f"run id {rid} already has evidence ({', '.join(found[:3])}); a run id is used once")
+    name, path = spec.role_name_and_path(a.role)
+    try:  # a missing role would fail CreateTrainingJob AFTER the declaration: check it first
+        got = aws.client("iam").get_role(RoleName=name)["Role"]
+    except Exception as e:  # noqa: BLE001
+        raise Refusal(f"role {a.role}: IAM GetRole failed ({code(e)}); create it in CloudShell first") from None
+    if got.get("Path") != path or got.get("Arn") != p["role_arn"]:
+        raise Refusal(f"role {name} is {got.get('Arn')}, not {p['role_arn']}")
     sm = aws.client("sagemaker")
     try:
         sm.describe_training_job(TrainingJobName=p["job"])
@@ -334,6 +344,7 @@ def launch(a, aws, out: Callable[[str], None] = print, waiter: Callable[..., int
         "source_uri": p["source_uri"], "source_sha256": p["source_sha256"], "source_bytes": len(p["source"]),
         "pathspec": p["paths"], "source_extras": list(spec.SOURCE_EXTRAS), "requirements_txt": p["requirements"],
         "requirements_sha256": evlib.sha256_bytes(p["requirements"].encode("utf-8")), "image": p["image"],
+        "role": a.role, "role_arn": p["role_arn"],
         "instance_type": a.instance_type, "volume_gb": p["volume"], "max_run_s": a.max_run, "entry": p["argv"],
         "inputs": dict(p["channels"]), "sdk_wheel_sha256": spec.SDK_WHEEL_SHA256 if p["sdk"] else None,
         "secrets": p["secrets"], "env_keys": sorted(p["request"]["Environment"]), "launcher": "tools/sm/run.py",
@@ -352,6 +363,9 @@ def launch(a, aws, out: Callable[[str], None] = print, waiter: Callable[..., int
 
 def finish(a, aws, out: Callable[[str], None] = print, waiter: Callable[..., int] = cli_waiter) -> int:
     rid = a.run_id
+    if not a.bucket:
+        a.bucket = spec.data_bucket(None if os.environ.get(spec.BUCKET_ENV) else
+                                    (a.account or aws.client("sts").get_caller_identity()["Account"]))
     store = evlib.S3Store(f"s3://{a.bucket}/{spec.EVIDENCE_PREFIX}", client=aws.client("s3"), region=a.region)
     raw = store.get(f"outputs/{rid}/job-map.json")
     if raw is None:
@@ -444,6 +458,9 @@ def parser() -> argparse.ArgumentParser:
     j.add_argument("--requirement", action="append", default=[], help="extra requirements.txt line (repeatable)")
     j.add_argument("--no-sdk", action="store_true", help="do not install the ran-rl wheel")
     j.add_argument("--paths", action="append", help=f"pathspec to ship (repeatable; default {' '.join(spec.DEFAULT_PATHS)})")
+    j.add_argument("--role", default=spec.ROLE_NAME,
+                   help=f"execution role: {spec.ROLE_NAME} (default) or bb26/team13-<name>, e.g. "
+                        "bb26/team13-sm-bedrock-eval (Bedrock baselines)")
     j.add_argument("--commit", default="HEAD")
     j.add_argument("--allow-dirty", action="store_true", help="launch from a dirty tree (labelled; the commit ships)")
     j.add_argument("--price-per-hour", type=float, help="for an instance type with no price on file")
@@ -456,7 +473,8 @@ def parser() -> argparse.ArgumentParser:
     w.add_argument("--gap-s", type=float, default=2.0)
     w.add_argument("--profile", default=os.environ.get("AWS_PROFILE"))
     w.add_argument("--region", default=spec.REGION)
-    w.add_argument("--bucket", default=spec.BUCKET)
+    w.add_argument("--bucket", help=f"team data bucket (default ${spec.BUCKET_ENV}, else bb26-p-team13-data-"
+                                    "<account from STS>-use2)")
     w.add_argument("--account", help="account id for the role ARN (default: STS)")
     return ap
 
