@@ -189,7 +189,7 @@ def track2_consortium(store: Store, runs: list[str]) -> dict:
             S["central"] = base
         elif kind == "fedavg_local":
             S["fedavg_local"] = {**base, "label": det.get("label")}
-        elif kind.startswith("fl"):
+        elif kind.startswith("fl") and kind != "fl_convergence":  # a curve run, not a score of the shared test
             facts = {}
             objs = [("result", det), ("declaration", d)]
             for name, keys in FACT_KEYS.items():
