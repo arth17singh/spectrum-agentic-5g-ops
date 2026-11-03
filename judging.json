@@ -378,14 +378,14 @@
       "t3.evals.config_revert-20261103T035108Z-x86"
     ],
     "lineage, data and freeze jobs": [
-      "t1.rl.link-test-20261102T234623Z-7368",
-      "t1.rl.reward-check-20261103T020244Z-4f92",
       "t1.sft.stage-20261103T034500Z-5b1e",
       "t1.sft.data-20261103T034500Z-7c2a",
       "t1.sft.train-20261103T034500Z-9d4f (declared, no result yet)",
       "t1.execution.refreeze-x86-1",
       "t3.evals.suite-freeze-20261103T031439Z-32b3",
-      "runner.selftest-20261103T024617Z-5793"
+      "runner.selftest-20261103T024617Z-5793",
+      "t1.rl.link-test-20261102T234623Z-7368 (superseded: an infrastructure link test, not a result; see evidence/superseded.json)",
+      "t1.rl.reward-check-20261103T020244Z-4f92 (supporting check, not a judged result: part c cannot establish the AWS window of a spot job; see evidence/superseded.json)"
     ],
     "replay checks": [
       "t1.execution.replay-check-x86-1 (ml.m5.xlarge, against the Mac freeze: 75 of 80)"
@@ -427,7 +427,11 @@
       "t1.price_latency-bedrock-gpt-oss-20b-2 (p95 1,540 ms: PASS)",
       "t1.price_latency-bedrock-qwen3-32b-2 (p95 751 ms: PASS)",
       "t1.knowledge-bedrock-qwen3-32b-2 (0.512 against 0.70: FAIL)",
-      "t1.knowledge-bedrock-gpt-oss-20b-3 (relaunch after a harness defect, G-020; result pending)"
+      "t1.knowledge-bedrock-gpt-oss-20b-3 (0.568 against 0.70: FAIL; the relaunch after a harness defect, G-020; check_unit parts a, b, c and e pass)"
+    ],
+    "training curves (descriptive)": [
+      "t1.curves-20261103T064853Z-8aca (366 items, PASS)",
+      "t2.fl_convergence.disjoint-<UTC> (running; pending, to be added when it lands)"
     ]
   },
   "edge_cases": [

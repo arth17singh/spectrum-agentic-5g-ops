@@ -352,6 +352,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 **Log**
 - 3 Nov (time TODO): both defects found while the runs were being checked.
 - `538dc66`, `8ca61a4`: fixes.
+- 2 Nov about 22:50 PST (3 Nov 06:52 UTC): relaunch `t1.knowledge-bedrock-gpt-oss-20b-3` landed: 0.568 against 0.70, MISSED, check_unit parts a, b, c and e pass. The `t2.compare.federated_vs_B` relaunch (`...063916Z`) also landed: lower bound -0.041, a missed target reported as a result.
 
 <a id="g-021"></a>
 ## G-021 · A false positive in check_unit part d (fixed)
@@ -380,6 +381,8 @@ These become entries if still missing at the time shown (2 Nov, PST).
 | `t1.interface-bedrock-gpt-oss-20b-1` | Not run: CreateTrainingJob refused before AWS (empty `InputDataConfig`, G-019); the declaration exists, no job | `t1.interface-bedrock-gpt-oss-20b-2` |
 | `t1.price_latency-bedrock-qwen3-32b-1` | Not run: CreateTrainingJob refused before AWS (empty `InputDataConfig`, G-019); the declaration exists, no job | `t1.price_latency-bedrock-qwen3-32b-2` |
 | `t1.interface-bedrock-qwen3-32b-1` | Not run: CreateTrainingJob refused before AWS (empty `InputDataConfig`, G-019); the declaration exists, no job | `t1.interface-bedrock-qwen3-32b-2` |
+| `t1.rl.link-test-20261102T234623Z-7368` | Infrastructure link test from before the runner pinned code, not a result: check_unit part [b] fails because 18 files the job ran are not in commit `425521f` (G-001) | none (the scored RL run is `t1.rl.eval-20261103T043115Z-bf52`) |
+| `t1.rl.reward-check-20261103T020244Z-4f92` | Supporting check, not a judged result: part [c] cannot establish the AWS window, because the spot job's SDK name does not carry the run id; the dev reward check reached coverage 0.891 against a dev bar of 0.82 | none |
 | `t1.knowledge-otel-base-1` | Harness defect: the JSON-only knowledge parser rejected bare-letter answers (parse_fail 0.90); fixed narrowly in `c4b4b5e` (G-013) | `t1.knowledge-otel-base-2` |
 | `t3.evals.no_action-20261103T023304Z-0cd3` | Failed smoke run on the stand-in twin backend, against the old v2 suite; no result record | `t3.evals.no_action-20261103T032552Z-x86` |
 | `t3.evals.no_action-20261103T024101Z-22ae` | Failed smoke run, same cause; no result record | `t3.evals.no_action-20261103T032552Z-x86` |

@@ -168,6 +168,24 @@
           "t1.knowledge-bedrock-gpt-oss-20b-3"
         ]
       }
+    },
+    {
+      "run_ids": [
+        "t1.rl.link-test-20261102T234623Z-7368"
+      ],
+      "reason": "infrastructure link test from before the runner pinned code, not a result: check_unit part [b] FAILS because 18 files the job ran are not in commit 425521f. It proved only that the SDK, the twin host and SageMaker were connected. Not a judged result. See GAPS.md G-001.",
+      "superseded_by": {
+        "run_ids": []
+      }
+    },
+    {
+      "run_ids": [
+        "t1.rl.reward-check-20261103T020244Z-4f92"
+      ],
+      "reason": "supporting check; part c cannot establish the AWS window (spot job): not a judged result. The SDK named the spot job ran-rl-team13-20261103-020251, a name that does not carry the run id, so check_unit finds no SageMaker job and no log event that mention the run id; the item records were written afterwards from DescribeTrainingJob and CloudWatch (their own aws_time sources). A dev reward check before the full RL job (coverage 0.891 against a dev bar of 0.82), not a scored unit.",
+      "superseded_by": {
+        "run_ids": []
+      }
     }
   ]
 }
