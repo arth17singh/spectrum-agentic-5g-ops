@@ -35,7 +35,7 @@ def test_rule_set():
         "team13_ran_allow_observe", "team13_ran_allow_propose", "team13_ran_allow_predict",
         "team13_ran_allow_preflight", "team13_ran_allow_apply_change", "team13_ran_nlm_safe_questions",
         "team13_ran_screen_nlm_answers", "team13_ran_screen_nlm_answers_kit_name", "team13_ran_require_case_id",
-        "team13_ran_require_human_approval", "team13_ran_no_kit_apply_change"}
+        "team13_ran_require_human_approval", "team13_ran_no_kit_apply_change", "team13_ran_nlm_kit_name_explainer_only"}
     # M2: both NLM names reach our code, so both are screened
     assert rules["team13_ran_screen_nlm_answers"]["actions"] == ["nlm___ask"]
     assert rules["team13_ran_screen_nlm_answers_kit_name"]["actions"] == ["nlm___ask_nlm"]
@@ -58,7 +58,7 @@ def test_rule_set():
     approval = rules["team13_ran_require_human_approval"]
     assert approval["mode"] == g.LOOSE and approval["actions"] == ["ran___apply_change"]
     assert 'context.input.approval == "APPROVED"' in approval["statement"]
-    assert sorted(rules["team13_ran_require_case_id"]["actions"]) == sorted(catalog.all_tools())
+    assert sorted(rules["team13_ran_require_case_id"]["actions"]) == sorted(catalog.all_tools() + ["nlm___ask_nlm"])
     assert 'context.input.case_id like "case-*"' in rules["team13_ran_require_case_id"]["statement"]
 
 
@@ -73,7 +73,7 @@ def test_checks_catch_mistakes():
     assert any("should use FAIL_ON_ANY_FINDINGS" in p for p in problems)
     assert any("declares no input field 'agent_tag'" in p for p in problems)
     without_case = [r for r in rules if not r["name"].endswith("require_case_id")]
-    assert "the case-id forbid must cover every tool" in g.check(without_case)
+    assert any("the case-id forbid must cover every tool" in p for p in g.check(without_case))
     without_permit = [r for r in rules if r["name"] != "team13_ran_allow_preflight"]
     assert any("ran___preflight: no permit" in p for p in g.check(without_permit))
 

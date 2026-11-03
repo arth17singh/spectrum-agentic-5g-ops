@@ -43,8 +43,14 @@ KIT_WORK_APPLY = "work___apply_change"  # the kit's example apply tool (its own 
 
 
 def all_tools() -> list[str]:
-    """Every tool our rules govern, in a fixed order (the kit's own nlm___ask_nlm is not ours)."""
+    """Our six frozen tool names (A1), in a fixed order. Each has its own permit."""
     return [ran(t) for t in RAN_TOOLS] + [NLM_ASK]
+
+
+def governed_tools() -> list[str]:
+    """Every name that reaches our Lambda: the six plus the kit's nlm___ask_nlm, which the takeover of
+    target `nlm` routes to the same code. Every forbid and screen of ours must cover all of them."""
+    return all_tools() + [KIT_NLM_ASK]
 
 
 # ---------- Gateway tool schemas (the subset of JSON Schema the Gateway accepts) ----------
