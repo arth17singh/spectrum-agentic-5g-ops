@@ -1024,6 +1024,9 @@ class Checker:
                 if not isinstance(body, dict) or body.get("run_id") != self.run_id or not body.get("path"):
                     continue
                 seen[body["path"]] = (body.get("sha256"), ms_time(ev["timestamp"]), name)
+        if not seen and not want:
+            c.note("no record file or result to attest (the job wrote none)")
+            return
         if not seen:
             if any(e is None for e in ends) or self.now - max(ends) < timedelta(minutes=15):
                 c.cannot(f"no {ATTEST_MARK} lines in the job log yet (log delivery lag?); re-run in a few minutes")
