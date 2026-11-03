@@ -59,7 +59,10 @@ export function Ribbon() {
   }
 
   return (
-    <nav aria-label="Lifecycle" data-panel="ribbon" data-lit={lit ? 'true' : 'false'} className="relative flex h-9 shrink-0 border-b border-line bg-page" style={{ ['--lit-color' as string]: 'var(--ink-1)' }}>
+    <div className="flex h-9 shrink-0 border-b border-line bg-page">
+    <span className="flex shrink-0 items-center bg-warn/15 px-2.5 text-micro font-semibold tracking-wide text-warn"
+      title="Every figure in this strip comes from the built-in simulator, not from measurements">SIMULATED</span>
+    <nav aria-label="Lifecycle (simulated)" data-panel="ribbon" data-lit={lit ? 'true' : 'false'} className="relative flex h-9 min-w-0 flex-1" style={{ ['--lit-color' as string]: 'var(--ink-1)' }}>
       {PLANES.map((p, i) => {
         const m = metrics[p.id]
         const here = pathname.startsWith(ROUTES[p.id])
@@ -81,6 +84,7 @@ export function Ribbon() {
       })}
       {pulses.map((p, i) => <Pulse key={`${p.at}-${p.from}-${p.to}-${i}`} from={p.from} to={p.to} at={p.at} />)}
     </nav>
+    </div>
   )
 }
 
