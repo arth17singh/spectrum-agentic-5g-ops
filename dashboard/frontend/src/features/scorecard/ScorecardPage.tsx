@@ -98,7 +98,7 @@ export default function ScorecardPage() {
 
       {err && (
         <div role="alert" className="mb-4 rounded-md border border-critical/60 bg-critical/10 p-3 text-cap text-ink-1">
-          The scorecard could not be read: <span className="mono">{err}</span>.{card ? ' Showing the last data that loaded.' : ''}
+          {err === 'SPECTRUM backend not reachable' ? err : <>The scorecard could not be read: <span className="mono">{err}</span></>}.{card ? ' Showing the last data that loaded.' : ''}
         </div>
       )}
       {synthetic > 0 && (

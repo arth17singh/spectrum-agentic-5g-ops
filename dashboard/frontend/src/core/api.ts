@@ -2,14 +2,30 @@ import { accessToken, reportDenied } from './access'
 
 // Thin REST client. Every command returns JSON; failures surface as toasts via the caller.
 
+/** The backend could not be reached at all (stopped, network down). Its text is shown as is: String(e) is the
+ * plain sentence, not "TypeError: Failed to fetch". */
+export class Unreachable extends Error {
+  constructor() { super('SPECTRUM backend not reachable') }
+  override toString() { return this.message }
+}
+
+async function reach(path: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(path, init)
+  } catch (e) {
+    if (e instanceof TypeError) throw new Unreachable()
+    throw e
+  }
+}
+
 export async function get<T = any>(path: string): Promise<T> {
-  const res = await fetch(path, { headers: headers() })
+  const res = await reach(path, { headers: headers() })
   if (!res.ok) throw failure(path, res)
   return res.json()
 }
 
 export async function post<T = any>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const res = await reach(path, {
     method: 'POST',
     headers: headers(body === undefined ? {} : { 'Content-Type': 'application/json' }),
     body: body === undefined ? undefined : JSON.stringify(body),
