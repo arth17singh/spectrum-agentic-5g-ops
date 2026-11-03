@@ -69,6 +69,11 @@ function StateCard({ turn, ctx, onStop }: { turn: Rec; ctx: Ctx; onStop: (id: st
         )}
       </div>
       {c.body && <div className="mt-0.5 text-ink-2">{c.body}</div>}
+      {turn.case_id && ((turn.waiting_approvals ?? []) as Rec[]).length > 0 && (
+        <Link className="mt-1 inline-block font-medium text-ink-1 underline" to={`/approvals?case=${encodeURIComponent(turn.case_id)}`}>
+          Decide on the Approvals page
+        </Link>
+      )}
       {((turn.waiting_approvals ?? []) as Rec[]).map((w) => (
         <div key={w.approval_id} className="mt-1.5 flex flex-wrap items-center gap-2">
           <StatusPill status="pending" size="sm">waits for a person</StatusPill>

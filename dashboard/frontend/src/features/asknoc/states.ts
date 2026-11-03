@@ -44,7 +44,7 @@ export function copyFor(turn: Rec, c: Ctx): Copy {
         ? { tone: 'warn', title: 'Finished with no text', body: `noc_lead finished but the kit returned no text (state ${turn.a2a_state}).` }
         : { tone: 'ok', title: 'Answered', body: '' }
     case 'awaiting_approval':
-      return { tone: 'warn', title: 'A change is waiting for a person', body: 'This panel can’t approve it. A person decides it with the kit’s approve or reject command. After the approvals table shows the decision, you may tell noc_lead to go ahead (for example “Approved.”). The checkpoint applies a change only if the table says APPROVED.' }
+      return { tone: 'warn', title: 'A change is waiting for a person', body: 'This panel can’t approve it. A person decides it on the Approvals page. After the approvals table shows the decision, you may tell noc_lead to go ahead (for example “Approved.”). The checkpoint applies a change only if the table says APPROVED.' }
     case 'needs_input':
       return { tone: 'info', title: 'noc_lead needs more from you', body: 'Answer below.' }
     case 'failed':

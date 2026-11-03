@@ -37,3 +37,10 @@ def test_no_approve_or_tool_call_anywhere():
     for p in SOURCES:
         src = p.read_text()
         assert not re.search(r"/api/approvals|ran___|swarm___|apply_change\(|/approve\b", src), p.name
+
+
+def test_waiting_change_links_to_the_approvals_page():
+    """W7g's link contract: /approvals?case=<case_id>, same tab (a router Link, not target=_blank)."""
+    src = (FEATURE / "parts.tsx").read_text()
+    assert "to={`/approvals?case=${encodeURIComponent(turn.case_id)}`}" in src
+    assert "_blank" not in src
