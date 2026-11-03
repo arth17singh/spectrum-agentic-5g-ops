@@ -432,6 +432,9 @@
     "training curves (descriptive)": [
       "t1.curves-20261103T064853Z-8aca (366 items, PASS)",
       "t2.fl_convergence.disjoint-20261103T065921Z (60 of 60 PASS; the session ran 20 rounds with 3 clients and DP none, and round 21 matches the published model exactly: max_abs_diff 0.0, score_max_abs_diff 0.0; secure aggregation is documented by the service but is not established by our records; check_unit parts a, b, c and e pass)"
+    ],
+    "Viavi rung (measure-only, session-bridged; part c cannot check)": [
+      "t1.rl.viavi_operate-20261103T075351Z-25c0 (5 of 5 steps on the 4-cell Viavi scenario; check_unit a, b, e pass, c cannot check, exit 2; the Maveric-trained policy transfers poorly: see GAPS.md G-022)"
     ]
   },
   "edge_cases": [

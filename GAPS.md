@@ -29,7 +29,7 @@ Times are Seattle time (PST, UTC−8) with UTC in brackets. Each entry keeps a d
 | [G-019](#g-019) | Resolved · runner defect | The runner sent an empty `InputDataConfig` for jobs with no input channels; AWS never saw the request, so 8 declared runs (4 T2 compares, 4 Bedrock CPU runs) never started | The T2 comparisons and the Bedrock baselines until relaunched | 3 Nov (time TODO) |
 | [G-020](#g-020) | Resolved · harness defects | Two harness defects found by the first comparison and Bedrock runs: a missed target made the T2 compare job exit 1 (result never attested), and a non-finite model answer was stored as `inf` and crashed a Bedrock knowledge run | T2 compare federated_vs_B and Bedrock knowledge (gpt-oss-20b): both relaunched | 3 Nov (time TODO) |
 | [G-021](#g-021) | Resolved · checker false positive | `check_unit` part d (ledger comparison) reported a false positive that depended on the order in which the ledger ingested files; fixed in `06ddb9f` | Part d on runs checked against a ledger | 3 Nov (time TODO) |
-| [G-022](#g-022) | Not run · team decision | Viavi Operate rung not run for the RL model: no RSG address accepts our twin host without sign-in, and the models are 4-cell | The Viavi rung of the ladder (R3, retention); no Viavi number exists or is claimed | 3 Nov about 00:00 PST |
+| [G-022](#g-022) | Run once · session bridge, part c not checkable | The Viavi Operate rung ran once for the RL model (`t1.rl.viavi_operate-20261103T075351Z-25c0`, measure-only), through the team's signed-in browser session; no machine access to the RSG exists | Viavi rung: one 5-step measurement; no AWS window (check_unit part c cannot check); no retention figure | 3 Nov 07:54 UTC (2 Nov 23:54 PST) |
 
 ### Watching
 
@@ -37,7 +37,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 
 | Due | Waiting for | Last check | Planned fallback |
 |---|---|---|---|
-| 14:00 | Viavi adapter address and token for team13 | **Partly resolved (~16:40 PST).** Our RSG's MCP server is at `/mcp` on the Viavi UI address (port 443). It sits behind the UI's Cognito sign-in and answers only with a signed-in web session. From the user's own signed-in session we ran read-only calls (handshake, tool list, docs index, scenario and run lists): 21 tools; `ran-rl-maveric-4cell` is not saved yet; no run is active. Still missing: a non-interactive credential for jobs, agents and the twin host's adapter (asked the organisers). | Until then, Viavi runs need the user's signed-in session; unattended jobs can't reach it See [G-022](#g-022): the Viavi operate run was decided against. |
+| 14:00 | Viavi adapter address and token for team13 | **Partly resolved (~16:40 PST).** Our RSG's MCP server is at `/mcp` on the Viavi UI address (port 443). It sits behind the UI's Cognito sign-in and answers only with a signed-in web session. From the user's own signed-in session we ran read-only calls (handshake, tool list, docs index, scenario and run lists): 21 tools; `ran-rl-maveric-4cell` is not saved yet; no run is active. Still missing: a non-interactive credential for jobs, agents and the twin host's adapter (asked the organisers). | Until then, Viavi runs need the user's signed-in session; unattended jobs can't reach it See [G-022](#g-022): the Viavi operate run was done once through the browser session. |
 | 16:00 | Track 2 federated-learning service enabled for team13 | 1 Nov 21:00: no Track 2 silo buckets and no stacks in us-west-2 | local federated averaging over the same silos, labelled "not the service" |
 | 18:00 | Bridge challenge loop code, and which bar counts (0.73 in the guide, 0.97 in the judging deck) | **Closed.** Neither the loop nor the bar was confirmed by 18:00. The Bridge is deferred, not dropped: see [G-018](#g-018). | Bridge not attempted for now; to be reconsidered after the end-to-end pass |
 | first agent run | Claude and OpenAI partner models on Bedrock: Marketplace agreement for the account | 11:55 read-only check: agreement "not available", authorization "authorized"; open-weight models available | agent brains on open-weight models (gpt-oss-120b, available now); entry opened only if the first call is refused for permissions |
@@ -365,20 +365,28 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Who we told:** not applicable (our own code).
 
 <a id="g-022"></a>
-## G-022 · Viavi Operate rung not run (team decision)
+## G-022 · Viavi Operate rung run once through a session bridge (measure-only)
 
-- **Status:** not run, by team decision (3 Nov about 00:00 PST): no Viavi operate run for the RL model ("no go"). **No Viavi number exists and none is claimed.** Nothing in this repository or in `judging.json` reports a Viavi result.
+- **Status:** run once, measure-only. The team first decided against a Viavi operate run (3 Nov about 00:00 PST, "no go") and then reversed that decision ("go for RL on Viavi"). The run is `t1.rl.viavi_operate-20261103T075351Z-25c0`, unit `t1.rl.viavi_operate`, declared target `n_items == 5` (the count of completed steps; no KPI threshold was declared). No retention figure is computed from this single 5-step measurement.
 - **Reachability** (3 Nov about 07:45 UTC, 2 Nov about 23:45 PST; read-only check). Our RSG answered an MCP handshake only through the team's signed-in browser session: server `ai-rsg` 1.0, 21 tools, 22 saved scenarios from 3 to 173 cells, no active simulation.
-- **The adapter path is blocked.** Our twin host's Viavi adapter is up and its `/health` is OK. Its calls to the RSG address we hold get a 302 redirect to the Cognito sign-in, so the adapter's `/scenario` call returns 500. We do not have an RSG MCP address that accepts the allow-listed twin host without sign-in. The kit's README notes that its Viavi client "has not yet played a live episode". Using the signed-in browser session for scripts was rejected earlier: it would impersonate a person and could not be revoked afterwards.
-- **The models are 4-cell.** The PPO policy and the T2 response model are both 4-cell models. Operating on Viavi would have meant the 4-cell `ran-rl-maveric-4cell` scenario through Part E of the staging guide; the saved scenarios run from 3 to 173 cells.
-- **What this limits:** the Viavi rung of the fidelity ladder (R3) and the retention figure (R3 gain divided by R2 gain). The ladder is reported on the Maveric twin (R1) and the Viavi-like Maveric rehearsal (R2) only (`t3.trust.ladder_healthy-20261103T045624Z`).
+- **The machine path is blocked.** Our twin host's Viavi adapter is up and its `/health` is OK. Its calls to the RSG address we hold get a 302 redirect to the Cognito sign-in, so the adapter's `/scenario` call returns 500. No RSG MCP address accepts the allow-listed twin host without sign-in. The kit's README notes that its Viavi client "has not yet played a live episode".
+- **Route used instead.** The organisers' Viavi adapter ran locally on the team laptop. Its MCP calls were relayed through the team's signed-in browser session (a local relay). This is the "hand-operated" option we had planned for, labelled as such: the session is a person's, was not stored for scripts, and the run cannot be repeated unattended or after the account closes. No host, URL, cookie or token is recorded in the evidence.
+- **The models are 4-cell.** The PPO policy and the T2 response model are both 4-cell models, so the run used the 4-cell `ran-rl-maveric-4cell` scenario (Part E of the staging guide); `make create-viavi-scenario` printed "ran-rl-maveric-4cell: created (4 cells)". Saved scenarios run from 3 to 173 cells.
+- **The two attempts.** The declaration was on S3 at 07:54:02 UTC, before the scenario was saved and before either attempt.
+  - Attempt 1, 07:54:55 UTC: stopped at step 0 by a transient AWS CloudFront 502 on an MCP session initialize (about 3% of calls hit this). No records were written. The leftover simulation `rsg-8` was stopped at 07:57:02 UTC.
+  - Attempt 2: "operated 5 steps on HttpDigitalTwin". The relay retried 8 gateway errors, but only for idempotent calls; `advance` and `start` were verified on the RSG before any resend. The Viavi simulation `rsg-9` was STOPPED at 08:03:16 UTC after 301 s of simulated time.
+  - The model is the served PPO `ppo_sm_50k` (the 50k-step checkpoint scored in `t1.rl.eval-20261103T043115Z-bf52`), sha256 `e04d8c907ca30fd3c876121b924c2836157cb546b1890a984184bb52f37484c1`, matching its provenance.
+- **Evidence and check:** five step records and a result are on S3. `check_unit`: part a PASS, b PASS, **c CANNOT CHECK** (no AWS job and no AWS-written log, so no AWS window; this is expected, not a pass), d SKIP (no ledger here), e PASS (5 of 5); exit 2, "could not check part c". The steps come from the organisers' SDK (`make operate`); the small wrapper that turns the SDK's report into step records was in scratch and not committed at the time of the run (its result says so).
+- **What it showed (measured):** the objective per step was 1.298, 0.115, 0.100, 0.107, 0.110. The policy drove cells 2 and 3 to the limits (46 dBm, 4 degrees tilt), raised cell 4's tilt from 6.6 to 11.9 degrees, and cut cell 1's power from 39.5 to 34.4 dBm. The SDK's safety filter clipped power seven times and tilt six times. So the Maveric-trained policy does not transfer well to Viavi. That fits its missed UPLIFT gate on Maveric (G-008). Five steps on one scenario are a measurement, not an evaluation.
+- **What this limits:** the Viavi rung (R3) is one measurement with no AWS-attested window. The ladder's R3 retention (R3 gain divided by R2 gain) is not produced. The ladder otherwise stands on R1 and R2 only (`t3.trust.ladder_healthy-20261103T045624Z`).
 - **Future work, recorded and not done:** federated learning on Viavi, one operator per Viavi region, which needs machine access to the RSG and a per-cell model.
 - **Related:** the Bridge is deferred, not dropped (G-018).
 - **Who we told:** TODO (user).
 
 **Log**
 - 3 Nov about 07:45 UTC: read-only handshake through the signed-in browser session; 302 to sign-in from the twin host's adapter.
-- 3 Nov about 00:00 PST: decision, no Viavi operate run.
+- 3 Nov about 00:00 PST: decision, no Viavi operate run. Reversed the same night ("go for RL on Viavi").
+- 3 Nov 07:53 to 08:03 UTC: declaration, scenario saved, attempt 1 (CloudFront 502), attempt 2 (5 steps), simulation stopped.
 
 ---
 
