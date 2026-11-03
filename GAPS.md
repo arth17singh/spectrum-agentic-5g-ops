@@ -25,6 +25,7 @@ Times are Seattle time (PST, UTC−8) with UTC in brackets. Each entry keeps a d
 | [G-015](#g-015) | Resolved · crashed run | The first t3 deny run `t3.deny-20261103T051458Z` crashed at item 23 (the Cedar validator rejected the pause-forbid guard form); fixed in `51010f8` | Slot 1 (t3 deny): the crashed run is superseded by `t3.deny-20261103T054914Z` | 2 Nov about 21:15 PST |
 | [G-016](#g-016) | Declared design | Change records carry the approver's AWS identity (`approved_by`) as audit evidence; the dashboard shows a pseudonym | Track 3 audit: identity is in the evidence store, not on screen | 3 Nov (time TODO) |
 | [G-017](#g-017) | Resolved · deploy script defect | `t3/deploy/register.py` read only the first page of `list_policies`; with 24 rules it tried to create a rule that already existed, exited 1 without a message, and never created the three seed rules | Track 3 checkpoint: the seed rules were missing after the `614fc3b` deploy | 3 Nov (time TODO) |
+| [G-018](#g-018) | Not attempted · missing inputs | Bridge challenge: no loop code or setup steps, and two different bars | The optional Bridge unit; no Bridge number exists or is claimed | 2 Nov 18:00 PST |
 
 ### Watching
 
@@ -34,7 +35,7 @@ These become entries if still missing at the time shown (2 Nov, PST).
 |---|---|---|---|
 | 14:00 | Viavi adapter address and token for team13 | **Partly resolved (~16:40 PST).** Our RSG's MCP server is at `/mcp` on the Viavi UI address (port 443). It sits behind the UI's Cognito sign-in and answers only with a signed-in web session. From the user's own signed-in session we ran read-only calls (handshake, tool list, docs index, scenario and run lists): 21 tools; `ran-rl-maveric-4cell` is not saved yet; no run is active. Still missing: a non-interactive credential for jobs, agents and the twin host's adapter (asked the organisers). | Until then, Viavi runs need the user's signed-in session; unattended jobs can't reach it |
 | 16:00 | Track 2 federated-learning service enabled for team13 | 1 Nov 21:00: no Track 2 silo buckets and no stacks in us-west-2 | local federated averaging over the same silos, labelled "not the service" |
-| 18:00 | Bridge challenge loop code, and which bar counts (0.73 in the guide, 0.97 in the judging deck) | not in the starter kit | Bridge not attempted |
+| 18:00 | Bridge challenge loop code, and which bar counts (0.73 in the guide, 0.97 in the judging deck) | **Closed.** Neither the loop nor the bar was confirmed by 18:00; the fallback applied. See [G-018](#g-018). | Bridge not attempted |
 | first agent run | Claude and OpenAI partner models on Bedrock: Marketplace agreement for the account | 11:55 read-only check: agreement "not available", authorization "authorized"; open-weight models available | agent brains on open-weight models (gpt-oss-120b, available now); entry opened only if the first call is refused for permissions |
 
 ---
@@ -270,13 +271,14 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Status:** resolved; the crashed run is superseded.
 - **Run:** `t3.deny-20261103T051458Z`, declared 3 Nov 05:14 UTC (2 Nov about 21:15 PST).
 - **What happened:** the run crashed at item 23. The Cedar validator rejected the pause-forbid guard form used for the pause-window items.
-- **Fix:** commit `51010f8` changes the guard form. The fresh deny run is `t3.deny-20261103T054914Z` (declared; grading under way when this was written, result TODO).
+- **Fix:** commit `51010f8` changes the guard form. The fresh deny run is `t3.deny-20261103T054914Z`: 27 of 27 items refused, each Cedar decision joined to its span (27 spans), `check_unit` parts a, b, c and e pass (pass_rate 1.0 recomputed from 27 items). It fills judging slot 1.
 - **Note:** a result record exists on S3 for the crashed run, covering the 22 items that completed; it shows 22 of 22 and must not be cited as the 27-item deny unit. It is listed in `evidence/superseded.json`.
 - **Who we told:** not applicable (our own code).
 
 **Log**
 - 2 Nov about 21:15 PST (3 Nov 05:14 UTC): run declared (from the run id); crashed at item 23 (time TODO).
 - 51010f8: validator-safe guard form.
+- 3 Nov about 22:00 PST (3 Nov 06:01 UTC): the fresh deny run `t3.deny-20261103T054914Z` was checked.
 
 <a id="g-016"></a>
 ## G-016 · Change records carry the approver's AWS identity (declared design)
@@ -301,6 +303,22 @@ These become entries if still missing at the time shown (2 Nov, PST).
 **Log**
 - 3 Nov (time TODO): missing seed rules noticed after the `614fc3b` deploy; created by hand.
 - `83f99f8`: paginated reads, printed failures, two-page test.
+
+<a id="g-018"></a>
+## G-018 · Bridge challenge not attempted
+
+- **Status:** not attempted; the fallback "Bridge not attempted" applies. **No Bridge number exists and none is claimed.**
+- **What the guide describes** (pp. 31 to 32): a loop in which a language model proposes radio-unit configurations, an eight-KPI mock reward scores them, and GRPO trains the model on that reward. The reference baselines are 0.19 for the untrained model and 0.73 for CEM (a classical cross-entropy-method search).
+- **What is missing:** the guide gives no code location and no setup steps for the loop, and the starter kit does not contain it. We had no harness to run, reward to call or dataset checks to pass.
+- **Two different bars:** the guide's bar is 0.73 (beat CEM). The judging deck sets a different one: a constant policy already scores 0.97, so the unit is to beat that constant perturbed by random search, on the same 20 simulations and seeds. We could not confirm which bar counts.
+- **Time:** neither the loop nor the bar was confirmed by the 18:00 PST watch time (2 Nov), so we did not start.
+- **Not a Bridge result:** Track 1's RAN RL work (PPO policy, judging slot 8) is a different loop on the Maveric twin. It is not offered as a Bridge result.
+- **Limits:** the optional Bridge unit, and `evidence/reward.csv`, which the guide asks for. We have none.
+- **Resolved when:** the organisers give the loop code and confirm the bar. Not expected before the hand-in.
+- **Who we told:** TODO (user).
+
+**Log**
+- 2 Nov 18:00 PST: watch time passed with no loop code and no confirmed bar.
 
 ---
 
