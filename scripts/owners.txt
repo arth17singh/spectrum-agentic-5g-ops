@@ -79,6 +79,13 @@ W7i dashboard/backend/spectrum/engines/release.py
 W7i dashboard/backend/spectrum/engines/proving.py
 W7i dashboard/backend/spectrum/engines/trust.py
 
+W7j dashboard/backend/spectrum/slices/_shared/awstime.py
+W7j dashboard/backend/tests/slices/_shared/test_awstime.py
+W7j dashboard/frontend/src/ui/AwsTime.tsx
+W7j dashboard/backend/spectrum/slices/trace/**
+W7j dashboard/backend/tests/slices/trace/**
+W7j dashboard/frontend/src/features/trace/**
+
 W8 t3/agents/**
 
 W9 t2/**
