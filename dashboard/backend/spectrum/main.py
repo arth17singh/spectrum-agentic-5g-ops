@@ -27,6 +27,7 @@ from .engine import Engine
 from .evidence.service import EvidenceService
 from .evidence.store import utc_iso
 from .slices import SliceContext, include_slices, start_slices
+from .slices._shared.redact import RedactMiddleware
 
 MODE = os.environ.get("SPECTRUM_MODE", "mock")
 SEED = int(os.environ.get("SPECTRUM_SEED", "7"))
@@ -66,6 +67,8 @@ async def lifespan(app: FastAPI):
 # ledger appends corrupt the hash chain).
 app = FastAPI(title="SPECTRUM console API", version="0.1.0", lifespan=lifespan)
 # No CORS: the UI is same-origin under `make demo`, and Vite proxies /api and /ws under `make dev`.
+# Slice responses show real evidence files: account ids and home paths are redacted from their strings.
+app.add_middleware(RedactMiddleware)
 app.add_middleware(AccessGate, token=TOKEN)
 
 
