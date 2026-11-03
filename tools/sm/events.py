@@ -44,10 +44,11 @@ class RunnerLog:
     because the same line still reaches /aws/sagemaker/TrainingJobs through stdout."""
 
     def __init__(self, logs, run_id: str, writer: str, group: str = LOG_GROUP, strict: bool = True,
-                 echo: Callable[[str], None] | None = None):
+                 echo: Callable[[str], None] | None = None, clock: Callable[[], float] | None = None):
         self.logs, self.run_id, self.writer, self.group, self.strict = logs, run_id, writer, group, strict
         self.stream = stream_name(run_id, writer)
         self.echo = echo or (lambda s: print(s, flush=True))
+        self.clock = clock or time.time  # epoch seconds; tests pass their fake AWS clock
         self._ready = False
         self.failures: list[str] = []
 
@@ -62,7 +63,8 @@ class RunnerLog:
         self._ready = True
 
     def emit(self, step: str, **fields: Any) -> dict[str, Any]:
-        now = datetime.now(timezone.utc)
+        t = self.clock()
+        now = datetime.fromtimestamp(t, timezone.utc)
         body = {"team13_runner": 1, "run_id": self.run_id, "writer": self.writer, "step": step,
                 "at": now.isoformat(timespec="milliseconds").replace("+00:00", "Z"), **fields}
         line = json.dumps(body, sort_keys=True, default=str)
@@ -72,7 +74,7 @@ class RunnerLog:
         try:
             self._stream()
             self.logs.put_log_events(logGroupName=self.group, logStreamName=self.stream,
-                                     logEvents=[{"timestamp": int(time.time() * 1000), "message": line}])
+                                     logEvents=[{"timestamp": int(t * 1000), "message": line}])
         except Exception as e:  # noqa: BLE001
             msg = f"{MARK} warning: could not write {step} to {self.group}: {_code(e)}"
             self.failures.append(msg)

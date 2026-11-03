@@ -308,7 +308,7 @@ def launch(a, aws, out: Callable[[str], None] = print, waiter: Callable[..., int
                                         MaxKeys=1).get("Contents", [{}])[0].get("LastModified")
     out(f"declared    {decl_uri}  (S3 LastModified {spec.iso(lm) if lm else '?'})")
     sleep(a.gap_s)  # S3 LastModified is floored to the second: keep CreationTime clearly later
-    log = RunnerLog(aws.client("logs"), a.run_id, "launcher", strict=False, echo=out)
+    log = RunnerLog(aws.client("logs"), a.run_id, "launcher", strict=False, echo=out, clock=getattr(aws, "clock", None))
     log.emit("declared", declaration=decl_uri, s3_last_modified=spec.iso(lm) if lm else None,
              code_sha=p["sha"], source_sha256=p["source_sha256"])
 
@@ -359,7 +359,8 @@ def finish(a, aws, out: Callable[[str], None] = print, waiter: Callable[..., int
     jm = json.loads(raw)
     job, region = jm["job_name"], jm.get("region", a.region)
     sm = aws.client("sagemaker", region)
-    log = RunnerLog(aws.client("logs", region), rid, "launcher", strict=False, echo=out)
+    log = RunnerLog(aws.client("logs", region), rid, "launcher", strict=False, echo=out,
+                    clock=getattr(aws, "clock", None))
     out(f"waiting     {job} (background: aws sagemaker wait training-job-completed-or-stopped)")
     for attempt in range(5):  # the CLI waiter gives up after 6 h; a job may run 24 h
         wrc = waiter(job, region, a.profile)

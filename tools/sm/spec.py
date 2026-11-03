@@ -64,6 +64,7 @@ CHANNEL_ROOT = "/opt/ml/input/data"
 LOCAL_EVIDENCE = "/opt/ml/output/data/evidence-local"  # {evidence_dir}: for modules that write locally
 
 JOB_NAME_RE = re.compile(r"^[a-zA-Z0-9](-*[a-zA-Z0-9]){0,62}$")
+SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 CHANNEL_RE = re.compile(r"^[A-Za-z0-9\.\-_]{1,64}$")
 ENV_KEY_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,511}$")
 # DescribeTrainingJob shows Environment to anyone who can describe the job: secrets never go there.
@@ -166,7 +167,7 @@ def check_env(env: dict[str, str]) -> None:
             raise SpecError(f"--env {k}: DescribeTrainingJob shows a job's Environment to anyone who can describe "
                             f"it, so secrets (and the twin address) never go there. Store it in Secrets Manager "
                             f"and pass --secret {k}=<secret ARN>; the job fetches it at start.")
-        if k.startswith(("TEAM13_", "SM_", "SAGEMAKER_")) or k in ("RUN_ID", "EVIDENCE_S3", "PYTHONPATH"):
+        if k.startswith(("TEAM13_", "SM_", "SAGEMAKER_")) or k in ("RUN_ID", "EVIDENCE_S3", "CODE_SHA", "PYTHONPATH"):
             raise SpecError(f"--env {k}: reserved by the runner or SageMaker")
 
 
@@ -242,11 +243,14 @@ def build_request(*, run_id: str, job: str, role_arn: str, region: str, bucket: 
     them at creation and they cannot be changed afterwards, so they tie the job to the run."""
     if not 60 <= max_run_s <= 86400:
         raise SpecError("--max-run must be 60..86400 seconds")
+    if not SHA40_RE.match(code_sha):
+        raise SpecError(f"code_sha {code_sha!r} is not a full 40-character commit sha")
     if not 1 <= volume_gb <= 16384:
         raise SpecError("--volume-gb out of range")
     environment = {
         "RUN_ID": run_id,
         "EVIDENCE_S3": f"s3://{bucket}/{EVIDENCE_PREFIX}",
+        "CODE_SHA": code_sha,  # the declared commit; job entry points (e.g. t3.trust.job_*) read it first
         "TEAM13_CODE_SHA": code_sha,
         "TEAM13_REGION": region,
         "TEAM13_LOG_GROUP": LOG_GROUP,
