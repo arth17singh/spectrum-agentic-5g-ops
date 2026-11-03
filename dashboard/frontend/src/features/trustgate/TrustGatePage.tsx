@@ -182,7 +182,7 @@ function RuleBox({ th }: { th: Thresholds | null }) {
     <div>
       <h4 className="mb-1.5 text-cap font-medium text-ink-2">Pause rule</h4>
       <p className="text-cap text-ink-2">
-        After {th.n_min ?? 3} or more scored changes, pause when {th.k_of ?? 2} of the last {th.window ?? 3} have e above τ, or when the EWMA trust falls below the pause line.
+        After {th.n_min ?? 3} or more scored changes, pause when {(typeof th.window === 'object' ? th.window.needed : undefined) ?? th.k_of ?? 2} of the last {(typeof th.window === 'object' ? th.window.of_last : th.window) ?? 3} have e above τ, or when the EWMA trust falls below the pause line.
         Here e is the mean over KPIs of |predicted Δ − measured Δ| ÷ scale.
       </p>
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-cap">

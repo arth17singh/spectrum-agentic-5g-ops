@@ -1,5 +1,5 @@
 # SPECTRUM console: one-command dev and demo.
-.PHONY: dev api web install test check build demo evidence-rebuild gate
+.PHONY: dev api web install test check build demo evidence-rebuild evidence-sync demo-real gate
 
 install:            ## install backend + frontend dependencies
 	cd backend && uv sync --group dev
@@ -27,6 +27,15 @@ demo: build         ## demo-day mode: a single process serves API + built UI on 
 
 evidence-rebuild:   ## offline: re-verify evidence/ (chain, signatures, file hashes) and reprint per-run results
 	cd backend && uv run python -m spectrum.evidence rebuild $(if $(DIR),--dir $(DIR),)
+
+EVIDENCE ?= $(abspath .evidence)
+AWS_PROFILE ?= fyuz
+
+evidence-sync:      ## mirror S3 evidence/ into $(EVIDENCE) (read-only; new/changed keys only; checks sha256 vs the job logs' attestations). CHECK=1 caches check_unit per run; HANDIN=<git ref> copies judging.json + superseded.json
+	cd backend && AWS_PROFILE=$(AWS_PROFILE) uv run python ../../tools/evidence_sync.py --dest $(EVIDENCE) --jobs --attest $(if $(CHECK),--check,) $(foreach r,$(RUN),--run $(r)) $(if $(HANDIN),--handin $(HANDIN),)
+
+demo-real: build    ## like demo, but every screen reads the mirrored real evidence ($(EVIDENCE)); run evidence-sync first. Starts in ~5 s; the evidence ledger then ingests new files in the background (~1 s per 1,000; a fresh 65k mirror ~1 min, kept in $(EVIDENCE)/ledger.jsonl), so start it once before the demo to warm it
+	cd backend && SPECTRUM_EVIDENCE_DIR=$(EVIDENCE) SPECTRUM_RECORDS_ROOT=$(EVIDENCE) PYTHONPATH=. uv run uvicorn spectrum.main:app --host 0.0.0.0 --port 8787
 
 gate:               ## merge gate (worktrees only, never the main checkout): tsc, oxlint, registry, build, canonical, pytest, route smoke on :8790
 	../scripts/gate.sh
