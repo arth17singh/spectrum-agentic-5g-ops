@@ -422,3 +422,20 @@ def test_a_declaration_counts_when_s3_stored_it(monkeypatch, tmp_path):
     assert logic.case_prov({**decl, awstime.STORED_KEY: "2026-11-03T05:00:01Z"})["real"] is True
     assert logic.case_prov(decl)["real"] is False
     assert logic.case_prov({"run_id": RUN, "kind": "change", awstime.STORED_KEY: "2026-11-03T05:00:01Z"})["real"] is False
+
+
+def test_a_replaced_attest_file_is_picked_up_without_a_restart(tmp_path):
+    """The caches are keyed on the file's mtime and size, so an atomic replace (new file, same name) is read at once."""
+    import os
+
+    root = _evidence(tmp_path)
+    chg = f"records/{RUN}/change/lambda.json"
+    r = RecordsReader(str(root))
+    get = lambda: {x["change_id"]: m for x, m in r.all_records_times("change")}["chg-1"]["attested"]  # noqa: E731
+    assert get() is None
+    _attest(root, RUN, {chg: {"job": "j", "log_time": "2026-11-03T05:50:30Z", "sha256": _sha(root, chg), "state": "match"}})
+    assert get() == "2026-11-03T05:50:30Z"
+    new = root / ".sync" / "attest" / f"{RUN}.tmp"
+    new.write_text(json.dumps({"files": {chg: {"job": "j", "log_time": "2026-11-03T05:50:31Z", "sha256": _sha(root, chg), "state": "match"}}}))
+    os.replace(new, root / ".sync" / "attest" / f"{RUN}.json")
+    assert get() == "2026-11-03T05:50:31Z"
