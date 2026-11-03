@@ -568,3 +568,47 @@ def test_the_note_and_the_banner_agree_once_the_lambda_log_attests_the_change(mo
     s, note = both()
     assert s["by_source"]["cloudwatch_lambda"] == 1 and s["text"] in note and "563" not in note
     assert f"AWS time on {s['n']} of {s['n']}" in note
+
+
+# ---------------------------------------------------------------------------------------------- the pause run
+
+def _pause_fixture(tmp_path, monkeypatch):
+    run = "t3.pause-20261103T055232Z"
+    calls = [("pause-before", "pause-before-00", "ALLOW", "2026-11-03T05:53:41.000Z"),
+             ("pause-first", "pause-after_active-01", "DENY", "2026-11-03T05:53:51.000Z"),
+             ("pause-after-refusal-01", "pause-after_active-02", "DENY", "2026-11-03T05:53:55.000Z"),
+             ("pause-after-resume", "pause-after_resume-00", "ALLOW", "2026-11-03T05:54:37.000Z")]
+    for item_id, call, dec, t in calls:
+        _put(tmp_path, f"records/{run}/item/{item_id}.json", {
+            "kind": "item", "run_id": run, "item_id": item_id, "passed": True, "aws_time": t, "aws_time_source": "gateway:http-date",
+            "created_at": "2026-11-03T05:54:37.126Z", "synthetic": False, "extra": {"call": call, "decision": dec, "what": f"{dec} {call}"}})
+    _put(tmp_path, f"records/{run}/control/p.json", {"kind": "control", "run_id": run, "action": "pause", "model_id": "m", "version": "v1",
+                                                   "time": "2026-11-03T05:53:42.132Z", "aws_time": "2026-11-03T05:53:42.132Z",
+                                                   "aws_time_source": "agentcore:policy.createdAt", "synthetic": False})
+    _put(tmp_path, f"records/{run}/control/r.json", {"kind": "control", "run_id": run, "action": "resume", "model_id": "m", "version": "v1",
+                                                   "time": "2026-11-03T05:54:12.322Z", "synthetic": False})
+    return run
+
+
+def test_the_pause_run_shows_as_one_group_from_its_items_and_controls(monkeypatch, tmp_path):
+    run = _pause_fixture(tmp_path, monkeypatch)
+    c = _trace_client(monkeypatch, tmp_path)
+    j = c.get("/api/trace/cases").json()
+    row = next(r for r in j["cases"] if r["run_id"] == run)
+    assert row["case_id"] == "(pause window)" and row["unit"] == "t3.pause" and row["case_label"].startswith("calls around a model pause")
+    assert (row["allows"], row["denies"], row["n_events"]) == (2, 2, 6) and row["check_passed"] is True
+    d = c.get(f"/api/trace/case/{'(pause window)'}?run_id={run}").json()
+    assert [e["kind"] for e in d["timeline"]].count("item") == 4 and [e["kind"] for e in d["timeline"]].count("control") == 2
+    deny = next(e for e in d["timeline"] if e["tool"] == "pause-after_active-01")
+    assert (deny["decision"], deny["category"], deny["aws_time_source"], deny["real"]) == ("DENY", "pause", "gateway_date", True)
+    assert d["check"]["by_unit"] and d["check"]["missing"] == [] and d["check"]["passed"] is True
+
+
+def test_the_pause_check_fails_when_a_phase_is_missing_or_a_call_failed(monkeypatch, tmp_path):
+    run = _pause_fixture(tmp_path, monkeypatch)
+    (tmp_path / f"records/{run}/item/pause-after-resume.json").unlink()  # nothing allowed after the resume
+    c = _trace_client(monkeypatch, tmp_path)
+    row = next(r for r in c.get("/api/trace/cases").json()["cases"] if r["run_id"] == run)
+    assert row["check_passed"] is False
+    d = c.get(f"/api/trace/case/{'(pause window)'}?run_id={run}").json()
+    assert d["check"]["missing"] == ["allowed_after_resume"]

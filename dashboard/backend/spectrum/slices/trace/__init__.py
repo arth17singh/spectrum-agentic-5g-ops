@@ -30,13 +30,23 @@ def _records(r, kind: str) -> list[dict]:
     return awstime.read_records(r, kind)
 
 
-def _load() -> tuple[list[dict], list[dict], list[dict], Any]:
+def _pause_items(r) -> dict[str, list[dict]]:
+    """The per-call `item` records of the t3.pause runs: that run records no decisions or case ids, so these (with its
+    pause/resume controls) are its evidence. Read per run, never the whole item store (it holds 100k+ files)."""
+    try:
+        runs = [x for x in r.runs() if logic.pause_run(x)]
+    except Exception:  # noqa: BLE001 - a reader without runs() (a test double) has none
+        return {}
+    return {x: list(r.records(x, "item")) for x in runs}
+
+
+def _load() -> tuple[list[dict], list[dict], list[dict], Any, dict[str, list[dict]]]:
     r = _reader()
     try:
         src = r.source()
     except Exception:  # the source description is a courtesy, never a reason to fail
         src = None
-    return _records(r, "decision"), _records(r, "change"), _records(r, "control"), src
+    return _records(r, "decision"), _records(r, "change"), _records(r, "control"), src, _pause_items(r)
 
 
 def _govern_listing(out: dict) -> dict:
@@ -61,13 +71,13 @@ def cases(show_superseded: bool = False):
     from spectrum.slices._shared.verified import hide_superseded
 
     try:
-        decisions, changes, controls, src = _load()
+        decisions, changes, controls, src, pause = _load()
     except Exception as e:  # noqa: BLE001 - reported to the page, which shows it as an error, not as "no records"
         return _unavailable(e)
     (decisions, changes, controls), sup = hide_superseded([decisions, changes, controls], show_superseded)
-    ov = logic.build_overview(decisions, changes, controls)
+    ov = logic.build_overview(decisions, changes, controls, pause)
     rows = ov["cases"]
-    return _govern_listing({"cases": rows, "n_cases": len(rows), "n_records": len(decisions) + len(changes) + len(controls),
+    return _govern_listing({"cases": rows, "n_cases": len(rows), "n_records": len(decisions) + len(changes) + len(controls) + sum(len(v) for v in pause.values()),
                             "provenance": ov["provenance"], "source": src, "superseded_runs": sup, "n_superseded": len(sup),
                             "showing_superseded": bool(show_superseded)})
 
@@ -75,10 +85,10 @@ def cases(show_superseded: bool = False):
 @router.get("/case/{case_id}")
 def case(case_id: str, run_id: str | None = None):
     try:
-        decisions, changes, controls, src = _load()
+        decisions, changes, controls, src, pause = _load()
     except Exception as e:  # noqa: BLE001
         return _unavailable(e)
-    out = logic.build_case(case_id, decisions, changes, controls, run_id)
+    out = logic.build_case(case_id, decisions, changes, controls, run_id, pause)
     if out is None:
         return JSONResponse({"detail": f"unknown case: {case_id}"}, status_code=404)
     from spectrum.slices._shared.verified import govern
