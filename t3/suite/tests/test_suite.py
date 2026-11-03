@@ -92,10 +92,11 @@ def make_runner(clock, ddb, gw, ev, policy=None, approve_after_s=30.0, approver=
                          synthetic=True, unit=unit)
 
 
-def run_suite(unit="deny", flip=None, approver=True, with_pause=True):
+def run_suite(unit="deny", flip=None, approver=True, with_pause=True, apply_noop=False):
     clock, ddb, ev = Clock(), FakeDDB(), FakeEvlib()
     policy = FakePolicyClient(clock) if with_pause else None
     gw = FakeGateway(clock, ddb, policy, flip=flip)
+    gw.apply_noop = apply_noop
     r = make_runner(clock, ddb, gw, ev, policy, approver=approver, timeout=120.0, unit=unit)
     write = ev.write_declared
 
@@ -183,7 +184,7 @@ def test_units_partition_the_suite_and_all_uses_two_run_ids():
     for rid, key in units.run_ids("1102a", "all"):
         decl = next(d for d in ev.declared if d["run_id"] == rid)
         assert check.check(rid, ev.records[(rid, "item")], gw.cp_rows, gw.span_rows, declared=decl,
-                           spans_mode="required", log=lambda *a: None) == 0
+                           spans_mode="required", log=lambda *a: None, tool_rows=gw.tool_rows) == 0
 
 
 def test_case_ids_do_not_collide_for_similar_run_ids():
@@ -253,15 +254,15 @@ def test_gateway_reads_http_errors_and_streams_as_answers():
 # ---------- check against fixture rows ----------
 def records_and_rows(unit="deny", **kw):
     summary, ev, gw, ddb, clock = run_suite(unit, **kw)
-    return ev.records[("t3-test-run", "item")], gw.cp_rows, gw.span_rows, ev.declared[0]
+    return ev.records[("t3-test-run", "item")], gw.cp_rows, gw.span_rows, ev.declared[0], gw.tool_rows
 
 
 @pytest.mark.parametrize("unit,n", [("deny", N_DENY), ("allow", N_ALLOW)])
 def test_check_each_unit_all_match_exits_0(unit, n):
-    records, cp, spans, decl = records_and_rows(unit)
+    records, cp, spans, decl, tools = records_and_rows(unit)
     ev = FakeEvlib()
     code = check.check("t3-test-run", records, cp, spans, declared=decl, spans_mode="required", evlib=ev,
-                       synthetic=True, log=lambda *a: None)
+                       synthetic=True, log=lambda *a: None, tool_rows=tools)
     assert code == 0
     res = ev.results[0]
     assert res["passed"] and res["value"] == 1.0 and res["n_items"] == n
@@ -280,15 +281,16 @@ def test_check_each_unit_all_match_exits_0(unit, n):
 
 def test_check_one_mismatch_exits_1():
     # the Gateway gets ran___preflight wrong: AWS records DENY where the suite expects ALLOW
-    records, cp, spans, decl = records_and_rows("allow", flip={"ran___preflight"})
+    records, cp, spans, decl, tools = records_and_rows("allow", flip={"ran___preflight"})
     ev = FakeEvlib()
-    code = check.check("t3-test-run", records, cp, spans, declared=decl, evlib=ev, log=lambda *a: None)
+    code = check.check("t3-test-run", records, cp, spans, declared=decl, evlib=ev, log=lambda *a: None,
+                       tool_rows=tools)
     assert code == 1
     assert [m["item_id"] for m in ev.results[0]["details"]["mismatches"]] == ["t3-006"]
 
 
 def test_check_will_not_grade_one_unit_as_the_other():
-    records, cp, spans, decl = records_and_rows("deny")
+    records, cp, spans, decl, _tools = records_and_rows("deny")
     assert check.check("t3-test-run", records, cp, spans, declared=decl, unit="allow", log=lambda *a: None) == 1
     ev = FakeEvlib()   # without a declaration, the deny items are outside the allow subset
     assert check.check("t3-test-run", records, cp, spans, unit="allow", evlib=ev, log=lambda *a: None) == 1
@@ -299,7 +301,7 @@ def test_check_will_not_grade_one_unit_as_the_other():
 
 def test_check_uses_aws_records_not_the_runner_view():
     """If the runner's own view is tampered with, the grade still comes from the logs."""
-    records, cp, spans, decl = records_and_rows("deny")
+    records, cp, spans, decl, _tools = records_and_rows("deny")
     tampered = copy.deepcopy(records)
     for r in tampered:
         r["extra"]["observed"] = "ALLOW"
@@ -315,7 +317,7 @@ def test_check_uses_aws_records_not_the_runner_view():
 
 
 def test_check_flags_sources_that_disagree_and_missing_spans():
-    records, cp, spans, decl = records_and_rows("deny")
+    records, cp, spans, decl, _tools = records_and_rows("deny")
     spans2 = copy.deepcopy(spans)
     msg = json.loads(spans2[3]["@message"])
     attr = msg["attributes"]
@@ -337,7 +339,7 @@ def test_check_counts_skipped_items_as_not_passed():
 
 
 def test_check_reads_logs_insights_shapes_offline(tmp_path):
-    records, cp, spans, decl = records_and_rows("deny")
+    records, cp, spans, decl, _tools = records_and_rows("deny")
     insights = {"status": "Complete", "results": [
         [{"field": "@timestamp", "value": common.to_iso(r["@timestamp"]).replace("T", " ").rstrip("Z")},
          {"field": "@message", "value": r["@message"]}, {"field": "@ptr", "value": r["@ptr"]}] for r in cp]}
@@ -355,19 +357,20 @@ def test_check_reads_logs_insights_shapes_offline(tmp_path):
 
 
 def test_check_refuses_a_suite_changed_after_the_declaration():
-    records, cp, spans, decl = records_and_rows("deny")
+    records, cp, spans, decl, _tools = records_and_rows("deny")
     decl = dict(decl, test_set_sha256="0" * 64)
     assert check.check("t3-test-run", records, cp, spans, declared=decl, log=lambda *a: None) == 1
 
 
 def test_check_cli_offline(tmp_path):
-    records, cp, spans, decl = records_and_rows("allow")
+    records, cp, spans, decl, tools = records_and_rows("allow")
+    (tmp_path / "tools.json").write_text(json.dumps(tools))
     (tmp_path / "item.jsonl").write_text("\n".join(json.dumps(r) for r in records))
     (tmp_path / "cp.json").write_text(json.dumps(cp))
     (tmp_path / "spans.json").write_text(json.dumps(spans))
     args = ["--run-id", "t3-test-run", "--unit", "allow", "--runner-records", str(tmp_path / "item.jsonl"),
             "--checkpoint-json", str(tmp_path / "cp.json"), "--spans-json", str(tmp_path / "spans.json"),
-            "--no-write", "--evidence-dir", str(tmp_path)]
+            "--tools-json", str(tmp_path / "tools.json"), "--no-write", "--evidence-dir", str(tmp_path)]
     assert check.main(args) == 0
     folder = tmp_path / "records" / "t3-test-run" / "item"   # the per-record layout of amendment A11
     folder.mkdir(parents=True)
@@ -391,7 +394,9 @@ def test_check_cli_all_grades_both_run_ids(tmp_path):
         (tmp_path / "declared" / f"{rid}.json").write_text(json.dumps(decl))
     (tmp_path / "cp.json").write_text(json.dumps(gw.cp_rows))
     (tmp_path / "spans.json").write_text(json.dumps(gw.span_rows))
-    args = ["--run-id", "1102a", "--unit", "all", "--checkpoint-json", str(tmp_path / "cp.json"),
+    (tmp_path / "tools.json").write_text(json.dumps(gw.tool_rows))
+    args = ["--run-id", "1102a", "--unit", "all", "--tools-json", str(tmp_path / "tools.json"),
+            "--checkpoint-json", str(tmp_path / "cp.json"),
             "--spans-json", str(tmp_path / "spans.json"), "--spans", "required", "--no-write",
             "--evidence-dir", str(tmp_path)]
     assert check.main(args) == 0
@@ -428,6 +433,15 @@ def test_pause_floor_passes_and_times_the_first_refusal():
     assert all(p["deleted"] for p in floor.p.c.policies.values())  # resumed: the forbid is gone
     assert d["tool"] == "ran___predict" and d["policy_name"].startswith("team13_ranpause_predict_")
     assert ev.records[("t3-test-run", "item")][0]["extra"]["caller"] == "ran_optimizer"
+    # the floor waited for GetPolicy to say ACTIVE before the "next call is denied" step, and recorded it
+    wait = d["wait_until_active"]
+    assert wait["want"] == "ACTIVE" and wait["statuses"][-1] == "ACTIVE" and wait["polls"] >= 2
+    assert wait["waited_s"] >= 6.0 and wait["since_forbid_s"] >= 6.0      # the fake propagates in 6 s
+    assert d["first_call_after_active"] == "DENY" and d["allowed_while_propagating"] == 0
+    items = ev.records[("t3-test-run", "item")]
+    w = next(r for r in items if r["item_id"] == "pause-wait-active")
+    calls_after = [r for r in items if r["extra"].get("phase") == "after_active"]
+    assert w["extra"]["wait"]["seen_at"] <= calls_after[0]["extra"]["sent_at"]
 
 
 def test_pause_floor_fails_when_the_forbid_never_refuses():
@@ -690,3 +704,135 @@ def test_brain_smoke_dry_run_and_fake_conversation(capsys):
                                log=lambda *a: None)
     assert out["passed"], out["checks"]
     assert ddb.writes == []  # read only
+
+
+# ---------- red-team fixes: allowed means applied; Gateway bypass; one trace id ----------
+def test_check_allow_needs_a_change_applied_line_from_our_tools():
+    # the approval is consumed (the Gateway allows the call) but our tools Lambda never applies anything
+    records, cp, spans, decl, tools = records_and_rows("allow", apply_noop=True)
+    ev = FakeEvlib()
+    assert check.check("t3-test-run", records, cp, spans, declared=decl, evlib=ev, log=lambda *a: None,
+                       tool_rows=tools) == 1
+    mism = ev.results[0]["details"]["mismatches"]
+    assert [m["item_id"] for m in mism] == ["t3-034"]
+    assert "allowed but not applied" in mism[0]["problems"][0]
+    # and with no tools log at all, the allowed apply cannot pass either
+    assert check.check("t3-test-run", records, cp, spans, declared=decl, log=lambda *a: None) == 1
+
+
+def test_check_counts_only_our_tools_lines_inside_the_run_window():
+    records, cp, spans, decl, tools = records_and_rows("allow")
+    ok = check.check("t3-test-run", records, cp, spans, declared=decl, log=lambda *a: None, tool_rows=tools)
+    assert ok == 0
+
+    def mutate(fn):
+        rows = copy.deepcopy(tools)
+        for r in rows:
+            if json.loads(r["@message"]).get("record") == "change_applied":
+                fn(r)
+        return check.check("t3-test-run", records, cp, spans, declared=decl, log=lambda *a: None, tool_rows=rows)
+    assert mutate(lambda r: r.update({"@log": "/team13/checkpoint"})) == 1          # another log group
+    assert mutate(lambda r: r.update({"@timestamp": r["@timestamp"] + 86_400_000})) == 1   # outside the window
+    assert mutate(lambda r: r.update({"@message": r["@message"].replace('"source": "team13-ran-tools"',
+                                                                        '"source": "kit"')})) == 1
+    assert mutate(lambda r: r.update({"@message": r["@message"].replace('"item_id": "step-0"',
+                                                                        '"item_id": "step-9"')})) == 1
+
+
+def bypass_rows():
+    rows, bedrock, tools = trace_rows()
+    t0 = 1_793_650_000_000
+    stray = [{"@timestamp": t0 + 13_500, "@log": "/aws/lambda/team13-ran-tools", "@message": json.dumps(
+        {"record": "ran_tool", "source": "team13-ran-tools", "tool": "ran___apply_change",
+         "case_id": "case-0a1b2c3d", "ok": True})},
+        {"@timestamp": t0 + 13_600, "@log": "/aws/lambda/team13-ran-tools", "@message": json.dumps(
+            {"record": "change_applied", "source": "team13-ran-tools", "case_id": "case-0a1b2c3d",
+             "approval_id": "chg-dddddddddddd", "change_text": "cell=1;d_power_db=+3.0;d_tilt_deg=+0.0"})}]
+    return rows, bedrock, tools, stray
+
+
+def test_trace_flags_tool_lines_without_a_gateway_decision():
+    rows, bedrock, tools, stray = bypass_rows()
+    # with the tools' own lines (each inside an allowed Gateway call) the trace passes
+    calls_lines = [{"@timestamp": 1_793_650_000_000 + 2500, "@log": "/aws/lambda/team13-ran-tools",
+                    "@message": json.dumps({"record": "ran_tool", "source": "team13-ran-tools",
+                                            "tool": "ran___observe", "case_id": "case-0a1b2c3d", "ok": True})}]
+    good = trace.rebuild("case-0a1b2c3d", rows, [], bedrock, tool_rows=tools + calls_lines)
+    assert good["passed"] and good["no_gateway_decision"] == []
+    tool_exec = [e for e in good["events"] if e["kind"] == "tool_exec"][0]
+    assert tool_exec["gateway_call"]["agent"] == "ran_monitor"
+    # a tool run and a change with no Gateway call around them: listed, and the trace FAILS
+    bad = trace.rebuild("case-0a1b2c3d", rows, [], bedrock, tool_rows=tools + calls_lines + stray)
+    assert not bad["passed"]
+    assert [(b["kind"], b["problem"]) for b in bad["no_gateway_decision"]] == [
+        ("tool_exec", "no Gateway decision"), ("change_applied", "no Gateway decision")]
+    assert all("no Gateway decision" in p for p in bad["problems"])
+
+
+def test_trace_line_with_a_trace_id_must_match_that_call():
+    rows, bedrock, tools = trace_rows()
+    t0 = 1_793_650_000_000
+    spans = [{"@timestamp": t0 + 2200, "@message": json.dumps({"traceId": "1-abc", "attributes": {
+        "aws.agentcore.policy.authorization_decision": "ALLOW", "mcp.tool.name": "ran___observe"}})}]
+    line = {"@timestamp": t0 + 2500, "@log": "/aws/lambda/team13-ran-tools", "@message": json.dumps(
+        {"record": "ran_tool", "source": "team13-ran-tools", "tool": "ran___observe", "case_id": "case-0a1b2c3d",
+         "trace_id": "1-abc"})}
+    assert trace.rebuild("case-0a1b2c3d", rows, spans, bedrock, tool_rows=tools + [line])["no_gateway_decision"] == []
+    other = copy.deepcopy(line)
+    other["@message"] = other["@message"].replace("1-abc", "1-zzz")
+    out = trace.rebuild("case-0a1b2c3d", rows, spans, bedrock, tool_rows=tools + [other])
+    assert [b["kind"] for b in out["no_gateway_decision"]] == ["tool_exec"]
+
+
+def test_trace_is_one_case_id_end_to_end_with_span_trace_ids_joined():
+    rows, bedrock, tools = trace_rows()
+    t0 = 1_793_650_000_000
+    msgs = [json.loads(r["@message"]) for r in rows]
+    spans = []
+    for r, m in zip(rows, msgs):  # one Cedar span per Gateway call, no case id in it (as AWS writes them)
+        if m.get("record") == "checkpoint" and m.get("phase") == "request" and m["case_id"] == "case-0a1b2c3d":
+            spans.append({"@timestamp": r["@timestamp"] + 200, "@message": json.dumps({
+                "traceId": f"1-{len(spans):03d}", "attributes": {
+                    "aws.agentcore.policy.authorization_decision": "ALLOW", "mcp.tool.name": m["tool"]}})})
+    spans.append({"@timestamp": t0 + 99_000_000, "@message": json.dumps({"traceId": "1-far", "attributes": {
+        "aws.agentcore.policy.authorization_decision": "DENY", "mcp.tool.name": "ran___observe"}})})
+    out = trace.rebuild("case-0a1b2c3d", rows, spans, bedrock, tool_rows=tools, spans_required=True)
+    assert out["passed"], out["problems"]
+    assert out["trace_id"] == "case-0a1b2c3d" and out["first_event"] <= out["last_event"]
+    assert set(out["sources"]) == {"/team13/checkpoint", "/aws/lambda/team13-ran-tools",
+                                   "/team13/bedrock-invocations"}
+    assert "1-far" not in out["span_trace_ids"] and len(out["span_trace_ids"]) == len(spans) - 1
+    assert out["calls_without_span"] == []
+    # every case-scoped record names exactly this case; a record of another case never enters
+    assert all("case-ffffffff" not in json.dumps(e) for e in out["events"])
+    # spans required but missing: FAIL
+    assert not trace.rebuild("case-0a1b2c3d", rows, [], bedrock, tool_rows=tools, spans_required=True)["passed"]
+
+
+def test_trace_ignores_a_record_of_another_case_that_mentions_this_one():
+    rows, bedrock, tools = trace_rows()
+    foreign = {"@timestamp": 1_793_650_000_000 + 3000, "@message": json.dumps(
+        {"record": "approval", "decision": "APPROVED", "approval_id": "chg-eeeeeeeeeeee", "case_id": "case-ffffffff",
+         "reason": "see case-0a1b2c3d"})}
+    out = trace.rebuild("case-0a1b2c3d", rows + [foreign], [], bedrock, tool_rows=tools)
+    assert all(e["detail"].get("approval_id") != "chg-eeeeeeeeeeee" for e in out["events"])
+
+
+def test_records_validate_against_the_contracts_when_present():
+    """Green with and without the contracts package: skipped when it is not importable."""
+    import sys as _sys
+    contracts_dir = Path(__file__).resolve().parents[3] / "contracts"
+    if contracts_dir.is_dir() and str(contracts_dir) not in _sys.path:
+        _sys.path.insert(0, str(contracts_dir))
+    tc = pytest.importorskip("team13_contracts")
+    recs = []
+    for unit in ("deny", "allow"):
+        records, cp, spans, decl, tools = records_and_rows(unit)
+        ev = FakeEvlib()
+        check.check("t3-test-run", records, cp, spans, declared=decl, evlib=ev, log=lambda *a: None, tool_rows=tools)
+        recs += [decl] + records + [r for v in ev.records.values() for r in v] + ev.results
+    floor, ev, gw, clock = make_floor()
+    floor.run()
+    recs += ev.declared + [r for v in ev.records.values() for r in v] + ev.results
+    for r in recs:
+        tc.validate_record(r)
