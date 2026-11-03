@@ -2,7 +2,7 @@
 
 A frozen suite of misconfiguration incidents on the in-process Maveric twin. Every grade comes from a replay of the twin, never from a model. `PY` below is the shared env: `/private/tmp/claude-501/-Users-satyabratsrikumar-firstmate-homes-AWS-Hackathon/b281b863-2729-4833-baf6-93b1e8b525db/scratchpad/venv-t3/bin/python`. Run every command from the repo root.
 
-- **The suite:** `suite/incidents-test.jsonl` holds the test incidents (v3: 33, of which 15 visible and 18 masked). Its sha256 is in `suite/incidents-test.sha256`. The dev split and the generator metadata sit next to it. Generate it with `incidents.py`. Its input, the 84 candidate specs, is `suite/candidates.jsonl`.
+- **The suite:** `suite/incidents-test.jsonl` holds the test incidents of record (v4, frozen on x86_64 in SageMaker by run t3.evals.suite-freeze-20261103T031439Z-32b3: 33, of which 15 visible and 18 masked). Its sha256 is in `suite/incidents-test.sha256`. The dev split and the generator metadata sit next to it. Generate it with `incidents.py`. Its input, the 84 candidate specs, is `suite/candidates.jsonl`.
 - **Targets and tolerances:** `targets.json`. Every run records this file's sha256 in `declared.twin.config.eval.targets_sha256`.
 - **Graders:** `graders.py`. Operators: `operators.py` and `swarm.py`. Runner and paired bootstrap gains: `run.py` and `stats.py`.
 - **Evidence:** `evidence/` uses the contract layout: `declared/`, `records/<run_id>/item.jsonl` and `results/`.

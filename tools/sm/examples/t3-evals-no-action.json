@@ -1,7 +1,12 @@
 {
   "unit": "t3.evals.recovery",
   "track": "track-3",
-  "target": {"metric": "mean_score", "op": "<=", "value": 0.05, "unit": "recovery"},
+  "target": {
+    "metric": "mean_score",
+    "op": "<=",
+    "value": 0.05,
+    "unit": "recovery"
+  },
   "test_set": "t3/evals/suite/incidents-test.jsonl",
   "model_id": "no_action",
   "grader": "t3/evals/graders.py:v1 (twin replay, same-step healthy counterfactual)",
@@ -15,8 +20,16 @@
       "backend": "maveric-inprocess",
       "suite": "t3/evals/suite/incidents-test.jsonl",
       "suite_version": "t3-incidents-v4",
-      "presets": ["official", "viavi-like"],
-      "tiers": ["masked", "visible"],
+      "suite_sha256": "128b229489d3b1e050223a03c7a23bb2e0bec995cb480a6e44552d2d51984638",
+      "frozen_by": "t3.evals.suite-freeze-20261103T031439Z-32b3 (ml.m5.xlarge, x86_64)",
+      "presets": [
+        "official",
+        "viavi-like"
+      ],
+      "tiers": [
+        "masked",
+        "visible"
+      ],
       "seeds": "one per incident (see the suite); twin.seed is the smallest",
       "eval": {
         "operator": "no_action",
@@ -24,7 +37,7 @@
         "executed": "SageMaker training job started by tools/sm/run.py on ml.m5.xlarge (x86_64, the platform the suite was frozen on); in-process twin (twin/, W2), no network twin",
         "evidence_writer": "tools/evlib.py: a local store in the job, uploaded and attested by tools/sm/entry.py"
       },
-      "pathspec_note": "ship contracts, t3, tools and twin (twin/ must be in the archive, or t3/evals refuses the stand-in path)"
+      "pathspec_note": "ship contracts, t3, tools and twin (twin/ must be in the archive)"
     }
   }
 }

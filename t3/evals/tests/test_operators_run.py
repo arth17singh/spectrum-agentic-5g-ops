@@ -217,3 +217,12 @@ def test_records_only_use_contract_fields(tmp_path):
     res = json.loads((tmp_path / "results" / "t-c1.json").read_text())
     assert res["metric"] == res["target"]["metric"]
     assert res["passed"] == (res["value"] <= res["target"]["value"])
+
+
+def test_baselines_can_live_in_another_store(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    R.run("no_action", a, [], allow_dirty=True, suite=SUITE, run_id="t-na")
+    res = R.run("config_revert", b, ["t-na"], allow_dirty=True, suite=SUITE, run_id="t-cr", baseline_evidence=a)
+    assert res["details"]["gain"]["baseline_run_id"] == "t-na"
+    assert res["details"]["gain"]["paired_n"] == len(INCS)
+    assert not (b / "records" / "t-na").exists() and (a / "records" / "t-na").exists()

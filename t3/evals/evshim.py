@@ -129,6 +129,13 @@ class Evidence:
     """One evidence target (a local directory). Delegates to W6's evlib when it is importable."""
 
     def __init__(self, root: str | os.PathLike) -> None:
+        if str(root).startswith("s3://"):  # read baselines from the team's evidence prefix (evlib only)
+            if _ev is None:
+                raise RuntimeError("an s3:// evidence store needs tools/evlib")
+            self.root = str(root)  # type: ignore[assignment]
+            self._local = None  # type: ignore[assignment]
+            self._store = _ev.S3Store(str(root))
+            return
         self.root = Path(root)
         self._local = _Local(root)
         self._store = _ev.LocalStore(root) if _ev is not None else None

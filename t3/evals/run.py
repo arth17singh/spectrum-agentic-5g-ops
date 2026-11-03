@@ -328,7 +328,8 @@ def build_declared(run_id: str, operator: str, op: Any, unit: dict[str, Any], in
 
 def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers: int = 1,
         allow_dirty: bool = False, op_kwargs: dict[str, Any] | None = None, run_id: str | None = None,
-        subset: str | None = None, suite: str | Path | None = None) -> dict[str, Any]:
+        subset: str | None = None, suite: str | Path | None = None,
+        baseline_evidence: str | Path | None = None) -> dict[str, Any]:
     single_thread()
     targets = load_targets()
     unit = targets["units"][operator]
@@ -348,6 +349,7 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
     kw = dict(op_kwargs or {})
     op = make(operator, **kw)
     ev = Evidence(evidence_dir)
+    bev = Evidence(baseline_evidence) if baseline_evidence else ev  # where the baseline runs' items live
     run_id = run_id or new_run_id(f"t3.evals.{operator}")
     synthetic = bool(getattr(op, "synthetic", False))
     declared = build_declared(run_id, operator, op, unit, incidents, digest, baseline_run_ids, targets, subset,
@@ -363,7 +365,7 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
         it["synthetic"] = synthetic
     ev.append_records(run_id, "item", items)
     summary = summarize(items)
-    gains = gains_against(ev, items, baseline_run_ids, targets["bootstrap"]) if baseline_run_ids else []
+    gains = gains_against(bev, items, baseline_run_ids, targets["bootstrap"]) if baseline_run_ids else []
     metric = unit["target"]["metric"]
     if metric == "mean_score":
         value = summary["mean_recovery"]
@@ -373,7 +375,7 @@ def run(operator: str, evidence_dir: Path, baseline_run_ids: list[str], workers:
             raise SystemExit(f"{operator}'s target needs a no_action baseline: pass --baseline-run-id <no_action run>")
         value = na[0]["ci_low"]
     elif metric == "gain_ci_low_vs_config_revert_masked":
-        sp = swarm_primary(ev, items, baseline_run_ids, targets["bootstrap"])
+        sp = swarm_primary(bev, items, baseline_run_ids, targets["bootstrap"])
         value = sp["gain"]["ci_low"]
     else:
         raise SystemExit(f"unknown target metric {metric}")
@@ -434,6 +436,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="swarm only. proposal: each step is one front-door case stopped at the approval refusal; "
                          "the proposed change is graded on our twin (no approvals). full: real approvals.")
     ap.add_argument("--proposal-steps", type=int, default=3, help="swarm proposal mode: cases per incident")
+    ap.add_argument("--baseline-evidence", default=None,
+                    help="evidence store holding the baseline runs (a directory or s3://bucket/evidence/; in a "
+                         "runner job: {evidence_s3}); default: --evidence-dir")
     ap.add_argument("--suite", type=Path, default=None,
                     help="incident file to score (default: the frozen t3/evals/suite/incidents-test.jsonl, whose "
                          "sha256 is checked against suite/incidents-test.sha256)")
@@ -444,7 +449,7 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     res = run(a.operator, a.evidence_dir, a.baseline_run_id, a.workers, a.allow_dirty,
               {"ppo_path": a.ppo_path, "swarm_client": a.swarm_client, "swarm_mode": a.mode,
-               "proposal_steps": a.proposal_steps}, a.run_id, a.subset, a.suite)
+               "proposal_steps": a.proposal_steps}, a.run_id, a.subset, a.suite, a.baseline_evidence)
     d = res["details"]
     print(json.dumps({
         "run_id": res["run_id"], "synthetic": res["synthetic"], "metric": res["metric"], "value": res["value"],
