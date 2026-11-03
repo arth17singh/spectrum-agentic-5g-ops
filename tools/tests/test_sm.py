@@ -375,6 +375,39 @@ def test_tampered_source_fails_b(tmp_path, clean_tree):
     assert "differ from commit" in text and "tools/sm/spec.py" in text
 
 
+def ledger_from_s3(aws: FakeAws, run_id: str, out: Path) -> Path:
+    """A ledger that ingested the run's evidence in S3 LastModified order, like an S3-polling ingester."""
+    import unitfix
+
+    led = unitfix.MiniLedger()
+    objs = [(o["last_modified"], key[len("evidence/"):], o["body"]) for (b, key), o in aws.s3.objects.items()
+            if key.startswith("evidence/") and run_id in key and not key.startswith("evidence/outputs/")]
+    for lm, rel, body in sorted(objs, key=lambda x: (x[0], x[1])):
+        kind = {"declared": "declaration", "records": "record", "results": "result"}[rel.split("/")[0]]
+        led.add("evidence.artifact", rel, body, run_id, kind, lm.strftime("%Y-%m-%dT%H:%M:%S.000Z"))
+    led.write(out)
+    return out
+
+
+def test_part_d_accepts_the_job_record_after_the_result_but_not_an_item(tmp_path, clean_tree):
+    rc, aws, _ = launch(tmp_path, "t.sm-ledger")
+    ledger = ledger_from_s3(aws, "t.sm-ledger", tmp_path / "ledger")
+    ev = check_unit.S3Evidence(aws.client("s3"), EVIDENCE)
+    ck = check_unit.Checker("t.sm-ledger", ev, aws, ledger, poll_s=0.0, now=aws.now())
+    ck.run()
+    text = report(ck)
+    assert states(ck)["d"] == "PASS", text
+    assert "as expected for a job summary" in text
+    aws.advance(30)  # an item that appears after the result is still a failure
+    evlib.append_records("t.sm-ledger", "item", [{**items("t.sm-ledger")[0], "item_id": "late"}],
+                         store=evlib.S3Store(EVIDENCE, client=aws.s3))
+    ledger = ledger_from_s3(aws, "t.sm-ledger", tmp_path / "ledger2")
+    ck = check_unit.Checker("t.sm-ledger", check_unit.S3Evidence(aws.client("s3"), EVIDENCE), aws, ledger,
+                            poll_s=0.0, now=aws.now())
+    ck.run()
+    assert states(ck)["d"] == "FAIL" and "after the result was recorded" in report(ck)
+
+
 def test_job_record_disagreeing_with_aws_fails_c(tmp_path, clean_tree):
     rc, aws, _ = launch(tmp_path, "t.sm-cost")
     j = next(j for j in aws.jobs if j["kind"] == "training")
