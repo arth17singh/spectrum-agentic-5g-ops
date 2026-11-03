@@ -166,12 +166,21 @@ class FakeClient:
 # --------------------------------------------------------------------------- Bedrock
 
 class BedrockClient:
+    """Amazon Bedrock Converse. Inside a SageMaker job this needs a job role with
+    bedrock:InvokeModel on the model (the organisers' bb26-SageMakerExecution role has none: launch
+    with tools.sm.run --role bb26/team13-sm-bedrock-eval)."""
+
     backend = "bedrock-converse"
     needs_item = False
 
     def __init__(self, model_id: str, region: str, temperature: float = 0.0, top_p: float | None = None,
-                 client: Any = None):
+                 client: Any = None, additional_fields: dict | None = None, thinking: str | None = None):
+        from t1.evals.bedrock_prices import DECODING
+
+        preset = DECODING.get(model_id, {})
         self.model_id, self.region, self.temperature, self.top_p = model_id, region, temperature, top_p
+        self.additional = dict(preset.get("additional_fields", {}) if additional_fields is None else additional_fields)
+        self.thinking = thinking or preset.get("thinking") or "model default (no thinking control sent)"
         if client is None:
             import boto3
             from botocore.config import Config
@@ -181,31 +190,42 @@ class BedrockClient:
         self._c = client
 
     def decoding(self, max_tokens: int) -> dict:
-        d = {"temperature": self.temperature, "max_tokens": max_tokens, "transport": "bedrock:Converse"}
+        d = {"temperature": self.temperature, "max_tokens": max_tokens, "transport": "bedrock:Converse",
+             "region": self.region, "messages": "system=prompt.txt SYSTEM, user=prompt.txt TASK",
+             "additionalModelRequestFields": dict(self.additional), "thinking": self.thinking,
+             "answer_text": "Converse text blocks only; reasoningContent blocks are excluded from parsing"}
         if self.top_p is not None:
             d["top_p"] = self.top_p
         return d
 
-    def generate(self, system: str, user: str, max_tokens: int, item: dict | None = None) -> Completion:
+    def request(self, system: str, user: str, max_tokens: int) -> dict:
         cfg: dict[str, Any] = {"maxTokens": max_tokens, "temperature": self.temperature}
         if self.top_p is not None:
             cfg["topP"] = self.top_p
+        kw = {"modelId": self.model_id, "system": [{"text": system}],
+              "messages": [{"role": "user", "content": [{"text": user}]}], "inferenceConfig": cfg}
+        if self.additional:
+            kw["additionalModelRequestFields"] = dict(self.additional)
+        return kw
+
+    def generate(self, system: str, user: str, max_tokens: int, item: dict | None = None) -> Completion:
         t0 = time.perf_counter()
         try:
-            r = self._c.converse(modelId=self.model_id, system=[{"text": system}],
-                                 messages=[{"role": "user", "content": [{"text": user}]}], inferenceConfig=cfg)
+            r = self._c.converse(**self.request(system, user, max_tokens))
         except Exception as e:  # noqa: BLE001
             return Completion(text="", latency_ms=(time.perf_counter() - t0) * 1000, error=f"{type(e).__name__}: {e}")
         wall = (time.perf_counter() - t0) * 1000
         blocks = r.get("output", {}).get("message", {}).get("content", [])
         text = "".join(b["text"] for b in blocks if "text" in b)  # reasoningContent blocks are not the answer
+        reasoning = sum(len(((b.get("reasoningContent") or {}).get("reasoningText") or {}).get("text") or "")
+                        for b in blocks)
         usage = r.get("usage", {})
         return Completion(text=text, latency_ms=wall, tokens_in=usage.get("inputTokens"),
                           tokens_out=usage.get("outputTokens"),
                           aws_time=_aws_date(r.get("ResponseMetadata", {})),
                           aws_time_source="bedrock-runtime:Converse response Date header",
                           meta={"service_latency_ms": r.get("metrics", {}).get("latencyMs"),
-                                "stop_reason": r.get("stopReason"),
+                                "stop_reason": r.get("stopReason"), "reasoning_chars": reasoning,
                                 "request_id": r.get("ResponseMetadata", {}).get("RequestId")})
 
 

@@ -126,6 +126,23 @@ def parse_ops(output: str) -> tuple[dict | None, str | None]:
 DRIFT_TOL = 1e-9
 
 
+def drift_report(item: dict, replayed: dict[str, float]) -> str | None:
+    """None when every replayed value matches the frozen one within DRIFT_TOL, else a message naming
+    each differing value, both numbers, the absolute difference and this platform."""
+    import platform
+
+    bad = []
+    for name, got in replayed.items():
+        want = item["expected"][name]
+        if not math.isclose(got, want, rel_tol=0, abs_tol=DRIFT_TOL):
+            bad.append(f"{name}: replayed {got!r}, frozen {want!r}, |diff| {abs(got - want):.3e}")
+    if not bad:
+        return None
+    return (f"{item['item_id']}: the twin replay differs from the frozen item beyond {DRIFT_TOL:g} ("
+            + "; ".join(bad) + f") on {platform.system()}-{platform.machine()}. The items were frozen on another "
+            "platform or twin: run `python -m t1.evals.replay_job check` here and re-freeze if it drifts.")
+
+
 def grade_execution(item: dict, output: str) -> dict:
     """Replay the item on W2's twin and score the model's change against no-op and the rule
     baseline, all three from the same state and random stream (W2's counterfactual). A change the
@@ -144,10 +161,9 @@ def grade_execution(item: dict, output: str) -> dict:
     before = tw.state
     model = outcome(tw, change)
     rule = outcome(tw, exp["rule_change"])
-    for name, got, want in (("noop_kpi", model["noop"], exp["noop_kpi"]),
-                            ("rule_gain", rule["gain"], exp["rule_gain"])):
-        if not math.isclose(got, want, rel_tol=0, abs_tol=DRIFT_TOL):
-            raise TwinDrift(f"{item['item_id']}: replayed {name} {got!r} != frozen {want!r}")
+    drift = drift_report(item, {"noop_kpi": model["noop"], "rule_gain": rule["gain"]})
+    if drift:
+        raise TwinDrift(drift)
     gain, rule_gain = model["gain"], rule["gain"]
     rules, hard = filter_check(change, before) if change else ([], False)
     score = max(-1.0, min(1.0, gain / exp["oracle_gain"]))

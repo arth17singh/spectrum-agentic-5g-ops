@@ -137,6 +137,8 @@ class LocalHFClient:
             "chat_template_kwargs": dict(CHAT_TEMPLATE_KWARGS), "chat_template_sha256": self.chat_template_sha256,
             "thinking_flag_honoured": self.thinking_flag_honoured,
             "add_generation_prompt": True, "messages": "system=prompt.txt SYSTEM, user=prompt.txt TASK",
+            "truncation": False, "model_max_length_ignored": getattr(self.tok, "model_max_length", None),
+            "max_position_embeddings": getattr(getattr(self.model, "config", None), "max_position_embeddings", None),
             "dtype": self.dtype, "device": self.device, "gpu": self._gpu_name(),
             "instance_type": self.instance_type, "adapter": bool(self.adapter_dir),
             "adapter_merged": bool(self.adapter_dir) and self.merge_adapter,
@@ -177,10 +179,14 @@ class LocalHFClient:
         t0 = time.perf_counter()
         try:
             prompt = self.render(system, user)
-            enc = self.tok(prompt, return_tensors="pt", add_special_tokens=False)
+            # never truncate: tokenizer_config model_max_length (1100 for the OTel base) is not a model limit
+            enc = self.tok(prompt, return_tensors="pt", add_special_tokens=False, truncation=False)
             enc = {k: v.to(self.device) for k, v in enc.items()}
             n_in = int(enc["input_ids"].shape[1])
-            pad = self.tok.pad_token_id if self.tok.pad_token_id is not None else self.tok.eos_token_id
+            mpe = getattr(getattr(self.model, "config", None), "max_position_embeddings", None)
+            if isinstance(mpe, int) and n_in + max_tokens > mpe:
+                raise ValueError(f"prompt {n_in} + {max_tokens} new tokens exceeds the model's {mpe} positions")
+            pad =self.tok.pad_token_id if self.tok.pad_token_id is not None else self.tok.eos_token_id
             with torch.inference_mode():
                 out = self.model.generate(**enc, max_new_tokens=max_tokens, do_sample=False, num_beams=1,
                                           temperature=None, top_p=None, top_k=None, pad_token_id=pad)

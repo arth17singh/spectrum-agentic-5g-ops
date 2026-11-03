@@ -11,6 +11,14 @@ from t1.evals import freeze
 from t1.evals.graders import grade_execution, grade_interface, grade_knowledge, grade_safety, parse_ops
 from t1.evals.parse import first_json_object, last_boxed
 
+from t1.evals.twin_access import on_freezing_platform  # noqa: E402
+
+# Exact twin values replay only on the platform the execution items were frozen on
+# (items/execution.platform.json); elsewhere `python -m t1.evals.replay_job check` measures the drift.
+FROZEN_HERE = pytest.mark.skipif(not on_freezing_platform(),
+                                 reason="execution items were frozen on another platform (see items/execution.platform.json)")
+
+
 
 def _items(unit):
     return freeze.load_items(unit)
@@ -218,6 +226,7 @@ def test_knowledge_rca_and_label():
 
 # --------------------------------------------------------------------------- execution (twin replay)
 
+@FROZEN_HERE
 def test_execution_grader():
     pytest.importorskip("ran_rl")
     it = _items("execution")[0]
@@ -240,6 +249,7 @@ def test_execution_grader():
     assert bad["parse_ok"] is False and bad["score"] == 0.0
 
 
+@FROZEN_HERE
 def test_execution_hard_violation_never_scores_positive():
     pytest.importorskip("ran_rl")
     it = next(i for i in _items("execution") if i["meta"]["fault"]["operating_point_steps"] == 3)
