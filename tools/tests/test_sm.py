@@ -452,6 +452,35 @@ def test_entry_argv_and_exit_codes(tmp_path):
     assert entry.run_argv([str(script)]) == 7
 
 
+def test_selftest_grades_the_declared_test_set_and_refuses_another(tmp_path, monkeypatch):
+    from tools.sm import selftest
+
+    aws = FakeAws(now=T0)
+    real = evlib.S3Store
+
+    class OnFake(real):  # a subclass, so evlib's isinstance checks still hold
+        def __init__(self, uri, **kw):
+            super().__init__(uri, client=aws.s3)
+
+    monkeypatch.setattr(evlib, "S3Store", OnFake)
+    monkeypatch.setenv("EVIDENCE_S3", EVIDENCE)
+    monkeypatch.chdir(REPO)
+    suite = "t3/evals/suite/incidents-test.jsonl"
+    decl = {"run_id": "r-self", "unit": "runner.selftest", "track": "track-3",
+            "target": {"metric": "pass_rate", "op": ">=", "value": 1.0, "unit": "ratio"}, "n_items": 33,
+            "test_set_sha256": hashlib.sha256((REPO / suite).read_bytes()).hexdigest(), "model_id": "none",
+            "grader": selftest.GRADER, "code_sha": HEAD, "region": "us-east-2"}
+    evlib.write_declared(decl, real(EVIDENCE, client=aws.s3))
+    assert selftest.main(["--test-set", suite, "--run-id", "r-self", "--evidence-dir", str(tmp_path)]) == 0
+    local = evlib.LocalStore(tmp_path)
+    its = evlib.read_records("r-self", "item", local)
+    assert len(its) == 33 and all(i["passed"] for i in its) and its[0]["item_id"].startswith("inc-")
+    assert evlib.read_result("r-self", local)["value"] == 1.0
+    assert selftest.main(["--test-set", "tools/sm/spec.py", "--run-id", "r-self", "--evidence-dir",
+                          str(tmp_path / "x")]) == 4  # not the declared test set
+    assert selftest.grade('{"b":1,"a":2}') == (False, '{"a":2,"b":1}')
+
+
 def test_evlib_code_sha_uses_the_pin_only_outside_git(tmp_path, monkeypatch):
     monkeypatch.setenv("TEAM13_CODE_SHA", "a" * 40)
     assert evlib.code_sha(REPO) == HEAD  # inside a repo, git wins
