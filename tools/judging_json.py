@@ -134,35 +134,53 @@ def select(raws: dict[str, bytes], *, allow_synthetic: bool, exclude: set[str], 
     return [row_of(r) for r in keep], skipped, dropped
 
 
+def _ids(entry: dict) -> list[str]:
+    ids = list(entry.get("run_ids") or [])
+    if entry.get("run_id"):
+        ids.append(entry["run_id"])
+    return ids
+
+
 def slots_report(path: Path) -> int:
-    """Check the optional `slots` map against `run_ids` and print it. Exit 1 if they disagree."""
+    """Check the optional `slots` and `edge_cases` lists against `run_ids` and print them. Exit 1 if they disagree.
+
+    An entry is filled when status is "filled" and it names run ids (`run_id` or `run_ids`), all of which are
+    listed in `run_ids`; a pending entry names none. Runs an entry only compares against (`bar_run_id`,
+    `base_run_id`) are supporting runs and are not required in `run_ids`.
+    """
     try:
         doc = json.loads(path.read_text())
     except (OSError, ValueError) as exc:
         print(f"judging_json: cannot read {path}: {exc}", file=sys.stderr)
         return 2
-    slots = doc.get("slots")
-    if not isinstance(slots, list):
+    slots, edges = doc.get("slots"), doc.get("edge_cases", [])
+    if not isinstance(slots, list) or not isinstance(edges, list):
         print("judging_json: no `slots` list in judging.json", file=sys.stderr)
         return 2
     run_ids = set(doc.get("run_ids", []))
-    bad = []
-    filled = 0
-    for sl in slots:
-        rid = sl.get("run_id")
-        is_filled = sl.get("status") == "filled"
-        if is_filled != (rid is not None) or (is_filled and rid not in run_ids):
-            bad.append(sl.get("slot"))
-        filled += is_filled
-        detail = rid if is_filled else f"pending: {sl.get('waiting_for', '')}"
-        print(f"  slot {sl.get('slot'):>2}  {'FILLED ' if is_filled else 'pending'}  {sl.get('name')}  ->  {detail}")
-    listed = {sl.get("run_id") for sl in slots if sl.get("run_id")}
+    bad, listed = [], set()
+
+    def show(entry: dict) -> bool:
+        ids = _ids(entry)
+        filled = entry.get("status") == "filled"
+        if filled != bool(ids) or (filled and not set(ids) <= run_ids):
+            bad.append(entry.get("slot"))
+        listed.update(ids)
+        detail = ", ".join(ids) if filled else f"pending: {entry.get('waiting_for', '')}"
+        print(f"  {str(entry.get('slot')):>3}  {'FILLED ' if filled else 'pending'}  {entry.get('name')}  ->  {detail}")
+        return filled
+
+    print("slots:")
+    n_filled = sum(show(sl) for sl in slots)
+    if edges:
+        print("edge cases:")
+    e_filled = sum(show(e) for e in edges)
+    print(f"{n_filled} of {len(slots)} slots filled; {e_filled} of {len(edges)} edge cases filled; {len(run_ids)} run id(s) listed")
     extra = sorted(run_ids - listed)
-    print(f"{filled} of {len(slots)} slots filled; {len(run_ids)} run id(s) listed")
     if extra:
-        print(f"run ids listed but in no slot: {', '.join(extra)}")
+        print(f"run ids listed but in no slot or edge case: {', '.join(extra)}")
     if bad or extra:
-        print(f"judging_json: slots and run_ids disagree (slots {bad})", file=sys.stderr)
+        print(f"judging_json: slots and run_ids disagree (entries {bad})", file=sys.stderr)
         return 1
     return 0
 
