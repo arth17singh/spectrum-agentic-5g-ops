@@ -5,7 +5,11 @@ launch command does, from a clean tree at the commit to ship.
     python -m t1.sft.launch stage_base [--run-id R]
     python -m t1.sft.launch build [--run-id R]
     python -m t1.sft.launch train_lora --stage-run-id S --data-run-id D --declaration FILE [--smoke] [--run-id R]
+    python -m t1.sft.launch recheck --data-run-id D --declaration FILE [--run-id R]
     ... add --dry-run to run the runner's dry run
+
+The team bucket's name holds the account id, so it is never written here: --bucket, else
+$TEAM13_DATA_BUCKET, else tools.sm.spec.data_bucket(<account from STS>), as the runner resolves it.
 
 Order: stage_base and build are independent (CPU, different instance types); train_lora needs both
 (its declaration is filled from the dataset's manifest by t1.sft.declare). Runner placeholders
@@ -15,6 +19,7 @@ Order: stage_base and build are independent (CPU, different instance types); tra
 from __future__ import annotations
 
 import argparse
+import os
 import shlex
 import sys
 from pathlib import Path
@@ -25,7 +30,8 @@ REPO = Path(__file__).resolve().parents[2]
 # repo-relative: run the printed commands from the root of the checkout whose HEAD is to ship
 DECL = {"stage_base": "t1/sft/jobs/stage_base.declaration.json",
         "build": "t1/sft/jobs/build.declaration.json"}
-UNITS = {"stage_base": "t1.sft.stage", "build": "t1.sft.data", "train_lora": "t1.sft.train"}
+UNITS = {"stage_base": "t1.sft.stage", "build": "t1.sft.data", "train_lora": "t1.sft.train",
+         "recheck": "t1.sft.data-recheck"}
 BASE_SRC = "models/base/otel-llm-1.7b-it/"
 BASE_BF16 = "models/base/otel-llm-1.7b-it-bf16/"
 DATASETS = "datasets/t1-sft/"
@@ -35,6 +41,7 @@ REQ = {
     "build": ["pydantic>=2.7,<3"],
     "train_lora": ["transformers==4.57.6", "peft>=0.17,<0.18", "accelerate>=1.0,<2", "safetensors>=0.4.3,<1",
                    "pydantic>=2.7,<3"],
+    "recheck": ["pydantic>=2.7,<3"],
 }
 SMOKE_ARGS = "--max-steps 20 --limit-train 160 --limit-dev 48 --grad-accum 1 --epochs 1 --gen-check 2 --train-budget-s 900"
 
@@ -66,6 +73,13 @@ def runner_args(job: str, run_id: str, bucket: str, *, stage_run_id: str | None 
         args = ["--declaration", declaration, "--gpu", "--instance-type", "ml.g6.2xlarge",
                 "--model-s3", f"{s3}{BASE_BF16}{stage_run_id}/", "--inputs", f"data={s3}{DATASETS}{data_run_id}/",
                 "--max-run", "1800" if smoke else "7200", "--no-sdk"]
+    elif job == "recheck":
+        if not (data_run_id and declaration):
+            raise K.JobError("recheck needs --data-run-id and --declaration (python -m t1.sft.declare recheck)")
+        entry = ("-m t1.sft.recheck --run-id {run_id} --data {channel:data} "
+                 f"--data-run-id {data_run_id} --evidence-dir {{evidence_dir}} --summary-dir {{output_dir}}")
+        args = ["--declaration", declaration, "--instance-type", "ml.m5.xlarge", "--max-run", "1200", "--no-sdk",
+                "--inputs", f"data={s3}{DATASETS}{data_run_id}/"]
     else:
         raise K.JobError(f"unknown job {job!r}")
     for r in REQ[job]:
@@ -74,6 +88,20 @@ def runner_args(job: str, run_id: str, bucket: str, *, stage_run_id: str | None 
     if profile:
         out += ["--profile", profile]
     return out
+
+
+def bucket(explicit: str | None, profile: str | None) -> str:
+    """--bucket, else $TEAM13_DATA_BUCKET, else the Participant Guide's name for the STS account (read-only)."""
+    from tools.sm import spec
+
+    if explicit:
+        return explicit
+    if os.environ.get(spec.BUCKET_ENV, "").strip():
+        return spec.data_bucket(None)
+    import boto3
+
+    account = boto3.Session(profile_name=profile).client("sts").get_caller_identity()["Account"]
+    return spec.data_bucket(account)
 
 
 def shell(args: list[str], *tail: str) -> str:
@@ -86,18 +114,17 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--run-id", help="default: a new one (unit-UTC-hex)")
     ap.add_argument("--stage-run-id")
     ap.add_argument("--data-run-id")
-    ap.add_argument("--declaration", help="train_lora: the filled declaration (python -m t1.sft.declare train_lora)")
+    ap.add_argument("--declaration", help="train_lora / recheck: the filled declaration (python -m t1.sft.declare)")
     ap.add_argument("--smoke", action="store_true", help="train_lora: the 20-step smoke run")
     ap.add_argument("--profile", default="fyuz")
-    ap.add_argument("--bucket", help="default: tools/sm/spec.py's team bucket")
+    ap.add_argument("--bucket", help="team data bucket (default $TEAM13_DATA_BUCKET, else from the STS account)")
     ap.add_argument("--dry-run", action="store_true", help="run the runner's dry run now (writes nothing)")
     a = ap.parse_args(argv)
     from tools import evlib
-    from tools.sm import spec
 
     run_id = a.run_id or evlib.new_run_id(UNITS[a.job] + ("-smoke" if a.smoke else ""))
     try:
-        args = runner_args(a.job, run_id, a.bucket or spec.BUCKET, stage_run_id=a.stage_run_id,
+        args = runner_args(a.job, run_id, bucket(a.bucket, a.profile), stage_run_id=a.stage_run_id,
                            data_run_id=a.data_run_id, declaration=a.declaration, smoke=a.smoke, profile=a.profile)
     except K.JobError as e:
         print(f"FAILED: {e}", file=sys.stderr)
@@ -106,8 +133,6 @@ def main(argv: list[str] | None = None) -> int:
     print(f"# launch (declares to S3 first, then CreateTrainingJob):\n{shell(args, '--no-wait')}\n")
     print(f"# later:\npython -m tools.sm.run --finish {run_id} --profile {a.profile}")
     if a.dry_run:
-        import os
-
         from tools.sm import run as R
 
         print("\n# ---- runner dry run ----", flush=True)

@@ -101,6 +101,22 @@ def write_sha256sums(root: str | os.PathLike, name: str = "SHA256SUMS") -> tuple
     return files, sha256_bytes(text)
 
 
+def verify_sums(root: Path) -> tuple[str, dict[str, str]]:
+    """Every file listed in root/SHA256SUMS hashes as listed; returns (sha256 of SHA256SUMS, {name: sha256})."""
+    sums = Path(root) / "SHA256SUMS"
+    if not sums.is_file():
+        raise JobError(f"{root} has no SHA256SUMS")
+    listed = {}
+    for line in sums.read_text().splitlines():
+        sha, _, name = line.partition("  ")
+        listed[name] = sha
+    for name, sha in listed.items():
+        got = sha256_file(Path(root) / name)
+        if got != sha:
+            raise JobError(f"{Path(root) / name}: sha256 {got} != SHA256SUMS {sha}")
+    return sha256_file(sums), listed
+
+
 # --------------------------------------------------------------------------- JSON
 
 def finite(obj: Any) -> Any:

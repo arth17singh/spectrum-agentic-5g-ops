@@ -8,7 +8,7 @@ import json
 import pytest
 
 from t1.sft import build, common, declare, templates
-from t1.sft.build import F1D3DEB, check_row, to_row
+from t1.sft.build import EVAL_PINS, check_row, to_row
 from tools import check_unit, evlib
 
 
@@ -49,7 +49,7 @@ def test_full_build_on_a_fake_labeller(tmp_path):
     assert m["overlap"]["hash_method"] == "t1-sft-overlap-v1"
     assert m["overlap"]["generated"] == m["overlap"]["kept"] + m["overlap"]["dropped_eval_overlap"] + \
         m["overlap"]["dropped_duplicate"]
-    assert m["eval_contract"]["byte_identical_to_f1d3deb"] == {n: True for n in F1D3DEB}
+    assert m["eval_contract"]["matches_pins"] == {n: True for n in EVAL_PINS}
     assert m["seeds"]["execution_max"] < 900_000 <= m["seeds"]["eval_min"]
     assert m["execution"]["labeler"] == "t1.sft.testing:fake_reference"
     assert m["execution"]["k_candidates"] == 40
