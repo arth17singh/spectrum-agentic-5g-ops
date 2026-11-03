@@ -55,9 +55,11 @@ ANSWER_KEYS = {  # the reply object's keys, in the order prompt.txt shows them
 # adopted in 482fe5f, merged into int/v4). execution.jsonl and price_latency.jsonl changed (same ids, splits,
 # scenarios, seeds and prefixes; 43 items' state text differs in the last digit); the other three did not.
 # The build refuses item files that differ from these (and from MANIFEST.json, which pins them too).
-EVAL_PINS_SOURCE = "482fe5f (W12 x86 re-freeze, t1.execution.refreeze-x86-1)"
+# MANIFEST.json re-pinned at c4b4b5e (W12 knowledge parser/grader v3: graders and parser became per-unit maps);
+# the five item files are unchanged, so the overlap re-check does not re-run.
+EVAL_PINS_SOURCE = "c4b4b5e (W12 x86 re-freeze 482fe5f items; MANIFEST from knowledge parser v3)"
 EVAL_PINS = {
-    "MANIFEST.json": "4af94c300ff312eb69122b2a9644bc6cd4ecb7ccf3cc298bedee93932d2250c5",
+    "MANIFEST.json": "5619852147f72b1f520b22a0de929d5115d44385ed0eb3a42b5b35dd4d60a0d6",
     "execution.jsonl": "e7d58194bab6b276c44a8ea73f70b273413e425eb5d951a0c9c2e67897200df2",
     "interface.jsonl": "b8347f58171979b1c86a9c651259a8ce1793c2095600e152d55d2fbfee09210c",
     "knowledge.jsonl": "8a687445efd4fc5738615c96ab9da5e8907ee50003233527f24b1bbed48a2df9",
