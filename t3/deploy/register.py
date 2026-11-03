@@ -1,7 +1,11 @@
 """Deploy Team13's RAN tools onto the organisers' checkpoint. DRY RUN unless --apply.
 
     python -m t3.deploy.register --kit-dir <folder with kit.json and kit-state.json> \
-        --evidence-bucket <team bucket> [--image-uri <ecr uri>:<tag>] [--apply] [--profile fyuz]
+        --image-uri <account>.dkr.ecr.<region>.amazonaws.com/team13-ran-tools:<git sha> \
+        --evidence-bucket <team bucket> [--trust-live] [--apply] [--profile fyuz]
+
+--image-uri is required, also for a dry run, and `:latest` is refused: the image must be the one
+build.sh built from a pinned commit (tag = git sha, label org.opencontainers.image.revision).
 
 Order: kit `deploy` -> `t3/deploy/iam_cloudshell.sh` in CloudShell (roles and the Gateway-role
 inline policy; this session cannot do IAM) -> push W3b's image -> this script. It makes NO IAM
@@ -25,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -37,6 +42,12 @@ ACP = "bedrock-agentcore-control"
 TOOLS_HANDLER = "t3.tools.app.handler"
 TRUST_HANDLER = "t3.trust.handler.handler"
 STANDIN_DEFAULT = "openai.gpt-oss-20b-1:0"
+POLICY_PATH = "/var/task/t1/rl/artifacts/ppo_v0.zip"          # W9's PPO, baked into the image
+PREDICTOR_PATH = "/var/task/t2/artifacts/t2_response_v0.npz"  # W9's response model, baked into the image
+TRUST_TIMEOUT_S = "15"   # a cold 2 GB trust-gate image can take more than 5 s to answer
+# An ECR image pinned by tag or digest; `latest` is refused (B2): the deployed code must be a known commit.
+IMAGE_URI_RE = re.compile(r"(\d{12})\.dkr\.ecr\.([a-z0-9-]+)\.amazonaws\.com/([a-z0-9._/-]+)"
+                          r"(?::([A-Za-z0-9_.-]{1,128})|@sha256:[0-9a-f]{64})")
 
 
 class Api:
@@ -112,16 +123,17 @@ def function_specs(*, team: str, region: str, account: str, image_uri: str, arch
     """create_function arguments for our two Lambdas (roles come from iam_cloudshell.sh)."""
     def role(name):
         return f"arn:aws:iam::{account}:role/bb26/{name}"
-    tools_env = {"APPROVALS_TABLE": f"{team}-approvals", "T3_EVIDENCE": f"s3://{bucket}/evidence",
-                 "T3_TRUST_FUNCTION": f"{team}-trust-gate", "NLM_STANDIN_MODEL": standin,
-                 "T3_SCENARIO": "nominal", "T3_SEED": "0", "T3_TWIN_CONFIG": "official"}
-    for key, value in (("NLM_ENDPOINT", nlm_endpoint), ("T2_PREDICTOR_PATH", predictor_path),
-                       ("T1_POLICY_PATH", policy_path)):
-        if value:
-            tools_env[key] = value
+    # One evidence variable for both functions: tools.evlib (the trust gate's writer) reads
+    # EVIDENCE_S3, and the tools' own writer reads it too (t3/tools/evidence.py).
+    evidence = f"s3://{bucket}/evidence/"
+    tools_env = {"APPROVALS_TABLE": f"{team}-approvals", "EVIDENCE_S3": evidence,
+                 "T3_TRUST_FUNCTION": f"{team}-trust-gate", "T3_TRUST_TIMEOUT_S": TRUST_TIMEOUT_S,
+                 "T1_POLICY_PATH": policy_path, "T2_PREDICTOR_PATH": predictor_path,
+                 "NLM_STANDIN_MODEL": standin, "T3_SCENARIO": "nominal", "T3_SEED": "0", "T3_TWIN_CONFIG": "official"}
+    if nlm_endpoint:
+        tools_env["NLM_ENDPOINT"] = nlm_endpoint
     trust_env = {"T3_TRUST_STORE": f"ddb:{team}-approvals", "T3_TRUST_LIVE": "1" if trust_live else "0",
-                 "T3_GATEWAY_ARN": gateway_arn, "T3_POLICY_ENGINE_ID": engine_id,
-                 "T3_EVIDENCE": f"s3://{bucket}/evidence"}
+                 "T3_GATEWAY_ARN": gateway_arn, "T3_POLICY_ENGINE_ID": engine_id, "EVIDENCE_S3": evidence}
     common = {"PackageType": "Image", "Code": {"ImageUri": image_uri}, "Architectures": [arch]}
     return [
         {**common, "FunctionName": f"{team}-ran-tools", "Role": role(f"{team}-ran-tools"),
@@ -260,14 +272,16 @@ def main(argv: list[str] | None = None, client_factory: Callable[[str], Any] | N
     ap = argparse.ArgumentParser(description="Deploy Team13's RAN tools onto the kit's Gateway (dry run by default).")
     ap.add_argument("--kit-dir", type=Path, help="folder with the kit's kit.json and kit-state.json")
     ap.add_argument("--team", help="the kit's name (default: kit.json name, else team13)")
-    ap.add_argument("--image-uri", help="our image in ECR (default <account>.dkr.ecr.<region>.amazonaws.com/<team>-ran-tools:latest)")
+    ap.add_argument("--image-uri", help="REQUIRED: our image in ECR, pinned by its git-sha tag (build.sh) or by "
+                                         "digest, e.g. <account>.dkr.ecr.<region>.amazonaws.com/<team>-ran-tools:<sha>")
     ap.add_argument("--arch", choices=("arm64", "x86_64"), default="arm64", help="the image's architecture")
     ap.add_argument("--evidence-bucket", default="<evidence-bucket>", help="team bucket for evidence/records/")
     ap.add_argument("--standin-model", default=STANDIN_DEFAULT, help="Bedrock stand-in for the NLM")
     ap.add_argument("--nlm-endpoint", default="", help="SageMaker endpoint of our tuned model, when it exists")
-    ap.add_argument("--predictor-path", default="", help="T2_PREDICTOR_PATH inside the image")
-    ap.add_argument("--policy-path", default="", help="T1_POLICY_PATH inside the image")
-    ap.add_argument("--trust-live", action="store_true", help="let the trust gate create real pause rules")
+    ap.add_argument("--predictor-path", default=PREDICTOR_PATH, help="T2_PREDICTOR_PATH inside the image")
+    ap.add_argument("--policy-path", default=POLICY_PATH, help="T1_POLICY_PATH inside the image")
+    ap.add_argument("--trust-live", action="store_true",
+                    help="let the trust gate create real pause rules (T3_TRUST_LIVE=1; default 0, a dry run)")
     ap.add_argument("--profile", help="AWS profile for --apply (e.g. fyuz)")
     ap.add_argument("--apply", action="store_true", help="really make the calls (default: print them only)")
     a = ap.parse_args(argv)
@@ -275,6 +289,17 @@ def main(argv: list[str] | None = None, client_factory: Callable[[str], Any] | N
     cfg, state = load_kit(a.kit_dir)
     team = a.team or cfg.get("name") or "team13"
     region = cfg.get("region", "us-east-2")
+    image = IMAGE_URI_RE.fullmatch(a.image_uri or "")
+    if not image:
+        out("--image-uri is required: an ECR image pinned by tag or digest "
+            "(<account>.dkr.ecr.<region>.amazonaws.com/<repo>:<git sha>, as build.sh tags it)")
+        return 2
+    if (image.group(4) or "").lower() == "latest":
+        out("--image-uri must not be :latest: pin the git-sha tag that build.sh printed, or a digest")
+        return 2
+    if image.group(2) != region:
+        out(f"--image-uri is in {image.group(2)} but the kit is in {region}")
+        return 2
     if a.apply:
         missing = [k for k in ("gateway_id", "gateway_arn", "engine_id") if not state.get(k)]
         if missing or a.evidence_bucket.startswith("<"):
@@ -296,8 +321,11 @@ def main(argv: list[str] | None = None, client_factory: Callable[[str], Any] | N
     out(f"{'APPLYING' if a.apply else 'DRY RUN (no AWS calls; add --apply to act)'}: team={team} region={region}")
     out("Assumes iam_cloudshell.sh has run: roles /bb26/{0}-ran-tools, /bb26/{0}-trust-gate and the inline "
         "policy {0}-ran-tools-invoke on {0}-gateway. This script makes no IAM calls.".format(team))
-    account = (api("sts", "get_caller_identity", read=True) or {}).get("Account", "000000000000")
-    image_uri = a.image_uri or f"{account}.dkr.ecr.{region}.amazonaws.com/{team}-ran-tools:latest"
+    account = (api("sts", "get_caller_identity", read=True) or {}).get("Account", image.group(1))
+    if image.group(1) != account:
+        out(f"--image-uri is in account {image.group(1)}, not this session's account")
+        return 2
+    image_uri = a.image_uri
     gateway_arn = state.get("gateway_arn") or \
         f"arn:aws:bedrock-agentcore:{region}:000000000000:gateway/{team}-checkpoint-placeholder"
     engine_id = state.get("engine_id", "<engine_id>")

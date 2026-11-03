@@ -16,7 +16,9 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE="${IMAGE:-team13-ran-tools:dev}"
+# build.sh tags images with the commit's 12-hex sha; default to the newest such build.
+IMAGE="${IMAGE:-$(docker image ls team13-ran-tools --format '{{.Repository}}:{{.Tag}}' | head -1)}"
+[ -n "$IMAGE" ] || { echo "no team13-ran-tools image: run build.sh <sha> first, or set IMAGE" >&2; exit 1; }
 NAME=team13-ran-tools-local
 PORT=9000
 MEMORY=3g
