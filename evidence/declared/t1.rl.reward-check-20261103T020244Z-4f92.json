@@ -1,0 +1,60 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "c651016d24d850b89de7b1b84801c1979a14d725",
+  "created_at": "2026-11-03T02:02:44.615Z",
+  "declared_at": "2026-11-03T02:02:44.615Z",
+  "grader": "SageMaker job status + the job's own final METRIC coverage_mean",
+  "kind": "declared",
+  "model_id": "ppo-reward-check-18k",
+  "n_items": 2,
+  "region": "us-east-2",
+  "run_id": "t1.rl.reward-check-20261103T020244Z-4f92",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "pass_rate",
+    "op": ">=",
+    "unit": "ratio",
+    "value": 1.0
+  },
+  "team": "team13",
+  "test_set_sha256": "d40ab78c931c43b38c4aed09277c9c2a2173942704718cf9dd92343b580f1632",
+  "track": "track-1",
+  "twin": {
+    "config": {
+      "description": "team-hosted Maveric twin (staging guide 1.2.9), http backend; address and token not recorded",
+      "env_config_sha256": "eb67397334bf97eea36f9fcf227786d649d9bd0ed91ee7d5c9657dd56a2ade9a",
+      "items": {
+        "sagemaker-job-completed": "passed when DescribeTrainingJob reports Completed",
+        "training-coverage-not-collapsed": "passed when the job's last METRIC coverage_mean >= 0.82 (in-process Maveric rule baseline 0.8432 minus 0.02; a weak dev proxy)"
+      },
+      "ppo": {
+        "log_std_init": -0.5,
+        "n_steps": 1024
+      },
+      "purpose": "DEV reward check before the full Track 1 RL job; not a scored unit",
+      "reward_config_sha256": "568a8685f808f362ce54bef43a2512929903b7ee6023d610c4f9199d1878a335",
+      "reward_params": {
+        "coverage": 2.0,
+        "floor": 0.9,
+        "floor_weight": 8.0
+      },
+      "rl_code": "branch stream/w9-models commit eb7d7fc (t1/rl/reward_v1.py, t1/rl/official/prepare.sh)",
+      "team_rewards_sha256": "c6ea9b107aba7118c7d193b74e2a72403509be98dd87d52fb3d24e56bd2804a7",
+      "train_config_sha256": "5195a7820535451989123b8c312a421670411bbcc2840d0c152465d225f1e88f",
+      "training": {
+        "instance_type": "ml.c5.2xlarge",
+        "job_name_pattern": "ran-rl-team13-<UTC yyyymmdd-HHMMSS>",
+        "spot": true,
+        "timesteps": 18000,
+        "twin_backend": "http"
+      }
+    },
+    "kind": "maveric-hosted",
+    "scenario": "nominal,congestion,interference,outage",
+    "seed": 42,
+    "version": "1.2.9"
+  },
+  "unit": "t1.rl.reward-check"
+}

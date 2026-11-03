@@ -1,0 +1,93 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "baseline_run_id": null,
+  "code_sha": "4c415426d62b3b92821d8b8047c714556a0a2f2f",
+  "created_at": "2026-11-03T04:22:52.435Z",
+  "declared_at": "2026-11-03T04:22:52.435Z",
+  "decoding": {
+    "secondary_checks": []
+  },
+  "grader": "t1-graders-v2: exact match of {intent, cells, parameter, direction, amount, kpi} on the first JSON object",
+  "kind": "declared",
+  "model_id": "otel-llm-1.7b-it-bf16",
+  "n_items": 261,
+  "parser": "t1-parse-v1",
+  "prompt_sha256": "bca9ecf54c3b9ac64c4f3a3d036e427f95605cf40c344b3357379c5a20a0629f",
+  "region": "us-east-2",
+  "run_id": "t1.interface-otel-base-1",
+  "schema_version": "1",
+  "subset": "split=test",
+  "synthetic": false,
+  "target": {
+    "metric": "pass_rate",
+    "op": ">=",
+    "unit": "ratio",
+    "value": 0.9
+  },
+  "team": "team13",
+  "test_set_sha256": "3f93b103c637244f808cd242c86dcb2181797cd63d76b7bfac19a4e9028f4449",
+  "track": "track-1",
+  "twin": {
+    "config": {
+      "runner": {
+        "allow_dirty": false,
+        "archive_bytes": 2815957,
+        "archive_sha256": "c6215584e7ec67ce6813291fc01d6bd3e7444c24328e4268336ae3a870d050d8",
+        "entry": [
+          "-m",
+          "t1.evals.run",
+          "--unit",
+          "interface",
+          "--client",
+          "local-hf",
+          "--model-dir",
+          "{channel:model}",
+          "--model-id",
+          "otel-llm-1.7b-it-bf16",
+          "--instance-price-per-hour",
+          "1.127",
+          "--price-source",
+          "AWS Price List API: AmazonSageMaker OnDemand, usagetype USE2-Train:ml.g6.xlarge, us-east-2, effective 2026-11-01 (read 2026-11-02)",
+          "--target-metric",
+          "pass_rate",
+          "--target-op",
+          ">=",
+          "--target-value",
+          "0.90",
+          "--target-unit",
+          "ratio",
+          "--run-id",
+          "{run_id}",
+          "--evidence-dir",
+          "{evidence_dir}"
+        ],
+        "files": 447,
+        "image": "763104351884.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0-gpu-py312-cu130-ubuntu22.04-sagemaker-v2.2",
+        "instance_type": "ml.g6.xlarge",
+        "job_name": "t1-interface-otel-base-1-149e00",
+        "launcher": "tools/sm/run.py",
+        "max_run_s": 3600,
+        "pathspec": [
+          "contracts",
+          "silos",
+          "t1",
+          "t2",
+          "t3",
+          "tools",
+          "twin"
+        ],
+        "requirements_sha256": "3e7b8350ab9771bae212ef50a6760b4ffb1ed856cec57a98da9b53e64554e662",
+        "role": "bb26-SageMakerExecution",
+        "shipped": "the committed tree at code_sha only (git archive); uncommitted changes never reach the job",
+        "source_uri": "s3://bb26-p-team13-data-483598626742-use2/jobs/t1.interface-otel-base-1/source/sourcedir.tar.gz",
+        "tree_dirty_at_launch": false
+      }
+    },
+    "kind": "none",
+    "scenario": "none",
+    "seed": 0,
+    "version": "none"
+  },
+  "unit": "t1.interface"
+}

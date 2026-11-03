@@ -1,0 +1,132 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "f131b210cb759ad85af44ea00a82f589076cf52a",
+  "created_at": "2026-11-03T03:40:49.270Z",
+  "declared_at": "2026-11-03T03:40:49.270Z",
+  "decoding": {
+    "dedupe": "an SFT example is dropped if any of its hashes matches an eval item, or if its answer-free hash repeats inside the set; generated, dropped and kept counts are in manifest.json and the result details",
+    "job": {
+      "dev_fraction": 0.1,
+      "entry": "t1.sft.build",
+      "instance_type": "ml.c5.4xlarge",
+      "n_execution": 2000,
+      "n_interface": 1000,
+      "n_safety": 1200,
+      "output": "s3://<team-bucket>/datasets/t1-sft/<run_id>/ (train.jsonl, dev.jsonl, manifest.json, SHA256SUMS)",
+      "split": "sha256(t1-sft-split-v1, unit, key); execution key = twin seed",
+      "time_budget_s": 3000,
+      "workers": 16
+    },
+    "not_used": [
+      "GSMA ot-lite (test only)",
+      "TeleLogs (left out of v1)",
+      "knowledge examples"
+    ],
+    "safety_policy": "over-limit and alarmed-cell requests refused (not reduced); benign requests applied exactly; pasted instructions never followed",
+    "test_set_is": "t1/evals/items/MANIFEST.json at the launch commit (f1d3deb's frozen items, merged into int/v4): it pins the sha256 of all five item files; the job checks every file against it"
+  },
+  "grader": "t1/sft/overlap.py:t1-sft-overlap-v1 (one item per frozen eval item, all five files, dev and test: fails if any written SFT row matches it by normalised item hash, answer-free input hash, exact prompt hash or (scenario, seed, step))",
+  "kind": "declared",
+  "model_id": "none (dataset build: labels from the twin, the SDK safety filter and templates)",
+  "n_items": 1220,
+  "parser": "t1-parse-v1",
+  "prompt_sha256": "bca9ecf54c3b9ac64c4f3a3d036e427f95605cf40c344b3357379c5a20a0629f",
+  "region": "us-east-2",
+  "run_id": "t1.sft.data-20261103T034500Z-7c2a",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "fail_count",
+    "op": "==",
+    "unit": "count",
+    "value": 0
+  },
+  "team": "team13",
+  "test_set_sha256": "b12ef1e21c452329bc6812de1568a48d0ecb2b2aa08f4b95326833263399d3c6",
+  "track": "track-1",
+  "twin": {
+    "config": {
+      "families": [
+        "outage",
+        "power_drop",
+        "tilt_misconfig",
+        "interference",
+        "congestion"
+      ],
+      "keep_rules": {
+        "constant_change": "cell=2;d_power_db=+8.0;d_tilt_deg=+0.0",
+        "constant_max_share": 0.5,
+        "min_oracle_gain": 0.02
+      },
+      "labeler": "t1.evals.gen_execution:reference (best of the eval's 40 single-cell candidates by W2 counterfactual gain; clipped candidates skipped)",
+      "operating_point_steps": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "preset": "official",
+      "replay": "twin.replay.ReplayTwin (W2)",
+      "runner": {
+        "allow_dirty": false,
+        "archive_bytes": 2791910,
+        "archive_sha256": "843e64c25ec7e4a0e15adbf88acf433ee871311fd5ddd60ea6dd419cd0a9786d",
+        "entry": [
+          "-m",
+          "t1.sft.build",
+          "--run-id",
+          "{run_id}",
+          "--out",
+          "s3://bb26-p-team13-data-483598626742-use2/datasets/t1-sft/{run_id}/",
+          "--evidence-dir",
+          "{evidence_dir}",
+          "--summary-dir",
+          "{output_dir}",
+          "--n-execution",
+          "2000",
+          "--n-interface",
+          "1000",
+          "--n-safety",
+          "1200",
+          "--dev-fraction",
+          "0.1",
+          "--time-budget-s",
+          "3000",
+          "--workers",
+          "16"
+        ],
+        "files": 434,
+        "image": "763104351884.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0-cpu-py312-ubuntu22.04-sagemaker-v2.2",
+        "instance_type": "ml.c5.4xlarge",
+        "job_name": "t1-sft-data-20261103T034500Z-7c2a-841f77",
+        "launcher": "tools/sm/run.py",
+        "max_run_s": 4500,
+        "pathspec": [
+          "contracts",
+          "silos",
+          "t1",
+          "t2",
+          "t3",
+          "tools",
+          "twin"
+        ],
+        "requirements_sha256": "48dc9b9a1de368647362830b417a7c63c443f657113756a21579c81a5bcb7da9",
+        "role": "bb26-SageMakerExecution",
+        "shipped": "the committed tree at code_sha only (git archive); uncommitted changes never reach the job",
+        "source_uri": "s3://bb26-p-team13-data-483598626742-use2/jobs/t1.sft.data-20261103T034500Z-7c2a/source/sourcedir.tar.gz",
+        "tree_dirty_at_launch": false
+      },
+      "seed_range": [
+        0,
+        899999
+      ],
+      "seed_tag": "sft-execution-v1"
+    },
+    "kind": "maveric-inprocess",
+    "scenario": "t1-sft-execution-families",
+    "seed": 0,
+    "version": "ran-rl-1.2.9"
+  },
+  "unit": "t1.sft.data"
+}

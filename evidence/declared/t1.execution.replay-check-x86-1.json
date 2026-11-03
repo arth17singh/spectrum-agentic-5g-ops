@@ -1,0 +1,70 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "116f1b8037e044964713834d77b9510e4ffc9ca0",
+  "created_at": "2026-11-03T03:14:43.602Z",
+  "declared_at": "2026-11-03T03:14:43.602Z",
+  "grader": "t1/evals/replay_job.py check: |replayed - frozen| <= 1e-09 on noop_kpi, rule_gain, oracle_gain, constant_gain",
+  "kind": "declared",
+  "model_id": "none (twin replay only)",
+  "n_items": 80,
+  "region": "us-east-2",
+  "run_id": "t1.execution.replay-check-x86-1",
+  "schema_version": "1",
+  "subset": "split=all",
+  "synthetic": false,
+  "target": {
+    "metric": "pass_rate",
+    "op": "==",
+    "unit": "ratio",
+    "value": 1.0
+  },
+  "team": "team13",
+  "test_set_sha256": "63d04053892d118721eed5c40460c9ae0c878043d464db7b9edc10e2223efd74",
+  "track": "track-1",
+  "twin": {
+    "config": {
+      "backend": "twin.replay.ReplayTwin (W2)",
+      "per_item": "t1/evals/items/execution.jsonl meta.scenario/seed/prefix",
+      "preset": "official",
+      "runner": {
+        "allow_dirty": false,
+        "archive_bytes": 2691381,
+        "archive_sha256": "ae1b7f16df73c107fca777e4be1ad04ef5cc4a7c093b2f1ba8ae0b559cb2957d",
+        "entry": [
+          "-m",
+          "t1.evals.replay_job",
+          "check",
+          "--run-id",
+          "{run_id}",
+          "--evidence-dir",
+          "{evidence_dir}"
+        ],
+        "files": 381,
+        "image": "763104351884.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0-cpu-py312-ubuntu22.04-sagemaker-v2.2",
+        "instance_type": "ml.m5.xlarge",
+        "job_name": "t1-execution-replay-check-x86-1-a653d7",
+        "launcher": "tools/sm/run.py",
+        "max_run_s": 1800,
+        "pathspec": [
+          "contracts",
+          "silos",
+          "t1",
+          "t2",
+          "t3",
+          "tools",
+          "twin"
+        ],
+        "requirements_sha256": "f7633e7cdc8bd444559ada594f9e463b3118c511ac014215b12c931371c820ae",
+        "shipped": "the committed tree at code_sha only (git archive); uncommitted changes never reach the job",
+        "source_uri": "s3://bb26-p-team13-data-483598626742-use2/jobs/t1.execution.replay-check-x86-1/source/sourcedir.tar.gz",
+        "tree_dirty_at_launch": false
+      }
+    },
+    "kind": "maveric-inprocess",
+    "scenario": "per-item",
+    "seed": 900000,
+    "version": "ran-rl 1.2.9"
+  },
+  "unit": "t1.execution.replay-check"
+}

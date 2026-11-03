@@ -1,0 +1,113 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "baseline_run_id": "t1.execution-otel-base-1",
+  "code_sha": "c4b4b5e2ab6c550e947b628b05449d6f661ce213",
+  "created_at": "2026-11-03T06:08:09.091Z",
+  "declared_at": "2026-11-03T06:08:09.091Z",
+  "decoding": {
+    "secondary_checks": [
+      {
+        "metric": "mean_score",
+        "name": "mean score >= 0.149 (SDK rule on the same items)",
+        "op": ">=",
+        "value": 0.149
+      },
+      {
+        "metric": "gain_value",
+        "name": "gain >= +0.10",
+        "op": ">=",
+        "value": 0.1
+      }
+    ]
+  },
+  "grader": "t1-graders-v2: replay on the in-process Maveric twin: gain = (coverage+sla) after the change minus no-op at the same step; score = clip(gain / best-of-K gain, -1, 1); pass = gain >= 0.01 and no hard violation; rule baseline replayed alongside",
+  "kind": "declared",
+  "model_id": "qwen.qwen3-32b-v1:0",
+  "n_items": 63,
+  "parser": "t1-parse-v1",
+  "prompt_sha256": "bca9ecf54c3b9ac64c4f3a3d036e427f95605cf40c344b3357379c5a20a0629f",
+  "region": "us-east-2",
+  "run_id": "t1.execution-bedrock-qwen3-32b-1",
+  "schema_version": "1",
+  "subset": "split=test",
+  "synthetic": false,
+  "target": {
+    "metric": "mean_score",
+    "op": ">=",
+    "unit": "score",
+    "value": 0.149
+  },
+  "team": "team13",
+  "test_set_sha256": "5bf3773ffe1b7e776486b79197e9518e2bd7b634c018ffd17f85b00365e39383",
+  "track": "track-1",
+  "twin": {
+    "config": {
+      "per_item": "t1/evals/items/execution.jsonl meta.scenario/seed/prefix",
+      "preset": "official",
+      "replay": "twin.replay.ReplayTwin (W2)",
+      "runner": {
+        "allow_dirty": false,
+        "archive_bytes": 2817972,
+        "archive_sha256": "b2cc2dc29bdbc905f1cc4b1070298e6617a16a650b8164fbfc96e286480d08f8",
+        "entry": [
+          "-m",
+          "t1.evals.run",
+          "--unit",
+          "execution",
+          "--client",
+          "bedrock",
+          "--model-id",
+          "qwen.qwen3-32b-v1:0",
+          "--max-tokens",
+          "2048",
+          "--price-in-per-1m",
+          "0.15",
+          "--price-out-per-1m",
+          "0.6",
+          "--price-source",
+          "AWS Price List API, AmazonBedrock, us-east-2, standard on-demand, usagetypes USE2-Qwen3-32B-input-tokens / USE2-Qwen3-32B-output-tokens, effective 2026-10-01, read 2026-11-02",
+          "--target-metric",
+          "mean_score",
+          "--target-op",
+          ">=",
+          "--target-value",
+          "0.149",
+          "--target-unit",
+          "score",
+          "--baseline-run-id",
+          "t1.execution-otel-base-1",
+          "--run-id",
+          "{run_id}",
+          "--evidence-dir",
+          "{evidence_dir}"
+        ],
+        "files": 448,
+        "image": "763104351884.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0-gpu-py312-cu130-ubuntu22.04-sagemaker-v2.2",
+        "instance_type": "ml.g5.2xlarge",
+        "job_name": "t1-execution-bedrock-qwen3-32b-1-717d27",
+        "launcher": "tools/sm/run.py",
+        "max_run_s": 3600,
+        "pathspec": [
+          "contracts",
+          "silos",
+          "t1",
+          "t2",
+          "t3",
+          "tools",
+          "twin"
+        ],
+        "requirements_sha256": "48dc9b9a1de368647362830b417a7c63c443f657113756a21579c81a5bcb7da9",
+        "role": "bb26/team13-sm-bedrock-eval",
+        "shipped": "the committed tree at code_sha only (git archive); uncommitted changes never reach the job",
+        "source_uri": "s3://bb26-p-team13-data-483598626742-use2/jobs/t1.execution-bedrock-qwen3-32b-1/source/sourcedir.tar.gz",
+        "tree_dirty_at_launch": false
+      }
+    },
+    "kind": "maveric-inprocess",
+    "scenario": "per-item",
+    "seed": 900000,
+    "version": "ran-rl 1.2.9"
+  },
+  "unit": "t1.execution"
+}

@@ -1,0 +1,155 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "942e05b84e9fe5e289d675fdc48a6d390abf0ebf",
+  "created_at": "2026-11-03T04:31:38.510Z",
+  "declared_at": "2026-11-03T04:31:38.510Z",
+  "grader": "ran_rl.evaluation.evaluate --with-baseline (RAN RL SDK 1.2.9) on the team-hosted Maveric twin (http) in a SageMaker CPU job (t1/rl/job_evaluate.py); one item per SDK gate (SAFETY, SERVICE, UPLIFT, REPEAT, TRACE) plus COVERAGE; the run passes only if all six pass",
+  "kind": "declared",
+  "model_id": "ppo-cco-reward-v1-ckpt50k",
+  "n_items": 6,
+  "region": "us-east-2",
+  "run_id": "t1.rl.eval-20261103T043115Z-bf52",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "pass_rate",
+    "op": ">=",
+    "unit": "ratio",
+    "value": 1.0
+  },
+  "team": "team13",
+  "test_set_sha256": "d40ab78c931c43b38c4aed09277c9c2a2173942704718cf9dd92343b580f1632",
+  "track": "track-1",
+  "twin": {
+    "config": {
+      "description": "team-hosted Maveric twin (staging guide 1.2.9), http backend; address and token not recorded",
+      "env_config_sha256": "eb67397334bf97eea36f9fcf227786d649d9bd0ed91ee7d5c9657dd56a2ade9a",
+      "eval": {
+        "channels": {
+          "model": "model.tar.gz",
+          "project": "sourcedir.tar.gz"
+        },
+        "checkpoint_bytes": 214735,
+        "checkpoint_name": "ppo_50000_steps.zip",
+        "checkpoint_s3_last_modified": "2026-11-03T03:52:46.000Z",
+        "checkpoint_sha256": "e04d8c907ca30fd3c876121b924c2836157cb546b1890a984184bb52f37484c1",
+        "checkpoint_steps": 50000,
+        "checkpoint_uri": "s3://bb26-p-team13-data-483598626742-use2/teams/team13/checkpoints/t1-rl-train-20261103T023805Z-a09e-20261103-023807/ppo_50000_steps.zip",
+        "items_rule": "SAFETY, SERVICE, UPLIFT, REPEAT, TRACE from evaluation.json gates (pass is true); COVERAGE: aggregates.overall.coverage_mean of the model >= the baseline's, no tolerance; a gate with pass: null counts as NOT passed",
+        "model_form": "checkpoint: the SB3 .zip the SDK's CheckpointCallback saved during training, passed to evaluate --model as is (the SDK checksum is its sha256)",
+        "project_bytes": 193651,
+        "project_sha256": "be5c3bf3a45c6b69c3001f83fbaf17729f888ebb313f1488c41f8e3cd82283d2",
+        "project_uri": "s3://bb26-p-team13-data-483598626742-use2/teams/team13/code/t1-rl-train-20261103T023805Z-a09e-20261103-023807/source/sourcedir.tar.gz",
+        "target_first_declared": "The target, the six items and the test set were first declared BEFORE training, in declared/t1.rl.train-20261103T023805Z-a09e.json (declared_at 2026-11-03T02:38:05.318Z); this declaration copies them unchanged. It is a new run id because the training declaration's code_sha (9b6a102) has no evaluation code and the runner refuses a job whose commit differs from its declaration; the training declaration's evaluation.where ('same run id') is superseded by this one.",
+        "training_code_sha": "9b6a102d3bda3327cb3d9095ca403a57f957ae9b",
+        "training_declared_at": "2026-11-03T02:38:05.318Z",
+        "training_end_time": "2026-11-03T04:19:28.470Z",
+        "training_failure": {
+          "billable_s": 6034,
+          "cause_observed": "the job log ends in sagemaker_entry -> train.py model.learn -> ran_rl/twin/http.py: httpx.ReadError [Errno 104] Connection reset by peer (a twin connection reset)",
+          "failed_model_artifact_uri": "s3://bb26-p-team13-data-483598626742-use2/teams/team13/models/t1-rl-train-20261103T023805Z-a09e-20261103-023807/output/model.tar.gz",
+          "failure_reason": "AlgorithmError: ExecuteUserScriptError:\nExitCode 1\nErrorMessage \"\"\nCommand \"/opt/conda/bin/python3.11 sagemaker_entry.py --env-config config/env.yaml --reward-config config/reward.yaml --timesteps 100000 --train-config config/train.yaml --twin-backend http\", exit code: 1",
+          "last_metric_timesteps": {
+            "event_id": "40000388444844139208713882626675909500406527816691613742",
+            "ingestion_time": "2026-11-03T04:17:37.289Z",
+            "log_group": "/aws/sagemaker/TrainingJobs",
+            "log_stream": "t1-rl-train-20261103T023805Z-a09e-20261103-023807/algo-1-1793673534",
+            "metric": "timesteps",
+            "n_events": 66,
+            "regex_source": "DescribeTrainingJob.AlgorithmSpecification.MetricDefinitions",
+            "timestamp": "2026-11-03T04:17:32.805Z",
+            "value": 67584.0
+          },
+          "statement": "The training run t1.rl.train-20261103T023805Z-a09e FAILED before its declared 100000 timesteps (last logged METRIC timesteps=67584 at 2026-11-03T04:17:32.805Z); FailureReason: AlgorithmError: ExecuteUserScriptError:\nExitCode 1\nErrorMessage \"\"\nCommand \"/opt/conda/bin/python3.11 sagemaker_entry.py --env-config config/env.yaml --reward-config config/reward.yaml --timesteps 100000 --train-config config/train.yaml --twin-backend http\", exit code: 1. The 100000-step training target was NOT met. The model under test is the 50000-step checkpoint s3://bb26-p-team13-data-483598626742-use2/teams/team13/checkpoints/t1-rl-train-20261103T023805Z-a09e-20261103-023807/ppo_50000_steps.zip (sha256 e04d8c907ca30fd3c876121b924c2836157cb546b1890a984184bb52f37484c1).",
+          "status": "Failed",
+          "training_end_time": "2026-11-03T04:19:28.470Z"
+        },
+        "training_job_arn": "arn:aws:sagemaker:us-east-2:483598626742:training-job/t1-rl-train-20261103T023805Z-a09e-20261103-023807",
+        "training_job_name": "t1-rl-train-20261103T023805Z-a09e-20261103-023807",
+        "training_model_id": "ppo-cco-reward-v1-100k",
+        "training_run_id": "t1.rl.train-20261103T023805Z-a09e"
+      },
+      "evaluation": {
+        "baseline": "ran_rl RuleBasedController on the same seeds in the same job",
+        "episodes": 20,
+        "gate_thresholds": {
+          "objective_uplift": 1.05,
+          "repeat_tolerance": 0.01,
+          "sla_tolerance": 0.02
+        },
+        "policy": "deterministic",
+        "repeat": true,
+        "scenario_set_version": "2026-10-v1",
+        "scenarios": "nominal seeds 101-105; congestion 200-204; interference 300-304; outage 400-404",
+        "where": "SageMaker CPU job (ml.c5.2xlarge) launched by tools/sm/run.py under THIS run id, t1/rl/job_evaluate.py; inputs: the SDK checkpoint .zip named in eval.checkpoint_uri and the training job's own packed project (identical configs, sha256-checked in the job)"
+      },
+      "items": {
+        "COVERAGE": "team item: model coverage_mean >= baseline coverage_mean (overall aggregate, no tolerance)",
+        "REPEAT": "SDK gate: repeated run aggregates within 1% relative",
+        "SAFETY": "SDK gate: no hard safety violations (non-finite actions) in any episode",
+        "SERVICE": "SDK gate (cco): model sla_ratio_mean >= baseline sla_ratio_mean - 0.02",
+        "TRACE": "SDK gate: checksum, config hash, scenario-set version, twin version and use case present",
+        "UPLIFT": "SDK gate: model mean episode objective >= 1.05 x baseline mean episode objective"
+      },
+      "logging": "httpx/httpcore loggers at WARNING and the job's stdout/stderr masked, so the twin host is not logged; the token is never logged",
+      "ppo": {
+        "log_std_init": -0.5,
+        "n_steps": 1024,
+        "seed": 42
+      },
+      "purpose": "Track 1 RL unit, judging run 16: score the PPO policy trained in the lineage run against the SDK rule baseline on the fixed evaluation set",
+      "reward_config_sha256": "568a8685f808f362ce54bef43a2512929903b7ee6023d610c4f9199d1878a335",
+      "reward_params": {
+        "coverage": 2.0,
+        "floor": 0.9,
+        "floor_weight": 8.0
+      },
+      "rl_code": "t1/rl/reward_v1.py and t1/rl/official/prepare.sh at code_sha; project built by prepare.sh from the organiser starter outside git",
+      "runner": {
+        "allow_dirty": false,
+        "archive_bytes": 353191,
+        "archive_sha256": "f6489f5ddb6fd23dede7a78a47bbc5281b028ae15c9459775a41301846962dbb",
+        "entry": [
+          "-m",
+          "t1.rl.job_evaluate",
+          "--run-id",
+          "{run_id}",
+          "--evidence-s3",
+          "{evidence_s3}",
+          "--evidence-dir",
+          "{evidence_dir}",
+          "--output-dir",
+          "{output_dir}",
+          "--model-channel",
+          "{channel:model}",
+          "--project-channel",
+          "{channel:project}"
+        ],
+        "files": 150,
+        "image": "763104351884.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0-cpu-py312-ubuntu22.04-sagemaker-v2.2",
+        "instance_type": "ml.c5.2xlarge",
+        "job_name": "t1-rl-eval-20261103T043115Z-bf52-00c436",
+        "launcher": "tools/sm/run.py",
+        "max_run_s": 3600,
+        "pathspec": [
+          "contracts",
+          "tools",
+          "t1/rl"
+        ],
+        "requirements_sha256": "f7633e7cdc8bd444559ada594f9e463b3118c511ac014215b12c931371c820ae",
+        "shipped": "the committed tree at code_sha only (git archive); uncommitted changes never reach the job",
+        "source_uri": "s3://bb26-p-team13-data-483598626742-use2/jobs/t1.rl.eval-20261103T043115Z-bf52/source/sourcedir.tar.gz",
+        "tree_dirty_at_launch": false
+      },
+      "sdk_wheel_sha256": "9b2978a25bb950f9d0703457537e04403763043349c0976809ea495ca0099fcf",
+      "team_rewards_sha256": "c6ea9b107aba7118c7d193b74e2a72403509be98dd87d52fb3d24e56bd2804a7",
+      "train_config_sha256": "5195a7820535451989123b8c312a421670411bbcc2840d0c152465d225f1e88f"
+    },
+    "kind": "maveric-hosted",
+    "scenario": "nominal,congestion,interference,outage",
+    "seed": 42,
+    "version": "1.2.9"
+  },
+  "unit": "t1.rl.eval"
+}

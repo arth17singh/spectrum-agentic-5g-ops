@@ -1,0 +1,86 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "2e8f846a9743804abaeae4588d5b121167fb6318",
+  "created_at": "2026-11-03T06:17:21.321Z",
+  "declared_at": "2026-11-03T06:17:21.321Z",
+  "grader": "silos.nn_core per-row scaled MAE, paired by item_id",
+  "kind": "declared",
+  "model_id": "t2-response-central-disjoint@v1 vs t2-response-fl-federated-disjoint@v1",
+  "n_items": 10000,
+  "region": "us-east-2",
+  "run_id": "t2.compare.distance_to_central.disjoint-20261103T061541Z",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "n_items",
+    "op": ">=",
+    "unit": "paired shared-test rows compared (a report; no pass bar)",
+    "value": 10000
+  },
+  "team": "team13",
+  "test_set_sha256": "0ea3ff5dff6a7dc6f66eb8b91456db43607e55a2b047760905396c52f07296b9",
+  "track": "track-2",
+  "twin": {
+    "config": {
+      "details": {
+        "comparison": "measure",
+        "entry": "python -m silos.job_compare --kind measure --name distance_to_central --split disjoint",
+        "population": "simulated silos: three simulated operators on the in-process Maveric twin, run in one account; not partner data",
+        "score_scale": [
+          0.02,
+          0.03,
+          0.5,
+          0.35
+        ],
+        "split": "disjoint",
+        "x_run": "t2.central.disjoint-20261103T041620Z",
+        "y_run": "t2.fl_federated.disjoint-20261103T051311Z"
+      },
+      "runner": {
+        "allow_dirty": false,
+        "archive_bytes": 3336463,
+        "archive_sha256": "696d7685509a4b2f0c41c12c70ccd6c4376a1ea3eb8b863785fe7f37f66fe2bd",
+        "entry": [
+          "-m",
+          "silos.job_compare",
+          "--kind",
+          "measure",
+          "--x",
+          "t2.central.disjoint-20261103T041620Z",
+          "--y",
+          "t2.fl_federated.disjoint-20261103T051311Z",
+          "--name",
+          "distance_to_central",
+          "--split",
+          "disjoint"
+        ],
+        "files": 483,
+        "image": "763104351884.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0-cpu-py312-ubuntu22.04-sagemaker-v2.2",
+        "instance_type": "ml.m5.xlarge",
+        "job_name": "t2-compare-distance-to-central-disjoint-20261103T061541Z-35c783",
+        "launcher": "tools/sm/run.py",
+        "max_run_s": 1800,
+        "pathspec": [
+          "contracts",
+          "silos",
+          "t1",
+          "t2",
+          "t3",
+          "tools",
+          "twin"
+        ],
+        "requirements_sha256": "fd95fc3b2db0f90b4f0c9900db0412190114be1fe4c2b94732021ca37ff57d9b",
+        "role": "bb26-SageMakerExecution",
+        "shipped": "the committed tree at code_sha only (git archive); uncommitted changes never reach the job",
+        "source_uri": "s3://bb26-p-team13-data-483598626742-use2/jobs/t2.compare.distance_to_central.disjoint-20261103T061541Z/source/sourcedir.tar.gz",
+        "tree_dirty_at_launch": false
+      }
+    },
+    "kind": "none",
+    "scenario": "none",
+    "seed": 0,
+    "version": "none"
+  },
+  "unit": "t2.compare.distance_to_central.disjoint"
+}

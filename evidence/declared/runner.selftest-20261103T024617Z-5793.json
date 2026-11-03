@@ -1,0 +1,63 @@
+{
+  "aws_time": null,
+  "aws_time_source": null,
+  "code_sha": "39d3bc0614f12edc4174db3a9b61bad5f548cd4c",
+  "created_at": "2026-11-03T02:46:33.785Z",
+  "declared_at": "2026-11-03T02:46:33.785Z",
+  "grader": "tools/sm/selftest.py:v1 (line is canonical JSON)",
+  "kind": "declared",
+  "model_id": "none (no model under test: runner self-test)",
+  "n_items": 33,
+  "region": "us-east-2",
+  "run_id": "runner.selftest-20261103T024617Z-5793",
+  "schema_version": "1",
+  "synthetic": false,
+  "target": {
+    "metric": "pass_rate",
+    "op": ">=",
+    "unit": "ratio",
+    "value": 1.0
+  },
+  "team": "team13",
+  "test_set_sha256": "485b3bde1dc974a07e5950115e1fc1a8fa0dd2cb6cfc88e377a4ac7a01588a63",
+  "track": "track-3",
+  "twin": {
+    "config": {
+      "runner": {
+        "allow_dirty": false,
+        "archive_bytes": 231176,
+        "archive_sha256": "9cc05a9cf88748f0bc62a868134e296ccf31cce206a942aa00b37fcd22b70cab",
+        "entry": [
+          "-m",
+          "tools.sm.selftest",
+          "--test-set",
+          "t3/evals/suite/incidents-test.jsonl",
+          "--run-id",
+          "{run_id}",
+          "--evidence-dir",
+          "{evidence_dir}"
+        ],
+        "files": 166,
+        "image": "763104351884.dkr.ecr.us-east-2.amazonaws.com/pytorch-training:2.9.0-cpu-py312-ubuntu22.04-sagemaker-v2.2",
+        "instance_type": "ml.m5.xlarge",
+        "job_name": "runner-selftest-20261103T024617Z-5793-ec3985",
+        "launcher": "tools/sm/run.py",
+        "max_run_s": 900,
+        "pathspec": [
+          "t3/evals",
+          "tools",
+          "contracts"
+        ],
+        "requirements_sha256": "f7633e7cdc8bd444559ada594f9e463b3118c511ac014215b12c931371c820ae",
+        "shipped": "the committed tree at code_sha only (git archive); uncommitted changes never reach the job",
+        "source_uri": "s3://bb26-p-team13-data-483598626742-use2/jobs/runner.selftest-20261103T024617Z-5793/source/sourcedir.tar.gz",
+        "tree_dirty_at_launch": false
+      }
+    },
+    "kind": "none",
+    "scenario": "none",
+    "seed": 0,
+    "version": "none"
+  },
+  "unit": "runner.selftest"
+}
