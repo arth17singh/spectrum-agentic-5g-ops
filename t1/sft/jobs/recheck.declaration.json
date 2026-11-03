@@ -1,0 +1,20 @@
+{
+  "unit": "t1.sft.data-recheck",
+  "track": "track-1",
+  "target": {"metric": "fail_count", "op": "==", "value": 0, "unit": "count"},
+  "test_set": "t1/evals/items/MANIFEST.json",
+  "n_items": 1220,
+  "prompt": "t1/evals/prompt.txt",
+  "parser": "t1-parse-v1",
+  "model_id": "none (overlap re-check of SFT dataset {{data_run_id}})",
+  "grader": "t1/sft/overlap.py:t1-sft-overlap-v1 (one item per eval item at the launch commit, all five files, dev and test: fails if any row of the dataset matches it by normalised item hash, answer-free input hash, exact prompt hash or (scenario, seed, step))",
+  "synthetic": false,
+  "decoding": {
+    "why": "the dataset was built and checked against the eval items pinned at f1d3deb; W12 re-froze execution.jsonl and price_latency.jsonl on x86 (482fe5f). This run re-checks the same dataset rows against the new items; it changes nothing.",
+    "dataset": {"run_id": "{{data_run_id}}", "uri": "s3://<team-bucket>/datasets/t1-sft/{{data_run_id}}/ (channel data)",
+                "sha256sums_sha256": "{{dataset_sums_sha256}}", "manifest_sha256": "{{dataset_manifest_sha256}}",
+                "built_against": "eval items at f1d3deb (MANIFEST b12ef1e21c452329bc6812de1568a48d0ecb2b2aa08f4b95326833263399d3c6)"},
+    "test_set_is": "t1/evals/items/MANIFEST.json at the launch commit (W12's x86 re-freeze, 482fe5f); the job also checks every item file against t1/sft/build.py EVAL_PINS",
+    "job": {"entry": "t1.sft.recheck", "instance_type": "ml.m5.xlarge", "max_run_s": 1200}
+  }
+}

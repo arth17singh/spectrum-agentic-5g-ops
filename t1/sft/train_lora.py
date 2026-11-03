@@ -54,20 +54,7 @@ SKIP_FROM_BASE = {"SHA256SUMS", "stage_summary.json", "README.md", ".gitattribut
 
 # --------------------------------------------------------------------------- inputs
 
-def verify_sums(root: Path) -> tuple[str, dict[str, str]]:
-    """Every file listed in root/SHA256SUMS hashes as listed; returns (sha256 of SHA256SUMS, files)."""
-    sums = root / "SHA256SUMS"
-    if not sums.is_file():
-        raise K.JobError(f"{root} has no SHA256SUMS")
-    listed = {}
-    for line in sums.read_text().splitlines():
-        sha, _, name = line.partition("  ")
-        listed[name] = sha
-    for name, sha in listed.items():
-        got = K.sha256_file(root / name)
-        if got != sha:
-            raise K.JobError(f"{root / name}: sha256 {got} != SHA256SUMS {sha}")
-    return K.sha256_file(sums), listed
+verify_sums = K.verify_sums  # kept here for callers of the earlier name
 
 
 def load_rows(data_dir: Path, limit_train: int, limit_dev: int) -> tuple[list[dict], list[dict], dict[str, Any]]:

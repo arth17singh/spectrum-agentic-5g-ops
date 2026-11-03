@@ -8,7 +8,7 @@ import shutil
 import pytest
 
 from t1.sft import overlap
-from t1.sft.build import F1D3DEB, items_dir
+from t1.sft.build import EVAL_PINS, items_dir
 
 
 @pytest.fixture(scope="module")
@@ -31,8 +31,8 @@ def test_index_covers_every_frozen_item(idx):
     assert s["n_items_total"] == 1220
     assert s["n_items"] == {"interface": 320, "execution": 80, "safety": 170, "knowledge": 600, "price_latency": 50}
     assert s["exec_seed_min"] >= 900_000
-    assert idx.manifest_sha256 == F1D3DEB["MANIFEST.json"]
-    assert all(idx.files[n] == sha for n, sha in F1D3DEB.items() if n != "MANIFEST.json")
+    assert idx.manifest_sha256 == EVAL_PINS["MANIFEST.json"]
+    assert all(idx.files[n] == sha for n, sha in EVAL_PINS.items() if n != "MANIFEST.json")
 
 
 def test_index_refuses_items_that_differ_from_the_manifest(tmp_path):
