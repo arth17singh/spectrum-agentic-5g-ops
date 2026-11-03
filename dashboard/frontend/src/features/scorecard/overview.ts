@@ -15,7 +15,11 @@ export function useOverview() {
 /** "Harness defect: the parser ..." -> "harness defect" */
 export const shortReason = (r?: string) => {
   const m = /^([^:.]{3,60})[:.]/.exec(r ?? '')
-  return (m ? m[1] : r || 'superseded').toLowerCase()
+  if (m) return m[1].toLowerCase()
+  // no short lead-in: cut the reason at a word near 60 characters rather than repeating all of it
+  const t = (r ?? '').trim()
+  if (!t) return 'superseded'
+  return (t.length <= 60 ? t : `${t.slice(0, 60).replace(/\s+\S*$/, '')}…`).toLowerCase()
 }
 
 /** The FL session facts a t2.fl_convergence run records in details.session, or null. */
