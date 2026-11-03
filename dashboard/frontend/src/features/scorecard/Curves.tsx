@@ -14,7 +14,16 @@ const SILO: Record<string, string> = { A: 'var(--learn)', B: 'var(--verify)', C:
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const pairs = (xs: unknown): Pt[] =>
   Array.isArray(xs) ? xs.filter((p) => Array.isArray(p) && isNum(p[0]) && isNum(p[1])).map((p) => ({ x: p[0] as number, y: p[1] as number })) : []
-const refValue = (r: unknown): number | null => (isNum(r) ? r : r && typeof r === 'object' && isNum((r as Rec).value) ? (r as Rec).value : null)
+/** A reference level: a number, {value}, or a per-silo object whose `mean` is compared with the mean curve. */
+const refValue = (r: unknown): number | null => {
+  if (isNum(r)) return r
+  if (r && typeof r === 'object') {
+    const o = r as Rec
+    if (isNum(o.value)) return o.value
+    if (isNum(o.mean)) return o.mean
+  }
+  return null
+}
 const kfmt = (x: number) => (Math.abs(x) >= 1000 ? `${Math.round(x / 1000)}k` : String(Math.round(x)))
 
 export const Empty = ({ what }: { what: string }) => (
@@ -42,7 +51,7 @@ export function ConvergenceChart({ c }: { c: Rec | null | undefined }) {
     const s = flat(`lo-${k}`, `local-only ${k}`, SILO[k], refValue((ref.local_only ?? {})[k]))
     if (s) series.push(s)
   }
-  for (const [k, label, color] of [['central', 'central (pooled)', 'var(--ink-2)'], ['fedavg_local', 'local FedAvg (sim)', 'var(--ink-3)']] as const) {
+  for (const [k, label, color] of [['central', 'central (pooled), mean', 'var(--ink-2)'], ['fedavg_local', 'local FedAvg (sim), mean', 'var(--ink-3)']] as const) {
     const s = flat(k, label, color, refValue(ref[k]))
     if (s) series.push(s)
   }
@@ -66,7 +75,7 @@ export function ConvergenceChart({ c }: { c: Rec | null | undefined }) {
       {d.session && typeof d.session === 'object' && (
         <div className="mt-1 text-micro text-ink-2" data-testid="fl-session">
           FL session {d.session.session_id_short ?? ''}: {d.session.rounds_completed ?? '?'} rounds · {d.session.clients ?? '?'} clients ·
-          secure aggregation {d.session.secure_aggregation === true ? 'on' : d.session.secure_aggregation === false ? 'off' : '?'} · DP {d.session.dp ?? '?'}
+          secure aggregation {d.session.secure_aggregation === true ? 'on' : d.session.secure_aggregation === false ? 'off' : 'not recorded'} · DP {d.session.dp ?? 'not recorded'}
         </div>
       )}
       {fr && (
@@ -109,7 +118,7 @@ export function TrainingCurves({ c }: { c: Rec | null | undefined }) {
               <LineChart series={sftSeries} height={200} xFormat={kfmt} yFormat={(y) => y.toFixed(2)} tipTitle={(x) => `step ${Math.round(x)}`} />
               <div className="mt-1 text-micro text-ink-3">x: optimizer step · y: loss, lower is better{sft!.run_id ? <> · <RunLink id={sft!.run_id} /></> : null}{sft!.source ? ` · ${sft!.source}` : ''}</div>
             </>
-          ) : <Empty what={`SFT: no loss values recorded${sft!.reason ? ` (${sft!.reason})` : ''}`} />}
+          ) : <Empty what={`SFT: no loss values recorded${sft!.reason ?? Object.values(sft!.series_reasons ?? {})[0] ? ` (${sft!.reason ?? Object.values(sft!.series_reasons ?? {})[0]})` : ''}`} />}
         </div>
         <div className="min-w-0">
           <div className="mb-1 text-cap font-medium text-ink-1">RL mean episode reward</div>
@@ -125,7 +134,7 @@ export function TrainingCurves({ c }: { c: Rec | null | undefined }) {
                 {rl!.train_run_id ? <> · <RunLink id={rl!.train_run_id} /></> : null}{rl!.eval_run_id ? <> · eval <RunLink id={rl!.eval_run_id} /></> : null}
               </div>
             </>
-          ) : <Empty what={`RL: no reward values recorded${rl!.reason ? ` (${rl!.reason})` : ''}`} />}
+          ) : <Empty what={`RL: no reward values recorded${rl!.reason ?? Object.values(rl!.series_reasons ?? {})[0] ? ` (${rl!.reason ?? Object.values(rl!.series_reasons ?? {})[0]})` : ''}`} />}
         </div>
       </div>
     </Panel>
