@@ -116,7 +116,7 @@ export function TrainingCurves({ c }: { c: Rec | null | undefined }) {
           {why(sft, 'sft') ? <Empty what={why(sft, 'sft')!} /> : sftSeries.length ? (
             <>
               <LineChart series={sftSeries} height={200} xFormat={kfmt} yFormat={(y) => y.toFixed(2)} tipTitle={(x) => `step ${Math.round(x)}`} />
-              <div className="mt-1 text-micro text-ink-3">x: optimizer step · y: loss, lower is better{sft!.run_id ? <> · <RunLink id={sft!.run_id} /></> : null}{sft!.source ? ` · ${sft!.source}` : ''}</div>
+              <div className="mt-1 break-words text-micro text-ink-3 [overflow-wrap:anywhere]">x: optimizer step · y: loss, lower is better{sft!.run_id ? <> · <RunLink id={sft!.run_id} /></> : null}{sft!.source ? ` · ${sft!.source}` : ''}</div>
             </>
           ) : <Empty what={`SFT: no loss values recorded${sft!.reason ?? Object.values(sft!.series_reasons ?? {})[0] ? ` (${sft!.reason ?? Object.values(sft!.series_reasons ?? {})[0]})` : ''}`} />}
         </div>
@@ -127,7 +127,7 @@ export function TrainingCurves({ c }: { c: Rec | null | undefined }) {
               <LineChart series={[{ id: 'reward', label: 'mean episode reward', color: 'var(--operate)', points: rw }]} height={200}
                 xFormat={kfmt} yFormat={(y) => y.toFixed(1)} tipTitle={(x) => `${Math.round(x).toLocaleString()} timesteps`} annotations={ann} legend={false}
                 xDomain={rwDomain} />
-              <div className="mt-1 text-micro text-ink-3">
+              <div className="mt-1 break-words text-micro text-ink-3 [overflow-wrap:anywhere]">
                 x: timesteps · y: reward, higher is better
                 {isNum(rl!.crashed_at_timesteps) ? ` · crashed at ${rl!.crashed_at_timesteps.toLocaleString()}` : ''}
                 {rl!.served_checkpoint ? ` · ◆ served checkpoint ${rl!.served_checkpoint}` : ''}
