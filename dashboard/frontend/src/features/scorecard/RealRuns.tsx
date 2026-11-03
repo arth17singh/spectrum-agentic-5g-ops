@@ -311,22 +311,32 @@ function Track3Live({ rows }: { rows: Rec[] }) {
   )
 }
 
+/** "t2.local_only.B.disjoint" -> "local-only (silo B)"; read from the unit name, never a guess at the model. */
+function t2Method(r: Rec): string {
+  const p = String(r.unit ?? '').split('.')
+  const k = p[1] ?? ''
+  if (k === 'local_only') return `local-only (silo ${p[2] ?? '?'})`
+  if (k === 'central') return 'central (pooled reference)'
+  if (k === 'fedavg_local') return 'local FedAvg (our simulation)'
+  if (k.startsWith('fl')) return 'federated (FL service)'
+  if (k === 'compare') return `comparison: ${p.slice(2, -1).join('.')}`
+  if (k === 'silo_data') return 'silo data check'
+  return String(r.method ?? r.unit ?? '—')
+}
+
 function Track2({ rows }: { rows: Rec[] }) {
   return (
-    <Panel id="realrun-t2" plane="learn" title="Track 2 baselines (simulated silos)" subtitle="per-silo and pooled training on disjoint synthetic silo data; federated runs arrive later" flush>
+    <Panel id="realrun-t2" plane="learn" title="Track 2 baselines (simulated silos)" subtitle="per-silo, pooled and federated models on the shared test of simulated silos · score = scaled MAE, lower is better" flush>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-cap" data-testid="t2-table">
-          <thead><tr className="border-b border-line text-left text-micro text-ink-3">{['Run', 'Method', 'Silo', 'Mean score', 'No-op score', 'MAE', 'Direction acc.', 'n', 'AWS job'].map((h) => <th key={h} className="px-3 py-2 font-medium whitespace-nowrap">{h}</th>)}</tr></thead>
+          <thead><tr className="border-b border-line text-left text-micro text-ink-3">{['Run', 'Method', 'Mean score', 'No-op score', 'n', 'AWS job'].map((h) => <th key={h} className="px-3 py-2 font-medium whitespace-nowrap">{h}</th>)}</tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.run_id} className="border-b border-line/60 align-top">
                 <td className="px-3 py-2"><RunLink id={r.run_id} /></td>
-                <td className="px-3 py-2 text-ink-1">{r.method ?? r.unit}</td>
-                <td className="px-3 py-2 text-ink-2">{r.silo ?? '—'}</td>
+                <td className="px-3 py-2 text-ink-1">{t2Method(r)}</td>
                 <td className="tnum px-3 py-2 text-ink-1">{num(r.mean_score)}</td>
                 <td className="tnum px-3 py-2 text-ink-3">{num(r.mean_score_noop)}</td>
-                <td className="tnum px-3 py-2 text-ink-2">{num(r.mae)}</td>
-                <td className="tnum px-3 py-2 text-ink-2">{pct(r.direction_accuracy)}</td>
                 <td className="tnum px-3 py-2 text-ink-2">{r.n_items ?? '—'}</td>
                 <td className="px-3 py-2">{(r.jobs ?? []).map((j: Job) => <JobLine key={j.name} j={j} />)}</td>
               </tr>
