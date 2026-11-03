@@ -59,18 +59,19 @@ function useFollowDirector() {
   }, [started])
 }
 
-/** When the backend serves real evidence runs, the first landing on "/" goes to the Scorecard (once per page load). */
+/** When the backend serves real evidence runs (`real_data` on the small /api/config, not the big snapshot),
+ *  the first landing on "/" goes to the Scorecard, once per page load. Mission Control stays reachable. */
 let landed = false
 function useRealLanding() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const ready = useLive((s) => s.ready)
-  const runs = useLive((s) => (s.evidence.runs ?? []).length)
   useEffect(() => {
-    if (landed || !ready) return
+    if (landed) return
     landed = true
-    if (pathname === '/' && runs > 0) navigate('/scorecard', { replace: true })
-  }, [ready, runs, pathname, navigate])
+    if (pathname !== '/') return
+    api.config().then((c) => { if (c?.real_data && window.location.pathname === '/') navigate('/scorecard', { replace: true }) }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 }
 
 function Layout() {
