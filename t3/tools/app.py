@@ -48,6 +48,12 @@ DIRECTION_KEYS = ("coverage_ratio", "sla_ratio")                  # direction_ag
 DEADBAND = {"coverage_ratio": 0.002, "sla_ratio": 0.002, "sinr_p10_db": 0.1, "sinr_mean_db": 0.1}
 MAX_PREDICTIONS = 50
 THRESHOLDS_FILE = Path(__file__).resolve().parents[1] / "trust" / "thresholds.json"
+# A seeded incident (t3/evals/targets.json episode): step 1 = commissioning, step 2 = the fault. A policy that reads
+# KPI changes against the pre-incident baseline (t1/rl/policy.py obs "masked_delta", remediation-v2) compares with
+# the state at INCIDENT_FAULT_STEP - 1, the step before the last configuration step that preceded the incident. A
+# test pins this constant to targets.json, so the Lambda does not need to read the evaluation package.
+INCIDENT_FAULT_STEP = 2
+BASELINE_STEP = INCIDENT_FAULT_STEP - 1
 
 
 class ToolError(Exception):
@@ -410,17 +416,65 @@ class Tools:
         audit(record="ran_case_created", case_id=case_id, run_id=new["run_id"])
         return self.d.store.get_case(case_id)
 
-    def replay(self, case: dict) -> tuple[Any, Any]:
-        """The case's twin at its current step (reset, then every logged change again)."""
+    def replay(self, case: dict, on_step: Callable[[int, Any, Any], None] | None = None) -> tuple[Any, Any]:
+        """The case's twin at its current step (reset, then every logged change again). ``on_step(step, twin,
+        state)``, when given, is called at step 0 (after reset) and after every replayed step, while the twin is
+        AT that step (the baseline-aware propose reads the pre-incident step's per-cell shares that way)."""
         twin = self.twin(case["scenario"], case["seed"], case["config"])
         state = twin.reset()
+        if on_step is not None:
+            on_step(0, twin, state)
         for i, logged in enumerate(case.get("action_log") or []):
             state = twin.apply(logged["change"])
             new = twin.action_log[-1]
             if "filtered" in logged and not _close(jsonable(new.get("filtered")), logged["filtered"]):
                 raise ReplayMismatch(f"case {case['case_id']} step {i}: the safety filter now passes "
                                      f"{new.get('filtered')} where the log has {logged['filtered']}")
+            if on_step is not None:
+                on_step(i + 1, twin, state)
         return twin, state
+
+    @staticmethod
+    def with_shares(twin: Any, state: dict) -> dict:
+        """``state`` plus the twin's per-cell coverage and sla shares (W2 ``ReplayTwin.kpis()['per_cell']``; the
+        twin must be AT this state). A cell that serves no UEs has None (the policy's no-UE rule handles it)."""
+        fn = getattr(twin, "kpis", None)
+        if not callable(fn):
+            raise ToolError("the served policy compares per-cell coverage and SLA shares, and this twin kind "
+                            "reports none (no per-UE data), so it cannot propose here")
+        try:
+            per = sorted(fn()["per_cell"], key=lambda c: int(c["cell"]))
+        except (RuntimeError, KeyError, TypeError) as exc:
+            raise ToolError(f"the twin did not report per-cell shares for the served policy: {exc}") from exc
+        if [round(float(c["power_dbm"]), 6) for c in per] != [round(float(p), 6) for p in state["power_dbm"]]:
+            raise ReplayMismatch("with_shares: the twin is not at this state")
+        out = dict(state)
+        for k in SHARE_KEYS:
+            out[k] = [None if c.get(k) is None else float(c[k]) for c in per]
+        return out
+
+    def replay_with_baseline(self, case: dict) -> tuple[Any, dict, dict, int]:
+        """For a policy that needs the pre-incident baseline (README contract, remediation-v2): ONE replay of the
+        case's action log, capturing the state at ``case['baseline_step']`` and the current state, each with its
+        per-cell shares. Refuses (ToolError, not a crash) a case with no recorded baseline step."""
+        n = case.get("baseline_step")
+        log = case.get("action_log") or []
+        if not isinstance(n, int) or isinstance(n, bool):
+            raise ToolError(
+                f"ran___propose: the served policy compares each cell's KPIs with the network's state before the "
+                f"incident, and case {case['case_id']} has no recorded pre-incident step (it was not opened at an "
+                f"incident with ran___seed_case). No change is proposed; open the case at the incident first.")
+        if not 0 <= n <= len(log):
+            raise ToolError(f"ran___propose: case {case['case_id']} records baseline step {n}, outside its "
+                            f"{len(log)} logged steps; no change is proposed")
+        seen: dict[str, Any] = {}
+
+        def capture(step: int, twin: Any, state: Any) -> None:
+            if step == n:
+                seen["baseline"] = self.with_shares(twin, state)
+
+        twin, state = self.replay(case, on_step=capture)
+        return twin, self.with_shares(twin, state), seen["baseline"], n
 
     def counterfactual(self, case: dict, cells: list[dict]) -> dict:
         """Baseline (advance with no change) and measured (advance with the change) at the same step.
@@ -511,6 +565,7 @@ class Tools:
             raise ToolError(f"seed_case needs scenario, seed and start_action_log_json: {exc}") from exc
         if not isinstance(steps, list) or len(steps) > 32:
             raise ToolError("start_action_log_json must be a JSON list of at most 32 steps")
+        baseline_step = self._seed_baseline_step(args, len(steps))
         preset = args.get("preset") or None
         twin = self.twin(scenario, seed, preset)
         state = twin.reset()
@@ -523,6 +578,8 @@ class Tools:
                "config": jsonable(resolved) if isinstance(resolved, dict) else preset,
                "action_log": jsonable(list(twin.action_log)), "twin_kind": self.d.defaults["twin_kind"],
                "predictions": [], "created_at": self.d.now()}
+        if baseline_step is not None:
+            new["baseline_step"] = baseline_step
         try:
             self.d.store.put_case(new, None)
         except ConflictError as exc:
@@ -531,6 +588,24 @@ class Tools:
               preset=preset, steps=len(steps))
         return {"case_id": case_id, "run_id": new["run_id"], "seeded": True, "step": len(steps),
                 "kpis": self.state_kpis(twin, state)}
+
+    @staticmethod
+    def _seed_baseline_step(args: dict, n_steps: int) -> int | None:
+        """The pre-incident step a baseline-aware policy compares with (README contract): BASELINE_STEP (1, the
+        state after commissioning) for every seeded incident, i.e. any start log that reaches the fault step,
+        including the harness's later operator steps, whose start log also carries the earlier proposals.
+        A direct (non-Gateway) call may pass ``baseline_step`` explicitly; the Gateway's tool schema does not
+        carry it. A start log shorter than the fault step records no baseline."""
+        raw = args.get("baseline_step")
+        if raw is not None:
+            try:
+                b = int(raw)
+            except (TypeError, ValueError) as exc:
+                raise ToolError(f"baseline_step must be an integer step: {exc}") from exc
+            if isinstance(raw, bool) or not 0 <= b < n_steps:
+                raise ToolError(f"baseline_step must be a step before the last start step (0..{n_steps - 1})")
+            return b
+        return BASELINE_STEP if n_steps >= INCIDENT_FAULT_STEP else None
 
     def observe(self, args: dict) -> dict:
         case = self.load_case(args)
@@ -544,14 +619,23 @@ class Tools:
         if policy is None:
             raise ToolError("no RL policy is configured (T1_POLICY_PATH)")
         check_model_version(args, policy.version, "policy")
-        _, state = self.replay(case)
-        raw = jsonable(policy.propose(state))
+        baseline_step = None
+        if getattr(policy, "needs_baseline", False):
+            # remediation-v2 (t1/rl/policy.py obs "masked_delta"): KPI changes against the pre-incident baseline,
+            # both states with their per-cell shares; a case without a recorded baseline step is refused.
+            _, state, baseline, baseline_step = self.replay_with_baseline(case)
+            raw = jsonable(policy.propose(state, baseline=baseline))
+        else:
+            _, state = self.replay(case)
+            raw = jsonable(policy.propose(state))
         step = len(case["action_log"])
         meta = {"model_id": str(policy.model_id), "version": str(policy.version)}
+        # Only a baseline-aware policy's answer names the baseline step: ppo_sm_50k's answers are unchanged.
+        extra = {} if baseline_step is None else {"baseline_step": baseline_step}
         if is_no_change(raw):  # W1's canon refuses an empty change; a no-op is an answer, not an error
             audit(record="ran_no_change", case_id=case["case_id"], run_id=case["run_id"], step=step, policy=meta)
             return {"case_id": case["case_id"], "run_id": case["run_id"], "no_change": True, "item_id": None,
-                    "change": None, "policy": meta, "step": step, "reason": "policy proposes no change"}
+                    "change": None, "policy": meta, "step": step, "reason": "policy proposes no change", **extra}
         try:
             text = changes.canon(changes.round_items(raw))
         except (ValueError, TypeError) as exc:
@@ -561,7 +645,8 @@ class Tools:
         self._remember(case, {"kind": "propose", "item_id": item_id, "change_text": text, "policy": meta,
                               "step": step, "at": self.d.now()})
         return {"case_id": case["case_id"], "run_id": case["run_id"], "item_id": item_id, "change": text,
-                "policy": meta, "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change."}
+                "policy": meta, "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+                **extra}
 
     def predict(self, args: dict) -> dict:
         case = self.load_case(args)

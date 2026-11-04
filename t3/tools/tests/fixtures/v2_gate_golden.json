@@ -1,0 +1,156 @@
+{
+ "artifact": "t1/rl/artifacts/remediation_v2.zip",
+ "artifact_sha256": "cacb1defd85b087224e842417cb240e61a5ccda0ab0292954e54b4ae3290216d",
+ "cases": [
+  {
+   "fault_cells": [
+    0
+   ],
+   "incident_id": "inc-off-vis-4100-tilt+5",
+   "preset": "official",
+   "scenario": "nominal",
+   "seed": 4100,
+   "start_log": [
+    [],
+    "cell=0;d_power_db=+0.0;d_tilt_deg=+5.0"
+   ],
+   "step_texts": [
+    "cell=0;d_power_db=+0.0;d_tilt_deg=-3.5",
+    "",
+    ""
+   ]
+  },
+  {
+   "fault_cells": [
+    0
+   ],
+   "incident_id": "inc-off-vis-4116-power-3+tilt+3",
+   "preset": "official",
+   "scenario": "nominal",
+   "seed": 4116,
+   "start_log": [
+    [],
+    "cell=0;d_power_db=-3.0;d_tilt_deg=+3.0"
+   ],
+   "step_texts": [
+    "cell=0;d_power_db=+2.7;d_tilt_deg=-2.3",
+    "",
+    ""
+   ]
+  },
+  {
+   "fault_cells": [
+    0
+   ],
+   "incident_id": "inc-vvl-vis-4117-power-3+tilt+3",
+   "preset": "viavi-like",
+   "scenario": "viavi_stationary",
+   "seed": 4117,
+   "start_log": [
+    [],
+    "cell=0;d_power_db=-3.0;d_tilt_deg=+3.0"
+   ],
+   "step_texts": [
+    "cell=0;d_power_db=+3.6;d_tilt_deg=-3.2",
+    "",
+    ""
+   ]
+  },
+  {
+   "fault_cells": [
+    0
+   ],
+   "incident_id": "inc-off-mas-4122-power-6+tilt+5",
+   "preset": "official",
+   "scenario": "nominal",
+   "seed": 4122,
+   "start_log": [
+    "cell=0;d_power_db=-1.0;d_tilt_deg=+3.0|cell=1;d_power_db=-2.0;d_tilt_deg=+0.0|cell=2;d_power_db=-2.0;d_tilt_deg=+1.0|cell=3;d_power_db=+1.0;d_tilt_deg=+0.0",
+    "cell=0;d_power_db=-6.0;d_tilt_deg=+5.0"
+   ],
+   "step_texts": [
+    "cell=0;d_power_db=+6.7;d_tilt_deg=-5.0",
+    "",
+    ""
+   ]
+  },
+  {
+   "fault_cells": [
+    0,
+    1
+   ],
+   "incident_id": "inc-off-vis-4124-two-cell:power-6|tilt+5",
+   "preset": "official",
+   "scenario": "nominal",
+   "seed": 4124,
+   "start_log": [
+    [],
+    "cell=0;d_power_db=-6.0;d_tilt_deg=+0.0|cell=1;d_power_db=+0.0;d_tilt_deg=+5.0"
+   ],
+   "step_texts": [
+    "cell=0;d_power_db=+6.0;d_tilt_deg=+0.0|cell=1;d_power_db=+0.0;d_tilt_deg=-4.8",
+    "",
+    ""
+   ]
+  },
+  {
+   "fault_cells": [
+    0,
+    1
+   ],
+   "incident_id": "inc-off-mas-4126-two-cell:power-6|tilt+5",
+   "preset": "official",
+   "scenario": "nominal",
+   "seed": 4126,
+   "start_log": [
+    "cell=0;d_power_db=+3.0;d_tilt_deg=-1.0|cell=1;d_power_db=-2.0;d_tilt_deg=-1.0|cell=2;d_power_db=+3.0;d_tilt_deg=-2.0|cell=3;d_power_db=-1.0;d_tilt_deg=+2.0",
+    "cell=0;d_power_db=-6.0;d_tilt_deg=+0.0|cell=1;d_power_db=+0.0;d_tilt_deg=+5.0"
+   ],
+   "step_texts": [
+    "cell=0;d_power_db=+5.5;d_tilt_deg=+0.0|cell=1;d_power_db=+0.0;d_tilt_deg=-3.3|cell=3;d_power_db=+0.0;d_tilt_deg=-0.7",
+    "",
+    ""
+   ]
+  },
+  {
+   "fault_cells": [
+    1
+   ],
+   "incident_id": "inc-off-vis-4128-tilt+5",
+   "preset": "official",
+   "scenario": "nominal",
+   "seed": 4128,
+   "start_log": [
+    [],
+    "cell=1;d_power_db=+0.0;d_tilt_deg=+5.0"
+   ],
+   "step_texts": [
+    "cell=1;d_power_db=+0.0;d_tilt_deg=-4.7",
+    "",
+    ""
+   ]
+  },
+  {
+   "fault_cells": [
+    1
+   ],
+   "incident_id": "inc-vvl-vis-4129-tilt+5",
+   "preset": "viavi-like",
+   "scenario": "viavi_stationary",
+   "seed": 4129,
+   "start_log": [
+    [],
+    "cell=1;d_power_db=+0.0;d_tilt_deg=+5.0"
+   ],
+   "step_texts": [
+    "cell=1;d_power_db=+0.0;d_tilt_deg=-4.7",
+    "",
+    ""
+   ]
+  }
+ ],
+ "gate_code_commit": "3caba77bf2a034643e9809f3ac6b963dc0682357",
+ "model": "t1-remediation-bc-delta@v2-c282d94",
+ "operator": "t1.rl.remediation.v2.BaselineAware",
+ "procedure": "Generate v2_gate_golden.json: what the GATE's v2 operator proposes, step by step, on dev incidents."
+}
