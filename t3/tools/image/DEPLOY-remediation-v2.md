@@ -154,3 +154,24 @@ reversible.
   between platforms. Cross-check: with ppo_sm_50k the local image reproduced Live Fix run 2's live answer exactly.
 - **Permissions after the event:** ECR push, Lambda code and configuration updates have not been tried with the
   participant role since the freeze.
+
+## Executed (4 Nov 2026, with the user's go)
+
+- **0. Rollback target confirmed:** image `team13-ran-tools:614fc3b373de`, digest
+  `sha256:fbf6a1bb68d74cf0579d6ef3a161d43c872105128728ba08d188962b9b16d992`, `T1_POLICY_PATH` = ppo_sm_50k.
+  The local image `team13-ran-tools:56d55b4eeff6` carried `remediation_v2.zip` sha256 `cacb1def…` (the gated model)
+  and `ppo_sm_50k.zip` sha256 `e04d8c90…`.
+- **1. Pushed** `56d55b4eeff6` to ECR as `sha256:b231a5ec76b903b386dd8344ae743f8b87512f318c4a25ea60403bac6089fc3c`.
+- **2. Step A** (new code, ppo_sm_50k still served): Lambda `team13-ran-tools` on that digest, Active / Successful.
+  Gateway smoke as a check: `ran___propose` answered `t1-ppo-cco-sm@50k-a09e` with
+  `cell=0;d_power_db=-1.1;d_tilt_deg=-0.5|cell=1;d_power_db=+3.9;d_tilt_deg=+0.0|cell=2;d_power_db=+8.0;d_tilt_deg=-2.0|cell=3;d_power_db=+2.3;d_tilt_deg=+2.3`,
+  byte-identical to Live Fix run 2's live answer (gateway date 2026-11-04T15:23:37Z).
+- **3. Step B:** `T1_POLICY_PATH` → `/var/task/t1/rl/artifacts/remediation_v2.zip`; the other 12 variables kept;
+  Active / Successful.
+- **5. Gateway smoke: PASS.** Case `case-smokev2152409`: `t1-remediation-bc-delta@v2-c282d94`, `baseline_step` 1,
+  `cell=2;d_power_db=+6.2;d_tilt_deg=+0.0` (gateway date 2026-11-04T15:24:26Z), the same as the local image.
+- **4. Laptop side:** `feat/live-fix` got `92784a3` (as `8ff204f`) and Live Fix declarations now carry
+  `served_policy` (`9538ed5`); the demo server was restarted with
+  `T3_POLICY_ID=t1-remediation-bc-delta T3_POLICY_VERSION=v2-c282d94 T3_POLICY_ARTIFACT=t1/rl/artifacts/remediation_v2.zip`.
+- **Rollback** is unchanged from the section above: policy only (swap `T1_POLICY_PATH` back), or full (policy first,
+  then the `fbf6a1bb…` digest).
