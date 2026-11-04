@@ -327,7 +327,9 @@ def main(argv: list[str] | None = None) -> int:
         ev.write_declared({**decl, "code_sha": sha, "region": "us-east-2"})
     t0 = time.time()
     a.output_dir.mkdir(parents=True, exist_ok=True)
-    ds, round0 = find_dataset(a.train_output, a.output_dir)
+    import tempfile
+
+    ds, round0 = find_dataset(a.train_output, Path(tempfile.mkdtemp(prefix="lc-train-")))  # not in the outputs
     arrays = load_arrays(ds, None if a.no_dataset_check else dataset_sha256())
     hyper = {k: bc.HYPER[k] for k in ("lr", "batch", "epochs", "patience", "seed")}
     if a.epochs:
