@@ -15,6 +15,11 @@ Ops (every one is a pure function of its arguments plus the lessons file):
   score         incident start_log proposal lesson   t3.evals.confidence.score_proposal
   learn         incident proposals       t3.evals.lessons.verify on the local twin, then LessonStore.learn
                                          (refuses test-split incidents)
+  percell       cells_after cells_healthy cells_before fault_cells network_after network_healthy
+                                         t3.evals.percell.percell_verdict (percell-v1) on per-cell KPI rows
+  side_effects  incident start_log proposal   the held change on the PREFLIGHT copy of the twin
+                                         (confidence.PREFLIGHT_SEED_OFFSET, not the grader's twin): each cell
+                                         without -> with the change at the grade step, graded by percell-v1
 
 The lessons file is LIVEFIX_LESSONS (default ~/.spectrum/livefix/lessons.jsonl). Nothing here calls AWS.
 """
@@ -33,9 +38,74 @@ def _lessons_path() -> Path:
     return Path(os.environ.get("LIVEFIX_LESSONS") or Path.home() / ".spectrum" / "livefix" / "lessons.jsonl")
 
 
+_KEEP = ("power_dbm", "tilt_deg", "ue_count", "coverage_share", "sla_share", "sinr_p10_db", "alarm", "asleep")
+
+
+def side_effects(incident: dict[str, Any], start_log: list[Any], proposal: Any, targets: dict[str, Any] | None = None,
+                 twin_cls: Any = None) -> dict[str, Any]:
+    """What the held change would do to every cell, predicted on the PREFLIGHT copy of the twin.
+
+    The copy is confidence.preflight's: same scenario, preset and configuration history, but the seed is
+    offset (PREFLIGHT_SEED_OFFSET), so users sit elsewhere: never the twin the grader scores on. Three replays
+    to the grade step on that copy: with the change, without it (the network if nothing is done), and the
+    healthy counterfactual (commissioning, no fault). percell-v1 grades "with" against healthy, with "without"
+    as the state before the change, so ``worse`` marks a cell the change itself makes worse."""
+    from t3.evals import confidence, percell
+    from t3.evals import incidents as inc
+    from t3.evals.changes import nonzero
+    from t3.evals.graders import load_targets
+    if twin_cls is None:
+        from t3.evals.twin_backend import ReplayTwin as twin_cls
+    targets = targets or load_targets()
+    grade_step = int(targets["episode"]["grade_step"])
+    steps = [nonzero(s) for s in start_log]
+    remaining = grade_step - len(steps) - 1
+    if remaining < 0:
+        raise ValueError(f"start log has {len(steps)} steps; nothing left before grade step {grade_step}")
+    seed = int(incident["seed"]) + confidence.PREFLIGHT_SEED_OFFSET
+
+    def replay(script: list[Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        t = twin_cls(incident["scenario"], seed, incident["preset"])
+        t.reset()
+        for s in script:
+            t.apply(s)
+        return percell.cells_from_twin(t), t.kpis()
+
+    with_rows, k_with = replay(steps + [nonzero(proposal)] + [[]] * remaining)
+    without_rows, k_without = replay(steps + [[]] * (1 + remaining))
+    healthy_script = inc.script(dict(incident), targets, False)
+    healthy_rows, k_healthy = replay(healthy_script + [[]] * (grade_step - len(healthy_script)))
+    v_with = percell.percell_verdict(with_rows, healthy_rows, without_rows, network_after=k_with,
+                                     network_healthy=k_healthy)
+    v_without = percell.percell_verdict(without_rows, healthy_rows, network_after=k_without,
+                                        network_healthy=k_healthy)
+    was = {c["cell"]: c for c in v_without["cells"]}
+    rows_with = {int(r["cell"]): r for r in with_rows}
+    rows_without = {int(r["cell"]): r for r in without_rows}
+    cells = []
+    for c in v_with["cells"]:
+        n = c["cell"]
+        cells.append({"cell": n, "without": {k: rows_without[n].get(k) for k in _KEEP},
+                      "with": {k: rows_with[n].get(k) for k in _KEEP},
+                      "health_without": was[n]["health"], "health_with": c["health"],
+                      "worse": bool(c["worse_than_before"]), "reasons": c["reasons"]})
+    return {"version": percell.VERSION, "cells": cells, "recovered_with": v_with["recovered"],
+            "overshoot_with": v_with["overshoot"], "grade_step": grade_step,
+            "twin": {"kind": "preflight copy", "scenario": incident["scenario"], "preset": incident["preset"],
+                     "seed_offset": confidence.PREFLIGHT_SEED_OFFSET,
+                     "note": "users placed differently from the grader's twin: a prediction, not the network"}}
+
+
 def handle(op: str, a: dict[str, Any]) -> Any:
     if op == "ping":
         return {"ok": True}
+    if op == "percell":
+        from t3.evals import percell
+        return percell.percell_verdict(a["cells_after"], a["cells_healthy"], a.get("cells_before"),
+                                       fault_cells=a.get("fault_cells"), network_after=a.get("network_after"),
+                                       network_healthy=a.get("network_healthy"))
+    if op == "side_effects":
+        return side_effects(a["incident"], a["start_log"], a["proposal"])
     if op == "catalog":
         from t3.evals import faults
         return {"faults": faults.FAULTS, "version": faults.CATALOG_VERSION}

@@ -11,12 +11,22 @@
     applying the person approved: the lead is told "Approved." on the same case (what the Approvals page tells a
              person to do) and calls ran___apply_change again; the kit marks the row APPLIED
     recovered / not_recovered  the twin is replayed with the case's applied action log (another ran___seed_case),
-             next to the healthy and unfixed twins at the same step, and graded with the suite's own rule
-             (t3/evals/graders.grade_kpis, targets.json tolerance)
+             next to the healthy and unfixed twins at the same step, and graded twice: the suite's network rule
+             (t3/evals/graders.grade_kpis, targets.json tolerance) AND the per-cell rule (t3/evals/percell.py
+             percell-v1: every cell back to its own healthy level; a cell the fix made worse is collateral).
+             "recovered" needs both; network-only recovery with degraded cells is not_recovered (collateral)
+    review   the per-cell check failed after a change and steps remain: the presenter asks the agents to correct
+             (a follow-up with per-cell symptoms, back through Cedar's hold and a person's approval) or finishes
     rejected / no_proposal / failed / timed_out  end states that say why
 
+Side effects before approval: every held change is tried on the PREFLIGHT copy of the twin (t3/evals/confidence.py,
+seed + PREFLIGHT_SEED_OFFSET: not the grader's twin) and each cell is shown without -> with the change, graded by
+percell-v1. A cell the change makes red puts it on hold (Approve disabled on the card; "Ask for an alternative"
+sends the lead the predicted harm, symptoms only); a cell it makes amber asks for two people.
+
 Evidence (tools/evlib): declared before the first Gateway call, one item per run, one result. The run id maps
-every case of the run (t3-<case> rows), so the Lambda files its change record under the same run id.
+every case of the run (t3-<case> rows), so the Lambda files its change record under the same run id. The item
+carries the per-cell verdict, the side effects each approver was shown and every follow-up sent to the lead.
 
 Mode "recorded": no AWS at all. The judged live swarm run's recorded proposal and reply for a masked test
 incident, with the KPIs its scoring run measured; the approval is a "continue" click, not a decision.
@@ -45,9 +55,15 @@ DEFAULT_MODEL = "noc_lead=openai.gpt-oss-120b-1:0;students=openai.gpt-oss-20b-1:
 TARGET = {"metric": "success", "op": ">=", "value": 1.0, "unit": "ratio"}
 GRADER = ("t3/evals/graders.py:grade_kpis (twin replay of the case's applied action log, against the healthy "
           "and unfixed twins at the same step; t3/evals/targets.json tolerance)")
+PERCELL_GRADER = ("t3/evals/percell.py:percell_verdict percell-v1 (every cell of the replayed twin against the same "
+                  "cell of the healthy twin at the same step: recovered = every cell green; and against the network "
+                  "right before the fix: a non-faulted cell the fix made worse is collateral)")
+TARGET_RULE = "success = network grade AND per-cell verdict (percell-v1)"
 MAX_CHANGES = 3
+MAX_FOLLOWUPS = 3       # alternatives + corrections per run
 END = {"recovered", "not_recovered", "rejected", "no_proposal", "failed", "timed_out"}
 APPROVED_TEXT = "Approved."
+TIER_ORDER = {"one_person": 0, "two_person": 1, "hold": 2}
 
 
 def utc() -> str:
@@ -87,6 +103,15 @@ class Run:
     lesson_learned: dict | None = None
     attacks: list = field(default_factory=list)
     applied_changes: list = field(default_factory=list)  # canonical change texts, in apply order
+    percell_declared: bool = False                     # the declaration named the per-cell grader
+    percell: dict | None = None                        # percell-v1 verdict after the latest applied change
+    side_effects: dict | None = None                   # predicted per-cell effects of the held change
+    tier: dict | None = None                           # effective approval tier: confidence + side effects
+    shown: list = field(default_factory=list)          # side effects each approver was shown (evidence)
+    followups: list = field(default_factory=list)      # alternatives and corrections sent to the lead
+    superseded: list = field(default_factory=list)     # held approvals replaced by an alternative
+    alternative_requested: bool = False
+    review_choice: str | None = None                   # "correct" | "finish" (the presenter, in state review)
 
 
 class LiveFix:
@@ -185,6 +210,34 @@ class LiveFix:
         run.continue_requested = True
         return run
 
+    def alternative(self, run_id: str) -> Run:
+        """The held change is on hold (predicted harm or low confidence): ask the lead for another one. The held row
+        stays PENDING in the approvals table (this app never decides); the run waits on the new proposal instead."""
+        run = self._get(run_id)
+        with self.lock:
+            if run.mode != "live" or run.state != "awaiting_approval" or not run.approval:
+                raise ValueError(f"no held change to replace (state {run.state})")
+            if (run.tier or {}).get("tier") != "hold":
+                raise ValueError("only a change on hold can be sent back for an alternative")
+            if len(run.followups) >= MAX_FOLLOWUPS:
+                raise ValueError(f"at most {MAX_FOLLOWUPS} follow-ups per run")
+            run.alternative_requested = True
+        return run
+
+    def review(self, run_id: str, choice: str) -> Run:
+        """After a change whose per-cell check failed: "correct" sends the lead the degraded cells (the correction
+        goes through Cedar's hold and a person's approval again); "finish" ends the run as graded."""
+        run = self._get(run_id)
+        if choice not in ("correct", "finish"):
+            raise ValueError("choice must be correct or finish")
+        with self.lock:
+            if run.state != "review":
+                raise ValueError(f"nothing to review (state {run.state})")
+            if choice == "correct" and len(run.followups) >= MAX_FOLLOWUPS:
+                raise ValueError(f"at most {MAX_FOLLOWUPS} follow-ups per run")
+            run.review_choice = choice
+        return run
+
     def view(self, run: Run) -> dict:
         healthy = run.kpis.get("healthy")
         now_k = run.kpis.get("final") or run.kpis.get("faulted") or healthy
@@ -202,6 +255,12 @@ class LiveFix:
             "approval": run.approval, "applied": run.applied, "reply": run.reply, "grade": run.grade,
             "confidence": run.confidence, "lessons": run.lessons, "lesson_learned": run.lesson_learned,
             "attacks": run.attacks,
+            "percell": run.percell, "percell_declared": run.percell_declared, "side_effects": run.side_effects,
+            "tier": run.tier, "followups": [{k: f.get(k) for k in ("kind", "t", "approval_id", "cells", "text")}
+                                            for f in run.followups],
+            "superseded": run.superseded,
+            "can_follow_up": run.mode == "live" and len(run.followups) < MAX_FOLLOWUPS
+            and len(run.applied) < MAX_CHANGES,
             "problem": run.problem, "evidence": run.evidence,
             "evidence_link": f"/evidence?run={run.run_id}" if run.mode == "live" else
             f"/evidence?run={(run.recorded or {}).get('live_run', '')}",
@@ -245,8 +304,13 @@ class LiveFix:
         rows = suite.cell_view(now_k, ref)
         key = "final" if run.kpis.get("final") else "faulted" if run.kpis.get("faulted") else "healthy"
         h = {r["cell"]: r for r in run.health.get(key) or []}
+        pc = {c["cell"]: c for c in (run.percell or {}).get("cells") or []} if key == "final" else {}
         for r in rows:
-            if r["cell"] in h:  # one health rule for the map: t3.evals.faults.cell_health
+            if r["cell"] in pc:  # after a fix the map shows the per-cell verdict (t3/evals/percell.py)
+                r["status"] = pc[r["cell"]].get("health") or r["status"]
+                r["why"] = pc[r["cell"]].get("reasons")
+                r["collateral"] = bool(pc[r["cell"]].get("worse_than_before"))
+            elif r["cell"] in h:  # before a fix: t3.evals.faults.cell_health (the same thresholds)
                 r["status"] = h[r["cell"]]["health"]
                 r["why"] = h[r["cell"]].get("why")
             r["health"] = HEALTH.get(r["status"], "unknown")
@@ -380,12 +444,19 @@ class LiveFix:
     def _declare(self, run: Run) -> None:
         from .evidence import code_sha
         inc = run.incident
+        # The per-cell grader runs in the twin-side helper; a run without it is declared on the network rule alone.
+        run.percell_declared = bool(self.twinside.available)
+        target = {**TARGET, "rule": TARGET_RULE} if run.percell_declared else \
+            {**TARGET, "rule": "success = network grade (the per-cell grader needs the twin-side helper, not running)"}
+        grader = f"{GRADER} AND {PERCELL_GRADER}" if run.percell_declared else GRADER
         self._write(run, "declared", {
-            "run_id": run.run_id, "unit": UNIT, "track": "track-3", "target": dict(TARGET), "n_items": 1,
-            "test_set_sha256": suite.dev_digest(), "model_id": self.model_id, "grader": GRADER,
+            "run_id": run.run_id, "unit": UNIT, "track": "track-3", "target": target, "n_items": 1,
+            "test_set_sha256": suite.dev_digest(), "model_id": self.model_id, "grader": grader,
             "code_sha": code_sha(), "region": os.environ.get("AWS_REGION") or "us-east-2",
             "subset": f"dev split, visible tier, incident {inc['incident_id']}",
-            "approval_policy": "a person approves every change (kit approvals table); the app never decides",
+            "approval_policy": "a person approves every change (kit approvals table); the app never decides; a change "
+                               "the preflight copy predicts to turn a cell red is on hold (Approve disabled on the "
+                               "Live Fix card), one it predicts to turn a cell amber asks for two people",
             "twin": {"kind": "maveric-inprocess", "version": "ran-rl-1.2.9", "scenario": inc["scenario"],
                      "seed": int(inc["seed"]), "preset": inc["preset"],
                      "host": "team13 RAN-tools Lambda behind the AgentCore Gateway"}})
@@ -406,12 +477,24 @@ class LiveFix:
             if run.evidence.get("_gw_date") else None,
             "extra": {"state": run.state, "cases": run.cases, "applied": run.applied, "grade": g,
                       "stages": self._stage_view(run), "problem": run.problem,
-                      "approval_id": (run.approval or {}).get("approval_id")}})
+                      "approval_id": (run.approval or {}).get("approval_id"),
+                      "percell_declared": run.percell_declared, "percell": run.percell,
+                      "side_effects_shown": run.shown,
+                      "followups": [{k: f.get(k) for k in ("kind", "t", "approval_id", "cells", "text_sha256")}
+                                    for f in run.followups],
+                      "superseded": run.superseded}})
+        pc = run.percell or {}
         self._write(run, "result", {
             "run_id": run.run_id, "unit": UNIT, "metric": TARGET["metric"], "value": 1.0 if passed else 0.0,
-            "target": dict(TARGET), "passed": passed, "n_items": 1,
+            "target": {**TARGET, "rule": TARGET_RULE if run.percell_declared else "network grade"},
+            "passed": passed, "n_items": 1,
             "checker": {"script": SOURCE + "/service.py", "code_sha": code_sha()},
-            "details": {"state": run.state, "recovery": g.get("recovery"), "applied": run.applied}})
+            "details": {"state": run.state, "recovery": g.get("recovery"), "applied": run.applied,
+                        "network_success": g.get("success"),
+                        "percell": {"declared": run.percell_declared, "available": bool(run.percell),
+                                    "recovered": pc.get("recovered"), "degraded": pc.get("degraded"),
+                                    "collateral": pc.get("collateral"), "version": pc.get("version")},
+                        "followups": len(run.followups)}})
 
     # ------------------------------------------------------------------ live
     def _prepare_live(self, run: Run) -> None:
@@ -447,24 +530,47 @@ class LiveFix:
         self._event(run, "diagnosing", "Ticket sent to noc_lead through the Gateway (front___continue_case): "
                     "symptoms only, under an opaque incident label.")
         status = self._wait_lead(run, case)
+        held_before: dict | None = None  # the held change an alternative was asked for
         while True:
-            pending = self._pending(case, status)
+            pending = self._pending(case, status, skip=run.superseded)
+            if pending is None and held_before is not None:
+                # No alternative came back: the held change is still the one on the table (still on hold).
+                run.superseded.remove(held_before["approval_id"])
+                pending = held_before
+                self._event(run, "awaiting_approval", f"The lead proposed no alternative. {pending['approval_id']} "
+                            "is still on hold: deny it, or let the approval time out.")
+            held_before = None
             if pending is None:
                 if status.get("timed_out"):
                     self._end(run, "timed_out", "The lead did not finish in time.")
                 elif not run.applied:
                     self._end(run, "no_proposal", "The lead finished without proposing a change.")
                 else:
-                    self._finish_graded(run, bool((run.grade or {}).get("success")))
+                    self._finish_graded(run, self._success(run, bool((run.grade or {}).get("success"))))
                 return
             run.approval = pending
             run.cells_at_proposal = self._cells(run, run.kpis.get("final") or run.kpis.get("faulted"),
                                                 run.kpis.get("healthy_final") or run.kpis.get("healthy"))
+            run.side_effects = self._side_effects(run, pending.get("change_text"))
             run.confidence = self._confidence(run, pending.get("change_text"))
+            run.tier = self._tier(run)
+            run.shown.append(self._shown(run, pending))
             self._stage(run, "awaiting_approval")
             self._event(run, "awaiting_approval", f"Cedar held ran___apply_change: {pending['approval_id']} waits for "
                         f"a person.", approval_id=pending["approval_id"], change=pending["change_text"])
-            decision = self._wait_person(pending["approval_id"])
+            if run.tier["tier"] == "hold":
+                self._event(run, "awaiting_approval", "On hold: " + "; ".join(run.tier["why"]) + ". Approve is off on "
+                            "this card; deny it, or ask the lead for an alternative.", kind="hold")
+            decision = self._wait_person(pending["approval_id"], run)
+            if decision == "ALTERNATIVE":
+                self._follow_up(run, case, "alternative", self._alternative_text(run, pending),
+                                approval_id=pending["approval_id"],
+                                cells=[c["cell"] for c in (run.side_effects or {}).get("cells") or [] if c.get("worse")])
+                run.superseded.append(pending["approval_id"])
+                held_before = pending
+                self._stage(run, "diagnosing")
+                status = self._wait_lead(run, case)
+                continue
             if decision != "APPROVED":
                 self._end(run, "rejected" if decision == "REJECTED" else "timed_out",
                           "The person rejected the change." if decision == "REJECTED"
@@ -483,17 +589,40 @@ class LiveFix:
             run.applied_changes.append(pending.get("change_text") or "")
             run.approval = {**pending, "status": "APPLIED"}
             self._event(run, "applying", f"Applied on the twin: {pending['change_text']}.")
-            ok = self._grade(run, final=False)
-            if ok or len(run.applied) >= MAX_CHANGES:
-                if ok:
-                    self._learn(run)
-                self._finish_graded(run, ok)
+            ok_net = self._grade(run, final=False)
+            ok = self._success(run, ok_net)
+            if ok:
+                self._learn(run)
+                self._finish_graded(run, True)
                 return
+            if len(run.applied) >= MAX_CHANGES:
+                self._finish_graded(run, False)
+                return
+            if run.percell is None:  # no per-cell verdict: the network rule alone, as before
+                if ok_net:
+                    self._finish_graded(run, True)
+                    return
+                continue  # the lead may already have proposed the next change
+            # The per-cell check failed and changes remain: the presenter asks for a correction or finishes.
+            if len(run.followups) >= MAX_FOLLOWUPS:
+                self._finish_graded(run, False)
+                return
+            self._stage(run, "review")
+            self._event(run, "review", "Per-cell check: " + self._percell_text(run) + " Ask the agents to correct, "
+                        "or finish the run as graded.", kind="review")
+            if self._wait_review(run) != "correct":
+                self._finish_graded(run, False)
+                return
+            bad = [c["cell"] for c in run.percell.get("cells") or []
+                   if c.get("health") != "green" or c.get("worse_than_before")]
+            self._follow_up(run, case, "correction", self._correction_text(run), cells=bad)
+            self._stage(run, "diagnosing")
+            status = self._wait_lead(run, case)
 
-    def _pending(self, case_id: str, status: dict) -> dict | None:
+    def _pending(self, case_id: str, status: dict, skip: list | tuple = ()) -> dict | None:
         for w in parse_waiting(status):
             aid = w.get("approval_id")
-            if not aid:
+            if not aid or aid in skip:
                 continue
             row = self._row(aid)
             # PENDING, or already decided by a person faster than our poll (then _wait_person sees it at once).
@@ -506,14 +635,35 @@ class LiveFix:
                     "approve_link": f"/approvals?case={case_id}"}
         return None
 
-    def _wait_person(self, approval_id: str) -> str:
+    def _wait_person(self, approval_id: str, run: Run | None = None) -> str:
         deadline = self.clock() + self.approval_timeout_s
         while self.clock() < deadline:
             row = self._row(approval_id) or {}
             if row.get("status") in ("APPROVED", "REJECTED", "APPLIED"):
                 return "APPROVED" if row["status"] == "APPLIED" else row["status"]
+            if run is not None and run.alternative_requested:
+                run.alternative_requested = False
+                return "ALTERNATIVE"
             self.sleep(2.0)
         return "TIMEOUT"
+
+    def _wait_review(self, run: Run) -> str:
+        """The presenter's choice after a failed per-cell check; no choice before the timeout finishes the run."""
+        deadline = self.clock() + self.approval_timeout_s
+        while self.clock() < deadline:
+            if run.review_choice:
+                choice, run.review_choice = run.review_choice, None
+                return choice
+            self.sleep(1.0)
+        return "finish"
+
+    def _follow_up(self, run: Run, case: str, kind: str, text: str, **extra) -> None:
+        """A follow-up to noc_lead on the same case (symptoms only): an alternative to a held change, or a
+        correction after a change that left cells degraded. Whatever it proposes stops at Cedar's hold again."""
+        self._call(CONTINUE, {"case_id": case, "message": text}, timeout=60)
+        run.followups.append({"kind": kind, "t": utc(), "text": text, "text_sha256": sha(text), **extra})
+        what = "An alternative" if kind == "alternative" else "A correction"
+        self._event(run, "diagnosing", f"{what} was asked of noc_lead on the same case: {text}", kind="followup")
 
     def _grade(self, run: Run, final: bool = True) -> bool:
         """Replay the faulted case's applied log on a fresh twin and grade it. Returns success."""
@@ -535,15 +685,136 @@ class LiveFix:
         hl = {k: suite.headline(run.kpis[k]) for k in ("final", "healthy_final", "unfixed_final")}
         run.grade = {**suite.grade(hl["final"], hl["healthy_final"], hl["unfixed_final"], self.targets), "step": n}
         self._health(run, "final", "healthy_final")
+        run.percell = self._percell(run)
         ok = bool(run.grade["success"])
         if final:
-            self._finish_graded(run, ok)
+            self._finish_graded(run, self._success(run, ok))
         return ok
 
+    def _success(self, run: Run, ok_net: bool) -> bool:
+        """The declared rule: network grade AND per-cell verdict. A run declared without the per-cell grader, or
+        whose per-cell verdict could not be computed, is graded on the network rule (the record says which)."""
+        if not run.percell_declared or run.percell is None:
+            return ok_net
+        return ok_net and bool(run.percell.get("recovered"))
+
+    def _percell(self, run: Run) -> dict | None:
+        """percell-v1 on the replayed twin: each cell against the same cell of the healthy twin at the same step,
+        and against the network right before the fix (the faulted state, as percell.grade_incident uses): a cell
+        the fix made worse, other than the faulted cells, is collateral. Computed by the twin-side helper."""
+        if not run.percell_declared or not self.twinside.available:
+            return None
+        k = run.kpis
+        try:
+            return self.twinside.call("percell", cells_after=(k.get("final") or {}).get("per_cell") or [],
+                                      cells_healthy=(k.get("healthy_final") or {}).get("per_cell") or [],
+                                      cells_before=(k.get("faulted") or {}).get("per_cell") or None,
+                                      fault_cells=run.incident.get("fault_cells"),
+                                      network_after=suite.headline(k.get("final")),
+                                      network_healthy=suite.headline(k.get("healthy_final")))
+        except Exception as e:  # noqa: BLE001 - the run is then graded on the network rule, and says so
+            self._event(run, "applying", f"Per-cell verdict not computed ({type(e).__name__}); this change is "
+                        "graded on the network rule only.")
+            return None
+
+    @staticmethod
+    def _cell_bits(cells: list, health_key: str, worse_key: str) -> list[str]:
+        out = []
+        for c in cells:
+            h, worse = c.get(health_key), c.get(worse_key)
+            if h in (None, "green") and not worse:
+                continue
+            why = ", ".join(str(r) for r in (c.get("reasons") or [])[:3]) or "below its healthy level"
+            out.append(f"cell {c['cell']} {h}{' (made worse)' if worse else ''}: {why}")
+        return out
+
+    def _percell_text(self, run: Run) -> str:
+        pc = run.percell or {}
+        bits = self._cell_bits(pc.get("cells") or [], "health", "worse_than_before")
+        net = "Network KPIs recovered" if (run.grade or {}).get("success") else "Network KPIs not recovered"
+        if not bits:
+            return f"{net}; every cell is back to its healthy level."
+        coll = pc.get("collateral") or []
+        return (f"{net}, but per cell NOT recovered: " + "; ".join(bits)
+                + (f" (collateral: cell{'s' if len(coll) > 1 else ''} {', '.join(str(c) for c in coll)})." if coll
+                   else "."))
+
     def _finish_graded(self, run: Run, ok: bool) -> None:
-        self._end(run, "recovered" if ok else "not_recovered",
-                  "Every graded KPI is back within tolerance of the healthy twin." if ok
-                  else "Some graded KPI is still outside tolerance of the healthy twin.")
+        if run.percell is not None:
+            why = ("Every graded KPI is back within tolerance of the healthy twin, and every cell is back to its "
+                   "healthy level." if ok else self._percell_text(run))
+        else:
+            why = ("Every graded KPI is back within tolerance of the healthy twin." if ok
+                   else "Some graded KPI is still outside tolerance of the healthy twin.")
+            if run.percell_declared and run.grade:
+                why += " (Per-cell verdict not available: graded on the network rule.)"
+        self._end(run, "recovered" if ok else "not_recovered", why)
+
+    # ------------------------------------------------------------------ side effects, tier, follow-up texts
+    def _side_effects(self, run: Run, change_text: str | None) -> dict | None:
+        """The held change tried on the PREFLIGHT copy of the twin (not the grader's twin): each cell without -> with
+        the change at the grade step, graded by percell-v1. A cell the change makes red holds it; amber asks for two
+        people. Computed by the twin-side helper; None if it is not running."""
+        if not self.twinside.available or not change_text:
+            return None
+        try:
+            se = self.twinside.call("side_effects", incident=run.incident, start_log=self._start_log(run),
+                                    proposal=change_text)
+        except Exception as e:  # noqa: BLE001 - the card then says the side effects were not computed
+            self._event(run, "awaiting_approval", f"Side effects not computed ({type(e).__name__}).")
+            return None
+        cells = se.get("cells") or []
+        red = [c["cell"] for c in cells if c.get("worse") and c.get("health_with") == "red"]
+        amber = [c["cell"] for c in cells if c.get("worse") and c.get("health_with") == "amber"]
+        tier = "hold" if red else "two_person" if amber else None
+        why = ([f"the preflight copy predicts cell{'s' if len(red) > 1 else ''} {', '.join(map(str, red))} "
+                f"turn{'' if len(red) > 1 else 's'} red because of the change"] if red else []) + \
+              ([f"cell{'s' if len(amber) > 1 else ''} {', '.join(map(str, amber))} amber because of it"]
+               if amber else [])
+        se = {**se, "red": red, "amber": amber, "tier": tier, "why": why}
+        bits = self._cell_bits(cells, "health_with", "worse")
+        self._event(run, "awaiting_approval", "Side effects on the preflight copy (without -> with the change): "
+                    + ("; ".join(bits) if bits else "no cell is made worse") + ".", kind="side_effects")
+        return se
+
+    def _tier(self, run: Run) -> dict:
+        """The approval tier the card shows: the stricter of the confidence tier and the side-effect tier."""
+        conf = (run.confidence or {}).get("tier")
+        side = (run.side_effects or {}).get("tier")
+        tiers = [t for t in (conf, side) if t]
+        eff = max(tiers, key=lambda t: TIER_ORDER.get(t, 2)) if tiers else "one_person"
+        why = list((run.side_effects or {}).get("why") or [])
+        if conf and TIER_ORDER.get(conf, 2) >= TIER_ORDER.get(eff, 2):
+            score = (run.confidence or {}).get("score")
+            why.append(f"confidence {score:.2f}" if isinstance(score, (int, float)) else "no confidence score")
+        return {"tier": eff, "confidence_tier": conf, "side_effect_tier": side, "why": why}
+
+    def _shown(self, run: Run, pending: dict) -> dict:
+        """What this approver was shown, for the evidence item."""
+        se = run.side_effects or {}
+        return {"approval_id": pending.get("approval_id"), "t": utc(), "tier": (run.tier or {}).get("tier"),
+                "tier_why": (run.tier or {}).get("why"), "red": se.get("red"), "amber": se.get("amber"),
+                "side_effects_sha256": sha(json.dumps(se, sort_keys=True, default=str)) if se else None,
+                "cells": [{k: c.get(k) for k in ("cell", "health_without", "health_with", "worse", "reasons")}
+                          for c in se.get("cells") or []]}
+
+    def _alternative_text(self, run: Run, pending: dict) -> str:
+        bits = self._cell_bits((run.side_effects or {}).get("cells") or [], "health_with", "worse")
+        harm = ("A preflight on a copy of the twin predicts it would leave " + "; ".join(bits)
+                + ", worse than doing nothing.") if bits else ("It is on hold: " + "; ".join((run.tier or {}).get("why")
+                                                                                          or ["low confidence"]) + ".")
+        return (f"The change waiting for approval ({pending.get('approval_id')}) is on hold and will not be approved. "
+                f"{harm} Do not apply it. Propose a different change that restores service without degrading other "
+                "cells, and request it with ran___apply_change as before.")
+
+    def _correction_text(self, run: Run) -> str:
+        bits = self._cell_bits((run.percell or {}).get("cells") or [], "health", "worse_than_before")
+        net = "are back within tolerance" if (run.grade or {}).get("success") else "are still outside tolerance"
+        left = MAX_CHANGES - len(run.applied)
+        return (f"After the applied change the network-wide KPIs {net}, but these cells are below their healthy "
+                f"level: {'; '.join(bits) or 'see the per-cell observation'}. Observe again, then propose one "
+                "corrective change that restores these cells without losing the service-level recovery, and request "
+                f"it with ran___apply_change. At most {left} more change{'s' if left != 1 else ''}.")
 
     # ------------------------------------------------------------------ helper-backed extras (optional)
     def _start_log(self, run: Run) -> list[str]:

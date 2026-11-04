@@ -132,6 +132,11 @@ class EmptyBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class ReviewBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    choice: str = Field(pattern=r"^(correct|finish)$")
+
+
 def _ns(response: Response) -> None:
     response.headers["Cache-Control"] = "no-store"
 
@@ -207,6 +212,32 @@ async def attack(run_id: str, body: AttackBody, response: Response):
         raise refuse(503, "attack_unavailable", str(e)) from None
     except ValueError as e:
         raise refuse(409, "not_ready", str(e)) from None
+
+
+@router.post("/runs/{run_id}/alternative", status_code=202)
+async def alternative(run_id: str, body: EmptyBody, response: Response):
+    """A change on hold: ask noc_lead for another one on the same case (symptoms only). The held row stays PENDING;
+    nothing is decided here, and whatever comes back stops at Cedar's hold for a person again."""
+    _ns(response)
+    svc = get_service()
+    _run(svc, run_id)
+    try:
+        return svc.view(svc.alternative(run_id))
+    except ValueError as e:
+        raise refuse(409, "not_on_hold", str(e)) from None
+
+
+@router.post("/runs/{run_id}/review", status_code=202)
+async def review(run_id: str, body: ReviewBody, response: Response):
+    """After a change whose per-cell check failed: ask the agents to correct (back through Cedar and a person) or
+    finish the run as graded."""
+    _ns(response)
+    svc = get_service()
+    _run(svc, run_id)
+    try:
+        return svc.view(svc.review(run_id, body.choice))
+    except ValueError as e:
+        raise refuse(409, "not_in_review", str(e)) from None
 
 
 @router.post("/runs/{run_id}/continue", status_code=202)
