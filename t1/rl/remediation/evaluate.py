@@ -38,6 +38,17 @@ recovered rate on a set is below targets.json oracle.flag_below.
 Fail-fast: before the pool starts, the first 3 incidents of every suite are replayed through run_incident's
 own 1e-6 check in the (pinned) main process; a mismatch stops the run before any item or result exists.
 The host (CPU, threads, torch) is recorded in details.host.
+
+``--candidate v2`` is remediation-v2's gate (t1/rl/remediation/targets-v2.json, unit
+t3.evals.remediation-policy-v2): the same joint target, components and thresholds with v2 as the candidate
+against ppo_sm_50k; operators v2, v1, ppo_sm_50k and the oracle (config_revert and rule_baseline are cited from
+v1's gate run, not re-run); extra.diff_vs_v1 and details.vs_v1 report v2 against v1. v2 is a masked_delta policy
+played through v2.BaselineAware (the baseline from the case's own action log). It must run on ml.m5.xlarge:
+
+    python -m t1.rl.remediation.evaluate --candidate v2 --print-declaration --instance ml.m5.xlarge > decl.json
+    python -m tools.sm.run --run-id t3.evals.remediation-policy-v2-<UTC> --declaration decl.json \\
+      --instance-type ml.m5.xlarge --max-run 5400 ... --entry "-m t1.rl.remediation.evaluate --candidate v2 \\
+      --run-id {run_id} --evidence-dir {evidence_dir} --output-dir {output_dir} --workers 4 --instance ml.m5.xlarge"
 """
 
 from __future__ import annotations
@@ -57,7 +68,9 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
 TARGETS_PATH = HERE / "targets.json"
+TARGETS_V2_PATH = HERE / "targets-v2.json"
 V1_PATH = REPO / "t1" / "rl" / "artifacts" / "remediation_v1.zip"
+V2_PATH = REPO / "t1" / "rl" / "artifacts" / "remediation_v2.zip"
 PPO_PATH = REPO / "t1" / "rl" / "artifacts" / "ppo_sm_50k.zip"
 PRIMARY = "heldout"
 CONTINUITY = ("test-masked",)
@@ -72,10 +85,18 @@ MEASURES = ("recovery", "success", "percell_recovered", "percell_degraded_cells"
             "power_above_healthy_db", "healthy_false_change")
 GRADER = ("t3/evals/graders.py (network) + t3/evals/percell.py percell-v1 (per cell); item score = "
           "percell_recovered(v1) - percell_recovered(ppo_sm_50k); extra.diff = the joint-target differences")
+OPERATORS_V2 = ("v2", "v1", "ppo_sm_50k", ORACLE)
+# One profile per gate: v1's (targets.json v3, unchanged) and v2's (targets-v2.json, same components).
+PROFILES: dict[str, dict[str, Any]] = {
+    "v1": {"cand": "v1", "operators": OPERATORS, "targets_path": TARGETS_PATH, "grader": GRADER, "vs": ()},
+    "v2": {"cand": "v2", "operators": OPERATORS_V2, "targets_path": TARGETS_V2_PATH,
+           "grader": GRADER.replace("(v1)", "(v2)") + "; extra.diff_vs_v1 = the same against v1", "vs": ("v1",)},
+}
+V1 = PROFILES["v1"]
 
 
-def declared() -> dict[str, Any]:
-    return json.loads(TARGETS_PATH.read_text())
+def declared(prof: dict[str, Any] = V1) -> dict[str, Any]:
+    return json.loads(Path(prof["targets_path"]).read_text())
 
 
 def platform_tag() -> str:
@@ -229,10 +250,14 @@ def load_suites(targets: dict[str, Any], *, n_holdout: int, limit: dict[str, int
 
 # --------------------------------------------------------------------------- operators
 
-def operator_specs(v1_path: Path, ppo_path: Path) -> dict[str, dict[str, Any]]:
-    return {"v1": {"kind": "ppo", "path": str(v1_path)}, "ppo_sm_50k": {"kind": "ppo", "path": str(ppo_path)},
-            "config_revert": {"kind": "config_revert"}, "rule_baseline": {"kind": "rule_baseline"},
-            ORACLE: {"kind": ORACLE}}
+def operator_specs(v1_path: Path, ppo_path: Path, v2_path: Path | None = None,
+                   prof: dict[str, Any] = V1) -> dict[str, dict[str, Any]]:
+    every = {"v1": {"kind": "ppo", "path": str(v1_path)}, "ppo_sm_50k": {"kind": "ppo", "path": str(ppo_path)},
+             "config_revert": {"kind": "config_revert"}, "rule_baseline": {"kind": "rule_baseline"},
+             ORACLE: {"kind": ORACLE}}
+    if v2_path is not None:
+        every["v2"] = {"kind": "ppo_delta", "path": str(v2_path)}
+    return {k: every[k] for k in prof["operators"]}
 
 
 def make_ops(specs: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -243,6 +268,10 @@ def make_ops(specs: dict[str, dict[str, Any]]) -> dict[str, Any]:
     def one(s: dict[str, Any]) -> Any:
         if s["kind"] == "ppo":
             return make("ppo", policy=load(s["path"]))
+        if s["kind"] == "ppo_delta":   # remediation-v2: the baseline comes from the case's own action log
+            from t1.rl.remediation.v2 import BaselineAware
+
+            return BaselineAware(load(s["path"]))
         if s["kind"] == ORACLE:
             return ExactInverse()
         return make(s["kind"])
@@ -255,7 +284,7 @@ def operator_info(specs: dict[str, dict[str, Any]]) -> dict[str, Any]:
     out = {}
     for k, s in specs.items():
         out[k] = {"model_id": ops[k].model_id}
-        if s["kind"] == "ppo":
+        if s["kind"] in ("ppo", "ppo_delta"):
             p = Path(s["path"])
             out[k].update(artifact=p.name, sha256=sha256_file(p))
             side = p.with_suffix(".meta.json")
@@ -378,33 +407,40 @@ def _work(args: tuple[str, dict[str, Any], dict[str, dict[str, Any]], dict[str, 
 
 # --------------------------------------------------------------------------- records
 
-def item_for(r: dict[str, Any]) -> dict[str, Any]:
+def diffs(a: dict[str, Any], b: dict[str, Any]) -> dict[str, float]:
+    """The joint target's three differences, operator ``a`` minus operator ``b``."""
+    return {"percell_recovered": value_of(a, "percell_recovered") - value_of(b, "percell_recovered"),
+            "network_recovery": float(a["recovery"]) - float(b["recovery"]),
+            "diagnosis_hit": value_of(a, "diagnosis_hit") - value_of(b, "diagnosis_hit")}
+
+
+def item_for(r: dict[str, Any], prof: dict[str, Any] = V1) -> dict[str, Any]:
     from t3.evals import incidents as inc
     from t3.evals.graders import GRADER_ID
     from t3.evals.twin_backend import BACKEND
 
     i, ops = r["incident"], r["operators"]
-    v1, pp = ops["v1"], ops["ppo_sm_50k"]
-    if v1["recovery"] is None or pp["recovery"] is None:
+    cand, pp = ops[prof["cand"]], ops["ppo_sm_50k"]
+    if cand["recovery"] is None or pp["recovery"] is None:
         raise RuntimeError(f"{i['incident_id']}: no material KPI here, so no recovery (refusing to guess)")
     outputs = {k: o["change_texts"] for k, o in ops.items()}
-    diff = {"percell_recovered": value_of(v1, "percell_recovered") - value_of(pp, "percell_recovered"),
-            "network_recovery": float(v1["recovery"]) - float(pp["recovery"]),
-            "diagnosis_hit": value_of(v1, "diagnosis_hit") - value_of(pp, "diagnosis_hit")}
+    diff = diffs(cand, pp)
+    extra: dict[str, Any] = {"suite": r["suite"], "diff": diff}
+    for other in prof["vs"]:
+        extra[f"diff_vs_{other}"] = diffs(cand, ops[other])
+    extra.update(incident={k: i.get(k) for k in ("incident_id", "seed", "preset", "tier", "template", "fault",
+                                                 "fault_cells", "split")},
+                 rebuilt=i.get("rebuilt"), operators=ops)
     return {
         "item_id": f"{r['suite']}/{i['incident_id']}",
         "input_sha256": hashlib.sha256(inc.canonical_line(i).encode()).hexdigest(),
         "output_sha256": hashlib.sha256(inc.canonical_line(outputs).encode()).hexdigest(),
         "score": diff["percell_recovered"],
-        "passed": bool(v1["percell_recovered"]),
-        "grader": GRADER_ID + "; " + GRADER,
+        "passed": bool(cand["percell_recovered"]),
+        "grader": GRADER_ID + "; " + prof["grader"],
         "backend": BACKEND,
-        "latency_ms": float(v1["latency_ms"]),
-        "extra": {"suite": r["suite"], "diff": diff,
-                  "incident": {k: i.get(k) for k in ("incident_id", "seed", "preset", "tier", "template", "fault",
-                                                     "fault_cells", "split")},
-                  "rebuilt": i.get("rebuilt"),
-                  "operators": ops},
+        "latency_ms": float(cand["latency_ms"]),
+        "extra": extra,
     }
 
 
@@ -413,16 +449,18 @@ def value_of(o: dict[str, Any], m: str) -> float:
     return float(v) if not isinstance(v, bool) else (1.0 if v else 0.0)
 
 
-def summarize(rows: list[dict[str, Any]], boot: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+def summarize(rows: list[dict[str, Any]], boot: dict[str, Any],
+              prof: dict[str, Any] = V1) -> tuple[dict[str, Any], dict[str, Any]]:
     from t3.evals.stats import paired_bootstrap
 
+    operators, cand_key = prof["operators"], prof["cand"]
     suites = sorted({r["suite"] for r in rows})
     summary: dict[str, Any] = {}
     secondary: dict[str, Any] = {}
     for s in suites:
         rs = [r for r in rows if r["suite"] == s]
         summary[s] = {}
-        for op in OPERATORS:
+        for op in operators:
             os_ = [r["operators"][op] for r in rs]
             summary[s][op] = {"n": len(os_), **{f"mean_{m}": float(np.mean([value_of(o, m) for o in os_]))
                                                 for m in MEASURES},
@@ -435,11 +473,13 @@ def summarize(rows: list[dict[str, Any]], boot: dict[str, Any]) -> tuple[dict[st
         ids = [r["incident"]["incident_id"] for r in rs]
         for m in MEASURES:
             secondary[s][m] = {}
-            cand = {i: value_of(r["operators"]["v1"], m) for i, r in zip(ids, rs)}
-            for b in OPERATORS[1:]:
+            cand = {i: value_of(r["operators"][cand_key], m) for i, r in zip(ids, rs)}
+            for b in operators:
+                if b == cand_key:
+                    continue
                 base = {i: value_of(r["operators"][b], m) for i, r in zip(ids, rs)}
                 g = paired_bootstrap(cand, base, boot["resamples"], boot["seed"], boot["ci"])
-                secondary[s][m][f"v1_minus_{b}"] = g
+                secondary[s][m][f"{cand_key}_minus_{b}"] = g
     return summary, secondary
 
 
@@ -494,13 +534,13 @@ def joint_result(items: list[dict[str, Any]], tg: dict[str, Any], boot: dict[str
 
 def declaration(specs: dict[str, dict[str, Any]], *, n_holdout: int, limit: dict[str, int] | None = None,
                 smoke: bool = False, run_id: str | None = None, heldout_path: Path | None = None,
-                instance: str = "ml.m5.4xlarge") -> dict[str, Any]:
+                instance: str = "ml.m5.4xlarge", prof: dict[str, Any] = V1) -> dict[str, Any]:
     from t3.evals import confirm as C
     from t3.evals import incidents as inc
     from t3.evals.graders import GRADER_ID, TARGETS_PATH as T3_TARGETS
     from t3.evals.twin_backend import BACKEND, twin_version
 
-    tg = declared()
+    tg = declared(prof)
     limit = limit or {}
     ho, ho_sha, ho_meta = heldout_set(heldout_path)
     test, test_sha = inc.load_test()
@@ -515,13 +555,13 @@ def declaration(specs: dict[str, dict[str, Any]], *, n_holdout: int, limit: dict
         "n_items": n_ho + n_masked + n_visible + n_conf + n_holdout, "test_set_sha256": ho_sha,
         "subset": f"one item per incident: {n_ho} heldout + {n_masked} test-masked + {n_visible} test-visible + "
                   f"{n_conf} confirm + {n_holdout} dev-holdout; the target is on extra.suite={PRIMARY}",
-        "model_id": ops["v1"]["model_id"], "grader": GRADER_ID + "; " + GRADER,
+        "model_id": ops[prof["cand"]]["model_id"], "grader": GRADER_ID + "; " + prof["grader"],
         "synthetic": bool(smoke),
         "twin": {"kind": "maveric-inprocess", "version": twin_version(), "scenario": "incident-suite",
                  "seed": min(int(i["seed"]) for i in test + conf),
-                 "config": {"backend": BACKEND, "targets": "t1/rl/remediation/targets.json",
+                 "config": {"backend": BACKEND, "targets": str(Path(prof["targets_path"]).relative_to(REPO)),
                             "targets_version": tg["version"],
-                            "targets_sha256": sha256_file(TARGETS_PATH),
+                            "targets_sha256": sha256_file(prof["targets_path"]),
                             "t3_targets_sha256": sha256_file(T3_TARGETS),
                             "suites": {"heldout": {"file": "t1/rl/remediation/suite/" + (Path(heldout_path).name
                                                                                          if heldout_path else
@@ -555,6 +595,10 @@ def declaration(specs: dict[str, dict[str, Any]], *, n_holdout: int, limit: dict
                                                "tools/sm/entry.py",
                             "smoke": bool(smoke)}},
     }
+    if prof["cand"] != "v1":   # a later gate on the same set: what it is, and how the set has been used before
+        d["twin"]["config"].update(candidate=prof["cand"], candidate_info=tg.get("candidate"),
+                                   operators_note=tg.get("operators"), heldout_use=tg.get("heldout_use"),
+                                   v1_gate=tg.get("v1_gate"), comparisons_reported=tg.get("comparisons_reported"))
     if run_id:
         d["run_id"] = run_id
     return d
@@ -567,6 +611,25 @@ def joint_on(items: list[dict[str, Any]], tg: dict[str, Any], suite: str, boot: 
     for c in rtg["primary"]["components"]:
         c["subset"] = {"field": "extra.suite", "equals": suite}
     return joint_result(items, rtg, boot, baseline_model_id)
+
+
+def vs_report(items: list[dict[str, Any]], tg: dict[str, Any], other: str, boot: dict[str, Any],
+              other_model_id: str | None) -> dict[str, Any]:
+    """The declared components with the candidate against ``other`` (extra.diff_vs_<other>), on every set: reported
+    only, never part of pass/fail (the gate is against ppo_sm_50k)."""
+    field = {"percell_recovered": "percell_recovered", "network_recovery_noninferior": "network_recovery",
+             "diagnosis_hit": "diagnosis_hit"}
+    out = {}
+    for suite in SUITE_ORDER:
+        rtg = json.loads(json.dumps(tg))
+        for c in rtg["primary"]["components"]:
+            c["score_field"] = f"extra.diff_vs_{other}.{field[c['name']]}"
+            c["subset"] = {"field": "extra.suite", "equals": suite}
+        if not any(it["extra"]["suite"] == suite for it in items):
+            continue
+        out[suite] = {**joint_result(items, rtg, boot, other_model_id), "reported_only": True,
+                      "what": f"the candidate minus {other} on the declared components and thresholds"}
+    return out
 
 
 def oracle_ceiling(summary: dict[str, Any], flag_below: float) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -592,7 +655,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--run-id")
     ap.add_argument("--evidence-dir", type=Path)
     ap.add_argument("--output-dir", type=Path)
+    ap.add_argument("--candidate", choices=tuple(PROFILES), default="v1",
+                    help="which gate: v1 (targets.json) or v2 (targets-v2.json)")
     ap.add_argument("--policy", type=Path, default=V1_PATH, help="remediation-v1 artifact (zip + .meta.json)")
+    ap.add_argument("--v2-policy", type=Path, default=V2_PATH, help="remediation-v2 artifact (zip + .meta.json)")
     ap.add_argument("--baseline-policy", type=Path, default=PPO_PATH)
     ap.add_argument("--holdout", type=int, default=N_HOLDOUT)
     ap.add_argument("--workers", type=int, default=1)
@@ -627,9 +693,10 @@ def main(argv: list[str] | None = None) -> int:
                  + a.holdout)
         if total > SMOKE_MAX:
             ap.error(f"a local smoke may touch at most {SMOKE_MAX} incidents (this one: {total})")
-    specs = operator_specs(a.policy, a.baseline_policy)
+    prof = PROFILES[a.candidate]
+    specs = operator_specs(a.policy, a.baseline_policy, a.v2_policy if a.candidate == "v2" else None, prof)
     kw = {"n_holdout": a.holdout, "limit": limit, "smoke": a.smoke, "heldout_path": a.heldout_file,
-          "instance": a.instance}
+          "instance": a.instance, "prof": prof}
     if a.print_declaration:
         print(json.dumps(declaration(specs, **kw), indent=2, sort_keys=True))
         return 0
@@ -652,21 +719,23 @@ def main(argv: list[str] | None = None) -> int:
             rows = list(pool.map(_work, work, chunksize=4))
     else:
         rows = [_work(w) for w in work]
-    items = [item_for(r) for r in rows]
+    items = [item_for(r, prof) for r in rows]
     if len(items) != decl["n_items"]:
         raise RuntimeError(f"{len(items)} items, declared {decl['n_items']}")
     for it in items:
         it["synthetic"] = bool(a.smoke)
     ev.append_records(a.run_id, "item", items)
     ppo_mid = rows[0]["operators"]["ppo_sm_50k"]["model_id"]
-    tg = declared()
+    tg = declared(prof)
     joint = joint_result(items, tg, boot, ppo_mid)
+    cand = prof["cand"]
     gain = {**joint["components"][0]["spec"], "metric": "percell_recovered", "suite": PRIMARY,
-            "note": "items hold percell_recovered(v1) - percell_recovered(ppo_sm_50k); baseline_run_id null; "
+            "note": f"items hold percell_recovered({cand}) - percell_recovered(ppo_sm_50k); baseline_run_id null; "
                     "the target is joint: see details.joint"}
     continuity = {s: joint_on(items, tg, s, boot, ppo_mid) for s in CONTINUITY}
     replication = {s: joint_on(items, tg, s, boot, ppo_mid) for s in REPLICATION}
-    summary, secondary = summarize(rows, boot)
+    vs = {other: vs_report(items, tg, other, boot, rows[0]["operators"][other]["model_id"]) for other in prof["vs"]}
+    summary, secondary = summarize(rows, boot, prof)
     ceiling, flags = oracle_ceiling(summary, float((tg.get("oracle") or {}).get("flag_below", 0.9)))
     tgt = decl["target"]
     if tgt["metric"] != "joint_ci_low_margin" or tgt["op"] != ">" or float(tgt["value"]) != 0.0:
@@ -678,6 +747,7 @@ def main(argv: list[str] | None = None) -> int:
         "passed": bool(passed), "n_items": len(items), "synthetic": bool(a.smoke),
         "checker": {"script": "t1/rl/remediation/evaluate.py", "code_sha": code_sha()},
         "details": {"gain": gain, "joint": joint, "continuity": continuity, "replication": replication,
+                    **({f"vs_{k}": v for k, v in vs.items()}),
                     "oracle_ceiling": ceiling, "flags": flags, "summary": summary,
                     "secondary": secondary, "suites": sinfo,
                     "operators": decl["twin"]["config"]["operators"], "platform": platform_tag(),
@@ -695,7 +765,7 @@ def main(argv: list[str] | None = None) -> int:
                                                      "success_count", "mean_diagnosis_hit", "mean_cells_touched",
                                                      "mean_total_abs_power_db", "mean_power_above_healthy_db",
                                                      "mean_headroom_used", "mean_healthy_false_change")}
-                     for op in OPERATORS} for s in summary}
+                     for op in prof["operators"]} for s in summary}
     comp = {c["name"]: {"ci_low": c["ci_low"], "threshold": c["threshold"], "passed": c["passed"],
                         "value": c["spec"]["value"]} for c in joint["components"]}
     for f in flags:
@@ -708,6 +778,9 @@ def main(argv: list[str] | None = None) -> int:
                              "replication": {s: {"passed": j["passed"],
                                                  **{c["name"]: round(c["ci_low"], 4) for c in j["components"]}}
                                              for s, j in replication.items()},
+                             **{f"vs_{k}": {s: {"passed": j["passed"],
+                                                **{c["name"]: round(c["spec"]["value"], 4) for c in j["components"]}}
+                                            for s, j in v.items()} for k, v in vs.items()},
                              "oracle_ceiling": ceiling, "flags": flags,
                              "gain": {k: gain[k] for k in ("value", "ci_low", "ci_high", "paired_n")},
                              "summary": brief, "suites": sinfo, "wall_s": result["details"]["wall_s"]}), indent=1))
