@@ -1,0 +1,1053 @@
+{
+ "catalog": "livefix-faults-v1",
+ "dev_seed_base": 7000,
+ "entries": {
+  "bad_push|c0|official|visible": {
+   "amber_cells": [
+    3
+   ],
+   "fault": [
+    {
+     "cell": 0,
+     "d_power_db": -3.0,
+     "d_tilt_deg": 3.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-bad_push-c0-off-vis-7003",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio"
+   ],
+   "red_cells": [
+    0
+   ],
+   "seed": 7003,
+   "seeds_tried": 1
+  },
+  "bad_push|c0|viavi-like|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 0,
+     "d_power_db": -3.0,
+     "d_tilt_deg": 3.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-bad_push-c0-vvl-vis-7008",
+   "material": true,
+   "material_kpis": [
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    0
+   ],
+   "seed": 7008,
+   "seeds_tried": 4
+  },
+  "bad_push|c1|official|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 1,
+     "d_power_db": -3.0,
+     "d_tilt_deg": 3.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-bad_push-c1-off-vis-7005",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    1,
+    2,
+    3
+   ],
+   "seed": 7005,
+   "seeds_tried": 2
+  },
+  "bad_push|c1|viavi-like|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 1,
+     "d_power_db": -3.0,
+     "d_tilt_deg": 3.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-bad_push-c1-vvl-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    1,
+    3
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  },
+  "bad_push|c2|official|visible": {
+   "amber_cells": [
+    1
+   ],
+   "fault": [
+    {
+     "cell": 2,
+     "d_power_db": -3.0,
+     "d_tilt_deg": 3.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-bad_push-c2-off-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio"
+   ],
+   "red_cells": [
+    2,
+    3
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  },
+  "bad_push|c2|viavi-like|visible": {
+   "amber_cells": [
+    0
+   ],
+   "fault": [
+    {
+     "cell": 2,
+     "d_power_db": -3.0,
+     "d_tilt_deg": 3.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-bad_push-c2-vvl-vis-7005",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    2,
+    3
+   ],
+   "seed": 7005,
+   "seeds_tried": 2
+  },
+  "bad_push|c3|official|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 3,
+     "d_power_db": -3.0,
+     "d_tilt_deg": 3.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-bad_push-c3-off-vis-7003",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio"
+   ],
+   "red_cells": [
+    3
+   ],
+   "seed": 7003,
+   "seeds_tried": 1
+  },
+  "bad_push|c3|viavi-like|visible": {
+   "amber_cells": [
+    1
+   ],
+   "fault": [
+    {
+     "cell": 3,
+     "d_power_db": -3.0,
+     "d_tilt_deg": 3.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-bad_push-c3-vvl-vis-7007",
+   "material": true,
+   "material_kpis": [
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    0,
+    3
+   ],
+   "seed": 7007,
+   "seeds_tried": 3
+  },
+  "cascade|c0|official|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 0,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    },
+    {
+     "cell": 1,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-cascade-c0-off-vis-7009",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "seed": 7009,
+   "seeds_tried": 5
+  },
+  "cascade|c0|viavi-like|visible": {
+   "amber_cells": [
+    2
+   ],
+   "fault": [
+    {
+     "cell": 0,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    },
+    {
+     "cell": 1,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-cascade-c0-vvl-vis-7009",
+   "material": true,
+   "material_kpis": [
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    0,
+    1
+   ],
+   "seed": 7009,
+   "seeds_tried": 5
+  },
+  "cascade|c1|official|visible": {
+   "amber_cells": [
+    0
+   ],
+   "fault": [
+    {
+     "cell": 1,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    },
+    {
+     "cell": 2,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-cascade-c1-off-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    1,
+    2,
+    3
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  },
+  "cascade|c1|viavi-like|visible": {
+   "amber_cells": [
+    3
+   ],
+   "fault": [
+    {
+     "cell": 1,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    },
+    {
+     "cell": 2,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-cascade-c1-vvl-vis-7003",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    1,
+    2
+   ],
+   "seed": 7003,
+   "seeds_tried": 1
+  },
+  "cascade|c2|official|visible": {
+   "amber_cells": [
+    1
+   ],
+   "fault": [
+    {
+     "cell": 2,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    },
+    {
+     "cell": 3,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-cascade-c2-off-vis-7003",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio"
+   ],
+   "red_cells": [
+    2,
+    3
+   ],
+   "seed": 7003,
+   "seeds_tried": 1
+  },
+  "cascade|c2|viavi-like|visible": {
+   "amber_cells": [
+    0
+   ],
+   "fault": [
+    {
+     "cell": 2,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    },
+    {
+     "cell": 3,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-cascade-c2-vvl-vis-7005",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio"
+   ],
+   "red_cells": [
+    2,
+    3
+   ],
+   "seed": 7005,
+   "seeds_tried": 2
+  },
+  "cascade|c3|official|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 3,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    },
+    {
+     "cell": 0,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-cascade-c3-off-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio"
+   ],
+   "red_cells": [
+    0,
+    3
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  },
+  "cascade|c3|viavi-like|visible": {
+   "amber_cells": [
+    2
+   ],
+   "fault": [
+    {
+     "cell": 3,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    },
+    {
+     "cell": 0,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-cascade-c3-vvl-vis-7041",
+   "material": true,
+   "material_kpis": [
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    0,
+    3
+   ],
+   "seed": 7041,
+   "seeds_tried": 22
+  },
+  "hw_failure|c0|official|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 0,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-hw_failure-c0-off-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    0,
+    3
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  },
+  "hw_failure|c0|viavi-like|visible": {
+   "amber_cells": [
+    2,
+    3
+   ],
+   "fault": [
+    {
+     "cell": 0,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-hw_failure-c0-vvl-vis-7008",
+   "material": true,
+   "material_kpis": [
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    0
+   ],
+   "seed": 7008,
+   "seeds_tried": 4
+  },
+  "hw_failure|c1|official|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 1,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-hw_failure-c1-off-vis-7005",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    1,
+    2,
+    3
+   ],
+   "seed": 7005,
+   "seeds_tried": 2
+  },
+  "hw_failure|c1|viavi-like|visible": {
+   "amber_cells": [
+    3
+   ],
+   "fault": [
+    {
+     "cell": 1,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-hw_failure-c1-vvl-vis-7025",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    1,
+    2
+   ],
+   "seed": 7025,
+   "seeds_tried": 13
+  },
+  "hw_failure|c2|official|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 2,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-hw_failure-c2-off-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  },
+  "hw_failure|c2|viavi-like|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 2,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-hw_failure-c2-vvl-vis-7005",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    2,
+    3
+   ],
+   "seed": 7005,
+   "seeds_tried": 2
+  },
+  "hw_failure|c3|official|visible": {
+   "amber_cells": [
+    0
+   ],
+   "fault": [
+    {
+     "cell": 3,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-hw_failure-c3-off-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio"
+   ],
+   "red_cells": [
+    3
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  },
+  "hw_failure|c3|viavi-like|visible": {
+   "amber_cells": [
+    0
+   ],
+   "fault": [
+    {
+     "cell": 3,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-hw_failure-c3-vvl-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "sla_ratio"
+   ],
+   "red_cells": [
+    3
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  },
+  "pa_fault|c0|official|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 0,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-pa_fault-c0-off-vis-7017",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio"
+   ],
+   "red_cells": [
+    0
+   ],
+   "seed": 7017,
+   "seeds_tried": 9
+  },
+  "pa_fault|c0|viavi-like|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 0,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-pa_fault-c0-vvl-vis-7016",
+   "material": true,
+   "material_kpis": [
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    0
+   ],
+   "seed": 7016,
+   "seeds_tried": 8
+  },
+  "pa_fault|c1|official|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 1,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-pa_fault-c1-off-vis-7003",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    1,
+    2,
+    3
+   ],
+   "seed": 7003,
+   "seeds_tried": 1
+  },
+  "pa_fault|c1|viavi-like|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 1,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-pa_fault-c1-vvl-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    1,
+    3
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  },
+  "pa_fault|c2|official|visible": {
+   "amber_cells": [
+    1
+   ],
+   "fault": [
+    {
+     "cell": 2,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-pa_fault-c2-off-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    2,
+    3
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  },
+  "pa_fault|c2|viavi-like|visible": {
+   "amber_cells": [
+    1,
+    3
+   ],
+   "fault": [
+    {
+     "cell": 2,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-pa_fault-c2-vvl-vis-7003",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    2
+   ],
+   "seed": 7003,
+   "seeds_tried": 1
+  },
+  "pa_fault|c3|official|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 3,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-pa_fault-c3-off-vis-7003",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio"
+   ],
+   "red_cells": [
+    3
+   ],
+   "seed": 7003,
+   "seeds_tried": 1
+  },
+  "pa_fault|c3|viavi-like|visible": {
+   "amber_cells": [
+    0,
+    1
+   ],
+   "fault": [
+    {
+     "cell": 3,
+     "d_power_db": -6.0,
+     "d_tilt_deg": 0.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-pa_fault-c3-vvl-vis-7007",
+   "material": true,
+   "material_kpis": [
+    "sla_ratio"
+   ],
+   "red_cells": [
+    3
+   ],
+   "seed": 7007,
+   "seeds_tried": 3
+  },
+  "tilt_drift|c0|official|visible": {
+   "amber_cells": [
+    3
+   ],
+   "fault": [
+    {
+     "cell": 0,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-tilt_drift-c0-off-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio"
+   ],
+   "red_cells": [
+    0
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  },
+  "tilt_drift|c0|viavi-like|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 0,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-tilt_drift-c0-vvl-vis-7008",
+   "material": true,
+   "material_kpis": [
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    0
+   ],
+   "seed": 7008,
+   "seeds_tried": 4
+  },
+  "tilt_drift|c1|official|visible": {
+   "amber_cells": [
+    3
+   ],
+   "fault": [
+    {
+     "cell": 1,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-tilt_drift-c1-off-vis-7007",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    1,
+    2
+   ],
+   "seed": 7007,
+   "seeds_tried": 3
+  },
+  "tilt_drift|c1|viavi-like|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 1,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-tilt_drift-c1-vvl-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    1,
+    3
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  },
+  "tilt_drift|c2|official|visible": {
+   "amber_cells": [
+    0,
+    1
+   ],
+   "fault": [
+    {
+     "cell": 2,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-tilt_drift-c2-off-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio"
+   ],
+   "red_cells": [
+    2,
+    3
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  },
+  "tilt_drift|c2|viavi-like|visible": {
+   "amber_cells": [
+    1,
+    3
+   ],
+   "fault": [
+    {
+     "cell": 2,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-tilt_drift-c2-vvl-vis-7008",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio",
+    "sla_ratio",
+    "sinr_p10_db"
+   ],
+   "red_cells": [
+    2
+   ],
+   "seed": 7008,
+   "seeds_tried": 4
+  },
+  "tilt_drift|c3|official|visible": {
+   "amber_cells": [],
+   "fault": [
+    {
+     "cell": 3,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-tilt_drift-c3-off-vis-7003",
+   "material": true,
+   "material_kpis": [
+    "coverage_ratio"
+   ],
+   "red_cells": [
+    3
+   ],
+   "seed": 7003,
+   "seeds_tried": 1
+  },
+  "tilt_drift|c3|viavi-like|visible": {
+   "amber_cells": [
+    1
+   ],
+   "fault": [
+    {
+     "cell": 3,
+     "d_power_db": 0.0,
+     "d_tilt_deg": 5.0
+    }
+   ],
+   "fault_cells_red": true,
+   "incident_id": "lf-tilt_drift-c3-vvl-vis-7002",
+   "material": true,
+   "material_kpis": [
+    "sla_ratio"
+   ],
+   "red_cells": [
+    3
+   ],
+   "seed": 7002,
+   "seeds_tried": 0
+  }
+ },
+ "faults": {
+  "bad_push": {
+   "about": "A bad configuration push: -3 dB power and 3 degrees more downtilt.",
+   "label": "Bad config push",
+   "template": "power-3+tilt+3"
+  },
+  "cascade": {
+   "about": "Two cells at once: -6 dB on the chosen cell, +5 degrees tilt on its neighbour.",
+   "label": "Cascade, two cells",
+   "template": "two-cell:power-6|tilt+5"
+  },
+  "hw_failure": {
+   "about": "Power -6 dB and tilt +5 degrees on one cell together.",
+   "label": "Hardware failure",
+   "template": "power-6+tilt+5"
+  },
+  "pa_fault": {
+   "about": "The power amplifier loses 6 dB: the cell dims and edge users drop.",
+   "label": "Power amplifier fault",
+   "template": "power-6"
+  },
+  "tilt_drift": {
+   "about": "The antenna drifts 5 degrees down: the cell's footprint shrinks.",
+   "label": "Antenna tilt drift",
+   "template": "tilt+5"
+  }
+ },
+ "health_thresholds": {
+  "amber": {
+   "coverage_share": 0.03,
+   "sinr_p10_db": 1.0,
+   "sla_share": 0.03
+  },
+  "note": "Per cell, against the same cell in the healthy counterfactual at the same step: red if any drop reaches the red line (coverage or SLA share down 0.10, or p10 SINR down 3 dB), or the cell lost all its UEs, or it is in alarm/asleep; amber if any drop reaches the amber line (0.03 / 0.03 / 1 dB); else green. A share drop counts as red only if it is at least 2 of the cell's UEs (else amber). Without a reference, absolute lines apply: red below 0.85 coverage or SLA share, amber below 0.95.",
+  "red": {
+   "coverage_share": 0.1,
+   "sinr_p10_db": 3.0,
+   "sla_share": 0.1
+  }
+ },
+ "split": "dev only (incidents.split_of)",
+ "suite": "t3-incidents-v4",
+ "twin_backend": "maveric-inprocess"
+}
