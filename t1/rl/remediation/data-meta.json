@@ -1,0 +1,103 @@
+{
+  "candidates_sha256": "f43099ced3349b1714bb893382126f61c41a6071071756527894bc50aa979b8e",
+  "exclusion": {
+    "clean": true,
+    "explicit_collisions": {},
+    "explicit_sets": {
+      "candidates": 84,
+      "confirm": 18,
+      "dev": 35,
+      "livefix_faults": 10,
+      "livefix_runs": 2,
+      "test": 33
+    },
+    "known_ranges": [
+      {
+        "hi": 899999,
+        "lo": 0,
+        "source": "t1/sft/execgen.py: h(seed key) % SEED_LIMIT (900000)",
+        "what": "Track 1 SFT execution data"
+      },
+      {
+        "hi": 989999,
+        "lo": 900000,
+        "source": "t1/evals/gen_execution.py: SEED_BASE 900000 + h % 90000",
+        "what": "Track 1 execution eval (reserved)"
+      },
+      {
+        "hi": 404,
+        "lo": 42,
+        "source": "RL hand-in evaluation.json (101-105, 200-204, 300-304, 400-404); PPO seed 42",
+        "what": "RL evaluation scenarios and the PPO seed"
+      },
+      {
+        "hi": 4019,
+        "lo": 99,
+        "source": "t3/trust: seed 99, 1000+s, 2000-2019, 3000-3019, 4000-4019",
+        "what": "trust gate jobs, ladders and demo"
+      },
+      {
+        "hi": 4183,
+        "lo": 4100,
+        "source": "t3/evals/incidents.py: SEED_BASE 4100, N_CANDIDATES 84",
+        "what": "t3 incident suite candidates (test + dev)"
+      },
+      {
+        "hi": 7099,
+        "lo": 4161,
+        "source": "t3/evals/faults.py DEV_SEED_BASE 7000 (cache 7002-7041); Live Fix runs on 4161 and 7002",
+        "what": "Live Fix fault cache and runs"
+      },
+      {
+        "hi": 99999,
+        "lo": 10000,
+        "source": "t2/gen.py: BASE_SEED 10000 + episode",
+        "what": "Track 2 episodes"
+      },
+      {
+        "hi": 499999,
+        "lo": 100000,
+        "source": "silos/config.yaml: seed_base 100000-400000",
+        "what": "silo seeds"
+      },
+      {
+        "hi": 990271,
+        "lo": 990003,
+        "source": "t3/evals/suite/incidents-confirm.jsonl",
+        "what": "confirmation suite"
+      }
+    ],
+    "literal_scan": {
+      "files_scanned": 970,
+      "hits": [],
+      "n_hits": 0
+    },
+    "n_seeds": 2400,
+    "ranges_overlapping": [],
+    "seed_range": [
+      1000001,
+      1004759
+    ],
+    "split_of": {
+      "dev": 2400,
+      "test": 0
+    }
+  },
+  "grid": "incidents.candidate's (preset, tier, template) grid with the base cell over all 4 cells (period 112); commissioning from incidents.commissioning(seed, tier)",
+  "n_candidates": 2400,
+  "role_salt": "t1-remediation-roles-v1",
+  "roles": {
+    "holdout": 369,
+    "train": 1790,
+    "val": 241
+  },
+  "seed_base": 1000000,
+  "spec_hash_overlap": {
+    "candidates": 0,
+    "confirm": 0,
+    "dev": 0,
+    "test": 0
+  },
+  "version": "t1-remediation-data-v1",
+  "why_not_200000": "the brief asked for 200000+, but 100,000-499,999 are the silo seeds and 0-899,999 the Track 1 SFT seed hash range (t3/evals/confirm.py KNOWN_SEED_RANGES)"
+}

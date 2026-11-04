@@ -1,0 +1,218 @@
+"""remediation-v1: policy wrapper compatibility, twin labels, candidates, BC artifact, evaluation records."""
+
+from __future__ import annotations
+
+import json
+import platform
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from t1.rl.policy import Policy, load, parse_change
+from t1.rl.remediation import bc
+from t1.rl.remediation import data as D
+from t3.evals import incidents as inc
+from t3.evals.graders import load_targets
+from t3.evals.twin_backend import ReplayTwin, single_thread
+
+ROOT = Path(__file__).resolve().parents[3]
+ARTIFACTS = ROOT / "t1" / "rl" / "artifacts"
+single_thread()
+
+# ppo_sm_50k / ppo_v0 proposals recorded BEFORE t1/rl/policy.py gained observation_for and the deadzone
+# (Darwin-arm64, venv torch 2.15.0: the twin is a float32 GP, so other platforms may differ at 0.1 steps).
+GOLDEN = {
+    0: ("cell=0;d_power_db=-1.4;d_tilt_deg=-0.3|cell=1;d_power_db=+4.0;d_tilt_deg=-0.2|cell=2;d_power_db=+8.0;"
+        "d_tilt_deg=-2.0|cell=3;d_power_db=+1.9;d_tilt_deg=+2.2",
+        "cell=0;d_power_db=-0.3;d_tilt_deg=-1.8|cell=1;d_power_db=+1.0;d_tilt_deg=+5.0|cell=2;d_power_db=+2.9;"
+        "d_tilt_deg=+4.5|cell=3;d_power_db=-1.7;d_tilt_deg=+3.9"),
+    2: ("cell=0;d_power_db=-1.2;d_tilt_deg=-0.3|cell=1;d_power_db=+3.8;d_tilt_deg=-0.1|cell=2;d_power_db=+8.0;"
+        "d_tilt_deg=-2.6|cell=3;d_power_db=+2.0;d_tilt_deg=+2.0", None),
+    30: ("cell=0;d_power_db=-1.0;d_tilt_deg=+0.0|cell=1;d_power_db=+3.0;d_tilt_deg=+0.1|cell=2;d_power_db=+8.0;"
+         "d_tilt_deg=-1.0|cell=3;d_power_db=+2.2;d_tilt_deg=+1.8", None),
+}
+
+
+def faulted_state(spec: dict) -> dict:
+    targets = load_targets()
+    tw = ReplayTwin(spec["scenario"], spec["seed"], spec["preset"])
+    tw.reset()
+    state = None
+    for ch in inc.script(spec, targets, with_fault=True):
+        state = tw.apply(ch)
+    return state
+
+
+# --------------------------------------------------------------------------- the policy wrapper
+
+@pytest.mark.skipif(f"{platform.system()}-{platform.machine()}" != "Darwin-arm64",
+                    reason="golden proposals were recorded on Darwin-arm64")
+def test_existing_policies_propose_exactly_as_before():
+    sm, v0 = load(ARTIFACTS / "ppo_sm_50k.zip"), load(ARTIFACTS / "ppo_v0.zip")
+    assert sm.deadzone == (0.0, 0.0) and v0.deadzone == (0.0, 0.0)
+    for k, (want_sm, want_v0) in GOLDEN.items():
+        state = faulted_state(inc.candidate(k))
+        assert sm.propose_text(state) == want_sm
+        if want_v0:
+            assert v0.propose_text(state) == want_v0
+
+
+class FixedModel:
+    """Stands in for an SB3 model: always the same normalised action."""
+
+    def __init__(self, action):
+        self.action = np.asarray(action, dtype=np.float32)
+
+    def predict(self, obs, deterministic=True):
+        return self.action, None
+
+
+def test_deadzone_zeroes_only_small_deltas_and_is_off_by_default():
+    state = faulted_state(inc.candidate(1))
+    # power +0.05*8 = 0.4 dB on cell 0, +0.5*8 = 4 dB on cell 1; tilt -0.1*5 = -0.5 deg on cell 2, +0.8*5 = +4 deg on 3
+    action = [0.05, 0.5, 0.0, 0.0, 0.0, 0.0, -0.1, 0.8]
+    plain = Policy(FixedModel(action), {"obs": "masked"})
+    dz = Policy(FixedModel(action), {"obs": "masked", "postprocess": {"deadzone_power_db": 1.0, "deadzone_tilt_deg": 1.0}})
+    assert {c["cell"] for c in plain.propose(state)} == {0, 1, 2, 3}
+    got = {c["cell"]: (c["d_power_db"], c["d_tilt_deg"]) for c in dz.propose(state)}
+    assert set(got) == {1, 3} and got[1][0] == pytest.approx(4.0) and got[3][1] == pytest.approx(4.0)
+    with pytest.raises(ValueError):
+        Policy(FixedModel(action), {"postprocess": {"deadband": 1.0}})
+
+
+# --------------------------------------------------------------------------- data
+
+def test_candidates_file_is_the_generator_output_on_clean_dev_seeds():
+    specs = D.load_candidates()  # refuses a file the generator does not reproduce
+    meta = json.loads(D.META_PATH.read_text())
+    assert len(specs) == D.N_CANDIDATES == meta["n_candidates"]
+    assert meta["exclusion"]["clean"] is True and not any(meta["spec_hash_overlap"].values())
+    seeds = [s["seed"] for s in specs]
+    assert min(seeds) >= D.SEED_BASE and len(set(seeds)) == len(seeds)
+    assert all(inc.split_of(s) == "dev" for s in seeds[:200])
+    assert all(s["role"] == D.role_of(s["seed"]) for s in specs[:200])
+    test_seeds = {json.loads(x)["seed"] for x in inc.TEST_PATH.read_text().splitlines() if x.strip()}
+    assert not test_seeds & set(seeds)
+    assert {s["fault"][0]["cell"] for s in specs} == {0, 1, 2, 3}
+
+
+def test_unit_target_scales_back_to_the_label():
+    from ran_rl.env.config import EnvConfig
+    from ran_rl.env.observation import scale_action
+
+    from t1.rl.policy import quantise_toward_zero
+
+    label = np.array([6.0, 0.0, -3.0, 4.0, -5.0, 0.0, 3.0, -2.5])
+    got = quantise_toward_zero(scale_action(D.unit_target(label), EnvConfig().safety))
+    assert np.allclose(got, label)
+
+
+@pytest.fixture(scope="module")
+def kept_rows():
+    specs = D.load_candidates()[:12]
+    rows = D.generate(specs, load_targets())
+    assert any(r["kept"] for r in rows)
+    return specs, rows
+
+
+def test_labels_are_the_way_back_to_the_commissioned_configuration(kept_rows):
+    _, rows = kept_rows
+    for r in [r for r in rows if r["kept"]][:3]:
+        kinds = {s["kind"]: np.asarray(s["label"]) for s in r["samples"]}
+        assert set(kinds) == set(D.SAMPLE_KINDS)
+        inverse = np.asarray(r["inverse"])
+        for k in ("fault@2", "fault@3", "fault@4"):
+            assert np.allclose(kinds[k], inverse)
+        for k in ("fixed@3", "fixed@4", "healthy@2", "healthy@3", "healthy@4"):
+            assert not np.any(kinds[k])
+        assert np.allclose(kinds["half@3"] + np.trunc(np.round(inverse / 2 / 0.1, 6)) * 0.1, inverse)
+        n = len(inverse) // 2
+        assert set(np.flatnonzero((inverse[:n] != 0) | (inverse[n:] != 0)).tolist()) == set(r["fault_cells"])
+        assert r["recovery_of_inverse"] is not None
+    dropped = [r for r in rows if not r["kept"]]
+    assert all(r["samples"] == [] for r in dropped)
+
+
+# --------------------------------------------------------------------------- BC artifact
+
+@pytest.fixture(scope="module")
+def tiny_artifact(kept_rows, tmp_path_factory):
+    specs, rows = kept_rows
+    for r in rows:  # the fixture has too few incidents for every role: train on all kept, validate on all kept
+        r["role"] = "train" if r["kept"] else r["role"]
+    val = [dict(r, role="val") for r in rows if r["kept"]]
+    out = bc.train(rows + val, {s["seed"]: s for s in specs}, load_targets(), version="v1-test",
+                   workdir=tmp_path_factory.mktemp("rounds"),
+                   hyper={"epochs": 15, "patience": 15, "dagger_rounds": 1, "dagger_epochs": 5, "dagger_patience": 5})
+    d = tmp_path_factory.mktemp("model")
+    art = bc.save(out["model"], d, "v1-test", {"run_id": "test"})
+    return Path(art["zip"]), out["record"]
+
+
+def test_bc_artifact_is_a_drop_in_for_the_policy_loader(tiny_artifact):
+    path, record = tiny_artifact
+    assert record["rounds"][0]["fit"]["epochs_run"] >= 1 and len(record["rounds"]) == 2
+    pol = load(path)
+    assert (pol.model_id, pol.version, pol.obs_mode) == ("t1-remediation-bc", "v1-test", "masked")
+    assert pol.deadzone == (1.0, 1.0)
+    from stable_baselines3 import PPO
+
+    base = PPO.load(str(ARTIFACTS / "ppo_sm_50k.zip"), device="cpu")
+    assert pol._model.observation_space == base.observation_space
+    assert pol._model.action_space == base.action_space
+    assert str(pol._model.policy) == str(base.policy)  # same actor-critic architecture
+    text = pol.propose_text(faulted_state(inc.candidate(3)))
+    assert text == "" or parse_change(text)
+
+
+# --------------------------------------------------------------------------- evaluation records
+
+def test_evaluate_smoke_items_and_part_e_replay(tiny_artifact, tmp_path):
+    sys.path[:0] = [str(ROOT / "tools"), str(ROOT / "tools" / "tests")]
+    check_unit = pytest.importorskip("check_unit")
+    evfake = pytest.importorskip("evfake")
+    from t1.rl.remediation import evaluate as E
+
+    path, _ = tiny_artifact
+    ev = tmp_path / "ev"
+    rid = "t3.evals.remediation-policy-smoke-test"
+    assert E.main(["--run-id", rid, "--evidence-dir", str(ev), "--output-dir", str(tmp_path / "out"),
+                   "--policy", str(path), "--smoke", "--limit-test", "1", "--limit-confirm", "1", "--holdout", "1",
+                   "--declare"]) == 0
+    items = [json.loads(x) for x in (ev / f"records/{rid}/item.jsonl").read_text().splitlines()]
+    res = json.loads((ev / f"results/{rid}.json").read_text())
+    assert len(items) == res["n_items"] == 4
+    assert {it["extra"]["suite"] for it in items} == {"test-masked", "test-visible", "confirm", "dev-holdout"}
+    for it in items:
+        ops = it["extra"]["operators"]
+        assert set(ops) == set(E.OPERATORS)
+        assert it["score"] == pytest.approx(ops["v1"]["recovery"] - ops["ppo_sm_50k"]["recovery"])
+        assert all(o["replay_consistent"] for o in ops.values())
+        for m in E.MEASURES:
+            assert all(m in o for o in ops.values())
+    assert res["details"]["gain"]["subset"] == {"field": "extra.suite", "equals": "test-masked"}
+    assert res["details"]["gain"]["paired_n"] == 1
+    # the independent checker replays the target from the items (fake S3, no AWS)
+    aws = evfake.FakeAws(now="2026-11-04T08:00:00Z")
+    t = datetime(2026, 11, 4, 7, 0, 0, tzinfo=timezone.utc)
+    for rel in (f"declared/{rid}.json", f"records/{rid}/item.jsonl", f"results/{rid}.json"):
+        t += timedelta(seconds=1)
+        aws.s3.put("fixture-bucket", "evidence/" + rel, (ev / rel).read_bytes(), t.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    ck = check_unit.Checker(rid, check_unit.S3Evidence(aws.client("s3"), "s3://fixture-bucket/evidence/"), aws, None,
+                            poll_s=0.0, now=aws.now())
+    ck.load()
+    ck.decl_time = ck.ev.time(ck.decl_rel)
+    ck.part_e()
+    assert ck.parts["e"].state == check_unit.PASS, "\n".join(ck.parts["e"].lines)
+
+
+def test_evaluate_refuses_limits_outside_smoke_and_big_smokes():
+    from t1.rl.remediation import evaluate as E
+
+    with pytest.raises(SystemExit):
+        E.main(["--print-declaration", "--limit-test", "1"])
+    with pytest.raises(SystemExit):
+        E.main(["--print-declaration", "--smoke", "--limit-test", "18", "--limit-confirm", "18", "--holdout", "1"])

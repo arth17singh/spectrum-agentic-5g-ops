@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "declared_at": "2026-11-04T07:30:00Z",
+  "about": "Declared before remediation-v1 was trained or evaluated. Graded by t3/evals/graders.py (twin replay, same-step healthy counterfactual); no model grades another. The episode, tolerances, material gaps and bootstrap are t3/evals/targets.json's.",
+  "unit": "t3.evals.remediation-policy",
+  "candidate": "t1-remediation-bc (remediation-v1)",
+  "operators": ["v1", "ppo_sm_50k", "config_revert", "rule_baseline"],
+  "primary": {
+    "suite": "test-masked",
+    "what": "the 18 masked incidents of the frozen test split (t3/evals/suite/incidents-test.jsonl)",
+    "target": {"metric": "recovery_gain_ci_low_vs_ppo_sm_50k", "op": ">", "value": 0.0, "unit": "recovery"},
+    "item_score": "recovery(v1) - recovery(ppo_sm_50k) on the same incident (the run's items hold the differences)",
+    "interval": "paired-bootstrap-v1 over item ids, subset extra.suite = test-masked, t3/evals/targets.json bootstrap (10000 resamples, seed 20261102, 95%)"
+  },
+  "suites": {
+    "test-masked": "frozen test split, tier masked (18)",
+    "test-visible": "frozen test split, tier visible (15)",
+    "confirm": "frozen confirmation suite t3/evals/suite/incidents-confirm.jsonl (18 masked, fresh seeds 990003-990271)",
+    "dev-holdout": "role=holdout candidates of t1/rl/remediation/candidates.jsonl in index order, the first 100 that incidents.build keeps on the job's platform (never trained on)"
+  },
+  "secondary_measures": {
+    "recovery": "t3/evals/graders.py recovery at the grade step (mean over material KPIs)",
+    "success": "every graded KPI within tolerance of the same-step healthy counterfactual",
+    "diagnosis_hit": "the cell with the largest applied change (|d_power_db|/6 + |d_tilt_deg|/5) in the operator's first non-empty applied step is a faulted cell; no applied change at all is a miss",
+    "cells_touched": "distinct cells with a non-zero applied (safety-filtered) delta over the three operator steps",
+    "total_abs_power_db": "sum over operator steps and cells of |applied d_power_db|",
+    "total_abs_tilt_deg": "sum over operator steps and cells of |applied d_tilt_deg|",
+    "headroom_used": "energy proxy at the grade step: sum over cells of max(0, final power - commissioned power) divided by sum over cells of (power_max_dbm - commissioned power); 0 = no cell above its healthy power",
+    "power_above_healthy_db": "the numerator of headroom_used, in dB",
+    "healthy_false_change": "on the same network without the fault (commissioning only, state before the first operator step), the operator proposes a change",
+    "reporting": "per suite and operator: means and counts; paired-bootstrap intervals of v1 minus each baseline (same parameters as the primary) for every measure above. Only the primary is a target."
+  }
+}
