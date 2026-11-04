@@ -1,3 +1,4 @@
+import { accessToken } from '@/core/access'
 // Client for /api/kitapprovals (laptop only). Errors come back as {error, message}; the caller shows them.
 
 export type Mode = 'ok' | 'offline' | 'aws_session_expired' | 'no_access' | 'aws_unreachable' | 'aws_error' | 'laptop_only'
@@ -56,7 +57,10 @@ export type Result<T> = { ok: true; data: T } | { ok: false; code: number; fail:
 async function call<T>(path: string, init?: RequestInit): Promise<Result<T>> {
   let res: Response
   try {
-    res = await fetch(path, { cache: 'no-store', ...init })
+    // a paired phone (make demo) carries the per-run access token; this laptop has none and needs none
+    const t = accessToken()
+    const headers = t ? { ...(init?.headers as Record<string, string> | undefined), 'X-Spectrum-Token': t } : init?.headers
+    res = await fetch(path, { cache: 'no-store', ...init, headers })
   } catch (e) {
     return { ok: false, code: 0, fail: { error: 'network', message: `The console backend did not answer (${String(e)}).` } }
   }

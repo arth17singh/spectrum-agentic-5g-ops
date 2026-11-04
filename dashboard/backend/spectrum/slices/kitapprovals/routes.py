@@ -168,9 +168,40 @@ def _host_ok(request: Request) -> bool:
     return name in ("localhost", "127.0.0.1", "[::1]")
 
 
+def _phone_ok(request: Request) -> bool:
+    """Opt-in (KITAPPROVALS_PHONE=1, set by `make demo`): the presenter's phone on the same Wi-Fi. It must carry
+    the per-run access token (header or ?t=; AccessGate already refuses /api without it, checked again here) and
+    address this laptop by its LAN IP (a DNS-rebinding page has its own host name). The decision is the same
+    kit update with the same PIN, identity and audit line as on the laptop."""
+    if os.environ.get("KITAPPROVALS_PHONE") != "1":
+        return False
+    from spectrum.access import TOKEN
+
+    supplied = request.headers.get("x-spectrum-token") or request.query_params.get("t") or ""
+    if not supplied or not secrets.compare_digest(supplied.encode(), TOKEN.encode()):
+        return False
+    host = (request.headers.get("host") or "").lower().rsplit(":", 1)[0]
+    return host == lan_ip()
+
+
+def lan_ip() -> str:
+    import socket
+
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("10.255.255.255", 1))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except OSError:
+        return "127.0.0.1"
+
+
 def _laptop(request: Request) -> JSONResponse | None:
-    if not is_loopback(tuple(request.client) if request.client else None) or not _host_ok(request):
-        return _err(403, "laptop_only", "Real approvals work only on the presenter laptop (http://localhost:8787).")
+    local = is_loopback(tuple(request.client) if request.client else None) and _host_ok(request)
+    if not local and not _phone_ok(request):
+        return _err(403, "laptop_only", "Real approvals work only on the presenter laptop (http://localhost:8787), "
+                    "or on a paired phone under `make demo`.")
     return None
 
 
