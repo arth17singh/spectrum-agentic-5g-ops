@@ -80,8 +80,25 @@ def build_service(offline: bool | None = None) -> LiveFix:
         client = ddb()
     except Exception:  # noqa: BLE001 - no AWS session: live mode answers 503, recorded mode still works
         client = None
-    return LiveFix(kit=kit, ddb=client, writer_factory=writer,
-                   table=os.environ.get("ASKNOC_APPROVALS_TABLE") or "team13-approvals")
+    from .twinside import TwinSide
+
+    def attack_gateway():
+        """The suite's Gateway client with the kit's agent tokens (tokens/<agent>.txt): the rogue-agent attack calls
+        as ran_monitor. The URL and tokens never leave this process."""
+        from .suite import repo_import
+
+        common = repo_import("t3.suite.common")
+        view = kit_cfg.load()
+        return common.Gateway(view.gateway_url.reveal(), common.Tokens(tokens_dir=str(kit_cfg.dir / "tokens")))
+
+    svc = LiveFix(kit=kit, ddb=client, writer_factory=writer, twinside=TwinSide(),
+                  attack_gateway=attack_gateway if kit is not None else None,
+                  table=os.environ.get("ASKNOC_APPROVALS_TABLE") or "team13-approvals")
+    if kit is not None:
+        from ..asknoc.redact import Redactor
+
+        svc.redact = lambda s: Redactor(kit_cfg.load().redact_values).text(s)
+    return svc
 
 
 def get_service() -> LiveFix:
@@ -98,8 +115,17 @@ def set_service(svc: LiveFix | None) -> None:
 
 class StartBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    incident_id: str = Field(max_length=80, pattern=r"^inc-[A-Za-z0-9:+|._-]{1,72}$")
+    incident_id: str | None = Field(default=None, max_length=80, pattern=r"^inc-[A-Za-z0-9:+|._-]{1,72}$")
+    fault_key: str | None = Field(default=None, pattern=r"^(tilt_drift|pa_fault|bad_config|hardware|cascade)$")
+    cell: int | None = Field(default=None, ge=0, le=3)
+    preset: str = Field(default="official", pattern=r"^(official|viavi-like)$")
     mode: str = Field(pattern=r"^(live|recorded)$")
+
+
+class AttackBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    key: str = Field(pattern=r"^(poisoned_alarm|rogue_agent)$")
+    variant: str = Field(default="judged", pattern=r"^(judged|alarm)$")
 
 
 class EmptyBody(BaseModel):
@@ -121,7 +147,8 @@ async def incidents(response: Response):
     _ns(response)
     svc = get_service()
     out = await asyncio.to_thread(svc.incidents)
-    return {**out, "live_ready": svc.kit is not None and svc.ddb is not None}
+    return {**out, "live_ready": svc.kit is not None and svc.ddb is not None,
+            "faults_ready": svc.twinside.available, "attacks_ready": svc.attack_gateway is not None}
 
 
 @router.get("/runs")
@@ -136,7 +163,10 @@ async def start(body: StartBody, response: Response):
     _ns(response)
     svc = get_service()
     try:
-        run = await asyncio.to_thread(svc.start, body.incident_id, body.mode)
+        if body.fault_key is None and body.incident_id is None:
+            raise refuse(422, "bad_body", "Send a fault_key and cell, or an incident_id.")
+        run = await asyncio.to_thread(svc.start, body.incident_id, body.mode, fault_key=body.fault_key,
+                                      cell=body.cell, preset=body.preset)
     except KeyError:
         raise refuse(404, "unknown_incident", "That incident is not in the list.") from None
     except RuntimeError as e:
@@ -160,6 +190,21 @@ async def inject(run_id: str, body: EmptyBody, response: Response):
     _run(svc, run_id)
     try:
         return svc.view(svc.inject(run_id))
+    except ValueError as e:
+        raise refuse(409, "not_ready", str(e)) from None
+
+
+@router.post("/runs/{run_id}/attack", status_code=202)
+async def attack(run_id: str, body: AttackBody, response: Response):
+    """One attack call through the Gateway on this run's case (expected: refused). The `alarm` variant is not a
+    judged case and is labelled so."""
+    _ns(response)
+    svc = get_service()
+    _run(svc, run_id)
+    try:
+        return svc.view(svc.attack(run_id, body.key, body.variant))
+    except RuntimeError as e:
+        raise refuse(503, "attack_unavailable", str(e)) from None
     except ValueError as e:
         raise refuse(409, "not_ready", str(e)) from None
 

@@ -36,6 +36,7 @@ from typing import Any, Callable
 
 from . import suite
 from .gateway import CONTINUE, SEED, STATUS, GatewayFailed, ok_or_raise, parse_waiting
+from .twinside import CALIBRATION, FAULT_KEYS, HEALTH, TEMPLATE, TIER, TwinSide, Unavailable
 
 UNIT = "t3.livefix"
 SOURCE = "dashboard/backend/spectrum/slices/livefix"
@@ -79,6 +80,13 @@ class Run:
     inject_requested: bool = False
     continue_requested: bool = False
     finishing: bool = False
+    health: dict = field(default_factory=dict)       # kpis key -> faults.cell_health rows (when the helper runs)
+    cells_at_proposal: list | None = None
+    confidence: dict | None = None
+    lessons: dict | None = None
+    lesson_learned: dict | None = None
+    attacks: list = field(default_factory=list)
+    applied_changes: list = field(default_factory=list)  # canonical change texts, in apply order
 
 
 class LiveFix:
@@ -86,8 +94,11 @@ class LiveFix:
                  table: str = "team13-approvals", model_id: str | None = None, clock=time.time, sleep=time.sleep,
                  poll_s: float = 4.0, lead_timeout_s: float = 420.0, approval_timeout_s: float = 900.0,
                  recorded_loader: Callable[[], list] = suite.recorded_incidents, step_delay_s: float = 1.5,
-                 spawn: Callable[[Callable[[], None]], None] | None = None):
+                 spawn: Callable[[Callable[[], None]], None] | None = None, twinside: Any = None,
+                 attack_gateway: Callable[[], Any] | None = None):
         self.kit, self.ddb, self.writer_factory = kit, ddb, writer_factory
+        self.twinside = twinside if twinside is not None else TwinSide(python="")
+        self.attack_gateway = attack_gateway
         self.table = table
         self.model_id = model_id or os.environ.get("T3_SWARM_MODEL_ID", DEFAULT_MODEL)
         self.clock, self.sleep, self.poll_s = clock, sleep, poll_s
@@ -113,23 +124,40 @@ class LiveFix:
     def active(self) -> Run | None:
         return next((r for r in self.runs.values() if r.state not in END or r.finishing), None)
 
-    def start(self, incident_id: str, mode: str) -> Run:
+    def start(self, incident_id: str | None = None, mode: str = "live", *, fault_key: str | None = None,
+              cell: int | None = None, preset: str = "official") -> Run:
+        """A fault button (fault_key = the UI's FaultKey, cell 0-3; the twin-side helper builds a dev-split incident)
+        or a dev incident by id. Recorded mode takes a recorded incident id."""
+        made = None
+        if mode == "live" and fault_key is not None:
+            if fault_key not in FAULT_KEYS or cell not in (0, 1, 2, 3):
+                raise KeyError(f"{fault_key} on cell {cell}")
+            if self.kit is None or self.ddb is None:
+                raise RuntimeError("live mode needs the kit and AWS (not configured or offline)")
+            if self.active() is not None:
+                raise ValueError(f"run {self.active().run_id} is still in progress")
+            try:
+                made = self.twinside.call("make_incident", fault_key=FAULT_KEYS[fault_key], cell=int(cell),
+                                          preset=preset)
+            except Unavailable as e:
+                raise RuntimeError(str(e)) from None
         with self.lock:
             busy = self.active()
             if busy is not None:
                 raise ValueError(f"run {busy.run_id} is still in progress ({busy.state})")
             if mode == "live":
-                inc = self._incidents.get(incident_id)
+                inc = made or self._incidents.get(incident_id or "")
                 if inc is None:
                     raise KeyError(incident_id)
                 if self.kit is None or self.ddb is None:
                     raise RuntimeError("live mode needs the kit and AWS (not configured or offline)")
                 recorded = None
             elif mode == "recorded":
-                recorded = next((r for r in self._recorded() if r["incident_id"] == incident_id), None)
+                recorded = next((r for r in self._recorded() if r["incident_id"] == incident_id), None) \
+                    if fault_key is None else self._recorded_for(fault_key)
                 if recorded is None:
                     raise KeyError(incident_id)
-                inc = {"incident_id": incident_id, "fault_cells": recorded["fault_cells"]}
+                inc = {"incident_id": recorded["incident_id"], "fault_cells": recorded["fault_cells"]}
             else:
                 raise ValueError("mode must be live or recorded")
             self._counter += 1
@@ -167,9 +195,13 @@ class LiveFix:
             if run.mode == "live" else (run.recorded or {}).get("label"),
             "events": run.events[-200:], "stages": self._stage_view(run), "cases": run.cases,
             "headline": {k: suite.headline(v) for k, v in run.kpis.items()},
-            "cells": suite.cell_view(now_k, ref) if run.mode == "live" else self._recorded_cells(run),
-            "cells_healthy": suite.cell_view(healthy, healthy) if run.mode == "live" else None,
+            "cells": self._cells(run, now_k, ref) if run.mode == "live" else self._recorded_cells(run),
+            "cells_at_proposal": run.cells_at_proposal,
+            "fault": {k: run.incident.get(k) for k in ("fault_key", "fault_label", "fault_about", "chosen_cell",
+                                                       "fault_cells", "preset")} if run.mode == "live" else None,
             "approval": run.approval, "applied": run.applied, "reply": run.reply, "grade": run.grade,
+            "confidence": run.confidence, "lessons": run.lessons, "lesson_learned": run.lesson_learned,
+            "attacks": run.attacks,
             "problem": run.problem, "evidence": run.evidence,
             "evidence_link": f"/evidence?run={run.run_id}" if run.mode == "live" else
             f"/evidence?run={(run.recorded or {}).get('live_run', '')}",
@@ -190,6 +222,64 @@ class LiveFix:
             return self.recorded_loader()
         except (OSError, ValueError):
             return []
+
+    def _recorded_for(self, fault_key: str) -> dict | None:
+        """A recorded incident with the same fault template (a recovered one first)."""
+        tmpl = TEMPLATE.get(fault_key)
+        rows = [r for r in self._recorded() if tmpl and r["incident_id"].endswith("-" + tmpl)]
+        return next((r for r in rows if r.get("success")), rows[0] if rows else None)
+
+    def _health(self, run: Run, key: str, ref_key: str | None) -> None:
+        """faults.cell_health of run.kpis[key] against run.kpis[ref_key], via the twin-side helper (if running)."""
+        if not self.twinside.available:
+            return
+        try:
+            cur = (run.kpis.get(key) or {}).get("per_cell") or []
+            ref = (run.kpis.get(ref_key) or {}).get("per_cell") if ref_key else None
+            run.health[key] = self.twinside.call("health", kpis=cur, reference=ref,
+                                                 fault=run.incident.get("fault") or [])
+        except Exception:  # noqa: BLE001 - the map falls back to the slice's own colouring
+            run.health.pop(key, None)
+
+    def _cells(self, run: Run, now_k: dict | None, ref: dict | None) -> list:
+        rows = suite.cell_view(now_k, ref)
+        key = "final" if run.kpis.get("final") else "faulted" if run.kpis.get("faulted") else "healthy"
+        h = {r["cell"]: r for r in run.health.get(key) or []}
+        for r in rows:
+            if r["cell"] in h:  # one health rule for the map: t3.evals.faults.cell_health
+                r["status"] = h[r["cell"]]["health"]
+                r["why"] = h[r["cell"]].get("why")
+            r["health"] = HEALTH.get(r["status"], "unknown")
+        return rows
+
+    def attack(self, run_id: str, key: str, variant: str = "judged") -> Run:
+        """One attack call through the Gateway on this run's case (t3.evals.attacks.run_attack). Expected: refused."""
+        run = self._get(run_id)
+        if run.mode != "live":
+            raise ValueError("attacks run on live runs only")
+        case = run.cases.get("faulted") or run.cases.get("healthy")
+        if not case:
+            raise ValueError("load the network first")
+        if self.attack_gateway is None:
+            raise RuntimeError("no Gateway for attacks (kit not configured)")
+
+        def go():
+            attacks = suite.repo_import("t3.evals.attacks")
+            try:
+                out = attacks.run_attack(key, self.attack_gateway(), case, run_id=run.run_id, variant=variant,
+                                         cell=int(run.incident.get("chosen_cell") or 0))
+            except Exception as e:  # noqa: BLE001
+                out = {"attack": key, "decision": "ERROR", "refused": False, "text_excerpt": f"{type(e).__name__}",
+                       "dry": False}
+            out["text_excerpt"] = (self.redact or (lambda s: s))(str(out.get("text_excerpt") or ""))
+            out["case_id"] = case
+            run.attacks.append(out)
+            self._event(run, "attack", f"Attack {out.get('label') or key} ({'judged case ' + out['suite_id'] if out.get('judged') else 'NOT a judged case'}): "
+                        f"{out.get('decision')}" + (f" by {out.get('policy')}" if out.get("policy") else "") + ".")
+        self.spawn(go)
+        return run
+
+    redact: Callable[[str], str] | None = None
 
     def _event(self, run: Run, stage: str, text: str, **extra) -> None:
         run.events.append({"t": utc(), "stage": stage, "text": text, **extra})
@@ -333,6 +423,7 @@ class LiveFix:
         self._event(run, "preparing", "Declared the run before any call: target, grader, twin and incident.")
         fs = self.targets["episode"]["fault_step"]
         run.kpis["healthy"] = self._seed(run, "healthy", suite.steps_for(inc, self.targets, False))
+        self._health(run, "healthy", "healthy")
         self._stage(run, "healthy")
         self._event(run, "healthy", f"Twin at step {fs} with no fault: every cell at its healthy level.")
 
@@ -340,12 +431,21 @@ class LiveFix:
         inc = run.incident
         self._stage(run, "faulted")
         run.kpis["faulted"] = self._seed(run, "faulted", suite.steps_for(inc, self.targets, True))
+        self._health(run, "faulted", "healthy")
         self._event(run, "faulted", "Fault injected on the twin. The agents get symptoms only, never the cell.")
         case = run.cases["faulted"]
         self._stage(run, "diagnosing")
-        sent = self._call(CONTINUE, {"case_id": case, "message": suite.ticket(inc, run.run_id, run.n)}, timeout=60)
+        text = suite.ticket(inc, run.run_id)
+        run.lessons = self._lessons(inc)
+        if run.lessons and run.lessons.get("block"):
+            text += "\n\n" + run.lessons["block"]
+            self._event(run, "diagnosing", f"{len(run.lessons['hits'])} verified lesson(s) added to the ticket "
+                        f"(best similarity {run.lessons['best']:.2f}).")
+        sent = self._call(CONTINUE, {"case_id": case, "message": text}, timeout=60)
         run.evidence["_gw_date"] = sent.gateway_date
-        self._event(run, "diagnosing", "Ticket sent to noc_lead through the Gateway (front___continue_case).")
+        run.evidence["ticket_sha256"] = sha(text)
+        self._event(run, "diagnosing", "Ticket sent to noc_lead through the Gateway (front___continue_case): "
+                    "symptoms only, under an opaque incident label.")
         status = self._wait_lead(run, case)
         while True:
             pending = self._pending(case, status)
@@ -355,9 +455,12 @@ class LiveFix:
                 elif not run.applied:
                     self._end(run, "no_proposal", "The lead finished without proposing a change.")
                 else:
-                    self._grade(run)
+                    self._finish_graded(run, bool((run.grade or {}).get("success")))
                 return
             run.approval = pending
+            run.cells_at_proposal = self._cells(run, run.kpis.get("final") or run.kpis.get("faulted"),
+                                                run.kpis.get("healthy_final") or run.kpis.get("healthy"))
+            run.confidence = self._confidence(run, pending.get("change_text"))
             self._stage(run, "awaiting_approval")
             self._event(run, "awaiting_approval", f"Cedar held ran___apply_change: {pending['approval_id']} waits for "
                         f"a person.", approval_id=pending["approval_id"], change=pending["change_text"])
@@ -377,10 +480,14 @@ class LiveFix:
                 self._end(run, "failed", f"The approved change was not applied (row {row.get('status')}).")
                 return
             run.applied.append(pending["approval_id"])
+            run.applied_changes.append(pending.get("change_text") or "")
             run.approval = {**pending, "status": "APPLIED"}
             self._event(run, "applying", f"Applied on the twin: {pending['change_text']}.")
-            if self._grade(run, final=False) or len(run.applied) >= MAX_CHANGES:
-                self._grade(run)
+            ok = self._grade(run, final=False)
+            if ok or len(run.applied) >= MAX_CHANGES:
+                if ok:
+                    self._learn(run)
+                self._finish_graded(run, ok)
                 return
 
     def _pending(self, case_id: str, status: dict) -> dict | None:
@@ -427,12 +534,70 @@ class LiveFix:
         run.kpis["unfixed_final"] = self._seed(run, f"unfixed{n}", suite.steps_for(inc, self.targets, True, n))
         hl = {k: suite.headline(run.kpis[k]) for k in ("final", "healthy_final", "unfixed_final")}
         run.grade = {**suite.grade(hl["final"], hl["healthy_final"], hl["unfixed_final"], self.targets), "step": n}
+        self._health(run, "final", "healthy_final")
         ok = bool(run.grade["success"])
         if final:
-            self._end(run, "recovered" if ok else "not_recovered",
-                      "Every graded KPI is back within tolerance of the healthy twin." if ok
-                      else "Some graded KPI is still outside tolerance of the healthy twin.")
+            self._finish_graded(run, ok)
         return ok
+
+    def _finish_graded(self, run: Run, ok: bool) -> None:
+        self._end(run, "recovered" if ok else "not_recovered",
+                  "Every graded KPI is back within tolerance of the healthy twin." if ok
+                  else "Some graded KPI is still outside tolerance of the healthy twin.")
+
+    # ------------------------------------------------------------------ helper-backed extras (optional)
+    def _start_log(self, run: Run) -> list[str]:
+        return suite.steps_for(run.incident, self.targets, True) + list(run.applied_changes)
+
+    def _lessons(self, inc: dict) -> dict | None:
+        if not self.twinside.available:
+            return None
+        try:
+            return self.twinside.call("lessons", incident=inc, k=3)
+        except Exception:  # noqa: BLE001 - no lessons is a valid state
+            return None
+
+    def _confidence(self, run: Run, change_text: str | None) -> dict | None:
+        """t3.evals.confidence.score_proposal for the held change (the tier only changes how many approvers the
+        card asks for; nothing is ever approved automatically)."""
+        if not self.twinside.available or not change_text:
+            return None
+        try:
+            lesson = (run.lessons or {}).get("best")
+            c = self.twinside.call("score", incident=run.incident, start_log=self._start_log(run),
+                                   proposal=change_text, lesson=lesson if lesson else None)
+        except Exception as e:  # noqa: BLE001
+            self._event(run, "awaiting_approval", f"Confidence not computed ({type(e).__name__}).")
+            return None
+        out = {"score": c.get("confidence"), "tier": TIER.get(c.get("tier"), "hold"), "explain": c.get("explain"),
+               "preflight_ok": c.get("preflight_ok"), "breakdown": c.get("breakdown"), **CALIBRATION}
+        fd = (c.get("breakdown") or {}).get("federated")
+        if fd:
+            d = fd.get("deltas") or {}
+            self._event(run, "awaiting_approval",
+                        f"Federated forecast ({fd.get('model_id')}@{fd.get('version')}, trained across 3 operator "
+                        f"silos without pooling data): coverage {d.get('coverage_ratio', 0):+.3f}, SLA "
+                        f"{d.get('sla_ratio', 0):+.3f}, p10 SINR {d.get('sinr_p10_db', 0):+.2f} dB; signal "
+                        f"{fd.get('signal', 0):.2f}.", kind="federated", federated=fd)
+        if out["score"] is not None:
+            self._event(run, "awaiting_approval", f"Confidence {out['score']:.2f}: {out['tier'].replace('_', '-')} "
+                        f"approval ({CALIBRATION['label']}).", kind="confidence")
+        return out
+
+    def _learn(self, run: Run) -> None:
+        """After a verified recovery: replay the applied fixes on the local twin and store a lesson if they recover
+        it (the lesson store refuses any test-split incident)."""
+        if not self.twinside.available:
+            return
+        try:
+            out = self.twinside.call("learn", incident=run.incident, proposals=list(run.applied_changes))
+        except Exception as e:  # noqa: BLE001
+            run.lesson_learned = {"status": "error", "reason": f"{type(e).__name__}: {str(e)[:200]}"}
+            return
+        run.lesson_learned = {**(out.get("lesson") or {}), "verification": out.get("verification")}
+        st = run.lesson_learned.get("status")
+        self._event(run, "recovered", f"Lesson {run.lesson_learned.get('lesson_id')} stored (twin-verified)."
+                    if st == "verified" else f"No lesson stored: {run.lesson_learned.get('reason')}.")
 
     def _end(self, run: Run, state: str, why: str) -> None:
         run.finishing = True  # "end" is reported only once the evidence is written

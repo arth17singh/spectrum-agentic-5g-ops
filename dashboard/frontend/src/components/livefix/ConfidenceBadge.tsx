@@ -11,6 +11,8 @@ export interface ConfidenceBadgeProps {
   explain?: string
   /** is this score's calibration measured yet? shows an honest tag when false */
   calibrated?: boolean
+  /** the measured calibration result, shown in place of the default tag (e.g. a missed ECE target) */
+  calibrationNote?: string
   className?: string
 }
 
@@ -33,7 +35,7 @@ function Chip({ label, value, tone }: { label: string; value: string; tone: 'goo
   )
 }
 
-export function ConfidenceBadge({ score, tier, breakdown, explain, calibrated = false, className }: ConfidenceBadgeProps) {
+export function ConfidenceBadge({ score, tier, breakdown, explain, calibrated = false, calibrationNote, className }: ConfidenceBadgeProps) {
   const t = TIER[tier]
   const b = breakdown ?? {}
   const s = Math.max(0, Math.min(1, score))
@@ -53,7 +55,9 @@ export function ConfidenceBadge({ score, tier, breakdown, explain, calibrated = 
         >
           {t.word}
         </span>
-        {!calibrated && <span className="text-micro text-ink-3" title="The reliability of this score has not been measured on held-out incidents yet">calibration not yet measured</span>}
+        {!calibrated && (calibrationNote
+          ? <span className="text-micro font-medium" style={{ color: 'var(--warn-ink)' }} data-testid="calibration-note">{calibrationNote}</span>
+          : <span className="text-micro text-ink-3" title="The reliability of this score has not been measured on held-out incidents yet">calibration not yet measured</span>)}
       </div>
       <div className="flex flex-wrap gap-1.5">
         {b.preflight && (

@@ -96,11 +96,18 @@ def steps_for(inc: dict[str, Any], targets: dict[str, Any], with_fault: bool, up
     return out
 
 
-def ticket(inc: dict[str, Any], run_id: str, n: int) -> str:
-    """The noc_lead's ticket: t3/evals/swarm.task_text (symptoms only), with a neutral incident label in place
-    of the suite id (the suite id names the fault template, e.g. "...-tilt+5")."""
+def opaque_label(inc: dict[str, Any]) -> str:
+    """The label the agents see: sha256 of the incident id, 8 hex. Suite ids name the fault template
+    ("inc-...-tilt+5") and Live Fix ids name the fault and the cell ("lf-pa_fault-c2-..."); the real id stays in
+    the evidence records only."""
+    return "inc-" + sha256_bytes(str(inc["incident_id"]).encode())[:8]
+
+
+def ticket(inc: dict[str, Any], run_id: str) -> str:
+    """The noc_lead's ticket: t3/evals/swarm.task_text (symptoms only, unchanged for the judged suite), with the
+    opaque label in place of the incident id."""
     swarm = repo_import("t3.evals.swarm")
-    return swarm.task_text({**inc, "incident_id": f"live-{n:02d}"}, run_id)
+    return swarm.task_text({**inc, "incident_id": opaque_label(inc)}, run_id)
 
 
 def grade(final: dict[str, float], healthy: dict[str, float], unfixed: dict[str, float],
