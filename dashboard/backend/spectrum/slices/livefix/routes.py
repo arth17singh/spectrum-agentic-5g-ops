@@ -1,6 +1,6 @@
 """HTTP routes of Live Fix (/api/livefix). Laptop only, with Ask the NOC's request guard rules (loopback client,
 local Host, same-origin POST with a custom header). Every response is no-store. No route approves anything: the
-decision is the person's, on the Approvals path (/api/kitapprovals, PIN) or the kit's CLI.
+decision is the person's, on the Approvals path (PIN) or the kit CLI.
 """
 
 from __future__ import annotations
@@ -175,6 +175,36 @@ async def recorded_continue(run_id: str, body: EmptyBody, response: Response):
         return svc.view(svc.recorded_continue(run_id))
     except ValueError as e:
         raise refuse(409, "not_recorded", str(e)) from None
+
+
+@router.get("/phone")
+async def phone(request: Request, response: Response):
+    """Can a phone on the Wi-Fi reach this server? A TCP connect to our own LAN address and port: a server bound to
+    127.0.0.1 refuses it. Also whether the approvals slice accepts paired phones (KITAPPROVALS_PHONE=1). Never the
+    token: the page takes it from /api/config, which hands it to this laptop only."""
+    _ns(response)
+    import socket
+
+    from spectrum.main import _lan_ip as lan_ip
+
+    ip, port = lan_ip(), request.url.port or 80
+
+    def probe() -> bool:
+        if ip.startswith("127."):
+            return False
+        try:
+            with socket.create_connection((ip, port), timeout=0.5):
+                return True
+        except OSError:
+            return False
+
+    reachable = await asyncio.to_thread(probe)
+    enabled = os.environ.get("KITAPPROVALS_PHONE") == "1"
+    note = None if reachable and enabled else (
+        "Phone approval needs `make demo` on the same Wi-Fi: this server listens on this laptop only."
+        if not reachable else "Phone approval is off on this server (start it with `make demo`).")
+    return {"lan_ip": ip, "port": port, "reachable": reachable, "phone_approvals": enabled,
+            "ready": reachable and enabled, "note": note}
 
 
 @router.get("/runs/{run_id}/activity")

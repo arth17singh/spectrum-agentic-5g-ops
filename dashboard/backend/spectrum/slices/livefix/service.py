@@ -6,7 +6,7 @@
     diagnosing  front___continue_case sends noc_lead a symptoms-only ticket (t3/evals/swarm.task_text, neutral
              label); front___case_status is polled. The agents observe, preflight and propose through the Gateway
     awaiting_approval  the lead's ran___apply_change was refused by the approval rule (the change waits in the
-             kit's approvals table, PENDING). A PERSON decides on the Approvals path (PIN, kitapprovals) or with
+             kit's approvals table, PENDING). A PERSON decides on the Approvals path (PIN) or with
              the kit's CLI. This module never writes a decision; it only reads the row
     applying the person approved: the lead is told "Approved." on the same case (what the Approvals page tells a
              person to do) and calls ran___apply_change again; the kit marks the row APPLIED
@@ -78,6 +78,7 @@ class Run:
     recorded: dict | None = None
     inject_requested: bool = False
     continue_requested: bool = False
+    finishing: bool = False
 
 
 class LiveFix:
@@ -110,7 +111,7 @@ class LiveFix:
                 "recorded_source": f"{suite.RECORDED_LIVE_RUN} proposals, scored by {suite.RECORDED_SCORE_RUN}"}
 
     def active(self) -> Run | None:
-        return next((r for r in self.runs.values() if r.state not in END), None)
+        return next((r for r in self.runs.values() if r.state not in END or r.finishing), None)
 
     def start(self, incident_id: str, mode: str) -> Run:
         with self.lock:
@@ -162,7 +163,7 @@ class LiveFix:
         ref = run.kpis.get("healthy_final") if run.kpis.get("final") else healthy
         return {
             "run_id": run.run_id, "mode": run.mode, "label": "LIVE" if run.mode == "live" else "RECORDED",
-            "state": run.state, "end": run.state in END, "incident": suite.label(run.incident)
+            "state": run.state, "end": run.state in END and not run.finishing, "incident": suite.label(run.incident)
             if run.mode == "live" else (run.recorded or {}).get("label"),
             "events": run.events[-200:], "stages": self._stage_view(run), "cases": run.cases,
             "headline": {k: suite.headline(v) for k, v in run.kpis.items()},
@@ -216,11 +217,15 @@ class LiveFix:
 
     def _fail(self, run: Run, why: str) -> None:
         run.problem = why
+        run.finishing = True
         self._event(run, "failed", why)
         self._stage(run, "failed")
         run.stages["failed"]["end"] = self.clock()
-        if run.mode == "live":
-            self._write_result(run, False)
+        try:
+            if run.mode == "live":
+                self._write_result(run, False)
+        finally:
+            run.finishing = False
 
     # ------------------------------------------------------------------ gateway, table
     def _call(self, tool: str, args: dict, timeout: float = 90.0):
@@ -384,7 +389,9 @@ class LiveFix:
             if not aid:
                 continue
             row = self._row(aid)
-            if not row or row.get("status") != "PENDING":
+            # PENDING, or already decided by a person faster than our poll (then _wait_person sees it at once).
+            # An APPLIED row is a change the lead already made: not a new proposal.
+            if not row or row.get("status") not in ("PENDING", "APPROVED", "REJECTED"):
                 continue
             raw = row.get("change") if isinstance(row.get("change"), str) else ""
             return {"approval_id": aid, "change_text": w.get("change_text"), "item_id": w.get("item_id"),
@@ -428,11 +435,15 @@ class LiveFix:
         return ok
 
     def _end(self, run: Run, state: str, why: str) -> None:
+        run.finishing = True  # "end" is reported only once the evidence is written
         self._stage(run, state)
         run.stages[state]["end"] = self.clock()
         self._event(run, state, why)
-        if run.mode == "live":
-            self._write_result(run, state == "recovered")
+        try:
+            if run.mode == "live":
+                self._write_result(run, state == "recovered")
+        finally:
+            run.finishing = False
 
     # ------------------------------------------------------------------ recorded
     def _prepare_recorded(self, run: Run) -> None:
