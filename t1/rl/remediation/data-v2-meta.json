@@ -1,0 +1,135 @@
+{
+  "candidates_sha256": "f32192cf153b94d6c7c8b420bd5e4be54471edf1c4e49f983ad0ed4dd1c52f0c",
+  "exclusion": {
+    "clean": true,
+    "explicit_collisions": {},
+    "explicit_sets": {
+      "candidates": 84,
+      "confirm": 18,
+      "dev": 35,
+      "livefix_faults": 10,
+      "livefix_runs": 2,
+      "remediation_v1_candidates": 2400,
+      "test": 33
+    },
+    "known_ranges": [
+      {
+        "hi": 899999,
+        "lo": 0,
+        "source": "t1/sft/execgen.py: h(seed key) % SEED_LIMIT (900000)",
+        "what": "Track 1 SFT execution data"
+      },
+      {
+        "hi": 989999,
+        "lo": 900000,
+        "source": "t1/evals/gen_execution.py: SEED_BASE 900000 + h % 90000",
+        "what": "Track 1 execution eval (reserved)"
+      },
+      {
+        "hi": 404,
+        "lo": 42,
+        "source": "RL hand-in evaluation.json (101-105, 200-204, 300-304, 400-404); PPO seed 42",
+        "what": "RL evaluation scenarios and the PPO seed"
+      },
+      {
+        "hi": 4019,
+        "lo": 99,
+        "source": "t3/trust: seed 99, 1000+s, 2000-2019, 3000-3019, 4000-4019",
+        "what": "trust gate jobs, ladders and demo"
+      },
+      {
+        "hi": 4183,
+        "lo": 4100,
+        "source": "t3/evals/incidents.py: SEED_BASE 4100, N_CANDIDATES 84",
+        "what": "t3 incident suite candidates (test + dev)"
+      },
+      {
+        "hi": 7099,
+        "lo": 4161,
+        "source": "t3/evals/faults.py DEV_SEED_BASE 7000 (cache 7002-7041); Live Fix runs on 4161 and 7002",
+        "what": "Live Fix fault cache and runs"
+      },
+      {
+        "hi": 99999,
+        "lo": 10000,
+        "source": "t2/gen.py: BASE_SEED 10000 + episode",
+        "what": "Track 2 episodes"
+      },
+      {
+        "hi": 499999,
+        "lo": 100000,
+        "source": "silos/config.yaml: seed_base 100000-400000",
+        "what": "silo seeds"
+      },
+      {
+        "hi": 990271,
+        "lo": 990003,
+        "source": "t3/evals/suite/incidents-confirm.jsonl",
+        "what": "confirmation suite"
+      },
+      {
+        "hi": 1004759,
+        "lo": 1000001,
+        "source": "t1/rl/remediation/candidates.jsonl",
+        "what": "remediation-v1 training candidates"
+      },
+      {
+        "hi": 2022400,
+        "lo": 2000001,
+        "source": "t3/evals/lessons.py HELDOUT_SEED_BLOCK",
+        "what": "remediation held-out block (the gate; by reservation, never opened)"
+      }
+    ],
+    "literal_scan": {
+      "files_scanned": 986,
+      "hits": [],
+      "n_hits": 0,
+      "skipped": [
+        "t1/rl/remediation/candidates-v2.jsonl",
+        "t1/rl/remediation/data-v2-meta.json",
+        "t1/rl/remediation/suite/heldout-v1-meta.json",
+        "t1/rl/remediation/suite/heldout-v1.jsonl",
+        "t1/rl/remediation/suite/heldout-v1.sha256",
+        "t1/rl/remediation/suite/heldout-v2-meta.json",
+        "t1/rl/remediation/suite/heldout-v2.jsonl",
+        "t1/rl/remediation/suite/heldout-v2.sha256"
+      ]
+    },
+    "n_seeds": 2400,
+    "ranges_overlapping": [],
+    "seed_range": [
+      3000000,
+      3004747
+    ],
+    "split_of": {
+      "dev": 2400,
+      "test": 0
+    }
+  },
+  "grid": "data.spec_for: incidents.candidate's (preset, tier, template) grid with the base cell over all 4 cells (period 112); commissioning from incidents.commissioning(seed, tier)",
+  "guard": "written with t1/rl/remediation/guard.py installed: the held-out gate was not opened",
+  "n_candidates": 2400,
+  "role_salt": "t1-remediation-roles-v1",
+  "roles": {
+    "holdout": 378,
+    "train": 1807,
+    "val": 215
+  },
+  "seed_base": 3000000,
+  "spec_hash_overlap": {
+    "candidates": 0,
+    "confirm": 0,
+    "dev": 0,
+    "heldout_gate": {
+      "block": [
+        2000001,
+        2022400
+      ],
+      "method": "seed block (file not opened)",
+      "seeds_inside": 0
+    },
+    "remediation_v1_candidates": 0,
+    "test": 0
+  },
+  "version": "t1-remediation-data-v2"
+}
