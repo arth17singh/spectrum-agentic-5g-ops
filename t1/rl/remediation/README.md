@@ -54,29 +54,45 @@ python -m tools.sm.run --run-id t1.rl.remediation-heldout-<UTC> --declaration /t
 Then commit `heldout-v1.jsonl`, `heldout-v1.sha256` and `heldout-v1-meta.json` from the job's outputs into
 `t1/rl/remediation/suite/` (about 2 MB) and check the sidecar: `heldout.load_heldout()` refuses a changed file.
 
-## 2. Evaluation (SageMaker, x86, the platform the test split was frozen on)
+## 2. Evaluation (SageMaker, x86, the platform the held-out set and the test split were frozen on)
 
-Run this at the commit that holds the artifact:
+Run this at the commit that holds the artifact and the frozen held-out set:
 
 ```
 python -m t1.rl.remediation.evaluate --print-declaration > /tmp/rem-eval-decl.json
 python -m tools.sm.run --run-id t3.evals.remediation-policy-<UTC> --declaration /tmp/rem-eval-decl.json \
-  --instance-type ml.m5.xlarge --max-run 3600 \
+  --instance-type ml.m5.4xlarge --max-run 3600 \
   --requirement "stable-baselines3==2.9.2" --requirement "gymnasium==1.4.0" --requirement "pydantic>=2.7,<3" \
-  --entry "-m t1.rl.remediation.evaluate --run-id {run_id} --evidence-dir {evidence_dir} --output-dir {output_dir} --workers 4"
+  --entry "-m t1.rl.remediation.evaluate --run-id {run_id} --evidence-dir {evidence_dir} --output-dir {output_dir} --workers 15"
 ```
 
-- **Items:** 151, one per incident: 18 test-masked, 15 test-visible, 18 confirmation and 100 dev-holdout.
+- **Items:** 1,159, one per incident: 1,008 heldout (primary), 18 test-masked (continuity), 15 test-visible, 18 confirmation and 100 dev-holdout (replication).
+- **Operators:** v1, ppo_sm_50k, config_revert, rule_baseline and `oracle_inverse` (`oracle.py`: the exact inverse of the injected fault, the per-cell ceiling; reported on every set, never pass/fail; `details.flags` carries `ORACLE_CEILING_LOW` if its per-cell rate on a set is below 0.90).
 - **Item score:** percell_recovered(v1) − percell_recovered(ppo_sm_50k), from `t3/evals/percell.py` (percell-v1: every cell green against its own healthy state at the grade step). `extra.diff` holds all three component differences.
-- **Target (joint, `targets.json` version 2):** on the 18 test-masked items, each 95% paired-bootstrap lower bound must clear its threshold:
+- **Target (joint, `targets.json` version 3):** on the 1,008 heldout items, each 95% paired-bootstrap lower bound must clear its threshold:
   1. per-cell recovered, v1 − ppo_sm_50k: > 0;
   2. network-level recovery, v1 − ppo_sm_50k: > −0.05 (non-inferior);
   3. diagnosis hit, v1 − ppo_sm_50k: > 0.
 
-  PASS only if all three pass. The unit's value is the smallest margin (lower bound minus threshold), so it is above 0 exactly when all three pass; `tools/check_unit.py` part e replays every component (`JOINT_METRIC`). The other suites report the same three components as replication, outside pass/fail.
-- **Why the target changed before any real evaluation:** network-level recovery is capped at 1.0 and rewards overshoot. In Live Fix run `t3.livefix-20261104T073206Z-9695` the swarm's ppo_sm_50k change scored network recovery 1.00 while cells 0 and 3 stayed degraded. The only data seen when changing it was a synthetic 5-incident smoke from a model trained on 18 incidents. `targets.json` records the change and the previous primary.
+  PASS only if all three pass. The unit's value is the smallest margin (lower bound minus threshold); `tools/check_unit.py` part e replays every component (`JOINT_METRIC`). The same components are reported on test-masked (continuity) and on test-visible, confirm and dev-holdout (replication), outside pass/fail.
+- **Why the target changed twice before any real evaluation** (`targets.json` records both, with what was seen):
+  - version 2: network-level recovery is capped at 1.0 and rewards overshoot (Live Fix run `t3.livefix-20261104T073206Z-9695`: network recovery 1.00 while cells 0 and 3 stayed degraded);
+  - version 3: n = 18 gives a ±0.25 interval on a difference; the 1,008-incident held-out set about ±0.04.
 - **Secondary measures,** reported per suite and operator with intervals vs each baseline: per-cell recovered, degraded and collateral cells, diagnosis hit, cells touched, total |d_power_db|, total |d_tilt_deg|, headroom used, power above healthy, and false changes on the healthy network.
 - **Confirmation suite:** it was frozen on Darwin-arm64, so the job rebuilds it from its frozen specs, and records that it did.
+
+## 2b. Learning curve (SageMaker, x86; descriptive, decision rule declared first)
+
+```
+python -m t1.rl.remediation.learning_curve --print-declaration > /tmp/rem-lc-decl.json
+python -m tools.sm.run --run-id t1.rl.remediation-learning-curve-<UTC> --declaration /tmp/rem-lc-decl.json \
+  --instance-type ml.m5.4xlarge --max-run 3600 \
+  --requirement "stable-baselines3==2.9.2" --requirement "gymnasium==1.4.0" --requirement "pydantic>=2.7,<3" \
+  --inputs train=s3://bb26-p-team13-data-483598626742-use2/jobs/t1.rl.remediation-train-20261104T073837Z/output/t1-rl-remediation-train-20261104T073837Z-664093/output/output.tar.gz \
+  --entry "-m t1.rl.remediation.learning_curve --run-id {run_id} --evidence-dir {evidence_dir} --output-dir {output_dir} --train-output {channel:train} --workers 15"
+```
+
+Behaviour-cloning round 0 on 10/25/50/100% of v1's train incidents (nested), each played on all 1,008 heldout incidents. Target `percell_gain_100_vs_50_ci_low > 0`: PASS = data-limited (next generation: more data); MISS = next generation: better inputs. DAgger is left out and declared (see the module docstring); the 100% point is checked against the training job's round 0.
 
 ## 3. Serving it (after the evaluation; each step needs the user's go)
 
