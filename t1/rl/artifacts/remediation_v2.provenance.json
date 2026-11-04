@@ -1,0 +1,105 @@
+{
+ "artifact": "remediation_v2.zip",
+ "base_architecture": "t1/rl/artifacts/ppo_sm_50k.zip policy kwargs on an extended observation space (weights not copied)",
+ "candidates_sha256": "f32192cf153b94d6c7c8b420bd5e4be54471edf1c4e49f983ad0ed4dd1c52f0c",
+ "code_sha": "c282d94e0ca584f97e0d7af1cc0c086003fd7bc6",
+ "data": {
+  "alarm_on_fault": 0,
+  "backend": "maveric-inprocess",
+  "by_reason": {
+   "kept": 1700,
+   "no_action already within tolerance at the grade step": 700
+  },
+  "by_role": {
+   "holdout": {
+    "candidates": 378,
+    "kept": 271,
+    "samples": 2439
+   },
+   "train": {
+    "candidates": 1807,
+    "kept": 1289,
+    "samples": 11601
+   },
+   "val": {
+    "candidates": 215,
+    "kept": 140,
+    "samples": 1260
+   }
+  },
+  "candidates": 2400,
+  "kept": 1700
+ },
+ "dataset_sha256": "b0a55a541fcc6bfd83523ec07f1ae336ab058b1e2e15c4e70aa9990a8a44998f",
+ "deadzone": {
+  "chosen": [
+   0.5,
+   0.5
+  ],
+  "n_val_incidents": 140,
+  "rule": "fewest healthy false changes among the deadzones whose per-cell recovered and network success are within 0.01 of no deadzone's; ties to the smaller; no deadzone unless it reduces false changes",
+  "table": {
+   "0.0/0.0": {
+    "healthy_false_change": 0.32857142857142857,
+    "n": 140,
+    "percell_recovered": 0.4928571428571429,
+    "success": 0.8928571428571429
+   },
+   "0.5/0.5": {
+    "healthy_false_change": 0.0,
+    "n": 140,
+    "percell_recovered": 0.5642857142857143,
+    "success": 0.9214285714285714
+   },
+   "1.0/1.0": {
+    "healthy_false_change": 0.0,
+    "n": 140,
+    "percell_recovered": 0.5571428571428572,
+    "success": 0.9214285714285714
+   },
+   "1.5/1.5": {
+    "healthy_false_change": 0.0,
+    "n": 140,
+    "percell_recovered": 0.55,
+    "success": 0.9
+   }
+  }
+ },
+ "development_rule": "dev data only; the held-out gate was not opened (guard installed)",
+ "hyper": {
+  "batch": 256,
+  "dagger_epochs": 150,
+  "dagger_patience": 20,
+  "dagger_rounds": 2,
+  "epochs": 300,
+  "loss": "mse on the actor mean (8 dims), targets data.unit_target",
+  "lr": 0.001,
+  "net": "ppo_sm_50k's policy kwargs (MultiInputPolicy 64-64 tanh, log_std_init -0.5) on the extended observation space",
+  "patience": 30,
+  "rollout_deadzone": [
+   0.0,
+   0.0
+  ],
+  "seed": 20261104
+ },
+ "meta": {
+  "baseline": {
+   "contract": "t1/rl/remediation/README.md section 3 (v2): ran___propose replays the case's action log up to that step and passes both states with per-cell shares",
+   "step": "fault_step - 1 (the step before the last configuration step preceding the incident)"
+  },
+  "label": "remediation-v2: behaviour cloning (+ residual DAgger) of the twin-verified way back to the commissioned configuration on fresh dev-split incidents; inputs: v1's masked observation plus KPI changes against the pre-incident baseline (no configuration history); deterministic",
+  "model_id": "t1-remediation-bc-delta",
+  "obs": "masked_delta",
+  "postprocess": {
+   "deadzone_power_db": 0.5,
+   "deadzone_tilt_deg": 0.5
+  },
+  "version": "v2-c282d94"
+ },
+ "n_candidates": 2400,
+ "run_id": "t1.rl.remediation-train-v2-20261104T111657Z",
+ "sha256": "cacb1defd85b087224e842417cb240e61a5ccda0ab0292954e54b4ae3290216d",
+ "smoke": false,
+ "unit": "t1.rl.remediation-train-v2",
+ "version": "v2-c282d94"
+}
