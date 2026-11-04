@@ -51,8 +51,14 @@ python -m tools.sm.run --run-id t1.rl.remediation-heldout-<UTC> --declaration /t
   --entry "-m t1.rl.remediation.heldout --run-id {run_id} --evidence-dir {evidence_dir} --output-dir {output_dir} --workers 4"
 ```
 
-Then commit `heldout-v1.jsonl`, `heldout-v1.sha256` and `heldout-v1-meta.json` from the job's outputs into
+Then commit `heldout-v2.jsonl`, `heldout-v2.sha256` and `heldout-v2-meta.json` from the job's outputs into
 `t1/rl/remediation/suite/` (about 2 MB) and check the sidecar: `heldout.load_heldout()` refuses a changed file.
+
+The job pins every process to one torch thread, records its host in the meta, and replays every chosen
+incident through the evaluation's own check before it writes anything (`self_replay`; nothing is written and
+the job fails otherwise). `heldout-v1` (frozen 08:21Z) stays committed as history: the first evaluation could
+not replay it on ml.m5.4xlarge, before any result. Run the evaluation and the learning curve on the instance
+type the set was frozen on (the meta's `host`).
 
 ## 2. Evaluation (SageMaker, x86, the platform the held-out set and the test split were frozen on)
 
@@ -61,11 +67,12 @@ Run this at the commit that holds the artifact and the frozen held-out set:
 ```
 python -m t1.rl.remediation.evaluate --print-declaration > /tmp/rem-eval-decl.json
 python -m tools.sm.run --run-id t3.evals.remediation-policy-<UTC> --declaration /tmp/rem-eval-decl.json \
-  --instance-type ml.m5.4xlarge --max-run 3600 \
+  --instance-type ml.m5.xlarge --max-run 5400 \
   --requirement "stable-baselines3==2.9.2" --requirement "gymnasium==1.4.0" --requirement "pydantic>=2.7,<3" \
-  --entry "-m t1.rl.remediation.evaluate --run-id {run_id} --evidence-dir {evidence_dir} --output-dir {output_dir} --workers 15"
+  --entry "-m t1.rl.remediation.evaluate --run-id {run_id} --evidence-dir {evidence_dir} --output-dir {output_dir} --workers 4 --instance ml.m5.xlarge"
 ```
 
+- **Fail-fast:** before any pool starts, the first 3 incidents of every suite are replayed through run_incident's own 1e-6 check; a mismatch stops the job in its first minutes, before any item or result.
 - **Items:** 1,159, one per incident: 1,008 heldout (primary), 18 test-masked (continuity), 15 test-visible, 18 confirmation and 100 dev-holdout (replication).
 - **Operators:** v1, ppo_sm_50k, config_revert, rule_baseline and `oracle_inverse` (`oracle.py`: the exact inverse of the injected fault, the per-cell ceiling; reported on every set, never pass/fail; `details.flags` carries `ORACLE_CEILING_LOW` if its per-cell rate on a set is below 0.90).
 - **Item score:** percell_recovered(v1) − percell_recovered(ppo_sm_50k), from `t3/evals/percell.py` (percell-v1: every cell green against its own healthy state at the grade step). `extra.diff` holds all three component differences.
@@ -86,10 +93,10 @@ python -m tools.sm.run --run-id t3.evals.remediation-policy-<UTC> --declaration 
 ```
 python -m t1.rl.remediation.learning_curve --print-declaration > /tmp/rem-lc-decl.json
 python -m tools.sm.run --run-id t1.rl.remediation-learning-curve-<UTC> --declaration /tmp/rem-lc-decl.json \
-  --instance-type ml.m5.4xlarge --max-run 3600 \
+  --instance-type ml.m5.xlarge --max-run 5400 \
   --requirement "stable-baselines3==2.9.2" --requirement "gymnasium==1.4.0" --requirement "pydantic>=2.7,<3" \
   --inputs train=s3://bb26-p-team13-data-483598626742-use2/jobs/t1.rl.remediation-train-20261104T073837Z/output/t1-rl-remediation-train-20261104T073837Z-664093/output/output.tar.gz \
-  --entry "-m t1.rl.remediation.learning_curve --run-id {run_id} --evidence-dir {evidence_dir} --output-dir {output_dir} --train-output {channel:train} --workers 15"
+  --entry "-m t1.rl.remediation.learning_curve --run-id {run_id} --evidence-dir {evidence_dir} --output-dir {output_dir} --train-output {channel:train} --workers 4 --instance ml.m5.xlarge"
 ```
 
 Behaviour-cloning round 0 on 10/25/50/100% of v1's train incidents (nested), each played on all 1,008 heldout incidents. Target `percell_gain_100_vs_50_ci_low > 0`: PASS = data-limited (next generation: more data); MISS = next generation: better inputs. DAgger is left out and declared (see the module docstring); the 100% point is checked against the training job's round 0.
