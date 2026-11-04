@@ -133,9 +133,19 @@ python -m t1.rl.remediation.evaluate --run-id smoke-y --evidence-dir E --output-
 **Inputs** (`t1/rl/policy.py` observation mode `masked_delta`):
 - v1's masked observation of the current state;
 - `kpi_delta` (30): each KPI's change against the network's own **pre-incident baseline**: per cell ue share, rsrp mean and p10, sinr mean and p10, coverage share and sla share, plus the network's coverage and sla ratios;
-- `cell_share` (8): the current per-cell coverage and sla shares.
+- `cell_share` (8): the current per-cell coverage and sla shares;
+- `serves_ues` (8): whether each cell serves UEs, now (4) and at the baseline (4).
 
 The baseline is the state at the step before the last configuration step that preceded the incident: `fault_step - 1` in the harness, right after commissioning. The per-cell shares are the twin's own counters (`ReplayTwin.kpis()["per_cell"]`).
+
+**The no-UE rule** (`t1/rl/policy.py` docstring; the first v2 training job, `t1-rl-remediation-train-v2-20261104T110129Z-abf665`, crashed on it). A cell serves UEs if its `ue_count` is a finite number above 0. For a cell that serves none, the twin reports floors for rsrp and sinr (−140 dBm, −30 dB) and `None` for its coverage and sla shares. Those values mean "undefined":
+- each UE-defined delta (rsrp and sinr mean/p10, coverage and sla share) of that cell is 0.0 unless it serves UEs both now and at the baseline;
+- its current shares are 0.0 before the 2x−1 mapping;
+- `serves_ues` carries the fact itself;
+- the ue-share delta stays defined, so a cell that lost its users still shows it;
+- any other `None`, NaN or ±inf a v2 field holds is undefined the same way.
+
+The observation length never changes: 30 + 8 + 8. Training (`v2.to_arrays`) and inference (`Policy`, `v2.BaselineAware`, and the `ran___propose` contract below, which passes `None` shares through unchanged) build it with the same function.
 
 **The config-history rule.** The policy never sees the baseline's configuration. Power and tilt are not differenced, and the baseline's power and tilt are neutralised before normalisation (`policy._kpi_only`). A real tilt drift or amplifier fault does not appear in the configuration record, and a config diff would make the task a trivial revert. `t1/rl/tests/test_remediation_v2.py` checks it: changing the baseline's power or tilt leaves the observation identical.
 
@@ -170,7 +180,7 @@ Operators are v2, v1, ppo_sm_50k and the oracle. config_revert and rule_baseline
 1. **Seeding records the baseline step.** `ran___seed_case` takes an optional `baseline_step` (an integer) and stores it on the case row. It is the number of `start_action_log` steps that precede the incident's last configuration step: the step count before the fault. For the incident suite, Live Fix and the swarm runs it is `fault_step - 1 = 1`, i.e. commissioning only.
 2. **Proposing replays the baseline.** When the served policy has `needs_baseline` (meta `obs` = `masked_delta`), `ran___propose`:
    - replays the case's action log up to `baseline_step` on a fresh twin, as `v2.baseline_from_log` does, with the twin's own verification;
-   - adds the per-cell `coverage_share` and `sla_share` lists from `twin.kpis()["per_cell"]` to both that baseline state and the current state;
+   - adds the per-cell `coverage_share` and `sla_share` lists from `twin.kpis()["per_cell"]` to both that baseline state and the current state, keeping `None` for a cell without UEs (the no-UE rule handles it);
    - calls `policy.propose(state, baseline=baseline)`.
 3. **A case without `baseline_step` is refused** with a ToolError naming the missing field, so the policy never guesses its baseline. Policies without `needs_baseline` (ppo_sm_50k, v1) are unchanged.
 4. **Serving:** as section 3, with `T1_POLICY_PATH=/var/task/t1/rl/artifacts/remediation_v2.zip` and `T3_POLICY_ID=t1-remediation-bc-delta`.

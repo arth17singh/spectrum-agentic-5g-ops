@@ -8,9 +8,12 @@ flat after 50% of the data, so the declared next step is better inputs, not more
 INPUTS (t1/rl/policy.py observation mode "masked_delta"): v1's masked observation of the current state, plus
 ``kpi_delta``: each KPI's change against the network's own pre-incident BASELINE (the PM-counter history an
 operator has: per cell ue share, rsrp mean/p10, sinr mean/p10, coverage share, sla share; the network's
-coverage and sla ratios), plus ``cell_share``, the current per-cell coverage and sla shares. The baseline is the
-twin state at the step before the last configuration step that preceded the incident: ``fault_step - 1`` in the
-harness (t3/evals/targets.json episode), i.e. right after commissioning.
+coverage and sla ratios), plus ``cell_share``, the current per-cell coverage and sla shares, plus ``serves_ues``,
+which cells serve UEs now and at the baseline. The baseline is the twin state at the step before the last
+configuration step that preceded the incident: ``fault_step - 1`` in the harness (t3/evals/targets.json
+episode), i.e. right after commissioning. A cell that serves no UEs has no defined rsrp, sinr or shares (the twin
+reports floors and None): THE NO-UE RULE in t1/rl/policy.py's docstring zeroes those deltas and shares and lets
+``serves_ues`` carry the fact, identically in training (to_arrays) and inference (Policy, BaselineAware).
 
 THE CONFIG-HISTORY RULE: the policy never sees the baseline's CONFIGURATION. Power and tilt are not differenced
 and the baseline's power and tilt are never read (policy._kpi_only neutralises them before normalisation). A real
@@ -67,8 +70,6 @@ HYPER = {**bc.HYPER, "dagger_rounds": 2, "rollout_deadzone": [0.0, 0.0],
          "net": "ppo_sm_50k's policy kwargs (MultiInputPolicy 64-64 tanh, log_std_init -0.5) on the extended "
                 "observation space"}
 GUARD_REASON = "remediation-v2 development (t1/rl/remediation/v2.py)"
-KPI_DELTA_DIM = 30   # 5 normalised per-cell keys x 4 + 2 network ratios + 2 share keys x 4
-CELL_SHARE_DIM = 8
 
 
 def protect() -> None:
@@ -174,15 +175,21 @@ def write_candidates(n: int = N_CANDIDATES) -> dict[str, Any]:
 
 # --------------------------------------------------------------------------- states with per-cell counters
 
+def _share(v: Any) -> float | None:
+    """A share as the state carries it: a float, or None where the twin has none (a cell without UEs)."""
+    return None if v is None else float(v)
+
+
 def with_shares(state: dict[str, Any], twin: Any) -> dict[str, Any]:
-    """``state`` plus the twin's per-cell coverage and sla shares (twin must be AT this state)."""
+    """``state`` plus the twin's per-cell coverage and sla shares (twin must be AT this state). A cell that serves no
+    UEs has None (``ReplayTwin.kpis``); the no-UE rule in t1/rl/policy.py turns that into a defined observation."""
     k = twin.kpis()
     per = sorted(k["per_cell"], key=lambda c: int(c["cell"]))
     if [round(float(c["power_dbm"]), 6) for c in per] != [round(float(p), 6) for p in state["power_dbm"]]:
         raise RuntimeError("with_shares: the twin is not at this state")
     out = dict(state)
-    out["coverage_share"] = [float(c["coverage_share"]) for c in per]
-    out["sla_share"] = [float(c["sla_share"]) for c in per]
+    out["coverage_share"] = [_share(c["coverage_share"]) for c in per]
+    out["sla_share"] = [_share(c["sla_share"]) for c in per]
     return out
 
 
@@ -190,7 +197,7 @@ def jsonable(state: dict[str, Any]) -> dict[str, Any]:
     out = D.jsonable_state(state)
     for k in ("coverage_share", "sla_share"):
         if k in state:
-            out[k] = [float(x) for x in state[k]]
+            out[k] = [_share(x) for x in state[k]]
     return out
 
 
@@ -368,15 +375,17 @@ def to_arrays(rows: list[dict[str, Any]]) -> dict[str, Any]:
 # --------------------------------------------------------------------------- model
 
 def spaces() -> tuple[Any, Any, dict[str, Any]]:
-    """ppo_sm_50k's observation space plus kpi_delta and cell_share; its action space and policy kwargs."""
+    """ppo_sm_50k's observation space plus kpi_delta, cell_share and serves_ues; its action space and policy
+    kwargs."""
     import gymnasium as gym
 
-    from t1.rl.policy import DELTA_CLIP
+    from t1.rl.policy import CELL_SHARE_DIM, DELTA_CLIP, KPI_DELTA_DIM, SERVES_UES_DIM
 
     obs_space, act_space, kwargs = bc.base_spaces()
     sp = dict(obs_space.spaces)
     sp["kpi_delta"] = gym.spaces.Box(-DELTA_CLIP, DELTA_CLIP, (KPI_DELTA_DIM,), np.float32)
     sp["cell_share"] = gym.spaces.Box(-1.0, 1.0, (CELL_SHARE_DIM,), np.float32)
+    sp["serves_ues"] = gym.spaces.Box(0.0, 1.0, (SERVES_UES_DIM,), np.float32)
     return gym.spaces.Dict(sp), act_space, kwargs
 
 

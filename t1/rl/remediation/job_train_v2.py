@@ -63,9 +63,10 @@ def declaration(specs: list[dict[str, Any]], code_sha: str, run_id: str | None =
                  "config": {"backend": BACKEND, "candidates": V.CANDIDATES_REL, "data_version": V.DATA_VERSION,
                             "seed_range": [min(int(s["seed"]) for s in specs), max(int(s["seed"]) for s in specs)],
                             "roles": roles, "role_salt": D.ROLE_SALT,
-                            "inputs": "t1/rl/policy.py obs 'masked_delta': v1's masked observation + kpi_delta (KPI "
-                                      "changes against the pre-incident baseline, fault_step - 1) + cell_share; "
-                                      "never the baseline's configuration (power/tilt): the config-history rule",
+                            "inputs": "t1/rl/policy.py obs 'masked_delta': v1's masked observation + kpi_delta (30: KPI "
+                                      "changes against the pre-incident baseline, fault_step - 1) + cell_share (8) + "
+                                      "serves_ues (8); never the baseline's configuration (power/tilt): the "
+                                      "config-history rule; cells without UEs under the no-UE rule (policy.py)",
                             "labels": "the residual way back to the commissioned configuration (data.label_for, twin "
                                       "replay), one step's limits; incidents kept only if the inverse verifiably "
                                       "recovers them",
@@ -73,7 +74,8 @@ def declaration(specs: list[dict[str, Any]], code_sha: str, run_id: str | None =
                                                                     "dagger-healthy@4", "dagger-healthy@5"],
                             "training": {**V.HYPER, "obs": V.OBS_MODE,
                                          "architecture": "ppo_sm_50k's policy kwargs on its observation space plus "
-                                                         "kpi_delta (30) and cell_share (8); actor mean regression",
+                                                         "kpi_delta (30), cell_share (8) and serves_ues (8); actor "
+                                                         "mean regression",
                                          "holdout": "role=holdout candidates are never trained on"},
                             "deadzone": {"candidates": [list(d) for d in V.DEADZONES], "tolerance": V.DZ_TOLERANCE,
                                          "rule": "v2.py docstring (chosen on the val incidents, dev data only)"},

@@ -34,11 +34,32 @@ power and tilt are not differenced and the baseline's power and tilt are never r
 appear in the configuration record (a tilt drift, a failing amplifier) is seen only through its KPIs, never as
 a config diff to revert. A policy in this mode needs ``baseline=`` on every call (propose, propose_text,
 action, observation), and both states need the per-cell share lists.
+
+THE NO-UE RULE (masked_delta only; ppo_sm_50k and v1 never pass through it). A cell SERVES UEs iff its
+``ue_count`` is a finite number > 0. For a cell that serves none, the twin reports floors for its UE-defined
+KPIs (rsrp mean/p10 -140 dBm, sinr mean/p10 -30 dB: ran_rl's _FLOOR_DBM / _FLOOR_DB) and None for its
+coverage and sla shares; those values mean "undefined", not a measurement. So:
+
+- ``kpi_delta``: a UE-defined KPI's delta for cell c (rsrp mean/p10, sinr mean/p10, coverage share, sla share)
+  is 0.0 unless c serves UEs in BOTH the current state and the baseline and both values are finite; the ue-share
+  delta is always defined (a cell that lost its users shows its lost share); a network ratio's delta is 0.0 if
+  either ratio is non-finite.
+- ``cell_share``: an undefined current share (no UEs, None or non-finite) is 0.0 before the 2x-1 mapping.
+- ``serves_ues`` (8): the serving indicator, 1.0 or 0.0, for the current state's cells then the baseline's.
+- Any other non-finite value v2 reads (None, NaN, +-inf) is undefined the same way: a non-finite UE-defined
+  KPI zeroes that delta; a non-finite ue_count means the cell does not serve UEs. The v1 part of the observation
+  (the SDK's normalised view of the current state) is computed after replacing a non-finite per-cell KPI with
+  the twin's own floor, a non-finite ue_count with 0 and a non-finite network ratio with 0: what the twin reports
+  for a cell without UEs; finite twin states pass unchanged.
+
+The observation's length never changes: kpi_delta 30, cell_share 8, serves_ues 8. Training (v2.to_arrays) and
+inference (Policy.propose, v2.BaselineAware) build it with this same function, observation_for.
 """
 
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -55,6 +76,15 @@ DELTA_KEYS = ("ue_count", "rsrp_mean", "rsrp_p10", "sinr_mean", "sinr_p10", "cov
 SHARE_KEYS = ("coverage_share", "sla_share")   # per-cell counters read from the raw state (twin.kpis per_cell)
 CONFIG_KEYS = ("power", "tilt")
 DELTA_CLIP = 2.0
+# The no-UE rule (module docstring): UE-defined per-cell KPIs, normalised key -> raw key, and the twin's floor for
+# each (ran_rl/twin/maveric/twin.py _FLOOR_DBM / _FLOOR_DB, the values it reports for a cell without UEs).
+UE_DEFINED = {"rsrp_mean": "rsrp_mean_dbm", "rsrp_p10": "rsrp_p10_dbm", "sinr_mean": "sinr_mean_db",
+              "sinr_p10": "sinr_p10_db"}
+FLOORS = {"rsrp_mean_dbm": -140.0, "rsrp_p10_dbm": -140.0, "sinr_mean_db": -30.0, "sinr_p10_db": -30.0}
+NETWORK_RATIOS = ("coverage_ratio", "sla_ratio")
+KPI_DELTA_DIM = 30     # (ue share + 4 UE-defined) x 4 cells + 2 network ratios + 2 shares x 4 cells
+CELL_SHARE_DIM = 8     # 2 shares x 4 cells
+SERVES_UES_DIM = 8     # 4 cells now + 4 cells at the baseline
 
 
 def quantise_toward_zero(v: np.ndarray, q: float = Q) -> np.ndarray:
@@ -174,24 +204,81 @@ def _normalised(state: Mapping[str, Any], cfg: Any) -> dict[str, np.ndarray]:
     return normalize_observation(s, np.zeros(2 * n), cfg if cfg is not None else EnvConfig())
 
 
+def _num(v: Any) -> float:
+    """A finite float, or NaN for anything else (None, NaN, +-inf, a bool, a non-number)."""
+    if isinstance(v, (bool, np.bool_)) or v is None:
+        return math.nan
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return math.nan
+    return f if math.isfinite(f) else math.nan
+
+
+def _vec(state: Mapping[str, Any], key: str) -> np.ndarray:
+    return np.asarray([_num(v) for v in state[key]], dtype=np.float64)
+
+
+def _scalar(state: Mapping[str, Any], key: str) -> float:
+    v = state[key]
+    return _num(np.ravel(v)[0] if isinstance(v, (list, tuple, np.ndarray)) else v)
+
+
+def serves_ues(state: Mapping[str, Any]) -> np.ndarray:
+    """Per cell: does it serve UEs (ue_count finite and > 0)? The no-UE rule's indicator."""
+    s = Policy._full_state(state)
+    ue = _vec(s, "ue_count")
+    return np.where(np.isnan(ue), False, ue > 0)
+
+
 def cell_shares(state: Mapping[str, Any]) -> np.ndarray:
-    """The per-cell coverage and sla shares of a raw state (SHARE_KEYS, cells in order), as one vector."""
+    """The per-cell coverage and sla shares (SHARE_KEYS, cells in order) as one vector, NaN where undefined (no UEs,
+    None or non-finite). Raises when the state does not carry the share lists at all."""
     missing = [k for k in SHARE_KEYS if k not in state]
     if missing:
         raise ValueError(f"observation mode 'masked_delta' needs the per-cell counters {missing} in the state "
                          "(t1/rl/remediation/v2.py with_shares: ReplayTwin.kpis()['per_cell'])")
-    return np.concatenate([np.asarray(state[k], dtype=np.float64).ravel() for k in SHARE_KEYS])
+    serve = np.tile(serves_ues(state), len(SHARE_KEYS))
+    vals = np.concatenate([_vec(state, k) for k in SHARE_KEYS])
+    return np.where(serve, vals, math.nan)
+
+
+def sanitized(state: Mapping[str, Any]) -> dict[str, Any]:
+    """The state the SDK normalisation sees in masked_delta: non-finite per-cell KPIs -> the twin's floors,
+    non-finite ue_count -> 0, non-finite network ratios -> 0 (finite twin states are unchanged)."""
+    s = Policy._full_state(state)
+    for raw, floor in FLOORS.items():
+        s[raw] = [floor if math.isnan(x) else x for x in _vec(s, raw)]
+    s["ue_count"] = [0.0 if math.isnan(x) else x for x in _vec(s, "ue_count")]
+    for k in NETWORK_RATIOS:
+        x = _scalar(s, k)
+        s[k] = 0.0 if math.isnan(x) else x
+    return s
 
 
 def kpi_delta(now: Mapping[str, np.ndarray], base: Mapping[str, np.ndarray],
               now_state: Mapping[str, Any], base_state: Mapping[str, Any]) -> np.ndarray:
-    """``now - base`` for DELTA_KEYS (masked, normalised units) and the per-cell shares (SHARE_KEYS), concatenated
-    and clipped to +-DELTA_CLIP. The configuration (CONFIG_KEYS, power_dbm, tilt_deg) is never read from the
-    baseline."""
-    parts = [np.asarray(now[k], dtype=np.float64).ravel() - np.asarray(base[k], dtype=np.float64).ravel()
-             for k in DELTA_KEYS]
-    parts.append(cell_shares(now_state) - cell_shares(base_state))
-    return np.clip(np.concatenate(parts), -DELTA_CLIP, DELTA_CLIP).astype(np.float32)
+    """``now - base`` for DELTA_KEYS (masked, normalised units) and the per-cell shares (SHARE_KEYS), under the no-UE
+    rule (module docstring), concatenated and clipped to +-DELTA_CLIP: always KPI_DELTA_DIM long. The configuration
+    (CONFIG_KEYS, power_dbm, tilt_deg) is never read from the baseline."""
+    both = serves_ues(now_state) & serves_ues(base_state)
+    parts = []
+    for k in DELTA_KEYS:
+        d = np.asarray(now[k], dtype=np.float64).ravel() - np.asarray(base[k], dtype=np.float64).ravel()
+        if k in UE_DEFINED:
+            raw = UE_DEFINED[k]
+            ok = both & ~np.isnan(_vec(now_state, raw)) & ~np.isnan(_vec(base_state, raw))
+            d = np.where(ok, d, 0.0)
+        elif k in NETWORK_RATIOS:
+            ok = not (math.isnan(_scalar(now_state, k)) or math.isnan(_scalar(base_state, k)))
+            d = d if ok else np.zeros_like(d)
+        parts.append(d)
+    sd = cell_shares(now_state) - cell_shares(base_state)    # NaN wherever either side is undefined
+    parts.append(np.where(np.isnan(sd), 0.0, sd))
+    out = np.clip(np.concatenate(parts), -DELTA_CLIP, DELTA_CLIP).astype(np.float32)
+    if out.shape != (KPI_DELTA_DIM,):
+        raise ValueError(f"kpi_delta has shape {out.shape}, expected ({KPI_DELTA_DIM},): a 4-cell state is required")
+    return out
 
 
 def _kpi_only(state: Mapping[str, Any]) -> dict[str, Any]:
@@ -209,17 +296,21 @@ def observation_for(state: Mapping[str, Any], mode: str = "masked", cfg: Any = N
     """The model observation of a raw twin state: the SDK's normalisation with prev_action = 0 (a stateless
     tool call), then the masked view when ``mode`` is "masked" or "masked_delta"; "masked_delta" adds
     ``kpi_delta`` against ``baseline`` (required there, ignored elsewhere). Shared by inference and training."""
-    obs = _normalised(state, cfg)
-    if mode in ("masked", "masked_delta"):   # v0 was trained on the masked view; the SDK's own trainer was not
-        obs = mask_obs(obs)
-    elif mode != "sdk":
-        raise ValueError(f"unknown observation mode {mode!r}")
     if mode == "masked_delta":
         if baseline is None:
             raise ValueError("observation mode 'masked_delta' needs the pre-incident baseline state")
-        base = mask_obs(_normalised(_kpi_only(baseline), cfg))
+        obs = mask_obs(_normalised(sanitized(state), cfg))
+        base = mask_obs(_normalised(sanitized(_kpi_only(baseline)), cfg))
         obs["kpi_delta"] = kpi_delta(obs, base, state, baseline)
-        obs["cell_share"] = np.clip(2.0 * cell_shares(state) - 1.0, -1.0, 1.0).astype(np.float32)
+        shares = cell_shares(state)
+        obs["cell_share"] = np.clip(2.0 * np.where(np.isnan(shares), 0.0, shares) - 1.0, -1.0, 1.0).astype(np.float32)
+        obs["serves_ues"] = np.concatenate([serves_ues(state), serves_ues(baseline)]).astype(np.float32)
+        return obs
+    obs = _normalised(state, cfg)
+    if mode == "masked":   # v0 was trained on the masked view; the SDK's own trainer was not
+        obs = mask_obs(obs)
+    elif mode != "sdk":
+        raise ValueError(f"unknown observation mode {mode!r}")
     return obs
 
 

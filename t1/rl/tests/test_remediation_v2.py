@@ -12,7 +12,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from t1.rl.policy import CONFIG_KEYS, DELTA_KEYS, SHARE_KEYS, Policy, observation_for
+from t1.rl.policy import (CELL_SHARE_DIM, CONFIG_KEYS, DELTA_KEYS, KPI_DELTA_DIM, SERVES_UES_DIM, SHARE_KEYS,
+                          Policy, observation_for)
 from t1.rl.remediation import guard
 from t1.rl.remediation import v2 as V
 from t3.evals import incidents as inc
@@ -59,9 +60,11 @@ def test_no_observation_key_is_a_config_difference(kept):
     o = observation_for(r["samples"][0]["state"], "masked_delta", baseline=r["baseline"])
     assert not set(CONFIG_KEYS) & set(DELTA_KEYS)
     assert not {"power_dbm", "tilt_deg"} & set(SHARE_KEYS)
-    assert o["kpi_delta"].shape == (V.KPI_DELTA_DIM,)
-    assert o["cell_share"].shape == (V.CELL_SHARE_DIM,)
-    assert set(o) == set(observation_for(r["samples"][0]["state"], "masked")) | {"kpi_delta", "cell_share"}
+    assert o["kpi_delta"].shape == (KPI_DELTA_DIM,)
+    assert o["cell_share"].shape == (CELL_SHARE_DIM,)
+    assert o["serves_ues"].shape == (SERVES_UES_DIM,)
+    assert set(o) == set(observation_for(r["samples"][0]["state"], "masked")) | {"kpi_delta", "cell_share",
+                                                                                   "serves_ues"}
 
 
 def test_baseline_kpis_do_reach_the_observation(kept):
@@ -86,6 +89,101 @@ def test_masked_delta_needs_a_baseline_and_the_shares(kept):
     with pytest.raises(ValueError, match="baseline"):
         pol.propose(r["samples"][0]["state"])
     assert isinstance(pol.propose(r["samples"][0]["state"], baseline=r["baseline"]), list)
+
+
+# --------------------------------------------------------------------------- the no-UE rule
+
+# Frozen v2 candidates whose replays reach a cell with zero UEs (found by scanning candidates-v2, dev data only):
+# index 215 (seed 3000444): cell 3 serves no UEs at the baseline (step 1) and after the fault (step 2);
+# index 131 (seed 3000264): the fault leaves cell 0 with no UEs (step 2) while it served UEs at the baseline.
+ZERO_UE_CASES = ((215, 3), (131, 0))
+
+
+def _no_nan(o: dict) -> bool:
+    return all(np.all(np.isfinite(np.asarray(v, dtype=np.float64))) for v in o.values())
+
+
+def _shapes_ok(o: dict) -> bool:
+    return (o["kpi_delta"].shape == (KPI_DELTA_DIM,) and o["cell_share"].shape == (CELL_SHARE_DIM,)
+            and o["serves_ues"].shape == (SERVES_UES_DIM,))
+
+
+@pytest.mark.parametrize("index,cell", ZERO_UE_CASES)
+def test_a_cell_without_ues_gets_a_defined_fixed_length_observation(targets, index, cell):
+    spec = V.load_candidates()[index]
+    tw, now, base = V.run_script(spec, targets, with_fault=True)
+    assert now["ue_count"][cell] == 0 and now["coverage_share"][cell] is None and now["sla_share"][cell] is None
+    o = observation_for(now, "masked_delta", baseline=base)
+    assert _shapes_ok(o) and _no_nan(o)
+    n = 4
+    serve_now, serve_base = o["serves_ues"][:n], o["serves_ues"][n:]
+    assert serve_now[cell] == 0.0
+    assert serve_base[cell] == (1.0 if base["ue_count"][cell] > 0 else 0.0)
+    # every UE-defined delta of that cell is 0 (rsrp/sinr mean and p10: kpi_delta[4..19]; shares: [22..29])
+    d = o["kpi_delta"]
+    for k in range(1, 5):
+        assert d[k * n + cell] == 0.0
+    assert d[22 + cell] == 0.0 and d[26 + cell] == 0.0
+    # its current shares are 0.0 before the 2x-1 mapping
+    assert o["cell_share"][cell] == -1.0 and o["cell_share"][n + cell] == -1.0
+    # the ue-share delta stays defined: a cell that lost its users shows it
+    if base["ue_count"][cell] > 0:
+        assert d[cell] < 0.0
+
+
+def test_non_finite_values_are_undefined_not_poison(kept):
+    _, r = kept
+    state, base = dict(r["samples"][0]["state"]), dict(r["baseline"])
+    clean = observation_for(state, "masked_delta", baseline=base)
+    state["rsrp_p10_dbm"] = [float("nan")] + list(state["rsrp_p10_dbm"][1:])
+    state["coverage_share"] = [float("nan")] + list(state["coverage_share"][1:])
+    base["sinr_mean_db"] = list(base["sinr_mean_db"][:2]) + [float("inf"), base["sinr_mean_db"][3]]
+    base["sla_share"] = list(base["sla_share"][:3]) + [None]
+    state["sla_ratio"] = float("nan")
+    o = observation_for(state, "masked_delta", baseline=base)
+    assert _shapes_ok(o) and _no_nan(o)
+    n = 4
+    d = o["kpi_delta"]
+    assert d[2 * n + 0] == 0.0          # rsrp_p10 delta of cell 0 (NaN now)
+    assert d[22 + 0] == 0.0             # coverage-share delta of cell 0 (NaN now)
+    assert d[3 * n + 2] == 0.0          # sinr_mean delta of cell 2 (inf at the baseline)
+    assert d[26 + 3] == 0.0             # sla-share delta of cell 3 (None at the baseline)
+    assert d[21] == 0.0                 # the network sla_ratio delta (NaN now)
+    assert o["cell_share"][0] == -1.0   # an undefined current share is 0.0 before 2x-1
+    untouched = [i for i in range(KPI_DELTA_DIM) if i not in (2 * n, 22, 3 * n + 2, 29, 21)]
+    assert np.array_equal(d[untouched], clean["kpi_delta"][untouched])
+    nan_ue = dict(r["samples"][0]["state"], ue_count=[float("nan")] + list(r["samples"][0]["state"]["ue_count"][1:]))
+    o2 = observation_for(nan_ue, "masked_delta", baseline=r["baseline"])
+    assert _shapes_ok(o2) and _no_nan(o2) and o2["serves_ues"][0] == 0.0
+
+
+@pytest.mark.parametrize("index,cell", ZERO_UE_CASES)
+def test_training_and_inference_build_the_identical_vector(targets, index, cell):
+    """The training path (jsonable rows -> observation_for) and the inference path (the live twin's state with
+    shares, the baseline rebuilt from the action log, Policy.observation) agree exactly, zero-UE cell included."""
+    spec = V.load_candidates()[index]
+    tw, now, base = V.run_script(spec, targets, with_fault=True)
+    train_obs = observation_for(V.jsonable(now), "masked_delta", baseline=V.jsonable(base))
+    built, _ = inc.build(spec, targets)   # None when the keep rule drops it; begin() needs scenario, seed, preset
+    op = V.BaselineAware(Policy(V.new_model(), V.meta_for("vtest")))
+    op.begin(built or spec, {"twin": tw, "targets": targets, "run_id": "test"})
+    infer_obs = op.policy.observation(V.with_shares(tw.state, tw), baseline=op._baseline)
+    assert set(train_obs) == set(infer_obs)
+    for k in train_obs:
+        assert np.array_equal(np.asarray(train_obs[k]), np.asarray(infer_obs[k])), k
+    assert isinstance(op.act(tw.state, []), (list, type(None)))
+
+
+def test_v2_sample_generation_survives_a_zero_ue_baseline(targets):
+    spec = V.load_candidates()[215]
+    r = V.incident_samples(spec, targets)
+    if r["kept"]:
+        assert r["baseline"]["coverage_share"][3] is None
+        a = V.to_arrays([r])
+        assert np.all(np.isfinite(a["target"]))
+        assert all(np.all(np.isfinite(v.astype(np.float64))) for v in a["obs"].values())
+    else:
+        assert r["reason"] and "TypeError" not in r["reason"]
 
 
 # --------------------------------------------------------------------------- the baseline contract
