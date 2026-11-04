@@ -460,7 +460,12 @@ class LiveFix:
                                "Live Fix card), one it predicts to turn a cell amber asks for two people",
             "twin": {"kind": "maveric-inprocess", "version": "ran-rl-1.2.9", "scenario": inc["scenario"],
                      "seed": int(inc["seed"]), "preset": inc["preset"],
-                     "host": "team13 RAN-tools Lambda behind the AgentCore Gateway"}})
+                     "host": "team13 RAN-tools Lambda behind the AgentCore Gateway"},
+            # The policy behind ran___propose, as the operator says the tools Lambda serves it (same variables and
+            # defaults as t3/evals/live_swarm.served_models); the Lambda's own change records name it too.
+            "served_policy": {"model_id": os.environ.get("T3_POLICY_ID", "t1-ppo-cco-sm"),
+                              "version": os.environ.get("T3_POLICY_VERSION", "50k-a09e"),
+                              "artifact": os.environ.get("T3_POLICY_ARTIFACT", "t1/rl/artifacts/ppo_sm_50k.zip")}})
 
     def _write_result(self, run: Run, passed: bool) -> None:
         if "result" in run.evidence:
