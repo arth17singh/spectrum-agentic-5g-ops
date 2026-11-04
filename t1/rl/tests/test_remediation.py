@@ -268,3 +268,66 @@ def test_evaluate_refuses_limits_outside_smoke_and_big_smokes():
         E.main(["--print-declaration", "--smoke", "--limit-test", "18", "--limit-confirm", "18", "--holdout", "1"])
     with pytest.raises(SystemExit):  # the held-out set (1,008) is never a smoke unless limited
         E.main(["--print-declaration", "--smoke", "--limit-test", "1", "--limit-confirm", "1", "--holdout", "1"])
+
+
+# --------------------------------------------------------------------------- learning curve
+
+def test_learning_curve_subsets_are_nested_and_keep_v1_order():
+    from t1.rl.remediation import learning_curve as LC
+
+    seeds = np.repeat(np.arange(1000, 1040), 3)
+    a = {"seed": seeds, "role": np.where(seeds < 1030, "train", "val"),
+         "kind": np.tile(np.array(["fault@2", "dagger-fault@4", "healthy@2"]), 40),
+         "target": np.arange(120, dtype=np.float32)[:, None] * np.ones((1, 8), dtype=np.float32),
+         "obs": {"power": np.arange(120, dtype=np.float32)[:, None] * np.ones((1, 4), dtype=np.float32)}}
+    m = LC.fraction_masks(a, LC.FRACTIONS)
+    sets = [set(seeds[m[f]["mask"]].tolist()) for f in LC.FRACTIONS]
+    assert [len(s) for s in sets] == [3, 8, 15, 30] and all(x <= y for x, y in zip(sets, sets[1:]))
+    full = LC.subset(a, m[1.0]["mask"])
+    assert full["target"][:, 0].tolist() == sorted(full["target"][:, 0].tolist())  # original order kept
+    assert not np.isin(a["kind"][m[1.0]["mask"]], ["dagger-fault@4"]).any()  # twin-labelled states only
+    assert set(seeds[LC.twin_labelled(a, "val")].tolist()) == set(range(1030, 1040))
+
+
+def test_learning_curve_smoke_and_part_e_replay(kept_rows, tiny_heldout, tmp_path):
+    sys.path[:0] = [str(ROOT / "tools"), str(ROOT / "tools" / "tests")]
+    check_unit = pytest.importorskip("check_unit")
+    evfake = pytest.importorskip("evfake")
+    from t1.rl.remediation import learning_curve as LC
+
+    _, rows = kept_rows
+    kept = [dict(r) for r in rows if r["kept"]]
+    for i, r in enumerate(kept):
+        r["role"] = "val" if i % 3 == 2 else "train"
+    arr = D.to_arrays(kept, bc.OBS_MODE)
+    ds = tmp_path / "train-out" / "dataset.npz"
+    ds.parent.mkdir()
+    np.savez_compressed(ds, target=arr["target"], seed=np.array([i[0] for i in arr["info"]]),
+                        role=np.array([i[1] for i in arr["info"]]), kind=np.array([i[2] for i in arr["info"]]),
+                        **{f"obs_{k}": v for k, v in arr["obs"].items()})
+    ev = tmp_path / "ev"
+    rid = "t1.rl.remediation-learning-curve-smoke-test"
+    assert LC.main(["--run-id", rid, "--evidence-dir", str(ev), "--output-dir", str(tmp_path / "out"),
+                    "--train-output", str(ds.parent), "--smoke", "--heldout-file", str(tiny_heldout),
+                    "--limit-heldout", "2", "--epochs", "2", "--no-dataset-check", "--declare"]) == 0
+    items = [json.loads(x) for x in (ev / f"records/{rid}/item.jsonl").read_text().splitlines()]
+    res = json.loads((ev / f"results/{rid}.json").read_text())
+    decl = json.loads((ev / f"declared/{rid}.json").read_text())
+    assert decl["target"]["metric"] == LC.METRIC and decl["twin"]["config"]["decision_rule"] == LC.DECISION
+    assert len(items) == res["n_items"] == 2 and set(res["details"]["curve"]) == {"lc010", "lc025", "lc050", "lc100"}
+    for it in items:
+        mods = it["extra"]["models"]
+        assert it["score"] == float(mods["lc100"]["percell_recovered"]) - float(mods["lc050"]["percell_recovered"])
+    assert res["details"]["decision"] == (LC.DECISION["if_pass"] if res["passed"] else LC.DECISION["if_miss"])
+
+    aws = evfake.FakeAws(now="2026-11-04T09:00:00Z")
+    t = datetime(2026, 11, 4, 8, 0, 0, tzinfo=timezone.utc)
+    for rel in (f"declared/{rid}.json", f"records/{rid}/item.jsonl", f"results/{rid}.json"):
+        t += timedelta(seconds=1)
+        aws.s3.put("fixture-bucket", "evidence/" + rel, (ev / rel).read_bytes(), t.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    ck = check_unit.Checker(rid, check_unit.S3Evidence(aws.client("s3"), "s3://fixture-bucket/evidence/"), aws, None,
+                            poll_s=0.0, now=aws.now())
+    ck.load()
+    ck.decl_time = ck.ev.time(ck.decl_rel)
+    ck.part_e()
+    assert ck.parts["e"].state == check_unit.PASS, "\n".join(ck.parts["e"].lines)

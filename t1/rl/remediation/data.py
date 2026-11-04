@@ -119,7 +119,6 @@ def load_candidates(path: Path = CANDIDATES_PATH, check: bool = True) -> list[di
 def exclusion_checks(specs: list[dict[str, Any]]) -> dict[str, Any]:
     """The seeds against every seed set and range the repo uses, plus a literal scan of the repo."""
     from t3.evals import confirm as C
-
     from t3.evals.lessons import HELDOUT_SEED_BLOCK
 
     seeds = sorted(int(s["seed"]) for s in specs)
