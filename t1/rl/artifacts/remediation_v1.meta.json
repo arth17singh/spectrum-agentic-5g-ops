@@ -1,0 +1,10 @@
+{
+ "label": "remediation-v1: behaviour cloning (+DAgger) of the twin-verified way back to the commissioned configuration on fresh dev-split incidents; ppo_sm_50k's SB3 PPO actor architecture; deterministic",
+ "model_id": "t1-remediation-bc",
+ "obs": "masked",
+ "postprocess": {
+  "deadzone_power_db": 1.0,
+  "deadzone_tilt_deg": 1.0
+ },
+ "version": "v1-21f9696"
+}
