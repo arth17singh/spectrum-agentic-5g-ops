@@ -1,0 +1,139 @@
+{
+ "attempts_max": 400,
+ "exclusion": {
+  "clean": true,
+  "explicit_collisions": {},
+  "explicit_sets": {
+   "candidates": 84,
+   "confirm": 18,
+   "dev": 35,
+   "livefix_faults": 10,
+   "livefix_runs": 2,
+   "remediation_train_candidates": 2400,
+   "test": 33
+  },
+  "known_ranges": [
+   {
+    "hi": 899999,
+    "lo": 0,
+    "source": "t1/sft/execgen.py: h(seed key) % SEED_LIMIT (900000)",
+    "what": "Track 1 SFT execution data"
+   },
+   {
+    "hi": 989999,
+    "lo": 900000,
+    "source": "t1/evals/gen_execution.py: SEED_BASE 900000 + h % 90000",
+    "what": "Track 1 execution eval (reserved)"
+   },
+   {
+    "hi": 404,
+    "lo": 42,
+    "source": "RL hand-in evaluation.json (101-105, 200-204, 300-304, 400-404); PPO seed 42",
+    "what": "RL evaluation scenarios and the PPO seed"
+   },
+   {
+    "hi": 4019,
+    "lo": 99,
+    "source": "t3/trust: seed 99, 1000+s, 2000-2019, 3000-3019, 4000-4019",
+    "what": "trust gate jobs, ladders and demo"
+   },
+   {
+    "hi": 4183,
+    "lo": 4100,
+    "source": "t3/evals/incidents.py: SEED_BASE 4100, N_CANDIDATES 84",
+    "what": "t3 incident suite candidates (test + dev)"
+   },
+   {
+    "hi": 7099,
+    "lo": 4161,
+    "source": "t3/evals/faults.py DEV_SEED_BASE 7000 (cache 7002-7041); Live Fix runs on 4161 and 7002",
+    "what": "Live Fix fault cache and runs"
+   },
+   {
+    "hi": 99999,
+    "lo": 10000,
+    "source": "t2/gen.py: BASE_SEED 10000 + episode",
+    "what": "Track 2 episodes"
+   },
+   {
+    "hi": 499999,
+    "lo": 100000,
+    "source": "silos/config.yaml: seed_base 100000-400000",
+    "what": "silo seeds"
+   },
+   {
+    "hi": 990271,
+    "lo": 990003,
+    "source": "t3/evals/suite/incidents-confirm.jsonl",
+    "what": "confirmation suite"
+   },
+   {
+    "hi": 1004759,
+    "lo": 1000001,
+    "source": "t1/rl/remediation/candidates.jsonl (data.SEED_BASE 1,000,000)",
+    "what": "remediation training candidates"
+   }
+  ],
+  "literal_scan": {
+   "files_scanned": 976,
+   "hits": [],
+   "n_hits": 0,
+   "own_files_skipped": [
+    "t1/rl/remediation/heldout.py",
+    "t1/rl/remediation/heldout-reservation.json",
+    "t1/rl/tests/test_heldout.py",
+    "t1/rl/remediation/suite/heldout-v1.jsonl",
+    "t1/rl/remediation/suite/heldout-v1-meta.json"
+   ]
+  },
+  "n_seeds": 22400,
+  "ranges_overlapping": [],
+  "seed_block": [
+   2000001,
+   2022400
+  ],
+  "split_of": {
+   "dev": 11181,
+   "test": 11219
+  },
+  "split_of_note": "split_of labels every seed dev or test; this set is its own split ('heldout')"
+ },
+ "generator_input_sha256": "590bf7e9cf32762654cb45d8b7e14c8217b0585d1abba4f798d0185cfbfaf8ea",
+ "index_rule": "candidate k: stratum k % 56, attempt k // 56, seed SEED_BASE + k; stratum s = (template * 4 + base_cell) * 2 + preset",
+ "n_candidate_specs": 22400,
+ "n_strata": 56,
+ "n_target": 1008,
+ "presets": [
+  "official",
+  "viavi-like"
+ ],
+ "quota": 18,
+ "seed_base": 2000001,
+ "seed_block": [
+  2000001,
+  2022400
+ ],
+ "selection": "per stratum the first QUOTA kept candidates in attempt order",
+ "spec_hash_overlap": {
+  "candidates": 0,
+  "confirm": 0,
+  "dev": 0,
+  "remediation_train_candidates": 0,
+  "test": 0
+ },
+ "templates": [
+  "tilt+5",
+  "power-6",
+  "tilt+4",
+  "power-4",
+  "power-3+tilt+3",
+  "power-6+tilt+5",
+  "two-cell:power-6|tilt+5"
+ ],
+ "tier": "masked",
+ "version": "t1-remediation-heldout-v1",
+ "waves": [
+  28,
+  12
+ ]
+}

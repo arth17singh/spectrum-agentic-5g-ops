@@ -35,6 +35,25 @@ python -m tools.sm.run --run-id t1.rl.remediation-train-<UTC> --declaration /tmp
 
 Commit the three files into `t1/rl/artifacts/`. The image build and the evaluation ship them from git.
 
+## 1b. The large held-out set (SageMaker, x86; frozen before any policy is evaluated on it)
+
+`heldout.py` builds 1,008 masked faults with the t3 test split's generator (`incidents.build` v4 keep rule),
+stratified: 7 templates x 4 base cells x 2 presets = 56 strata, 18 each. Candidate k is stratum k % 56,
+attempt k // 56, seed 2,000,001 + k; per stratum the first 18 kept candidates in attempt order, so the set
+does not depend on workers or timing. The seed block and its exclusion check (known ranges, every suite,
+the training candidates, spec hashes, a literal scan of the repo) are in `heldout-reservation.json`.
+
+```
+python -m t1.rl.remediation.heldout --print-declaration > /tmp/rem-heldout-decl.json
+python -m tools.sm.run --run-id t1.rl.remediation-heldout-<UTC> --declaration /tmp/rem-heldout-decl.json \
+  --instance-type ml.m5.xlarge --max-run 3600 --requirement "stable-baselines3==2.9.2" \
+  --requirement "gymnasium==1.4.0" --requirement "pydantic>=2.7,<3" \
+  --entry "-m t1.rl.remediation.heldout --run-id {run_id} --evidence-dir {evidence_dir} --output-dir {output_dir} --workers 4"
+```
+
+Then commit `heldout-v1.jsonl`, `heldout-v1.sha256` and `heldout-v1-meta.json` from the job's outputs into
+`t1/rl/remediation/suite/` (about 2 MB) and check the sidecar: `heldout.load_heldout()` refuses a changed file.
+
 ## 2. Evaluation (SageMaker, x86, the platform the test split was frozen on)
 
 Run this at the commit that holds the artifact:
