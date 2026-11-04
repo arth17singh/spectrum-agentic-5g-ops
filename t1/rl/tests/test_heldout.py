@@ -106,7 +106,9 @@ def test_max_candidates_keeps_contiguous_prefixes():
 def test_outputs_freeze_and_verify(tmp_path: Path):
     g = H.generate(evaluate=fake_evaluate, targets=FAKE_TARGETS, strata=range(1, 5), quota=3, attempts_max=30,
                    log=lambda m: None)
-    meta = H.write_outputs(g, tmp_path, "0" * 40, None, None, smoke=True)
+    ok = {"ok": True, "n": 12, "mismatches": 0, "first_mismatches": [], "worker_torch_threads": [1], "path": "fake"}
+    meta = H.write_outputs(g, tmp_path, "0" * 40, None, None, smoke=True, replay_check=ok)
+    assert meta["replay_check"] == ok and meta["host"]["platform"] and meta["version"] == H.VERSION
     data = (tmp_path / H.SUITE_NAME).read_bytes()
     assert meta["sha256"] == hashlib.sha256(data).hexdigest() and meta["n_incidents"] == 12
     assert (tmp_path / H.HASH_PATH.name).read_text() == f"{meta['sha256']}  {H.SUITE_NAME}\n"
@@ -152,3 +154,37 @@ def test_heldout_block_is_excluded_from_lessons_and_training_data():
     with pytest.raises(ValueError, match="held-out block"):
         D.fresh_seeds(50, start=H.SEED_LO - 3)
     assert D.fresh_seeds(3) == D.fresh_seeds(3, start=D.SEED_BASE)  # the training candidates are unaffected
+
+
+def test_write_outputs_refuses_a_suite_that_did_not_replay(tmp_path: Path):
+    g = H.generate(evaluate=fake_evaluate, targets=FAKE_TARGETS, strata=range(1, 3), quota=2, attempts_max=20,
+                   log=lambda m: None)
+    bad = {"ok": False, "n": 4, "mismatches": 1, "first_mismatches": [{"incident_id": "x", "ok": False}]}
+    with pytest.raises(H.ReplayGuard):
+        H.write_outputs(g, tmp_path, "0" * 40, None, None, smoke=True, replay_check=bad)
+    with pytest.raises(H.ReplayGuard):  # no check at all is a refusal too
+        H.write_outputs(g, tmp_path, "0" * 40, None, None, smoke=True, replay_check=None)
+    assert not (tmp_path / H.SUITE_NAME).exists() and (tmp_path / H.REPLAY_NAME).exists()
+
+
+def test_generator_and_the_evaluations_replay_agree(tmp_path: Path):
+    """Generated serially and in a pool, every incident replays through run_incident's own 1e-6 check, and the
+    evaluation's fail-fast self-check passes; a tampered incident is caught by both."""
+    from t1.rl.remediation import evaluate as E
+    from t3.evals.graders import load_targets
+
+    tg = load_targets()
+    for workers in (1, 2):
+        g = H.generate(workers=workers, strata=[0, 3], quota=1, attempts_max=6, log=lambda m: None)
+        incs = [r["incident"] for r in g["chosen"]]
+        assert len(incs) == 2
+        rc = H.self_replay(incs, tg, workers=workers)
+        assert rc["ok"] and rc["n"] == 2 and rc["worker_torch_threads"] == [1]
+        assert E.self_check({"heldout": incs}, tg)["replayed"] == {"heldout": 2}
+    bad = json.loads(json.dumps(incs[0]))
+    bad["post_fault_kpis"]["sinr_p10_db"] += 5e-4
+    assert H.self_replay([bad], tg)["mismatches"] == 1
+    with pytest.raises(SystemExit, match="fail-fast self-check"):
+        E.self_check({"heldout": [bad]}, tg)
+    meta = H.write_outputs(g, tmp_path, "0" * 40, None, None, smoke=True, replay_check=rc)
+    assert meta["host"]["torch_threads"] == 1  # the main process is pinned too

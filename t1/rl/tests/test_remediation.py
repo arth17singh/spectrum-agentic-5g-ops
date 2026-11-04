@@ -177,7 +177,8 @@ def tiny_heldout(tmp_path_factory):
 
     gen = H.generate(strata=[2, 3], quota=1, max_candidates=8, log=lambda m: None)
     d = tmp_path_factory.mktemp("heldout")
-    H.write_outputs(gen, d, "0" * 40, None, None, smoke=True)
+    rc = H.self_replay([r["incident"] for r in gen["chosen"]], load_targets())
+    H.write_outputs(gen, d, "0" * 40, None, None, smoke=True, replay_check=rc)
     return d / H.SUITE_NAME
 
 

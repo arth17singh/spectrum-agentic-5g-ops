@@ -11,7 +11,7 @@ Every operator plays every incident through t3/evals/run.py's ``run_incident`` (
 fault, three operator steps, graded at step 5 against the same-step healthy counterfactual): the path the
 judged swarm and baselines were scored on. Suites (t1/rl/remediation/targets.json version 3, declared first):
 
-    heldout                     the PRIMARY set: t1/rl/remediation/suite/heldout-v1.jsonl, 1,008 masked
+    heldout                     the PRIMARY set: t1/rl/remediation/suite/heldout-v2.jsonl, 1,008 masked
                                 incidents in 56 strata (frozen on x86_64: replayed as frozen in the job)
     test-masked                 continuity: the 18 masked incidents the judged swarm was scored on
     test-visible                the frozen test split's visible tier (frozen on x86_64)
@@ -34,6 +34,10 @@ confirm, test-visible and dev-holdout (replication); neither is part of pass/fai
 The oracle (t1/rl/remediation/oracle.py, the exact inverse of the injected fault) is the per-cell ceiling:
 reported on every set, never part of pass/fail, and flagged loudly in details.flags when its per-cell
 recovered rate on a set is below targets.json oracle.flag_below.
+
+Fail-fast: before the pool starts, the first 3 incidents of every suite are replayed through run_incident's
+own 1e-6 check in the (pinned) main process; a mismatch stops the run before any item or result exists.
+The host (CPU, threads, torch) is recorded in details.host.
 """
 
 from __future__ import annotations
@@ -142,15 +146,45 @@ def holdout(targets: dict[str, Any], n: int) -> tuple[list[dict[str, Any]], dict
                   "candidates_sha256": sha256_file(D.CANDIDATES_PATH)}
 
 
+def _host() -> dict[str, Any]:
+    from t1.rl.remediation.heldout import host_info
+
+    return host_info()
+
+
 def heldout_set(path: Path | None = None) -> tuple[list[dict[str, Any]], str, dict[str, Any]]:
     """The frozen held-out incidents (sha256 checked against the sidecar) and the meta written next to them."""
     from t1.rl.remediation import heldout as HO
 
     path = Path(path or HO.SUITE_PATH)
     incs, sha = HO.load_heldout(path)
-    meta_p = path.with_name(HO.META_NAME)
+    meta_p = path.with_name(f"{path.stem}-meta.json")
     meta = json.loads(meta_p.read_text()) if meta_p.exists() else {}
     return incs, sha, meta
+
+
+SELF_CHECK_N = 3
+
+
+def self_check(suites: dict[str, list[dict[str, Any]]], targets: dict[str, Any], n: int = SELF_CHECK_N) -> dict:
+    """Fail fast: replay the first ``n`` incidents of every suite through run_incident's own 1e-6 check in this
+    (pinned) process before any pool starts. A mismatch stops the run before any item or result exists."""
+    from t1.rl.remediation.heldout import host_info
+    from t3.evals.operators import make
+    from t3.evals.run import ReplayMismatch, run_incident, single_thread
+
+    single_thread()
+    checked: dict[str, int] = {}
+    for s, incs in suites.items():
+        for i in incs[:n]:
+            try:
+                run_incident(i, make("no_action"), targets)
+            except ReplayMismatch as exc:
+                raise SystemExit(f"fail-fast self-check: suite {s}, incident {i['incident_id']} does not replay here "
+                                 f"({str(exc)[-300:]}). Host: {json.dumps(host_info())}. Run where the set was frozen "
+                                 "(its meta's host and instance type) or pass --rebuild always (records it).") from None
+            checked[s] = checked.get(s, 0) + 1
+    return {"replayed": checked, "per_suite": n, "path": "t3/evals/run.py run_incident (no_action)", "ok": True}
 
 
 def load_suites(targets: dict[str, Any], *, n_holdout: int, limit: dict[str, int] | None = None,
@@ -175,10 +209,10 @@ def load_suites(targets: dict[str, Any], *, n_holdout: int, limit: dict[str, int
     info: dict[str, Any] = {}
     sel = ho[: limit.get("heldout", None)]
     suites["heldout"], rb = maybe(sel, ho_meta.get("platform"))
-    info["heldout"] = {"file": "t1/rl/remediation/suite/heldout-v1.jsonl" if heldout_path is None else str(heldout_path),
+    info["heldout"] = {"file": "t1/rl/remediation/suite/heldout-v2.jsonl" if heldout_path is None else str(heldout_path),
                        "sha256": ho_sha, "frozen_on": ho_meta.get("platform"), "rebuilt_here": rb,
                        "n": len(suites["heldout"]), "version": ho_meta.get("version"),
-                       "frozen_by_code": ho_meta.get("code_sha")}
+                       "frozen_by_code": ho_meta.get("code_sha"), "frozen_host": ho_meta.get("host")}
     for name, tier in (("test-masked", "masked"), ("test-visible", "visible")):
         sel = [i for i in test if i.get("tier", "visible") == tier][: limit.get(name, None)]
         suites[name], rb = maybe(sel, test_platform)
@@ -489,7 +523,9 @@ def declaration(specs: dict[str, dict[str, Any]], *, n_holdout: int, limit: dict
                             "targets_version": tg["version"],
                             "targets_sha256": sha256_file(TARGETS_PATH),
                             "t3_targets_sha256": sha256_file(T3_TARGETS),
-                            "suites": {"heldout": {"file": "t1/rl/remediation/suite/heldout-v1.jsonl",
+                            "suites": {"heldout": {"file": "t1/rl/remediation/suite/" + (Path(heldout_path).name
+                                                                                         if heldout_path else
+                                                                                         "heldout-v2.jsonl"),
                                                    "sha256": ho_sha, "n": len(ho), "version": ho_meta.get("version"),
                                                    "frozen_on": ho_meta.get("platform"),
                                                    "frozen_by_code": ho_meta.get("code_sha"),
@@ -573,7 +609,9 @@ def main(argv: list[str] | None = None) -> int:
 
     from t3.evals.evshim import Evidence, code_sha
     from t3.evals.graders import load_targets
+    from t3.evals.run import single_thread
 
+    single_thread()  # the main process builds and replays twins too (dev-holdout, rebuilds, the self-check)
     limit: dict[str, int] = {}
     if a.limit_heldout is not None:
         limit["heldout"] = a.limit_heldout
@@ -606,6 +644,8 @@ def main(argv: list[str] | None = None) -> int:
     t0 = time.time()
     suites, sinfo = load_suites(targets, n_holdout=a.holdout, limit=limit, rebuild_mode=a.rebuild,
                                 heldout_path=a.heldout_file)
+    check = self_check(suites, targets)
+    print(f"[eval] fail-fast self-check passed: {check['replayed']}", flush=True)
     work = [(s, i, specs, targets) for s in SUITE_ORDER for i in suites[s]]
     if a.workers > 1:
         with ProcessPoolExecutor(max_workers=a.workers) as pool:
@@ -641,7 +681,7 @@ def main(argv: list[str] | None = None) -> int:
                     "oracle_ceiling": ceiling, "flags": flags, "summary": summary,
                     "secondary": secondary, "suites": sinfo,
                     "operators": decl["twin"]["config"]["operators"], "platform": platform_tag(),
-                    "wall_s": round(time.time() - t0, 1)},
+                    "self_check": check, "host": _host(), "wall_s": round(time.time() - t0, 1)},
     }
     from t1.rl.remediation.job_train import finite
 

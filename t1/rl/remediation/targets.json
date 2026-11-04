@@ -13,7 +13,7 @@
   ],
   "primary": {
     "suite": "heldout",
-    "what": "the 1,008 masked incidents of the frozen held-out set t1/rl/remediation/suite/heldout-v1.jsonl (56 strata x 18: 7 templates x 4 base cells x 2 presets, seeds 2,000,001-2,022,400, frozen on x86_64 by run t1.rl.remediation-heldout-20261104T081231Z); v1 and ppo_sm_50k graded identically",
+    "what": "the 1,008 masked incidents of the frozen held-out set t1/rl/remediation/suite/heldout-v2.jsonl (56 strata x 18: 7 templates x 4 base cells x 2 presets, seeds from the reserved block 2,000,001-2,022,400, frozen on x86_64 with a full self-replay check); v1 and ppo_sm_50k graded identically",
     "target": {
       "metric": "joint_ci_low_margin",
       "op": ">",
@@ -66,7 +66,7 @@
     "continuity": "the same three components on the 18 test-masked incidents (the judged swarm's set), reported for continuity with earlier results; not part of pass/fail"
   },
   "suites": {
-    "heldout": "frozen remediation held-out set t1/rl/remediation/suite/heldout-v1.jsonl (1,008 masked; the primary set)",
+    "heldout": "frozen remediation held-out set t1/rl/remediation/suite/heldout-v2.jsonl (1,008 masked; the primary set). heldout-v1.jsonl stays committed as history and is not evaluated.",
     "test-masked": "frozen test split, tier masked (18)",
     "test-visible": "frozen test split, tier visible (15)",
     "confirm": "frozen confirmation suite t3/evals/suite/incidents-confirm.jsonl (18 masked, fresh seeds 990003-990271)",
@@ -172,6 +172,19 @@
         "interval": "paired-bootstrap-v1 over item ids, subset extra.suite = test-masked, t3/evals/targets.json bootstrap (10000 resamples, seed 20261102, 95%)",
         "replication": "the same three components are reported on test-visible, confirm and dev-holdout; they are not part of pass/fail"
       }
+    },
+    "revised": {
+      "at": "2026-11-04T08:45:00Z",
+      "at_local": "4 Nov 2026 ~00:45 PST",
+      "what": "the primary set's file: heldout-v1 -> heldout-v2 (same reservation, strata, quotas and target)",
+      "note": "heldout-v1 (frozen 08:21Z) could not be replayed under the standard single-thread replay, found when the first eval failed at its first replay check, before any result; regenerated as heldout-v2 with the same reservation; no evaluation result on v1 exists",
+      "failed_run": {
+        "run_id": "t3.evals.remediation-policy-20261104T082915Z",
+        "job": "t3-evals-remediation-policy-20261104T082915Z-2692e8",
+        "error": "t3.evals.run.ReplayMismatch on inc-off-mas-2000001-tilt+5: sinr_p10_db replayed 1.0039014183255635 vs frozen 1.003327645 (tolerance 1e-6), Linux-x86_64",
+        "stopped_too": "t1.rl.remediation-learning-curve-20261104T082930Z (reads the same set)"
+      },
+      "diagnosis": "not settled. The v1 generator already pinned its pool workers to one torch thread (initializer, code 6b8e0fd), and on Darwin serial, pooled and 12-thread generation and replay agree to 1e-6. v1 was frozen on ml.m5.xlarge and every earlier freeze and replay in this account ran on ml.m5.xlarge; the failed eval was the first replay on ml.m5.4xlarge. heldout-v2 records its host and replays every incident before it is written; the evaluation replays 3 incidents per suite before it starts."
     }
   },
   "continuity": [

@@ -1,7 +1,7 @@
 """Learning curve for the remediation policy: is it data-limited? One declared, descriptive evidence unit.
 
 Four models trained on 10%, 25%, 50% and 100% of remediation-v1's training incidents, each evaluated on the
-frozen held-out set (t1/rl/remediation/suite/heldout-v1.jsonl, all 1,008 incidents) with the evaluation's
+frozen held-out set (t1/rl/remediation/suite/heldout-v2.jsonl, all 1,008 incidents) with the evaluation's
 own measures (t1/rl/remediation/evaluate.py play: network recovery, percell-v1, diagnosis, change size).
 
 Procedure: behaviour-cloning ROUND 0 only (bc.fit with bc.HYPER's round-0 settings and seed) on the
@@ -256,7 +256,7 @@ def declaration(code_sha: str, *, n_items: int, heldout_sha: str, fractions: tup
         "target": {"metric": METRIC, "op": ">", "value": 0.0, "unit": "recovered"},
         "n_items": n_items, "test_set_sha256": heldout_sha,
         "model_id": f"t1-remediation-bc-lc@{code_sha[:7]}", "grader": GRADER, "synthetic": bool(smoke),
-        "subset": "one item per held-out incident (t1/rl/remediation/suite/heldout-v1.jsonl)",
+        "subset": "one item per held-out incident (t1/rl/remediation/suite/heldout-v2.jsonl)",
         "twin": {"kind": "maveric-inprocess", "version": twin_version(), "scenario": "remediation-learning-curve",
                  "seed": bc.SEED,
                  "config": {"backend": BACKEND, "descriptive": True,
@@ -274,7 +274,7 @@ def declaration(code_sha: str, *, n_items: int, heldout_sha: str, fractions: tup
                             "hyper": {k: bc.HYPER[k] for k in ("lr", "batch", "epochs", "patience", "seed")},
                             "training_data": {"run_id": TRAIN_RUN, "job": TRAIN_JOB, "s3": TRAIN_OUTPUT_S3,
                                               "file": "dataset.npz", "sha256": dataset_sha256()},
-                            "heldout": {"file": "t1/rl/remediation/suite/heldout-v1.jsonl", "sha256": heldout_sha},
+                            "heldout": {"file": "t1/rl/remediation/suite/heldout-v2.jsonl", "sha256": heldout_sha},
                             "measures": "evaluate.play on every model: network recovery and success, percell-v1, "
                                         "diagnosis_hit, cells touched, |power| and power above healthy",
                             "executed": f"SageMaker training job started by tools/sm/run.py on {instance} (x86_64, "
@@ -305,7 +305,9 @@ def main(argv: list[str] | None = None) -> int:
     from t1.rl.remediation import evaluate as E
     from t3.evals.evshim import Evidence, code_sha
     from t3.evals.graders import load_targets
+    from t3.evals.run import single_thread
 
+    single_thread()  # the main process trains and replays too; pinned before any twin or torch work
     if (a.heldout_file or a.limit_heldout or a.epochs or a.no_dataset_check) and not a.smoke:
         ap.error("--heldout-file, --limit-heldout, --epochs and --no-dataset-check are for --smoke runs only")
     if a.smoke and (a.limit_heldout is None or a.limit_heldout > SMOKE_MAX):
@@ -344,6 +346,8 @@ def main(argv: list[str] | None = None) -> int:
     if frozen_on != here:  # a smoke on another platform: rebuild the frozen trajectories here (keep filter not re-applied)
         ho = [E.rebuild(i, targets) for i in ho]
         rebuild = {"rebuild": True, "frozen_on": frozen_on, "here": here}
+    check = E.self_check({"heldout": ho}, targets)  # fail fast before the pool: the first 3 replay here
+    print(f"[lc] fail-fast self-check passed: {check['replayed']}", flush=True)
     work = [(i, specs, targets) for i in ho]
     if a.workers > 1:
         with ProcessPoolExecutor(max_workers=a.workers) as pool:
@@ -373,7 +377,8 @@ def main(argv: list[str] | None = None) -> int:
         "details": {"gain": gain, "decision": DECISION["if_pass"] if passed else DECISION["if_miss"],
                     "decision_rule": DECISION, "curve": curve, "models": models, "procedure": PROCEDURE,
                     "dataset_sha256": arrays["sha256"], "heldout_sha256": ho_sha, "rebuild": rebuild,
-                    "platform": here, "train_s": train_s, "wall_s": round(time.time() - t0, 1)}}
+                    "self_check": check, "host": E._host(), "platform": here, "train_s": train_s,
+                    "wall_s": round(time.time() - t0, 1)}}
     ev.write_result(finite(result))
     (a.output_dir / "learning-curve.json").write_text(json.dumps(finite(result["details"]), indent=1,
                                                                  sort_keys=True) + "\n")

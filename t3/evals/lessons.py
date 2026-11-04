@@ -218,13 +218,19 @@ def load_confirm_file(path: Path = CONFIRM_PATH) -> list[dict[str, Any]]:
 # its incidents' ids and spec bytes. The block is repeated here so t3 needs no t1 import; a test checks it
 # against heldout.SEED_LO / SEED_HI.
 HELDOUT_SEED_BLOCK = (2_000_001, 2_022_400)
-HELDOUT_PATH = inc_mod.SUITE_DIR.parents[2] / "t1" / "rl" / "remediation" / "suite" / "heldout-v1.jsonl"
+HELDOUT_DIR = inc_mod.SUITE_DIR.parents[2] / "t1" / "rl" / "remediation" / "suite"
+HELDOUT_PATHS = (HELDOUT_DIR / "heldout-v1.jsonl", HELDOUT_DIR / "heldout-v2.jsonl")  # v1 is history, v2 current
+HELDOUT_PATH = HELDOUT_PATHS[-1]
 
 
-def load_heldout_file(path: Path = HELDOUT_PATH) -> list[dict[str, Any]]:
-    """The frozen remediation held-out incidents ([] before the set is frozen); the guard needs ids and specs."""
-    p = Path(path)
-    return [json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
+def load_heldout_file(path: Path | None = None) -> list[dict[str, Any]]:
+    """The frozen remediation held-out incidents of every version ([] before a set is frozen); the guard needs
+    ids and specs. ``path`` reads one file only."""
+    out: list[dict[str, Any]] = []
+    for p in ([Path(path)] if path is not None else [Path(x) for x in HELDOUT_PATHS]):
+        if p.exists():
+            out += [json.loads(x) for x in p.read_text().splitlines() if x.strip()]
+    return out
 
 
 def in_heldout_block(seed: int) -> bool:

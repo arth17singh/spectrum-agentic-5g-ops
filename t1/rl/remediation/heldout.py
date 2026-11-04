@@ -1,4 +1,10 @@
-"""The large frozen held-out test set for remediation policies: 1,008 masked faults, stratified.
+"""The large frozen held-out test set for remediation policies: 1,008 masked faults, stratified (heldout-v2).
+
+heldout-v1 (frozen 4 Nov 08:21Z) did not replay in the first evaluation's replay check (before any result) and
+is kept as history; v2 is regenerated from the same reservation. Every process is pinned to one torch thread
+with the evaluation's own function (t3/evals/run.py single_thread), the host is recorded in the meta, and
+every chosen incident is replayed through run_incident's own 1e-6 check before anything is written
+(``self_replay``; ``write_outputs`` refuses otherwise).
 
 Same generator procedure as the t3 test split (``t3/evals/incidents.py``): the same templates, presets,
 masked-tier commissioning (``incidents.commissioning``), episode (t3/evals/targets.json) and keep rule
@@ -40,10 +46,11 @@ Local smoke (at most 40 candidates, labelled synthetic, never a claim):
     python -m t1.rl.remediation.heldout --smoke --strata 4 --quota 2 --max-candidates 40 \\
       --run-id smoke-<x> --evidence-dir /tmp/e --output-dir /tmp/o --declare
 
-Outputs ({output_dir}): heldout-v1.jsonl (one canonical incident per line, in candidate-index order),
-heldout-v1.sha256, heldout-v1-meta.json (counts per stratum, drops and reasons, seed range, platform, code
-sha) and heldout-candidates-log.jsonl (every evaluated candidate). Records: one ``item`` per chosen incident
-and a ``result`` with n_items == 1008.
+Outputs ({output_dir}): heldout-v2.jsonl (one canonical incident per line, in candidate-index order),
+heldout-v2.sha256, heldout-v2-meta.json (counts per stratum, drops and reasons, seed range, host, code sha,
+the self-replay check), heldout-v2-replay-check.json and heldout-v2-candidates-log.jsonl (every evaluated
+candidate). Records: one ``item`` per chosen incident and a ``result`` with n_items == 1008; if the
+self-replay check fails, nothing is written and the job fails.
 """
 
 from __future__ import annotations
@@ -64,7 +71,11 @@ from typing import Any
 
 from t3.evals import incidents as inc
 
-VERSION = "t1-remediation-heldout-v1"
+VERSION = "t1-remediation-heldout-v2"
+# v1 (frozen 4 Nov 08:21Z by run t1.rl.remediation-heldout-20261104T081231Z) stays committed as history: its first
+# incident did not replay in the first evaluation (ReplayMismatch), before any result; v2 is regenerated from
+# the same reservation with every process pinned and a full self-replay guard before anything is written.
+V1_SUITE_NAME = "heldout-v1.jsonl"
 UNIT = "t1.rl.remediation-heldout"
 SEED_BASE = 2_000_001
 QUOTA = 18
@@ -83,11 +94,12 @@ SMOKE_MAX = 40
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 SUITE_DIR = HERE / "suite"
-SUITE_NAME = "heldout-v1.jsonl"
+SUITE_NAME = "heldout-v2.jsonl"
 SUITE_PATH = SUITE_DIR / SUITE_NAME
-HASH_PATH = SUITE_DIR / "heldout-v1.sha256"
-META_NAME = "heldout-v1-meta.json"
-LOG_NAME = "heldout-candidates-log.jsonl"
+HASH_PATH = SUITE_DIR / "heldout-v2.sha256"
+META_NAME = "heldout-v2-meta.json"
+LOG_NAME = "heldout-v2-candidates-log.jsonl"
+REPLAY_NAME = "heldout-v2-replay-check.json"
 RESERVATION_PATH = HERE / "heldout-reservation.json"
 RESERVATION_REL = "t1/rl/remediation/heldout-reservation.json"
 GRADER = ("t1/rl/remediation/heldout.py:v1 = t3/evals/incidents.py build v4 on the masked tier (kept iff "
@@ -97,7 +109,8 @@ MODEL_ID = "none (data generation: twin replay only, no model)"
 # files that define or hold the reserved block (never counted as a literal-scan hit)
 SCAN_OWN = ("t1/rl/remediation/heldout.py", "t1/rl/remediation/heldout-reservation.json",
             "t1/rl/tests/test_heldout.py", "t1/rl/remediation/suite/heldout-v1.jsonl",
-            "t1/rl/remediation/suite/heldout-v1-meta.json")
+            "t1/rl/remediation/suite/heldout-v1-meta.json", "t1/rl/remediation/suite/heldout-v2.jsonl",
+            "t1/rl/remediation/suite/heldout-v2-meta.json")
 
 
 # --------------------------------------------------------------------------- candidates
@@ -264,9 +277,85 @@ def build_one(spec: dict[str, Any], targets: dict[str, Any]) -> dict[str, Any]:
 
 
 def _init() -> None:
-    from t3.evals.twin_backend import single_thread
+    """Pin torch to one thread with the evaluation's own function (t3/evals/run.py single_thread)."""
+    from t3.evals.run import single_thread
 
     single_thread()
+
+
+def torch_threads() -> int | None:
+    try:
+        import torch
+
+        return int(torch.get_num_threads())
+    except ImportError:
+        return None
+
+
+def _threads_in_worker(_: Any) -> int | None:
+    return torch_threads()
+
+
+def host_info() -> dict[str, Any]:
+    """Where the numbers were made: the twin is a float32 GP, so the CPU and the math library matter."""
+    import os
+    import subprocess
+
+    cpu = None
+    try:
+        if Path("/proc/cpuinfo").exists():
+            cpu = next((ln.split(":", 1)[1].strip() for ln in Path("/proc/cpuinfo").read_text().splitlines()
+                        if ln.startswith("model name")), None)
+        else:
+            cpu = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True,
+                                 timeout=5).stdout.strip() or None
+    except Exception:  # noqa: BLE001 - informational only
+        cpu = None
+    info: dict[str, Any] = {"platform": f"{platform.system()}-{platform.machine()}", "cpu_model": cpu,
+                            "cpu_count": os.cpu_count(), "python": sys.version.split()[0],
+                            "instance_type": os.environ.get("TEAM13_INSTANCE_TYPE") or os.environ.get(
+                                "SM_CURRENT_INSTANCE_TYPE"), "torch_threads": torch_threads()}
+    try:
+        import torch
+
+        info["torch"] = torch.__version__
+        info["mkl"] = bool(torch.backends.mkl.is_available())
+        info["openmp"] = bool(torch.backends.openmp.is_available())
+    except ImportError:
+        pass
+    return info
+
+
+def _replay_one(args: tuple[dict[str, Any], dict[str, Any]]) -> dict[str, Any]:
+    """One incident through the evaluation's own replay check (t3/evals/run.py run_incident, no_action)."""
+    from t3.evals.operators import make
+    from t3.evals.run import ReplayMismatch, run_incident
+
+    incident, targets = args
+    _init()
+    try:
+        run_incident(incident, make("no_action"), targets)
+        return {"incident_id": incident["incident_id"], "ok": True}
+    except ReplayMismatch as exc:
+        return {"incident_id": incident["incident_id"], "ok": False, "error": str(exc)[-400:]}
+
+
+def self_replay(incidents: list[dict[str, Any]], targets: dict[str, Any], workers: int = 1) -> dict[str, Any]:
+    """Replay every chosen incident exactly as the evaluation will (fresh twin, run_incident's 1e-6 check)."""
+    t0 = time.time()
+    work = [(i, targets) for i in incidents]
+    if workers > 1:
+        with ProcessPoolExecutor(max_workers=workers, initializer=_init) as pool:
+            out = list(pool.map(_replay_one, work, chunksize=8))
+            threads = sorted({t for t in pool.map(_threads_in_worker, range(workers))})
+    else:
+        _init()
+        out = [_replay_one(w) for w in work]
+        threads = [torch_threads()]
+    bad = [o for o in out if not o["ok"]]
+    return {"path": "t3/evals/run.py run_incident (operator no_action), the evaluation's replay check",
+            "n": len(out), "mismatches": len(bad), "first_mismatches": bad[:5], "ok": not bad,
+            "worker_torch_threads": threads, "wall_s": round(time.time() - t0, 1)}
 
 
 def _work(args: tuple[list[int], dict[str, Any]]) -> list[dict[str, Any]]:
@@ -310,9 +399,9 @@ def generate(*, workers: int = 1, quota: int = QUOTA, strata: Iterable[int] | No
     targets = targets or load_targets()
     strata = list(range(N_STRATA)) if strata is None else list(strata)
     results: dict[int, dict[str, Any]] = {}
+    if evaluate is None:
+        _init()  # the main process too, before any twin work (it does none today; pinned anyway)
     pool = ProcessPoolExecutor(max_workers=workers, initializer=_init) if workers > 1 and evaluate is None else None
-    if evaluate is None and pool is None:
-        _init()
 
     def run(ks: list[int]) -> list[dict[str, Any]]:
         if evaluate is not None:
@@ -367,7 +456,8 @@ def log_bytes(results: dict[int, dict[str, Any]], chosen: list[dict[str, Any]]) 
 
 
 def meta_for(gen: dict[str, Any], digest: str, log_sha: str, code_sha: str, res: dict[str, Any] | None,
-             in_job_exclusion: dict[str, Any] | None, smoke: bool) -> dict[str, Any]:
+             in_job_exclusion: dict[str, Any] | None, smoke: bool,
+             replay_check: dict[str, Any] | None = None) -> dict[str, Any]:
     from t3.evals.twin_backend import BACKEND, twin_version
 
     per = gen["per_stratum"]
@@ -403,20 +493,39 @@ def meta_for(gen: dict[str, Any], digest: str, log_sha: str, code_sha: str, res:
         "in_job_exclusion": in_job_exclusion, "keep_rule": GRADER, "tier": TIER,
         "twin_backend": BACKEND, "twin_version": twin_version(), "code_sha": code_sha,
         "python": sys.version.split()[0], "platform": f"{platform.system()}-{platform.machine()}",
-        "wall_s": gen["wall_s"],
-        "note": "the twin is a float32 GP: frozen KPIs replay to 1e-6 only on the platform that froze them; "
-                "evaluate this set on that platform (the runner's x86_64 CPU image)"}
+        "wall_s": gen["wall_s"], "host": host_info(), "replay_check": replay_check,
+        "supersedes": {"version": "t1-remediation-heldout-v1", "file": V1_SUITE_NAME,
+                       "sha256": "8e5a56ce0e23878fe3ff6058d4a3a8f7df13f69e98115aae1b764db15b9b6c0e",
+                       "reason": "its first incident did not replay in the first evaluation (ReplayMismatch, before "
+                                 "any result); regenerated from the same reservation, every process pinned to one "
+                                 "torch thread, every incident self-replayed before writing"},
+        "note": "the twin is a float32 GP: frozen KPIs replay to 1e-6 only where they were frozen; evaluate this set "
+                "on the same platform and instance type (meta.host), and the evaluation's fail-fast check replays "
+                "it before it starts"}
+
+
+class ReplayGuard(RuntimeError):
+    """The chosen incidents do not replay through the evaluation's own check: nothing is written."""
 
 
 def write_outputs(gen: dict[str, Any], dest: Path, code_sha: str, res: dict[str, Any] | None,
-                  in_job_exclusion: dict[str, Any] | None, smoke: bool) -> dict[str, Any]:
+                  in_job_exclusion: dict[str, Any] | None, smoke: bool,
+                  replay_check: dict[str, Any] | None) -> dict[str, Any]:
+    """Freeze the suite, but only if every chosen incident replayed (``self_replay``) on this host."""
     incidents = [r["incident"] for r in gen["chosen"]]
+    if replay_check is None or not replay_check.get("ok") or replay_check.get("n") != len(incidents):
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / REPLAY_NAME).write_text(json.dumps(replay_check, indent=1, sort_keys=True, default=str) + "\n")
+        raise ReplayGuard(f"refusing to write {SUITE_NAME}: the self-replay check did not pass for all "
+                          f"{len(incidents)} incidents ({None if replay_check is None else replay_check.get('mismatches')} "
+                          f"mismatches); see {REPLAY_NAME}")
     data = to_bytes(incidents)
     digest = hashlib.sha256(data).hexdigest()
     lb = log_bytes(gen["results"], gen["chosen"])
     log_sha = hashlib.sha256(lb).hexdigest()
-    meta = meta_for(gen, digest, log_sha, code_sha, res, in_job_exclusion, smoke)
+    meta = meta_for(gen, digest, log_sha, code_sha, res, in_job_exclusion, smoke, replay_check)
     dest.mkdir(parents=True, exist_ok=True)
+    (dest / REPLAY_NAME).write_text(json.dumps(replay_check, indent=1, sort_keys=True) + "\n")
     (dest / SUITE_NAME).write_bytes(data)
     (dest / HASH_PATH.name).write_text(f"{digest}  {SUITE_NAME}\n")
     (dest / META_NAME).write_text(json.dumps(meta, indent=1, sort_keys=True) + "\n")
@@ -429,7 +538,7 @@ def load_heldout(path: Path = SUITE_PATH, verify_hash: bool = True) -> tuple[lis
     data = Path(path).read_bytes()
     digest = hashlib.sha256(data).hexdigest()
     if verify_hash:
-        side = Path(path).with_name(HASH_PATH.name)
+        side = Path(path).with_suffix(".sha256")
         want = side.read_text().split()[0]
         if digest != want:
             raise RuntimeError(f"{path} sha256 {digest} != frozen {want}: the held-out set changed")
@@ -519,6 +628,7 @@ def main(argv: list[str] | None = None) -> int:
 
     from t3.evals.evshim import Evidence, code_sha
 
+    _init()  # the main process is pinned before any twin work, like every worker
     sha = code_sha()
     smoke_limits = a.strata is not None or a.quota is not None or a.max_candidates is not None
     if smoke_limits and not a.smoke:
@@ -535,14 +645,18 @@ def main(argv: list[str] | None = None) -> int:
     check_reservation(res)
 
     if a.check:
+        from t3.evals.graders import load_targets
+
+        frozen = a.check.read_bytes()
+        incs = [json.loads(x) for x in frozen.decode("utf-8").splitlines() if x.strip()]
+        rc = self_replay(incs, load_targets(), a.workers)
         gen = generate(workers=a.workers)
         fresh = to_bytes([r["incident"] for r in gen["chosen"]])
-        frozen = a.check.read_bytes()
         same = fresh == frozen
         print(json.dumps({"matches_frozen": same, "fresh_sha256": hashlib.sha256(fresh).hexdigest(),
-                          "frozen_sha256": hashlib.sha256(frozen).hexdigest(),
-                          "platform": f"{platform.system()}-{platform.machine()}"}))
-        return 0 if same else 1
+                          "frozen_sha256": hashlib.sha256(frozen).hexdigest(), "replay_check": rc,
+                          "host": host_info()}))
+        return 0 if same and rc["ok"] else 1
 
     if not (a.run_id and a.evidence_dir and a.output_dir):
         ap.error("--run-id, --evidence-dir and --output-dir are required to generate")
@@ -553,9 +667,14 @@ def main(argv: list[str] | None = None) -> int:
     if not in_job["clean"]:
         raise SystemExit(f"seed exclusion failed in the job: {json.dumps(in_job['explicit_collisions'])}")
     gen = generate(workers=a.workers, quota=quota, strata=strata, max_candidates=a.max_candidates)
+    from t3.evals.graders import load_targets
+
+    rc = self_replay([r["incident"] for r in gen["chosen"]], load_targets(), a.workers)
+    print(f"[heldout] self-replay: {rc['n']} incidents, {rc['mismatches']} mismatches, worker torch threads "
+          f"{rc['worker_torch_threads']}, {rc['wall_s']} s", flush=True)
     meta = write_outputs(gen, a.output_dir, sha, res, {k: in_job[k] for k in ("ranges_overlapping",
                                                                                "explicit_collisions", "clean")},
-                         a.smoke)
+                         a.smoke, rc)  # raises ReplayGuard (nothing written, no items, no result) unless all replay
     items = [item_for(r) for r in gen["chosen"]]
     for it in items:
         it["synthetic"] = bool(a.smoke)
@@ -571,7 +690,9 @@ def main(argv: list[str] | None = None) -> int:
                     "candidates_evaluated": meta["candidates_evaluated"], "candidates_kept": meta["candidates_kept"],
                     "drops": meta["drops"], "short_strata": meta["short_strata"], "platform": meta["platform"],
                     "python": meta["python"], "twin_version": meta["twin_version"], "wall_s": meta["wall_s"],
-                    "outputs": [SUITE_NAME, HASH_PATH.name, META_NAME, LOG_NAME]},
+                    "host": meta["host"], "replay_check": {k: rc[k] for k in ("n", "mismatches", "ok",
+                                                                             "worker_torch_threads", "path")},
+                    "outputs": [SUITE_NAME, HASH_PATH.name, META_NAME, LOG_NAME, REPLAY_NAME]},
     }
     ev.write_result(result)
     print(json.dumps({"run_id": a.run_id, "n_items": n, "target": n_target, "passed": n == n_target,

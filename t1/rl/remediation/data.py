@@ -160,11 +160,11 @@ def spec_overlap(specs: list[dict[str, Any]]) -> dict[str, int]:
     """Spec-hash overlap with the frozen test, dev, candidate, confirmation and remediation held-out files
     (expected: 0 each; the held-out file counts once it is frozen)."""
     from t3.evals import confirm as C
-    from t3.evals.lessons import HELDOUT_PATH
+    from t3.evals.lessons import HELDOUT_PATHS
 
     mine = {spec_hash(s) for s in specs}
     files = {"test": inc.TEST_PATH, "dev": inc.DEV_PATH, "candidates": inc.CANDIDATES_PATH, "confirm": C.CONFIRM_PATH,
-             "heldout": HELDOUT_PATH}
+             **{Path(p).stem: p for p in HELDOUT_PATHS}}
     out = {}
     for name, p in files.items():
         if not Path(p).exists():
