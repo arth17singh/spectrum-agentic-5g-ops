@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "team13/t3/agents/v2/ran_monitor.schema.json",
+  "title": "ran_monitor answer (v2: per_cell on request)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "case_id",
+    "worst_cell",
+    "symptom",
+    "kpis",
+    "verdict",
+    "after_change",
+    "notes"
+  ],
+  "properties": {
+    "role": {
+      "const": "ran_monitor"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^case-[A-Za-z0-9-]+$"
+    },
+    "worst_cell": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 3
+    },
+    "symptom": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "kpis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverage_ratio",
+        "sla_ratio",
+        "sinr_p10_db",
+        "sinr_mean_db"
+      ],
+      "properties": {
+        "coverage_ratio": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sla_ratio": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sinr_p10_db": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sinr_mean_db": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "verdict": {
+      "enum": [
+        "degraded",
+        "ok"
+      ]
+    },
+    "after_change": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "change",
+            "measured_delta",
+            "agrees"
+          ],
+          "properties": {
+            "change": {
+              "type": "string",
+              "pattern": "^cell=\\d+;d_power_db=[+-]\\d+\\.\\d;d_tilt_deg=[+-]\\d+\\.\\d(\\|cell=\\d+;d_power_db=[+-]\\d+\\.\\d;d_tilt_deg=[+-]\\d+\\.\\d)*$"
+            },
+            "measured_delta": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "coverage_ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "sla_ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "sinr_p10_db": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "sinr_mean_db": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "predicted_delta": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "coverage_ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "sla_ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "sinr_p10_db": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "sinr_mean_db": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "agrees": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 400
+    },
+    "per_cell": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cell",
+          "power_dbm",
+          "tilt_deg"
+        ],
+        "properties": {
+          "cell": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          },
+          "power_dbm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "tilt_deg": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
