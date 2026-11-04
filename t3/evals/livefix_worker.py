@@ -85,10 +85,12 @@ def side_effects(incident: dict[str, Any], start_log: list[Any], proposal: Any, 
     cells = []
     for c in v_with["cells"]:
         n = c["cell"]
+        # percell-v1 says "before the fix"; here the state before is the network without the change.
+        reasons = [str(r).replace("before the fix", "without the change") for r in c["reasons"]]
         cells.append({"cell": n, "without": {k: rows_without[n].get(k) for k in _KEEP},
                       "with": {k: rows_with[n].get(k) for k in _KEEP},
                       "health_without": was[n]["health"], "health_with": c["health"],
-                      "worse": bool(c["worse_than_before"]), "reasons": c["reasons"]})
+                      "worse": bool(c["worse_than_before"]), "reasons": reasons})
     return {"version": percell.VERSION, "cells": cells, "recovered_with": v_with["recovered"],
             "overshoot_with": v_with["overshoot"], "grade_step": grade_step,
             "twin": {"kind": "preflight copy", "scenario": incident["scenario"], "preset": incident["preset"],

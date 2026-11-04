@@ -305,11 +305,12 @@ class LiveFix:
         key = "final" if run.kpis.get("final") else "faulted" if run.kpis.get("faulted") else "healthy"
         h = {r["cell"]: r for r in run.health.get(key) or []}
         pc = {c["cell"]: c for c in (run.percell or {}).get("cells") or []} if key == "final" else {}
+        coll = set((run.percell or {}).get("collateral") or [])
         for r in rows:
             if r["cell"] in pc:  # after a fix the map shows the per-cell verdict (t3/evals/percell.py)
                 r["status"] = pc[r["cell"]].get("health") or r["status"]
                 r["why"] = pc[r["cell"]].get("reasons")
-                r["collateral"] = bool(pc[r["cell"]].get("worse_than_before"))
+                r["collateral"] = r["cell"] in coll   # newly degraded by the fix (not: still degraded by the fault)
             elif r["cell"] in h:  # before a fix: t3.evals.faults.cell_health (the same thresholds)
                 r["status"] = h[r["cell"]]["health"]
                 r["why"] = h[r["cell"]].get("why")
@@ -718,26 +719,38 @@ class LiveFix:
             return None
 
     @staticmethod
-    def _cell_bits(cells: list, health_key: str, worse_key: str) -> list[str]:
+    def _cells_word(cells: list) -> str:
+        return f"cell {cells[0]}" if len(cells) == 1 else "cells " + ", ".join(str(c) for c in cells)
+
+    @staticmethod
+    def _cell_bits(cells: list, health_key: str, worse_key: str, collateral=()) -> list[str]:
+        """One phrase per cell that is not back to green or that the change made worse. percell-v1's words:
+        "newly degraded by the change" = collateral (a non-faulted cell the fix made worse); "made worse by the
+        change" = worse than before but a faulted cell (or, for side effects, worse than doing nothing); "not
+        restored" = still below its healthy level, but no worse than before."""
         out = []
         for c in cells:
             h, worse = c.get(health_key), c.get(worse_key)
             if h in (None, "green") and not worse:
                 continue
-            why = ", ".join(str(r) for r in (c.get("reasons") or [])[:3]) or "below its healthy level"
-            out.append(f"cell {c['cell']} {h}{' (made worse)' if worse else ''}: {why}")
+            tag = ("newly degraded by the change" if c["cell"] in collateral
+                   else "made worse by the change" if worse else "not restored")
+            why = "; ".join([str(r) for r in c.get("reasons") or [] if "not counted" not in str(r)][:3]) \
+                or "below its healthy level"
+            out.append(f"cell {c['cell']} {h}, {tag}: {why}")
         return out
 
     def _percell_text(self, run: Run) -> str:
         pc = run.percell or {}
-        bits = self._cell_bits(pc.get("cells") or [], "health", "worse_than_before")
+        coll = list(pc.get("collateral") or [])
+        bits = self._cell_bits(pc.get("cells") or [], "health", "worse_than_before", coll)
         net = "Network KPIs recovered" if (run.grade or {}).get("success") else "Network KPIs not recovered"
         if not bits:
             return f"{net}; every cell is back to its healthy level."
-        coll = pc.get("collateral") or []
-        return (f"{net}, but per cell NOT recovered: " + "; ".join(bits)
-                + (f" (collateral: cell{'s' if len(coll) > 1 else ''} {', '.join(str(c) for c in coll)})." if coll
-                   else "."))
+        not_restored = [c for c in pc.get("degraded") or [] if c not in coll]
+        parts = ([f"{self._cells_word(not_restored)} not restored"] if not_restored else []) + \
+                ([f"{self._cells_word(coll)} newly degraded by the change (collateral)"] if coll else [])
+        return f"{net}, but per cell NOT recovered: {' and '.join(parts)}. " + "; ".join(bits) + "."
 
     def _finish_graded(self, run: Run, ok: bool) -> None:
         if run.percell is not None:
@@ -799,7 +812,8 @@ class LiveFix:
                           for c in se.get("cells") or []]}
 
     def _alternative_text(self, run: Run, pending: dict) -> str:
-        bits = self._cell_bits((run.side_effects or {}).get("cells") or [], "health_with", "worse")
+        harmed = [c for c in (run.side_effects or {}).get("cells") or [] if c.get("worse")]
+        bits = self._cell_bits(harmed, "health_with", "worse")
         harm = ("A preflight on a copy of the twin predicts it would leave " + "; ".join(bits)
                 + ", worse than doing nothing.") if bits else ("It is on hold: " + "; ".join((run.tier or {}).get("why")
                                                                                           or ["low confidence"]) + ".")
@@ -808,7 +822,8 @@ class LiveFix:
                 "cells, and request it with ran___apply_change as before.")
 
     def _correction_text(self, run: Run) -> str:
-        bits = self._cell_bits((run.percell or {}).get("cells") or [], "health", "worse_than_before")
+        pc = run.percell or {}
+        bits = self._cell_bits(pc.get("cells") or [], "health", "worse_than_before", list(pc.get("collateral") or []))
         net = "are back within tolerance" if (run.grade or {}).get("success") else "are still outside tolerance"
         left = MAX_CHANGES - len(run.applied)
         return (f"After the applied change the network-wide KPIs {net}, but these cells are below their healthy "

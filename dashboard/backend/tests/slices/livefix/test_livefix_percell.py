@@ -73,23 +73,25 @@ class SeqKit:
 
 
 class PercellTwinSide:
-    """Stands in for t3/evals/livefix_worker.py: percell-v1 says BOOST leaves cells 0 and 3 degraded (collateral);
-    TARGET recovers every cell. Side effects: BOOST is predicted to turn cells 0 and 3 red when `predict_harm`."""
+    """Stands in for t3/evals/livefix_worker.py: percell-v1 says BOOST leaves cells 0 and 3 degraded, either newly
+    degraded by the change (collateral, `collateral=True`) or merely not restored (run 9695's real shape); TARGET
+    recovers every cell. Side effects: BOOST is predicted to turn cells 0 and 3 red when `predict_harm`."""
     available = True
 
-    def __init__(self, predict_harm: bool = False):
-        self.predict_harm = predict_harm
+    def __init__(self, predict_harm: bool = False, collateral: bool = True):
+        self.predict_harm, self.collateral = predict_harm, collateral
         self.calls: list[tuple[str, dict]] = []
 
     def call(self, op, **a):
         self.calls.append((op, a))
         if op == "percell":
             if (a["cells_after"] or [{}])[0].get("marker") == "boost":
-                cells = [{"cell": c, "health": "amber" if c in (0, 3) else "green", "worse_than_before": c in (0, 3),
+                hit = self.collateral
+                cells = [{"cell": c, "health": "amber" if c in (0, 3) else "green", "worse_than_before": hit and c in (0, 3),
                           "fault_cell": c == 2, "reasons": ["vs healthy: coverage_share down 0.05"] if c in (0, 3) else []}
                          for c in range(4)]
                 return {"version": "percell-v1", "recovered": False, "cells": cells, "degraded": [0, 3],
-                        "collateral": [0, 3], "overshoot": {"power_above_healthy_db": 14.1}}
+                        "collateral": [0, 3] if hit else [], "overshoot": {"power_above_healthy_db": 14.1}}
             return {"version": "percell-v1", "recovered": True, "degraded": [], "collateral": [], "overshoot": {},
                     "cells": [{"cell": c, "health": "green", "worse_than_before": False, "reasons": []} for c in range(4)]}
         if op == "side_effects":
@@ -110,7 +112,7 @@ class PercellTwinSide:
         raise AssertionError(op)
 
 
-def make(proposals, *, predict_harm=False, alternatives=0, reviews=(), deny_on_hold=False):
+def make(proposals, *, predict_harm=False, alternatives=0, reviews=(), deny_on_hold=False, collateral=True):
     table = FakeTable()
     kit = SeqKit(table, proposals)
     writer = FakeWriter()
@@ -137,7 +139,7 @@ def make(proposals, *, predict_harm=False, alternatives=0, reviews=(), deny_on_h
         row["status"] = "APPROVED"
 
     svc = LiveFix(kit=kit, ddb=table, writer_factory=lambda: writer, sleep=sleep, spawn=lambda fn: fn(), poll_s=0,
-                  approval_timeout_s=5, twinside=PercellTwinSide(predict_harm))
+                  approval_timeout_s=5, twinside=PercellTwinSide(predict_harm, collateral))
     box["svc"] = svc
 
     def go():
@@ -159,7 +161,9 @@ def test_network_recovered_but_cells_degraded_is_not_recovered():
     assert v["state"] == "not_recovered", v["problem"]
     assert v["grade"]["success"] is True                      # the network rule alone would say recovered
     assert v["percell"]["recovered"] is False and v["percell"]["collateral"] == [0, 3]
-    assert "per cell NOT recovered" in v["events"][-1]["text"] and "collateral: cells 0, 3" in v["events"][-1]["text"]
+    last = v["events"][-1]["text"]
+    assert "per cell NOT recovered: cells 0, 3 newly degraded by the change (collateral)" in last
+    assert "not restored" not in last
     assert {c["cell"]: c["status"] for c in v["cells"]} == {0: "amber", 1: "green", 2: "green", 3: "amber"}
     assert [c["cell"] for c in v["cells"] if c.get("collateral")] == [0, 3]
     decl = writer.recs[0][1]
@@ -169,6 +173,17 @@ def test_network_recovered_but_cells_degraded_is_not_recovered():
     assert res["details"]["percell"]["collateral"] == [0, 3] and res["details"]["percell"]["declared"] is True
     assert item_extra(writer)["percell"]["recovered"] is False
     assert kit.messages.count("Approved.") == 1 and table.updates == 0
+
+
+def test_cells_still_degraded_by_the_fault_are_not_restored_not_collateral():
+    # The real shape of run t3.livefix-20261104T073206Z-9695: cells 0 and 3 degraded, collateral empty.
+    svc, kit, table, writer, go = make([BOOST], reviews=["finish"], collateral=False)
+    run = go()
+    assert run.state == "not_recovered"
+    last = run.events[-1]["text"]
+    assert "per cell NOT recovered: cells 0, 3 not restored." in last and "collateral" not in last
+    assert not any(c.get("collateral") for c in svc.view(run)["cells"])
+    assert writer.recs[-1][1]["details"]["percell"]["collateral"] == []
 
 
 def test_correction_goes_back_through_the_hold_and_recovers_every_cell():
@@ -198,7 +213,8 @@ def test_predicted_red_holds_the_change_and_an_alternative_replaces_it():
     assert run.applied == ["chg-000000000002"] and kit.messages.count("Approved.") == 1
     alt = run.followups[0]
     assert alt["kind"] == "alternative" and alt["approval_id"] == "chg-000000000001" and alt["cells"] == [0, 3]
-    assert "on hold" in alt["text"] and "cell 0 red" in alt["text"] and "worse than doing nothing" in alt["text"]
+    assert "on hold" in alt["text"] and "cell 0 red, made worse by the change" in alt["text"]
+    assert "worse than doing nothing" in alt["text"] and "cell 1" not in alt["text"]  # only the harmed cells
     assert not any(w in alt["text"] for w in FAULT_WORDS)
     assert run.shown[1]["tier"] == "one_person"
     assert any(e.get("kind") == "hold" for e in run.events) and any(e.get("kind") == "side_effects" for e in run.events)
