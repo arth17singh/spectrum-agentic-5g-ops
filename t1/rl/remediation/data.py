@@ -68,10 +68,18 @@ def role_of(seed: int) -> str:
 
 
 def fresh_seeds(n: int, start: int = SEED_BASE, exclude: Iterable[int] = ()) -> list[int]:
-    """The first n seeds >= start that ``incidents.split_of`` puts in dev and ``exclude`` does not hold."""
+    """The first n seeds >= start that ``incidents.split_of`` puts in dev and ``exclude`` does not hold.
+
+    Refuses to walk into the remediation held-out block (heldout.SEED_LO..SEED_HI): training data must
+    never come from the evaluation's seeds; pick a start beyond the block instead."""
+    from t3.evals.lessons import HELDOUT_SEED_BLOCK
+
     ex = set(exclude)
     out, s = [], start
     while len(out) < n:
+        if HELDOUT_SEED_BLOCK[0] <= s <= HELDOUT_SEED_BLOCK[1]:
+            raise ValueError(f"seed {s} is in the remediation held-out block {HELDOUT_SEED_BLOCK}: training "
+                             "candidates may not use it")
         if inc.split_of(s) == "dev" and s not in ex:
             out.append(s)
         s += 1
@@ -112,6 +120,8 @@ def exclusion_checks(specs: list[dict[str, Any]]) -> dict[str, Any]:
     """The seeds against every seed set and range the repo uses, plus a literal scan of the repo."""
     from t3.evals import confirm as C
 
+    from t3.evals.lessons import HELDOUT_SEED_BLOCK
+
     seeds = sorted(int(s["seed"]) for s in specs)
     sets = C.explicit_seed_sets()
     sets["confirm"] = {int(i["seed"]) for i in C.load_confirm()[0]}
@@ -121,10 +131,15 @@ def exclusion_checks(specs: list[dict[str, Any]]) -> dict[str, Any]:
     confirm_lo, confirm_hi = min(sets["confirm"]), max(sets["confirm"])
     if confirm_lo <= hi and lo <= confirm_hi:
         in_ranges.append("confirmation suite")
+    if HELDOUT_SEED_BLOCK[0] <= hi and lo <= HELDOUT_SEED_BLOCK[1]:
+        in_ranges.append("remediation held-out block")
     scan = C.literal_scan(seeds, exclude=(CANDIDATES_PATH, META_PATH))
     return {"seed_range": [lo, hi], "n_seeds": len(seeds),
             "known_ranges": C.KNOWN_SEED_RANGES + [{"what": "confirmation suite", "lo": confirm_lo, "hi": confirm_hi,
-                                                    "source": "t3/evals/suite/incidents-confirm.jsonl"}],
+                                                    "source": "t3/evals/suite/incidents-confirm.jsonl"},
+                                                   {"what": "remediation held-out block", "lo": HELDOUT_SEED_BLOCK[0],
+                                                    "hi": HELDOUT_SEED_BLOCK[1],
+                                                    "source": "t1/rl/remediation/heldout.py"}],
             "ranges_overlapping": in_ranges,
             "explicit_sets": {k: len(v) for k, v in sets.items()},
             "explicit_collisions": {k: v for k, v in collisions.items() if v},
@@ -143,13 +158,18 @@ def spec_hash(spec: dict[str, Any]) -> str:
 
 
 def spec_overlap(specs: list[dict[str, Any]]) -> dict[str, int]:
-    """Spec-hash overlap with the frozen test, dev, candidate and confirmation files (expected: 0 each)."""
+    """Spec-hash overlap with the frozen test, dev, candidate, confirmation and remediation held-out files
+    (expected: 0 each; the held-out file counts once it is frozen)."""
     from t3.evals import confirm as C
+    from t3.evals.lessons import HELDOUT_PATH
 
     mine = {spec_hash(s) for s in specs}
-    files = {"test": inc.TEST_PATH, "dev": inc.DEV_PATH, "candidates": inc.CANDIDATES_PATH, "confirm": C.CONFIRM_PATH}
+    files = {"test": inc.TEST_PATH, "dev": inc.DEV_PATH, "candidates": inc.CANDIDATES_PATH, "confirm": C.CONFIRM_PATH,
+             "heldout": HELDOUT_PATH}
     out = {}
     for name, p in files.items():
+        if not Path(p).exists():
+            continue
         rows = [json.loads(x) for x in Path(p).read_text().splitlines() if x.strip()]
         out[name] = len(mine & {spec_hash(r) for r in rows})
     return out

@@ -214,23 +214,45 @@ def load_confirm_file(path: Path = CONFIRM_PATH) -> list[dict[str, Any]]:
     return [json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
 
 
+# The remediation held-out set (t1/rl/remediation/heldout.py): its whole reserved seed block, and once frozen
+# its incidents' ids and spec bytes. The block is repeated here so t3 needs no t1 import; a test checks it
+# against heldout.SEED_LO / SEED_HI.
+HELDOUT_SEED_BLOCK = (2_000_001, 2_022_400)
+HELDOUT_PATH = inc_mod.SUITE_DIR.parents[2] / "t1" / "rl" / "remediation" / "suite" / "heldout-v1.jsonl"
+
+
+def load_heldout_file(path: Path = HELDOUT_PATH) -> list[dict[str, Any]]:
+    """The frozen remediation held-out incidents ([] before the set is frozen); the guard needs ids and specs."""
+    p = Path(path)
+    return [json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
+
+
+def in_heldout_block(seed: int) -> bool:
+    return HELDOUT_SEED_BLOCK[0] <= int(seed) <= HELDOUT_SEED_BLOCK[1]
+
+
 class TestSplitGuard:
     """Refuses any incident from (or overlapping) a held-out set: the frozen test split and the
     confirmation set (``suite/incidents-confirm.jsonl``). Same seed, same id, or the same spec bytes (the
     Track 1 data check's hash-overlap idea, applied to incident specs)."""
 
     def __init__(self, test_incidents: list[dict[str, Any]] | None = None,
-                 confirm_incidents: list[dict[str, Any]] | None = None) -> None:
+                 confirm_incidents: list[dict[str, Any]] | None = None,
+                 heldout_incidents: list[dict[str, Any]] | None = None) -> None:
         if test_incidents is None:
             test_incidents, _ = inc_mod.load_test(inc_mod.TEST_PATH, verify_hash=False)
         if confirm_incidents is None:
             confirm_incidents = load_confirm_file()
+        if heldout_incidents is None:
+            heldout_incidents = load_heldout_file()
         self.seeds = {int(i["seed"]) for i in test_incidents}
         self.ids = {i["incident_id"] for i in test_incidents}
         self.hashes = {_spec_hash(i) for i in test_incidents}
         self.confirm_seeds = {int(i["seed"]) for i in confirm_incidents}
         self.confirm_ids = {i["incident_id"] for i in confirm_incidents}
         self.confirm_hashes = {_spec_hash(i) for i in confirm_incidents}
+        self.heldout_ids = {i["incident_id"] for i in heldout_incidents}
+        self.heldout_hashes = {_spec_hash(i) for i in heldout_incidents}
 
     def check(self, incident: dict[str, Any]) -> None:
         why = []
@@ -238,6 +260,12 @@ class TestSplitGuard:
             why.append("seed is in the test split")
         if incident.get("split") == "confirm":
             why.append("incident is in the confirmation split")
+        if incident.get("split") == "heldout" or in_heldout_block(int(incident["seed"])):
+            why.append("seed is in the remediation held-out block")
+        if incident.get("incident_id") in self.heldout_ids:
+            why.append("incident id appears in the remediation held-out set")
+        if _spec_hash(incident) in self.heldout_hashes:
+            why.append("spec hash overlaps a remediation held-out incident")
         if int(incident["seed"]) in self.seeds:
             why.append("seed appears in the frozen test file")
         if int(incident["seed"]) in self.confirm_seeds:
@@ -255,12 +283,14 @@ class TestSplitGuard:
             raise LeakageError(f"{incident.get('incident_id')}: refused to learn ({'; '.join(why)})")
 
     def overlap(self, lessons: Iterable[dict[str, Any]]) -> int:
-        """How many stored lessons came from a held-out incident, test or confirmation (must be 0)."""
-        seeds, ids, hashes = (self.seeds | self.confirm_seeds, self.ids | self.confirm_ids,
-                              self.hashes | self.confirm_hashes)
+        """How many stored lessons came from a held-out incident: test, confirmation or the remediation
+        held-out set and its seed block (must be 0)."""
+        seeds, ids, hashes = (self.seeds | self.confirm_seeds, self.ids | self.confirm_ids | self.heldout_ids,
+                              self.hashes | self.confirm_hashes | self.heldout_hashes)
         return sum(1 for l in lessons
                    if l.get("source_seed") in seeds or l.get("source_incident") in ids
-                   or l.get("source_spec_sha256") in hashes)
+                   or l.get("source_spec_sha256") in hashes
+                   or (l.get("source_seed") is not None and in_heldout_block(int(l["source_seed"]))))
 
 
 # --------------------------------------------------------------------------- the store

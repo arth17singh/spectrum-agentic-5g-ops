@@ -136,3 +136,19 @@ def test_number_scan_ignores_identifiers_and_hex(tmp_path: Path):
     (tmp_path / "b.py").write_text(f"SEED = {lo + 11:_}\nOTHER = {hi + 1}\n")
     scan = H._num_scan(lo, hi, root=tmp_path, own=())
     assert sorted(h["value"] for h in scan["hits"]) == [lo + 7, lo + 11]
+
+
+def test_heldout_block_is_excluded_from_lessons_and_training_data():
+    from t1.rl.remediation import data as D
+    from t3.evals import lessons as L
+
+    assert L.HELDOUT_SEED_BLOCK == (H.SEED_LO, H.SEED_HI)
+    guard = L.TestSplitGuard(test_incidents=[], confirm_incidents=[], heldout_incidents=[])
+    spec = {k: v for k, v in H.spec_for(5).items() if k in L.SPEC_KEYS}
+    with pytest.raises(L.LeakageError, match="held-out block"):
+        guard.check({**spec, "incident_id": "x"})
+    assert guard.overlap([{"source_seed": H.SEED_LO + 3}]) == 1
+    assert guard.overlap([{"source_seed": 1_000_005}]) == 0
+    with pytest.raises(ValueError, match="held-out block"):
+        D.fresh_seeds(50, start=H.SEED_LO - 3)
+    assert D.fresh_seeds(3) == D.fresh_seeds(3, start=D.SEED_BASE)  # the training candidates are unaffected
