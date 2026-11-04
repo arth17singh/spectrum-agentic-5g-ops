@@ -1,6 +1,7 @@
 """Verified lesson memory: the swarm learns from practice incidents, and only from fixes the twin confirms.
 
-A lesson is learned from a DEV incident only (never the frozen test split; ``learn`` refuses it). It holds:
+A lesson is learned from a DEV incident only (never the frozen test split or the confirmation set;
+``learn`` refuses both). It holds:
 
 - ``symptoms``: what the symptoms-only ticket states (``swarm.task_text``): the KPI drop from the
   pre-fault to the post-fault state. Never the fault, the template or a cell id.
@@ -202,35 +203,64 @@ def _spec_hash(incident: dict[str, Any]) -> str:
     return hashlib.sha256(inc_mod.canonical_line({k: incident[k] for k in SPEC_KEYS}).encode()).hexdigest()
 
 
-class TestSplitGuard:
-    """Refuses any incident from (or overlapping) the frozen test split: same seed, same id, or the same
-    spec bytes (the Track 1 data check's hash-overlap idea, applied to incident specs)."""
+# The confirmation set (t3/evals/confirm.py): fresh held-out incidents, frozen once, never learned from.
+CONFIRM_PATH = inc_mod.SUITE_DIR / "incidents-confirm.jsonl"
 
-    def __init__(self, test_incidents: list[dict[str, Any]] | None = None) -> None:
+
+def load_confirm_file(path: Path = CONFIRM_PATH) -> list[dict[str, Any]]:
+    """The frozen confirmation incidents ([] before the set is frozen). The sha256 sidecar is checked by
+    ``confirm.load_confirm``; the guard only needs the seeds, ids and spec bytes."""
+    p = Path(path)
+    return [json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
+
+
+class TestSplitGuard:
+    """Refuses any incident from (or overlapping) a held-out set: the frozen test split and the
+    confirmation set (``suite/incidents-confirm.jsonl``). Same seed, same id, or the same spec bytes (the
+    Track 1 data check's hash-overlap idea, applied to incident specs)."""
+
+    def __init__(self, test_incidents: list[dict[str, Any]] | None = None,
+                 confirm_incidents: list[dict[str, Any]] | None = None) -> None:
         if test_incidents is None:
             test_incidents, _ = inc_mod.load_test(inc_mod.TEST_PATH, verify_hash=False)
+        if confirm_incidents is None:
+            confirm_incidents = load_confirm_file()
         self.seeds = {int(i["seed"]) for i in test_incidents}
         self.ids = {i["incident_id"] for i in test_incidents}
         self.hashes = {_spec_hash(i) for i in test_incidents}
+        self.confirm_seeds = {int(i["seed"]) for i in confirm_incidents}
+        self.confirm_ids = {i["incident_id"] for i in confirm_incidents}
+        self.confirm_hashes = {_spec_hash(i) for i in confirm_incidents}
 
     def check(self, incident: dict[str, Any]) -> None:
         why = []
         if incident.get("split") == "test" or inc_mod.split_of(int(incident["seed"])) == "test":
             why.append("seed is in the test split")
+        if incident.get("split") == "confirm":
+            why.append("incident is in the confirmation split")
         if int(incident["seed"]) in self.seeds:
             why.append("seed appears in the frozen test file")
+        if int(incident["seed"]) in self.confirm_seeds:
+            why.append("seed appears in the confirmation set")
         if incident.get("incident_id") in self.ids:
             why.append("incident id appears in the frozen test file")
-        if _spec_hash(incident) in self.hashes:
+        if incident.get("incident_id") in self.confirm_ids:
+            why.append("incident id appears in the confirmation set")
+        h = _spec_hash(incident)
+        if h in self.hashes:
             why.append("spec hash overlaps a test incident")
+        if h in self.confirm_hashes:
+            why.append("spec hash overlaps a confirmation incident")
         if why:
             raise LeakageError(f"{incident.get('incident_id')}: refused to learn ({'; '.join(why)})")
 
     def overlap(self, lessons: Iterable[dict[str, Any]]) -> int:
-        """How many stored lessons came from a test incident (must be 0)."""
+        """How many stored lessons came from a held-out incident, test or confirmation (must be 0)."""
+        seeds, ids, hashes = (self.seeds | self.confirm_seeds, self.ids | self.confirm_ids,
+                              self.hashes | self.confirm_hashes)
         return sum(1 for l in lessons
-                   if l.get("source_seed") in self.seeds or l.get("source_incident") in self.ids
-                   or l.get("source_spec_sha256") in self.hashes)
+                   if l.get("source_seed") in seeds or l.get("source_incident") in ids
+                   or l.get("source_spec_sha256") in hashes)
 
 
 # --------------------------------------------------------------------------- the store
