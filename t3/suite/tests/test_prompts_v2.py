@@ -162,6 +162,72 @@ def test_optimizer_v2_lesson_steps_are_conditional_and_grounded():
     assert "Call ran___predict with case_id and that change (no item_id), then ran___preflight" in text
     assert "use ran___predict's item_id and change, character for character" in text
     assert '"clipped": true' in text and "policy is null" in text
+    assert RULE in text  # the minimal-change choice rule, word for word
+
+
+# ---------------------------------------------------------------- the choice rule (step 6)
+
+RULE = ("Both: the one changing fewer cells; if equal, the smaller sum of |d_power_db| over its cells; if those "
+        "sums are within 0.5 dB, the larger sum of preflight coverage_ratio and sla_ratio; still tied, the policy's.")
+# Live Fix run 2 (t3.livefix-20261104T063537Z-f1da): the policy's 4-cell boost for a -6 dB fault on cell 2.
+RUN2_POLICY = ("cell=0;d_power_db=-1.1;d_tilt_deg=-0.5|cell=1;d_power_db=+3.9;d_tilt_deg=+0.0|"
+               "cell=2;d_power_db=+8.0;d_tilt_deg=-2.0|cell=3;d_power_db=+2.3;d_tilt_deg=+2.3")
+
+
+def _items(change: str) -> list[dict]:
+    from t3.tools import changes
+    return [i for i in changes.parse(change) if i["d_power_db"] or i["d_tilt_deg"]]
+
+
+def written_choice(policy: dict | None, lesson: dict | None) -> str:
+    """Step 6 of v2/ran_optimizer.md, done literally. A candidate is {change, positive, clipped, gain}, gain =
+    preflight coverage_ratio + sla_ratio; None = no candidate. Returns "policy" or "lesson"."""
+    tie_db = float(re.search(r"if those sums are within ([0-9.]+) dB", v2("ran_optimizer"))[1])
+    eligible = [n for n, c in (("policy", policy), ("lesson", lesson)) if c and c["positive"] and not c["clipped"]]
+    if len(eligible) != 2:
+        return eligible[0] if eligible else "policy"  # neither: the policy's candidate (or its no-change answer)
+    p, q = (len(_items(c["change"])) for c in (policy, lesson))
+    if p != q:
+        return "policy" if p < q else "lesson"
+    p, q = (sum(abs(i["d_power_db"]) for i in _items(c["change"])) for c in (policy, lesson))
+    if abs(p - q) > tie_db:
+        return "policy" if p < q else "lesson"
+    if policy["gain"] != lesson["gain"]:
+        return "policy" if policy["gain"] > lesson["gain"] else "lesson"
+    return "policy"
+
+
+def _cand(change: str, gain: float, positive: bool = True, clipped: bool = False) -> dict:
+    return {"change": change, "gain": gain, "positive": positive, "clipped": clipped}
+
+
+def test_minimal_change_rule_prefers_a_targeted_lesson_fix_over_a_bigger_broad_boost():
+    pytest.importorskip("t3.tools.changes")
+    lesson = _cand("cell=2;d_power_db=+6.0;d_tilt_deg=+0.0", gain=0.12)
+    boost = _cand(RUN2_POLICY, gain=0.31)  # the bigger preflight gain, from over-shooting the healthy network
+    assert boost["gain"] > lesson["gain"] and written_choice(boost, lesson) == "lesson"
+    # eligibility comes first: a clipped lesson or a policy change that is not positive is out
+    assert written_choice(boost, dict(lesson, clipped=True)) == "policy"
+    assert written_choice(dict(boost, positive=False), lesson) == "lesson"
+    assert written_choice(dict(boost, positive=False), dict(lesson, positive=False)) == "policy"
+    assert written_choice(None, lesson) == "lesson"  # the policy proposed no change
+
+
+def test_minimal_change_rule_tie_breaks():
+    pytest.importorskip("t3.tools.changes")
+    # same cell count: the smaller total |d_power_db| wins, whatever the gain
+    assert written_choice(_cand("cell=2;d_power_db=+8.0;d_tilt_deg=+0.0", 0.20),
+                          _cand("cell=2;d_power_db=+6.0;d_tilt_deg=+0.0", 0.10)) == "lesson"
+    assert written_choice(_cand("cell=1;d_power_db=+0.0;d_tilt_deg=-5.0", 0.05),
+                          _cand("cell=1;d_power_db=+4.0;d_tilt_deg=+0.0", 0.30)) == "policy"
+    # power totals within 0.5 dB: the larger preflight gain wins
+    assert written_choice(_cand("cell=1;d_power_db=+0.0;d_tilt_deg=-4.0", 0.15),
+                          _cand("cell=1;d_power_db=+0.0;d_tilt_deg=-5.0", 0.10)) == "policy"
+    assert written_choice(_cand("cell=3;d_power_db=+6.0;d_tilt_deg=+0.0", 0.10),
+                          _cand("cell=3;d_power_db=+5.6;d_tilt_deg=-1.0", 0.14)) == "lesson"
+    # a full tie goes to the policy
+    assert written_choice(_cand("cell=0;d_power_db=+3.0;d_tilt_deg=+0.0", 0.1),
+                          _cand("cell=1;d_power_db=+3.0;d_tilt_deg=+0.0", 0.1)) == "policy"
 
 
 # ---------------------------------------------------------------- schemas and examples
@@ -206,6 +272,8 @@ def test_optimizer_lesson_example_and_field_bounds():
     lesson = dict(exs[1], case_id="case-0a1b2c3d")
     assert lesson["source"] == "lesson" and lesson["lesson_id"] == "L-01" and lesson["policy"] is None
     assert lesson["alternative"]["source"] == "policy"
+    # the example is consistent with the rule: its lesson change touches fewer cells than the alternative
+    assert written_choice(_cand(lesson["alternative"]["change"], 0.0), _cand(lesson["change"], 0.0)) == "lesson"
     for bad in ({"source": "nlm"}, {"lesson_id": "lesson one"},
                 {"alternative": {"source": "policy", "item_id": "step-0", "change": "power up cell 2"}},
                 {"alternative": {"source": "policy", "item_id": "step-0"}}):
