@@ -16,6 +16,11 @@ The deterministic PPO action is scaled by the SDK's `scale_action`, quantised TO
 ActionSafetyFilter (step limits, absolute bounds, alarm freeze) and quantised again. Cells whose
 change is zero are left out. An all-zero proposal is the empty list / empty string (no-op).
 
+Optional post-processing, read from the meta sidecar (absent = off, so ppo_v0 and ppo_sm_50k behave
+exactly as before): ``"postprocess": {"deadzone_power_db": x, "deadzone_tilt_deg": y}`` zeroes a power
+(tilt) delta smaller than x dB (y deg) in magnitude, after scaling and before the safety filter. The
+fault-aware remediation policy (t1/rl/remediation) uses it so that "no change" is an exact no-op.
+
 Canonical change string (contract amendment 1, A2): `cell=<int>;d_power_db=<+x.x>;d_tilt_deg=<+x.x>`,
 several cells joined with `|` and sorted by cell, cells 0-based, one decimal, explicit sign.
 """
@@ -77,6 +82,12 @@ class Policy:
         self.obs_mode = str(meta.get("obs", "masked"))
         if self.obs_mode not in ("masked", "sdk"):
             raise ValueError(f"unknown observation mode {self.obs_mode!r} in the policy's meta")
+        post = meta.get("postprocess") or {}
+        if not isinstance(post, Mapping) or set(post) - {"deadzone_power_db", "deadzone_tilt_deg"}:
+            raise ValueError(f"unknown postprocess in the policy's meta: {post!r}")
+        self.deadzone = (float(post.get("deadzone_power_db", 0.0)), float(post.get("deadzone_tilt_deg", 0.0)))
+        if min(self.deadzone) < 0:
+            raise ValueError(f"a deadzone must not be negative: {self.deadzone}")
 
     # ---- state handling ------------------------------------------------------------------
     @staticmethod
@@ -92,15 +103,12 @@ class Policy:
         s.setdefault("asleep", [False] * n)
         return s
 
-    def _normalised_action(self, state: Mapping[str, Any]) -> np.ndarray:
-        from ran_rl.env.observation import normalize_observation
+    def observation(self, state: Mapping[str, Any]) -> dict[str, np.ndarray]:
+        """The observation the model sees for ``state`` (training code uses this same function)."""
+        return observation_for(state, self.obs_mode, self._cfg)
 
-        s = self._full_state(state)
-        n = len(s["power_dbm"])
-        obs = normalize_observation(s, np.zeros(2 * n), self._cfg)
-        if self.obs_mode == "masked":   # v0 was trained on the masked view; the SDK's own trainer was not
-            obs = mask_obs(obs)
-        action, _ = self._model.predict(obs, deterministic=True)
+    def _normalised_action(self, state: Mapping[str, Any]) -> np.ndarray:
+        action, _ = self._model.predict(self.observation(state), deterministic=True)
         return np.asarray(action, dtype=np.float64)
 
     def _filtered(self, state: Mapping[str, Any]) -> tuple[np.ndarray, np.ndarray]:
@@ -109,6 +117,10 @@ class Policy:
         s = self._full_state(state)
         n = len(s["power_dbm"])
         raw = quantise_toward_zero(scale_action(self._normalised_action(s)[: 2 * n], self._bounds))
+        dz_power, dz_tilt = self.deadzone
+        if dz_power or dz_tilt:
+            raw[:n] = np.where(np.abs(raw[:n]) < dz_power, 0.0, raw[:n])
+            raw[n:] = np.where(np.abs(raw[n:]) < dz_tilt, 0.0, raw[n:])
         res = self._filter.apply(raw, s)
         f = quantise_toward_zero(res.filtered)
         return f[:n], f[n:]
@@ -128,6 +140,22 @@ class Policy:
         b = self._bounds
         pw = np.where(dp >= 0, dp / b.power_delta_max_db, dp / -b.power_delta_min_db)
         return np.concatenate([pw, dt / b.tilt_delta_max_deg])
+
+
+def observation_for(state: Mapping[str, Any], mode: str = "masked", cfg: Any = None) -> dict[str, np.ndarray]:
+    """The model observation of a raw twin state: the SDK's normalisation with prev_action = 0 (a stateless
+    tool call), then the masked view when ``mode`` is "masked". Shared by inference and training."""
+    from ran_rl.env.config import EnvConfig
+    from ran_rl.env.observation import normalize_observation
+
+    s = Policy._full_state(state)
+    n = len(s["power_dbm"])
+    obs = normalize_observation(s, np.zeros(2 * n), cfg if cfg is not None else EnvConfig())
+    if mode == "masked":   # v0 was trained on the masked view; the SDK's own trainer was not
+        obs = mask_obs(obs)
+    elif mode != "sdk":
+        raise ValueError(f"unknown observation mode {mode!r}")
+    return obs
 
 
 def load(path: str | Path, **meta: Any) -> Policy:
