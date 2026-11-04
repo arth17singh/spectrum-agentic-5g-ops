@@ -170,7 +170,18 @@ def test_bc_artifact_is_a_drop_in_for_the_policy_loader(tiny_artifact):
 
 # --------------------------------------------------------------------------- evaluation records
 
-def test_evaluate_smoke_items_and_part_e_replay(tiny_artifact, tmp_path):
+@pytest.fixture(scope="module")
+def tiny_heldout(tmp_path_factory):
+    """A real (twin-built) two-incident held-out file with its sidecar and meta, like the frozen one."""
+    from t1.rl.remediation import heldout as H
+
+    gen = H.generate(strata=[2, 3], quota=1, max_candidates=8, log=lambda m: None)
+    d = tmp_path_factory.mktemp("heldout")
+    H.write_outputs(gen, d, "0" * 40, None, None, smoke=True)
+    return d / H.SUITE_NAME
+
+
+def test_evaluate_smoke_items_and_part_e_replay(tiny_artifact, tiny_heldout, tmp_path):
     sys.path[:0] = [str(ROOT / "tools"), str(ROOT / "tools" / "tests")]
     check_unit = pytest.importorskip("check_unit")
     evfake = pytest.importorskip("evfake")
@@ -180,12 +191,17 @@ def test_evaluate_smoke_items_and_part_e_replay(tiny_artifact, tmp_path):
     ev = tmp_path / "ev"
     rid = "t3.evals.remediation-policy-smoke-test"
     assert E.main(["--run-id", rid, "--evidence-dir", str(ev), "--output-dir", str(tmp_path / "out"),
-                   "--policy", str(path), "--smoke", "--limit-test", "1", "--limit-confirm", "1", "--holdout", "1",
-                   "--declare"]) == 0
+                   "--policy", str(path), "--smoke", "--limit-heldout", "2", "--heldout-file", str(tiny_heldout),
+                   "--limit-test", "1", "--limit-confirm", "1", "--holdout", "1", "--declare"]) == 0
     items = [json.loads(x) for x in (ev / f"records/{rid}/item.jsonl").read_text().splitlines()]
     res = json.loads((ev / f"results/{rid}.json").read_text())
-    assert len(items) == res["n_items"] == 4
-    assert {it["extra"]["suite"] for it in items} == {"test-masked", "test-visible", "confirm", "dev-holdout"}
+    assert len(items) == res["n_items"] == 6
+    assert {it["extra"]["suite"] for it in items} == {"heldout", "test-masked", "test-visible", "confirm",
+                                                      "dev-holdout"}
+    for it in items:  # the exact inverse knows the fault: right cell, nothing on the healthy network
+        o = it["extra"]["operators"]["oracle_inverse"]
+        assert o["model_id"] == "oracle-exact-inverse-v1" and o["diagnosis_hit"] is True
+        assert o["healthy_false_change"] is False and o["cells_touched"] == len(it["extra"]["incident"]["fault_cells"])
     for it in items:
         ops = it["extra"]["operators"]
         assert set(ops) == set(E.OPERATORS)
@@ -208,8 +224,12 @@ def test_evaluate_smoke_items_and_part_e_replay(tiny_artifact, tmp_path):
     assert res["value"] == pytest.approx(min(c["ci_low"] - c["threshold"] for c in joint["components"]))
     assert res["passed"] is (res["value"] > 0) is all(c["passed"] for c in joint["components"])
     assert set(res["details"]["replication"]) == {"test-visible", "confirm", "dev-holdout"}
-    assert res["details"]["gain"]["subset"] == {"field": "extra.suite", "equals": "test-masked"}
-    assert res["details"]["gain"]["paired_n"] == 1
+    assert set(res["details"]["continuity"]) == {"test-masked"}
+    assert res["details"]["gain"]["subset"] == {"field": "extra.suite", "equals": "heldout"}
+    assert res["details"]["gain"]["paired_n"] == 2
+    assert set(res["details"]["oracle_ceiling"]) == {"heldout", "test-masked", "test-visible", "confirm", "dev-holdout"}
+    for f in res["details"]["flags"]:
+        assert f["flag"] == "ORACLE_CEILING_LOW" and f["oracle_percell_recovered"] < 0.9
     # the independent checker replays the joint target, component by component, from the items (fake S3)
 
     def part_e(result_bytes: bytes):
@@ -246,3 +266,5 @@ def test_evaluate_refuses_limits_outside_smoke_and_big_smokes():
         E.main(["--print-declaration", "--limit-test", "1"])
     with pytest.raises(SystemExit):
         E.main(["--print-declaration", "--smoke", "--limit-test", "18", "--limit-confirm", "18", "--holdout", "1"])
+    with pytest.raises(SystemExit):  # the held-out set (1,008) is never a smoke unless limited
+        E.main(["--print-declaration", "--smoke", "--limit-test", "1", "--limit-confirm", "1", "--holdout", "1"])

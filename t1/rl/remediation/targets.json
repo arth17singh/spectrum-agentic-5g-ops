@@ -1,18 +1,19 @@
 {
-  "version": 2,
+  "version": 3,
   "declared_at": "2026-11-04T07:30:00Z",
-  "about": "Declared before remediation-v1 was trained or evaluated; the primary target was changed (version 2, see 'changed') before any real evaluation. Graded by t3/evals/graders.py (network level) and t3/evals/percell.py percell-v1 (per cell), both by twin replay against the same-step healthy counterfactual; no model grades another. The episode, tolerances, material gaps and bootstrap are t3/evals/targets.json's.",
+  "about": "Declared before remediation-v1 was evaluated; the primary target changed twice before any real evaluation (version 2: the joint per-cell target; version 3: the same joint target on the large frozen held-out set). Graded by t3/evals/graders.py (network level) and t3/evals/percell.py percell-v1 (per cell), both by twin replay against the same-step healthy counterfactual; no model grades another. The episode, tolerances, material gaps and bootstrap are t3/evals/targets.json's.",
   "unit": "t3.evals.remediation-policy",
   "candidate": "t1-remediation-bc (remediation-v1)",
   "operators": [
     "v1",
     "ppo_sm_50k",
     "config_revert",
-    "rule_baseline"
+    "rule_baseline",
+    "oracle_inverse"
   ],
   "primary": {
-    "suite": "test-masked",
-    "what": "the 18 masked incidents of the frozen test split (t3/evals/suite/incidents-test.jsonl); v1 and ppo_sm_50k graded identically",
+    "suite": "heldout",
+    "what": "the 1,008 masked incidents of the frozen held-out set t1/rl/remediation/suite/heldout-v1.jsonl (56 strata x 18: 7 templates x 4 base cells x 2 presets, seeds 2,000,001-2,022,400, frozen on x86_64 by run t1.rl.remediation-heldout-20261104T081231Z); v1 and ppo_sm_50k graded identically",
     "target": {
       "metric": "joint_ci_low_margin",
       "op": ">",
@@ -22,7 +23,7 @@
     "rule": "PASS only if all three components pass. Each component is a paired-bootstrap lower bound that must be above its own threshold; the unit's value is the smallest margin (ci_low minus threshold), so value > 0 if and only if all three pass. tools/check_unit.py part e replays every component (JOINT_METRIC).",
     "subset": {
       "field": "extra.suite",
-      "equals": "test-masked"
+      "equals": "heldout"
     },
     "components": [
       {
@@ -30,7 +31,7 @@
         "score_field": "score",
         "subset": {
           "field": "extra.suite",
-          "equals": "test-masked"
+          "equals": "heldout"
         },
         "op": ">",
         "threshold": 0.0,
@@ -41,7 +42,7 @@
         "score_field": "extra.diff.network_recovery",
         "subset": {
           "field": "extra.suite",
-          "equals": "test-masked"
+          "equals": "heldout"
         },
         "op": ">",
         "threshold": -0.05,
@@ -52,7 +53,7 @@
         "score_field": "extra.diff.diagnosis_hit",
         "subset": {
           "field": "extra.suite",
-          "equals": "test-masked"
+          "equals": "heldout"
         },
         "op": ">",
         "threshold": 0.0,
@@ -60,10 +61,12 @@
       }
     ],
     "item_score": "percell_recovered(v1) - percell_recovered(ppo_sm_50k); extra.diff holds all three component differences",
-    "interval": "paired-bootstrap-v1 over item ids, subset extra.suite = test-masked, t3/evals/targets.json bootstrap (10000 resamples, seed 20261102, 95%)",
-    "replication": "the same three components are reported on test-visible, confirm and dev-holdout; they are not part of pass/fail"
+    "interval": "paired-bootstrap-v1 over item ids, subset extra.suite = heldout, t3/evals/targets.json bootstrap (10000 resamples, seed 20261102, 95%)",
+    "replication": "the same three components on confirm, test-visible and dev-holdout; reported, not part of pass/fail",
+    "continuity": "the same three components on the 18 test-masked incidents (the judged swarm's set), reported for continuity with earlier results; not part of pass/fail"
   },
   "suites": {
+    "heldout": "frozen remediation held-out set t1/rl/remediation/suite/heldout-v1.jsonl (1,008 masked; the primary set)",
     "test-masked": "frozen test split, tier masked (18)",
     "test-visible": "frozen test split, tier visible (15)",
     "confirm": "frozen confirmation suite t3/evals/suite/incidents-confirm.jsonl (18 masked, fresh seeds 990003-990271)",
@@ -85,24 +88,105 @@
     "percell_collateral_cells": "number of non-faulted cells that end degraded AND worse than right before the first operator step (percell-v1)"
   },
   "changed": {
-    "at": "2026-11-04T07:53:00Z",
-    "at_local": "4 Nov 2026 ~00:00 PST",
-    "from_version": 1,
+    "at": "2026-11-04T08:15:00Z",
+    "at_local": "4 Nov 2026 ~00:15 PST",
+    "from_version": 2,
     "before_any_real_evaluation": true,
-    "data_seen": "only a synthetic pipeline smoke: 5 test-masked incidents, scored by a model trained on 18 incidents (not a claim). No real remediation-v1 model existed; training job t1-rl-remediation-train-20261104T073837Z-664093 was still running.",
-    "reason": "network-level recovery is capped at 1.0 and rewards overshoot: in Live Fix run t3.livefix-20261104T073206Z-9695 the governed swarm (its change proposed by ppo_sm_50k) scored network recovery 1.00 while cells 0 and 3 stayed degraded, with 14.1 dB of power above healthy. t3/evals/tests/test_percell.py reproduces that run. Under version 1 a targeted fix could not beat an overshooting one even when it restores every cell.",
-    "decided_with": "the team lead (the user), 4 Nov ~00:00 PST",
-    "previous_primary": {
-      "suite": "test-masked",
-      "what": "the 18 masked incidents of the frozen test split (t3/evals/suite/incidents-test.jsonl)",
-      "target": {
-        "metric": "recovery_gain_ci_low_vs_ppo_sm_50k",
-        "op": ">",
-        "value": 0.0,
-        "unit": "recovery"
+    "data_seen": "nothing since version 2 except the same synthetic pipeline smoke (5 test-masked incidents scored by a model trained on 18 incidents; not a claim). remediation-v1 had been trained but not evaluated on any set.",
+    "reason": "n = 18 detects only very large effects: the 95% paired-bootstrap interval on a difference of two pass rates is about +/-0.25 wide at that size. The frozen held-out set (n = 1,008, stratified over every template, cell and preset) narrows it to about +/-0.04. The 18 test-masked incidents stay as continuity (reported, not pass/fail).",
+    "decided_with": "the team lead (the user), 4 Nov ~00:15 PST",
+    "also_added": "the oracle_inverse operator as the per-cell ceiling (reported only) and the confirm, test-visible and dev-holdout replication",
+    "previous": {
+      "version": 2,
+      "changed": {
+        "at": "2026-11-04T07:53:00Z",
+        "at_local": "4 Nov 2026 ~00:00 PST",
+        "from_version": 1,
+        "before_any_real_evaluation": true,
+        "data_seen": "only a synthetic pipeline smoke: 5 test-masked incidents, scored by a model trained on 18 incidents (not a claim). No real remediation-v1 model existed; training job t1-rl-remediation-train-20261104T073837Z-664093 was still running.",
+        "reason": "network-level recovery is capped at 1.0 and rewards overshoot: in Live Fix run t3.livefix-20261104T073206Z-9695 the governed swarm (its change proposed by ppo_sm_50k) scored network recovery 1.00 while cells 0 and 3 stayed degraded, with 14.1 dB of power above healthy. t3/evals/tests/test_percell.py reproduces that run. Under version 1 a targeted fix could not beat an overshooting one even when it restores every cell.",
+        "decided_with": "the team lead (the user), 4 Nov ~00:00 PST",
+        "previous_primary": {
+          "suite": "test-masked",
+          "what": "the 18 masked incidents of the frozen test split (t3/evals/suite/incidents-test.jsonl)",
+          "target": {
+            "metric": "recovery_gain_ci_low_vs_ppo_sm_50k",
+            "op": ">",
+            "value": 0.0,
+            "unit": "recovery"
+          },
+          "item_score": "recovery(v1) - recovery(ppo_sm_50k) on the same incident (the run's items hold the differences)",
+          "interval": "paired-bootstrap-v1 over item ids, subset extra.suite = test-masked, t3/evals/targets.json bootstrap (10000 resamples, seed 20261102, 95%)"
+        }
       },
-      "item_score": "recovery(v1) - recovery(ppo_sm_50k) on the same incident (the run's items hold the differences)",
-      "interval": "paired-bootstrap-v1 over item ids, subset extra.suite = test-masked, t3/evals/targets.json bootstrap (10000 resamples, seed 20261102, 95%)"
+      "primary": {
+        "suite": "test-masked",
+        "what": "the 18 masked incidents of the frozen test split (t3/evals/suite/incidents-test.jsonl); v1 and ppo_sm_50k graded identically",
+        "target": {
+          "metric": "joint_ci_low_margin",
+          "op": ">",
+          "value": 0.0,
+          "unit": "margin"
+        },
+        "rule": "PASS only if all three components pass. Each component is a paired-bootstrap lower bound that must be above its own threshold; the unit's value is the smallest margin (ci_low minus threshold), so value > 0 if and only if all three pass. tools/check_unit.py part e replays every component (JOINT_METRIC).",
+        "subset": {
+          "field": "extra.suite",
+          "equals": "test-masked"
+        },
+        "components": [
+          {
+            "name": "percell_recovered",
+            "score_field": "score",
+            "subset": {
+              "field": "extra.suite",
+              "equals": "test-masked"
+            },
+            "op": ">",
+            "threshold": 0.0,
+            "what": "item score = percell_recovered(v1) - percell_recovered(ppo_sm_50k), each 1 or 0: t3/evals/percell.py percell-v1, every cell green against its own healthy state at the grade step"
+          },
+          {
+            "name": "network_recovery_noninferior",
+            "score_field": "extra.diff.network_recovery",
+            "subset": {
+              "field": "extra.suite",
+              "equals": "test-masked"
+            },
+            "op": ">",
+            "threshold": -0.05,
+            "what": "recovery(v1) - recovery(ppo_sm_50k), network level (t3/evals/graders.py, capped at 1.0): v1 may be at most 0.05 worse (non-inferiority)"
+          },
+          {
+            "name": "diagnosis_hit",
+            "score_field": "extra.diff.diagnosis_hit",
+            "subset": {
+              "field": "extra.suite",
+              "equals": "test-masked"
+            },
+            "op": ">",
+            "threshold": 0.0,
+            "what": "diagnosis_hit(v1) - diagnosis_hit(ppo_sm_50k), each 1 or 0 (see secondary_measures.diagnosis_hit)"
+          }
+        ],
+        "item_score": "percell_recovered(v1) - percell_recovered(ppo_sm_50k); extra.diff holds all three component differences",
+        "interval": "paired-bootstrap-v1 over item ids, subset extra.suite = test-masked, t3/evals/targets.json bootstrap (10000 resamples, seed 20261102, 95%)",
+        "replication": "the same three components are reported on test-visible, confirm and dev-holdout; they are not part of pass/fail"
+      }
     }
+  },
+  "continuity": [
+    "test-masked"
+  ],
+  "replication": [
+    "confirm",
+    "test-visible",
+    "dev-holdout"
+  ],
+  "oracle": {
+    "operator": "oracle_inverse",
+    "what": "t1/rl/remediation/oracle.py: the exact inverse of the injected fault at the first operator step (it reads the fault from the incident, which no real operator can); the per-cell ceiling",
+    "reported": "on every set, with the same measures as every operator; never part of pass/fail",
+    "flag_below": 0.9,
+    "flag": "if the oracle's per-cell recovered rate on any set is below 0.90 the result carries a loud flag: the per-cell rule or the grade step is too strict for that share of incidents"
   }
 }
