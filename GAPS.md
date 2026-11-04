@@ -34,6 +34,7 @@ Times are Seattle time (PST, UTC−8) with UTC in brackets. Each entry keeps a d
 | [G-024](#g-024) | Open · confidentiality | One declaration, `t2.fl_federated.disjoint-20261103T051311Z`, is in S3 only, not in the repo, because it names a confidential service; so is the `t3.pause` result, which names the team's gateway | Repo copy of that one declaration; the run itself and its S3 declaration are unchanged | 3 Nov 06:30 PST (14:30 UTC) |
 | [G-025](#g-025) | Open · disclosure | The judged swarm ticket included the incident id, which names the fault template (e.g. `tilt+5`); the agents were told the fault type and size, not the cell | The "symptoms only" claim for `t3.swarm-live-20261103T060140Z` and its scored gain over config_revert | found 3 Nov 22:40 PST (4 Nov 06:40 UTC) |
 | [G-026](#g-026) | Open · disclosure | The swarm's change comes from the PPO policy (`ppo_sm_50k`) through `ran___propose`, not from the agents' diagnosis; the biggest change lands on the faulted cell in 5 of 16 incidents | What the swarm unit's gain over config_revert means: the policy's broad boost under governance, not diagnosis | found 3 Nov 23:00 PST (4 Nov 07:00 UTC) |
+| [G-027](#g-027) | Open · disclosure | Automatic trust-gate pauses are recorded but not enforced in the deployed system (`T3_TRUST_LIVE=0` on the trust-gate and RAN-tools Lambdas) | The demo line "a drifting model gets pulled automatically": it is flagged and recorded automatically; a person decides | found 4 Nov 00:00 PST (08:00 UTC) |
 
 ### Watching
 
@@ -433,6 +434,17 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Also affects:** the live self-improvement unit `t3.evals.self-improve-20261104T065102Z`. Lessons reach the lead's ticket but not `ran___propose`, so they cannot change the proposal. The unit was stopped after its before phase (all 18 incidents complete, items in S3); practice was declared with 0 incidents complete; after and control were not run, and no result record was written.
 - **Found:** 3 Nov ~23:00 PST, reading the self-improvement run's first proposals.
 - **Next:** a fault-aware remediation policy trained on twin-verified fixes, measured against `ppo_sm_50k` on the 18 masked test incidents and a fresh confirmation set (diagnosis accuracy and change size as well as recovery), and v2 agent prompts that let a verified lesson become a preflighted candidate change.
+- **Who we told:** not yet; recorded here.
+
+---
+
+<a id="g-027"></a>
+## G-027 · Automatic trust-gate pauses are recorded, not enforced
+
+- **What:** both `team13-trust-gate` and `team13-ran-tools` run with `T3_TRUST_LIVE=0`. The gate then uses its dry-run policy client (no Cedar forbid is created; control records are `synthetic: true`, as `t3/trust/README.md` says), and the tools apply changes in lenient mode, so a paused response model does not block a change.
+- **Seen live:** in Live Fix run `t3.livefix-20261104T073206Z-9695` the federated predictor's SINR forecast missed (predicted +3.55 dB, measured +1.88 dB). The gate set `t2-response-federated-disjoint@v1-5fb29b2d` to `paused` (trust 0.61 to 0.57) in its DynamoDB row; nothing was refused afterwards. The only pause policy in the Cedar engine is `team13_ranpause_predict_1793682963`, created 3 Nov 05:16 UTC, in state `CREATE_FAILED`.
+- **Unit it limits:** the claim that a drifting model "gets pulled automatically". It is flagged and recorded automatically, and a person decides. The trust gate's judged numbers (degraded model caught 20 of 20, healthy model falsely paused 7 of 20) evaluate the gate's decisions and are unaffected. The manual pause (`t3.pause`, a Cedar forbid through the kit) was enforced: 7 calls refused until resumed.
+- **Decision (4 Nov):** keep lenient mode for demos, because with a 7-in-20 false-pause rate an enforced gate would stall them; say "flagged automatically, a person decides". Enforcing means `T3_TRUST_LIVE=1` on both Lambdas and a person resuming after every pause.
 - **Who we told:** not yet; recorded here.
 
 ---
