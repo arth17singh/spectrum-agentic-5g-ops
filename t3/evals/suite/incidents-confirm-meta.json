@@ -1,0 +1,360 @@
+{
+  "exclusion": {
+    "clean": true,
+    "explicit_collisions": {},
+    "explicit_sets": {
+      "candidates": 84,
+      "dev": 35,
+      "livefix_faults": 10,
+      "livefix_runs": 2,
+      "test": 33
+    },
+    "known_ranges": [
+      {
+        "hi": 899999,
+        "lo": 0,
+        "source": "t1/sft/execgen.py: h(seed key) % SEED_LIMIT (900000)",
+        "what": "Track 1 SFT execution data"
+      },
+      {
+        "hi": 989999,
+        "lo": 900000,
+        "source": "t1/evals/gen_execution.py: SEED_BASE 900000 + h % 90000",
+        "what": "Track 1 execution eval (reserved)"
+      },
+      {
+        "hi": 404,
+        "lo": 42,
+        "source": "RL hand-in evaluation.json (101-105, 200-204, 300-304, 400-404); PPO seed 42",
+        "what": "RL evaluation scenarios and the PPO seed"
+      },
+      {
+        "hi": 4019,
+        "lo": 99,
+        "source": "t3/trust: seed 99, 1000+s, 2000-2019, 3000-3019, 4000-4019",
+        "what": "trust gate jobs, ladders and demo"
+      },
+      {
+        "hi": 4183,
+        "lo": 4100,
+        "source": "t3/evals/incidents.py: SEED_BASE 4100, N_CANDIDATES 84",
+        "what": "t3 incident suite candidates (test + dev)"
+      },
+      {
+        "hi": 7099,
+        "lo": 4161,
+        "source": "t3/evals/faults.py DEV_SEED_BASE 7000 (cache 7002-7041); Live Fix runs on 4161 and 7002",
+        "what": "Live Fix fault cache and runs"
+      },
+      {
+        "hi": 99999,
+        "lo": 10000,
+        "source": "t2/gen.py: BASE_SEED 10000 + episode",
+        "what": "Track 2 episodes"
+      },
+      {
+        "hi": 499999,
+        "lo": 100000,
+        "source": "silos/config.yaml: seed_base 100000-400000",
+        "what": "silo seeds"
+      }
+    ],
+    "literal_scan": {
+      "files_scanned": 961,
+      "hits": []
+    },
+    "seeds_in_known_ranges": []
+  },
+  "frozen_at": "2026-11-04T07:07:47Z",
+  "generator": {
+    "candidates_built": 26,
+    "dropped": [
+      {
+        "fault_cells": [
+          0
+        ],
+        "index": 2,
+        "k": 0,
+        "kept": false,
+        "matches": "inc-off-mas-4102-tilt+5",
+        "preset": "official",
+        "reason": "no_action already within tolerance at the grade step (fault not material)",
+        "seed": 990002,
+        "template": "tilt+5"
+      },
+      {
+        "fault_cells": [
+          0
+        ],
+        "index": 11,
+        "k": 0,
+        "kept": false,
+        "matches": "inc-vvl-mas-4111-tilt+4",
+        "preset": "viavi-like",
+        "reason": "no_action already within tolerance at the grade step (fault not material)",
+        "seed": 990011,
+        "template": "tilt+4"
+      },
+      {
+        "fault_cells": [
+          0
+        ],
+        "index": 23,
+        "k": 0,
+        "kept": false,
+        "matches": "inc-vvl-mas-4123-power-6+tilt+5",
+        "preset": "viavi-like",
+        "reason": "no_action already within tolerance at the grade step (fault not material)",
+        "seed": 990023,
+        "template": "power-6+tilt+5"
+      },
+      {
+        "fault_cells": [
+          0,
+          1
+        ],
+        "index": 27,
+        "k": 0,
+        "kept": false,
+        "matches": "inc-vvl-mas-4127-two-cell:power-6|tilt+5",
+        "preset": "viavi-like",
+        "reason": "no_action already within tolerance at the grade step (fault not material)",
+        "seed": 990027,
+        "template": "two-cell:power-6|tilt+5"
+      },
+      {
+        "fault_cells": [
+          0,
+          1
+        ],
+        "index": 139,
+        "k": 1,
+        "kept": false,
+        "matches": "inc-vvl-mas-4127-two-cell:power-6|tilt+5",
+        "preset": "viavi-like",
+        "reason": "no_action already within tolerance at the grade step (fault not material)",
+        "seed": 990139,
+        "template": "two-cell:power-6|tilt+5"
+      },
+      {
+        "fault_cells": [
+          1
+        ],
+        "index": 47,
+        "k": 0,
+        "kept": false,
+        "matches": "inc-vvl-mas-4147-power-3+tilt+3",
+        "preset": "viavi-like",
+        "reason": "no_action already within tolerance at the grade step (fault not material)",
+        "seed": 990047,
+        "template": "power-3+tilt+3"
+      },
+      {
+        "fault_cells": [
+          1
+        ],
+        "index": 159,
+        "k": 1,
+        "kept": false,
+        "matches": "inc-vvl-mas-4147-power-3+tilt+3",
+        "preset": "viavi-like",
+        "reason": "no_action already within tolerance at the grade step (fault not material)",
+        "seed": 990159,
+        "template": "power-3+tilt+3"
+      },
+      {
+        "fault_cells": [
+          2
+        ],
+        "index": 71,
+        "k": 0,
+        "kept": false,
+        "matches": "inc-vvl-mas-4171-power-4",
+        "preset": "viavi-like",
+        "reason": "no_action already within tolerance at the grade step (fault not material)",
+        "seed": 990071,
+        "template": "power-4"
+      }
+    ],
+    "grid_period": 112,
+    "k_used": {
+      "0": 12,
+      "1": 4,
+      "2": 2
+    },
+    "matched_to": {
+      "inc-off-mas-990018-power-3+tilt+3": "inc-off-mas-4118-power-3+tilt+3",
+      "inc-off-mas-990038-tilt+4": "inc-off-mas-4138-tilt+4",
+      "inc-off-mas-990042-power-4": "inc-off-mas-4142-power-4",
+      "inc-off-mas-990050-power-6+tilt+5": "inc-off-mas-4150-power-6+tilt+5",
+      "inc-off-mas-990058-tilt+5": "inc-off-mas-4158-tilt+5",
+      "inc-off-mas-990114-tilt+5": "inc-off-mas-4102-tilt+5",
+      "inc-vvl-mas-990003-tilt+5": "inc-vvl-mas-4103-tilt+5",
+      "inc-vvl-mas-990031-tilt+5": "inc-vvl-mas-4131-tilt+5",
+      "inc-vvl-mas-990035-power-6": "inc-vvl-mas-4135-power-6",
+      "inc-vvl-mas-990039-tilt+4": "inc-vvl-mas-4139-tilt+4",
+      "inc-vvl-mas-990055-two-cell:power-6|tilt+5": "inc-vvl-mas-4155-two-cell:power-6|tilt+5",
+      "inc-vvl-mas-990075-power-3+tilt+3": "inc-vvl-mas-4175-power-3+tilt+3",
+      "inc-vvl-mas-990079-power-6+tilt+5": "inc-vvl-mas-4179-power-6+tilt+5",
+      "inc-vvl-mas-990123-tilt+4": "inc-vvl-mas-4111-tilt+4",
+      "inc-vvl-mas-990135-power-6+tilt+5": "inc-vvl-mas-4123-power-6+tilt+5",
+      "inc-vvl-mas-990183-power-4": "inc-vvl-mas-4171-power-4",
+      "inc-vvl-mas-990251-two-cell:power-6|tilt+5": "inc-vvl-mas-4127-two-cell:power-6|tilt+5",
+      "inc-vvl-mas-990271-power-3+tilt+3": "inc-vvl-mas-4147-power-3+tilt+3"
+    },
+    "max_k": 12,
+    "procedure": "matched grid: for each masked test incident (grid index i of incidents.candidate), grid index j = i + GRID_PERIOD * k on the fresh seed CONFIRM_SEED_BASE + j, for the first k whose candidate passes incidents.build (material at the grade step, nothing clipped); same preset, tier, template and faulted cell(s) as its test incident",
+    "seed_base": 990000,
+    "targets_episode": {
+      "fault_step": 2,
+      "grade_step": 5,
+      "note": "reset = step 0. Step 1 = commissioning (the healthy per-cell configuration: none on the visible tier, seeded offsets on the masked tier). Step 2 = the fault. The operator then gets exactly 3 applies (steps 3-5); None or [] is a no-op step that still advances. Everyone is graded at step 5, so pairs are on the same UE positions.",
+      "operator_steps": 3
+    },
+    "test_suite_version": "t3-incidents-v4"
+  },
+  "mix": {
+    "fault_cells": {
+      "0": 5,
+      "0,1": 1,
+      "1": 7,
+      "1,2": 1,
+      "2": 4
+    },
+    "presets": {
+      "official": 6,
+      "viavi-like": 12
+    },
+    "templates": {
+      "power-3+tilt+3": 3,
+      "power-4": 2,
+      "power-6": 1,
+      "power-6+tilt+5": 3,
+      "tilt+4": 3,
+      "tilt+5": 4,
+      "two-cell:power-6|tilt+5": 2
+    }
+  },
+  "n": 18,
+  "note": "frozen on this platform; the twin is a float32 GP, so frozen KPIs replay to 1e-6 only here. Grading (lessons.verify) rebuilds each incident from its spec on the grading machine. The tickets state the frozen pre/post-fault KPIs. No agent or model has seen these incidents.",
+  "overlap": {
+    "candidates": {
+      "id_overlap": 0,
+      "n": 84,
+      "seed_overlap": 0,
+      "spec_hash_overlap": 0
+    },
+    "dev": {
+      "id_overlap": 0,
+      "n": 35,
+      "seed_overlap": 0,
+      "spec_hash_overlap": 0
+    },
+    "test": {
+      "id_overlap": 0,
+      "n": 33,
+      "seed_overlap": 0,
+      "spec_hash_overlap": 0
+    },
+    "total": 0
+  },
+  "platform": "Darwin-arm64",
+  "python": "3.12.7",
+  "replaced_draw": {
+    "built": 42,
+    "committed": false,
+    "kept": 28,
+    "presets": {
+      "official": 15,
+      "viavi-like": 3
+    },
+    "rule": "hash pick v0: every masked grid candidate on seeds 990000 + i (i < 84), the incidents.build filters, then the first 18 kept in sha256('t3-evals-confirm-v1:<seed>') order",
+    "run_on": "nothing (no proposal, no grading of any fix)",
+    "sha256": "313548bc6568be9f818a1e8283ba61ec329f3d73713e92d6ad08f5cf53b8b4c8",
+    "shown_to_any_agent": false,
+    "templates": {
+      "power-3+tilt+3": 2,
+      "power-4": 4,
+      "power-6": 3,
+      "power-6+tilt+5": 4,
+      "tilt+4": 2,
+      "tilt+5": 1,
+      "two-cell:power-6|tilt+5": 2
+    },
+    "why_replaced": "its preset mix departed from the 18 masked test incidents (6 official / 12 viavi-like): 11 of 21 viavi-like candidates were immaterial on the fresh seeds against 3 of 21 official. Replaced by the matched-grid rule so the confirmation set has the test set's composition."
+  },
+  "seed_range": [
+    990003,
+    990271
+  ],
+  "seeds": [
+    990003,
+    990018,
+    990031,
+    990035,
+    990038,
+    990039,
+    990042,
+    990050,
+    990055,
+    990058,
+    990075,
+    990079,
+    990114,
+    990123,
+    990135,
+    990183,
+    990251,
+    990271
+  ],
+  "sha256": "d21b1fce6a46e4e79cc1b4291a612cced610534716f5c90b52baa1c78dbf7a4d",
+  "split": "confirm",
+  "split_of_labels": {
+    "990003": "dev",
+    "990018": "dev",
+    "990031": "dev",
+    "990035": "test",
+    "990038": "dev",
+    "990039": "dev",
+    "990042": "dev",
+    "990050": "dev",
+    "990055": "dev",
+    "990058": "dev",
+    "990075": "dev",
+    "990079": "test",
+    "990114": "test",
+    "990123": "test",
+    "990135": "dev",
+    "990183": "test",
+    "990251": "dev",
+    "990271": "dev"
+  },
+  "split_of_note": "incidents.split_of labels every seed test or dev by its own salt; these incidents are their own split ('confirm') whatever it says, and lessons.TestSplitGuard refuses them",
+  "suite": "t3-incidents-confirm-v1",
+  "test_masked_mix": {
+    "fault_cells": {
+      "0": 5,
+      "0,1": 1,
+      "1": 7,
+      "1,2": 1,
+      "2": 4
+    },
+    "presets": {
+      "official": 6,
+      "viavi-like": 12
+    },
+    "templates": {
+      "power-3+tilt+3": 3,
+      "power-4": 2,
+      "power-6": 1,
+      "power-6+tilt+5": 3,
+      "tilt+4": 3,
+      "tilt+5": 4,
+      "two-cell:power-6|tilt+5": 2
+    }
+  },
+  "tier": "masked",
+  "twin_backend": "maveric-inprocess",
+  "twin_version": "ran-rl-1.2.9",
+  "unit": "t3.evals.confirm"
+}
