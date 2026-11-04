@@ -223,7 +223,101 @@ def test_live_backend_only_changes_the_ticket(monkeypatch):
     assert "Verified past lessons" not in seen["texts"][0]
     from t3.evals.swarm import task_text
     base, block = seen["texts"][1].split("\n\n", 1)
-    assert base == task_text(inc(iid="inc-t"), "t3.si-x.after") and block.startswith("Verified past lessons")
+    assert base == S.opaque_ticket(inc(iid="inc-t"), "t3.si-x.after") and block.startswith("Verified past lessons")
+    assert base == task_text({**inc(iid="inc-t"), "incident_id": S.opaque_label(inc(iid="inc-t"))}, "t3.si-x.after")
     assert on["inc-t"][2] == ["L-01"] and off["inc-t"][2] == []
     assert on["inc-t"][0][0] == "cell=2;d_power_db=+0.0;d_tilt_deg=-5.0" and on["inc-t"][1] == 30.0
     assert [d["unit"] for d in ev.declared] == ["t3.evals.self-improve.before", "t3.evals.self-improve.after"]
+
+
+def test_opaque_ticket_hides_the_fault_template():
+    i = inc(iid="inc-off-mas-4102-tilt+5")
+    t = S.opaque_ticket(i, "r")
+    assert "tilt+5" not in t and "4102" not in t and S.opaque_label(i) in t
+    assert S.opaque_label(i) == "inc-" + __import__("hashlib").sha256(b"inc-off-mas-4102-tilt+5").hexdigest()[:8]
+
+
+def test_live_mode_refuses_dev_labels(tmp_path):
+    with pytest.raises(ValueError):
+        S.SelfImprove(run_id="t3.self-improve-test-0003", ev=Evidence(tmp_path / "ev"), propose=lambda *a: {},
+                      model_id="m", synthetic=False, store=L.LessonStore(None), mode="live", offline_labels=True)
+
+
+def test_practice_learns_after_each_incident(tmp_path, monkeypatch):
+    """With on_done, the second practice incident already sees the first one's lesson."""
+    monkeypatch.setattr(L, "verify", fake_verify)
+    test = [inc(test_seed() + 2 * k, iid=f"inc-t{k}", split="test") for k in range(2)]
+    dev = [inc(dev_seed(), iid=f"inc-d{k}") for k in range(2)]
+    seen_lessons = []
+
+    def propose(phase, incidents, st, on_done=None):
+        out = {}
+        for i in incidents:
+            if phase == "practice":
+                seen_lessons.append(len(st.lessons))
+            out[i["incident_id"]] = (["FIX", "", ""], 1.0, [])
+            if on_done:
+                on_done(i, out[i["incident_id"]][0])
+        return out
+
+    st = L.LessonStore(tmp_path / "l.jsonl", guard=L.TestSplitGuard(test))
+    unit = S.SelfImprove(run_id="t3.self-improve-test-0004", ev=Evidence(tmp_path / "ev"), propose=propose,
+                         model_id="fake", synthetic=True, store=st, targets=load_targets(), log=lambda s: None,
+                         checkpoint_dir=tmp_path / "ck")
+    out = unit.run(test, "0" * 64, dev, "1" * 64)
+    assert seen_lessons == [0, 1]
+    assert all(it["extra"]["learned"] for it in out["phases"]["practice"])
+    assert json.loads((tmp_path / "ck" / "t3.self-improve-test-0004.phases-written.json").read_text()) == list(S.PHASES)
+
+
+def test_live_backend_workers_checkpoint_and_resume(tmp_path, monkeypatch):
+    from t3.evals import live_swarm
+    made = []
+
+    class FakeLive:
+        def __init__(self, **kw):
+            self.kw, self.rows, self.items = kw, [], []
+            self._lock = __import__("threading").Lock()
+            made.append(self)
+
+        def declaration(self, incidents, digest, steps):
+            return {"run_id": self.kw["run_id"], "twin": {"config": {}}, "n": len(incidents)}
+
+        def run_incident(self, incident, idx, steps):
+            if incident["incident_id"] == "boom" and len(made) == 1:
+                raise RuntimeError("crash mid-phase")
+            self.kw["ticket"](incident, self.kw["run_id"])
+            with self._lock:
+                for s in range(steps):
+                    self.rows.append({"incident_id": incident["incident_id"], "step": s, "ok": True,
+                                      "change_text": "C" if s == 0 else ""})
+                self.items.append({"extra": {"incident_id": incident["incident_id"]}, "latency_ms": 1.0})
+
+    class FakeEv:
+        def __init__(self):
+            self.declared = []
+
+        def write_declared(self, d):
+            self.declared.append(d)
+
+    monkeypatch.setattr(live_swarm, "LiveSwarm", FakeLive)
+    ev = FakeEv()
+    propose = S.live_backend(base_run_id="t3.si-y", gateway=None, ddb=None, evlib=ev, cfg={}, targets=load_targets(),
+                             model_id="m", digests={"test": "a" * 64, "dev": "b" * 64}, workers=1,
+                             checkpoint_dir=tmp_path, log=lambda s: None)
+    incs = [inc(iid="a1"), inc(iid="boom"), inc(iid="a3")]
+    with pytest.raises(RuntimeError):
+        propose("before", incs, None)
+    assert ev.declared[0]["run_id"] == "t3.si-y.before"           # declared before the first call
+    got = propose("before", incs, None)                          # resume: a1 skipped, the rest re-run
+    assert set(got) == {"a1", "boom", "a3"}
+    assert ev.declared[1]["run_id"] == "t3.si-y.before.r1" and ev.declared[1]["n"] == 2
+    assert ev.declared[1]["twin"]["config"]["resumes"] == "t3.si-y.before"
+    assert all(d["twin"]["config"]["ticket"] == S.TICKET for d in ev.declared)
+    # workers > 1 runs every incident once
+    made.clear()
+    p2 = S.live_backend(base_run_id="t3.si-z", gateway=None, ddb=None, evlib=FakeEv(), cfg={}, targets=load_targets(),
+                        model_id="m", digests={"test": "a" * 64, "dev": "b" * 64}, workers=3, log=lambda s: None)
+    made.append(None)  # no crash path
+    got = p2("after", [inc(iid=f"w{k}") for k in range(5)], None)
+    assert sorted(got) == [f"w{k}" for k in range(5)] and all(v[0][0] == "C" for v in got.values())

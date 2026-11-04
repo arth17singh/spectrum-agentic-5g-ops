@@ -33,7 +33,9 @@ import hashlib
 import json
 import os
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable
 
@@ -50,6 +52,20 @@ SCRIPT = "t3/evals/self_improve.py"
 TARGET = {"metric": "gain_ci_low_after_vs_before", "op": ">", "value": 0.0, "unit": "recovery"}
 PHASES = ("before", "practice", "after", "control")
 LESSON_MIN_SIM = 0.30
+TICKET = "opaque-id-v1"
+
+
+def opaque_label(incident: dict[str, Any]) -> str:
+    """The label the agents see: "inc-" + the first 8 hex of sha256(incident_id). The same rule as Live Fix's
+    ``opaque_label`` (dashboard livefix/suite.py). Suite ids name the fault template ("inc-...-tilt+5"), so the
+    real id stays in the evidence records only (GAPS G-025)."""
+    return "inc-" + hashlib.sha256(str(incident["incident_id"]).encode()).hexdigest()[:8]
+
+
+def opaque_ticket(incident: dict[str, Any], run_id: str) -> str:
+    """``swarm.task_text`` word for word, with the incident id replaced by its opaque label. The judged suite's
+    ``task_text`` is unchanged."""
+    return task_text({**incident, "incident_id": opaque_label(incident)}, run_id)
 
 
 # --------------------------------------------------------------------------- incidents
@@ -135,10 +151,16 @@ class SelfImprove:
 
     def __init__(self, *, run_id: str, ev: Any, propose: Callable[..., dict[str, tuple[list[str], float, list[str]]]],
                  model_id: str, synthetic: bool, store: L.LessonStore, targets: dict[str, Any] | None = None,
-                 offline_labels: bool = False, log: Callable[[str], None] = print, mode: str = "offline") -> None:
+                 offline_labels: bool = False, log: Callable[[str], None] = print, mode: str = "offline",
+                 workers: int = 1, resume: bool = False, checkpoint_dir: Path | None = None) -> None:
+        if mode == "live" and offline_labels:
+            raise ValueError("live practice learns from the swarm's own attempts only (no dev labels)")
         self.run_id, self.ev, self.propose, self.model_id = run_id, ev, propose, model_id
         self.synthetic, self.store, self.targets, self.log = synthetic, store, targets or load_targets(), log
-        self.offline_labels, self.mode = offline_labels, mode
+        self.offline_labels, self.mode, self.workers = offline_labels, mode, max(1, int(workers))
+        self._learn_lock = threading.Lock()
+        self.resume = resume
+        self._marker = Path(checkpoint_dir) / f"{run_id}.phases-written.json" if checkpoint_dir else None
 
     def declaration(self, test: list[dict[str, Any]], digest: str, dev_digest: str, n_dev: int) -> dict[str, Any]:
         return {
@@ -160,14 +182,24 @@ class SelfImprove:
                                 "graded_on": "this platform's rebuild of each incident from its spec (the frozen "
                                              "KPIs replay to 1e-6 only on x86_64); healthy and unfixed "
                                              "counterfactuals rebuilt with it",
-                                "control": "lessons off again on the same incidents (run-to-run noise)"}},
+                                "control": "lessons off again on the same incidents (run-to-run noise)",
+                                "ticket": TICKET if self.mode == "live" else "n/a (offline stand-in has no ticket)",
+                                "practice_learning": ("own attempts only: each practice incident's own proposals, "
+                                                      "verified on the twin, learned as soon as that incident "
+                                                      "completes; no dev ground-truth labels"
+                                                      if not self.offline_labels else
+                                                      "own attempts + dev ground-truth inverse (offline only)"),
+                                "workers": self.workers,
+                                "parallel_note": ("with workers > 1, practice incidents run concurrently, so a "
+                                                  "lesson learned from one is not visible to incidents already "
+                                                  "running" if self.workers > 1 else "sequential")}},
         }
 
     def _items(self, phase: str, incidents: list[dict[str, Any]], got: dict[str, Any]) -> list[dict[str, Any]]:
         items = []
         for inc in incidents:
             props, wall_ms, used = got.get(inc["incident_id"], (["", "", ""], 0.0, []))
-            v = L.verify(inc, props, self.targets)
+            v = self._verified.pop((phase, inc["incident_id"]), None) or L.verify(inc, props, self.targets)
             items.append({
                 "item_id": f"{phase}:{inc['incident_id']}",
                 "input_sha256": hashlib.sha256(inc_mod.canonical_line(inc).encode()).hexdigest(),
@@ -178,10 +210,36 @@ class SelfImprove:
                 "extra": {"phase": phase, "incident_id": inc["incident_id"], "recovered": v["recovered"],
                           "recovery": v["recovery"], "harmful": v["harmful"], "steps_to_fix": v["steps_to_fix"],
                           "change_texts": v["change_texts"], "lessons_used": used,
-                          "clamped_rules": v["clamped_rules"]},
+                          "clamped_rules": v["clamped_rules"],
+                          "incomplete": inc["incident_id"] not in got},
                 "_v": v, "_inc": inc,
             })
         return items
+
+    def learn_now(self, inc: dict[str, Any], proposals: list[str]) -> dict[str, Any]:
+        """Practice: verify this incident's own proposals on the twin and learn (or reject) at once, so later
+        practice incidents can retrieve it. Thread-safe."""
+        v = L.verify(inc, proposals, self.targets)
+        with self._learn_lock:
+            self._verified[("practice", inc["incident_id"])] = v
+            rec = self.store.learn(inc, v["change_texts"], v, source="practice:own-attempt")
+            self._learned[inc["incident_id"]] = rec
+        return rec
+
+    def _write_phase(self, name: str, items: list[dict[str, Any]]) -> None:
+        """Item records go out as soon as a phase ends, so a later crash keeps them; a resumed run does not
+        write a phase's items twice (a marker file beside the checkpoints records which phases went out)."""
+        written: list[str] = []
+        if self._marker and self._marker.exists():
+            written = json.loads(self._marker.read_text())
+        if name in written:
+            self.log(f"{name}: items already written by an earlier attempt")
+            return
+        self.ev.append_records(self.run_id, "item", [{k: v for k, v in it.items() if not k.startswith("_")}
+                                                     for it in items])
+        if self._marker:
+            self._marker.parent.mkdir(parents=True, exist_ok=True)
+            self._marker.write_text(json.dumps(written + [name]))
 
     @staticmethod
     def summary(items: list[dict[str, Any]]) -> dict[str, Any]:
@@ -197,23 +255,39 @@ class SelfImprove:
 
     def run(self, test: list[dict[str, Any]], digest: str, dev: list[dict[str, Any]], dev_digest: str
             ) -> dict[str, Any]:
-        self.ev.write_declared(self.declaration(test, digest, dev_digest, len(dev)))  # before any phase
+        self._verified: dict[tuple[str, str], dict[str, Any]] = {}
+        self._learned: dict[str, dict[str, Any]] = {}
+        for r in self.store.records:  # a resumed run: practice incidents already learned (or rejected) stay so
+            if r.get("source") == "practice:own-attempt":
+                self._learned[r["source_incident"]] = r
+                for other in r.get("also_from") or []:
+                    self._learned.setdefault(other, r)
+        if not self.resume:
+            self.ev.write_declared(self.declaration(test, digest, dev_digest, len(dev)))  # before any phase
+        else:
+            self.log(f"resume {self.run_id}: the unit declaration was written by the first attempt (not rewritten)")
         phases: dict[str, list[dict[str, Any]]] = {}
         # 1. before
         phases["before"] = self._items("before", test, self.propose("before", test, None))
+        self._write_phase("before", phases["before"])
         self.log(f"before: {self.summary(phases['before'])}")
-        # 2. practice (dev only)
-        got = self.propose("practice", dev, self.store)
+        # 2. practice (dev only): each incident is verified and learned as soon as it completes
+        got = self.propose("practice", dev, self.store,
+                           **({"on_done": self.learn_now} if _accepts(self.propose, "on_done") else {}))
+        for inc in dev:  # a backend that did not call on_done (or a missed incident): learn now
+            if inc["incident_id"] in got and inc["incident_id"] not in self._learned:
+                self.learn_now(inc, got[inc["incident_id"]][0])
         practice = self._items("practice", dev, got)
         for it in practice:
-            inc, v = it["_inc"], it["_v"]
-            rec = self.store.learn(inc, v["change_texts"], v, source="practice:own-attempt")
-            it["extra"]["learned"] = rec.get("lesson_id") if rec["status"] == "verified" else None
-            it["extra"]["not_learned"] = rec.get("reason")
+            inc = it["_inc"]
+            rec = self._learned.get(inc["incident_id"])
+            it["extra"]["learned"] = rec.get("lesson_id") if rec and rec["status"] == "verified" else None
+            it["extra"]["not_learned"] = rec.get("reason") if rec else "incomplete: no proposals"
             if self.offline_labels:  # offline only: the dev split's ground-truth inverse, verified like any fix
                 lv = L.verify(inc, [L.inverse_fix(inc), "", ""], self.targets)
                 self.store.learn(inc, lv["change_texts"], lv, source="practice:dev-label")
         phases["practice"] = practice
+        self._write_phase("practice", practice)
         overlap = self.store.guard.overlap(self.store.records)
         if overlap:
             raise L.LeakageError(f"{overlap} stored lessons overlap the test split")
@@ -221,12 +295,11 @@ class SelfImprove:
                  f"rejected {len(self.store.rejected)}")
         # 3. after, 4. control
         phases["after"] = self._items("after", test, self.propose("after", test, self.store))
+        self._write_phase("after", phases["after"])
         self.log(f"after: {self.summary(phases['after'])}")
         phases["control"] = self._items("control", test, self.propose("control", test, None))
+        self._write_phase("control", phases["control"])
         self.log(f"control: {self.summary(phases['control'])}")
-        for name in PHASES:
-            self.ev.append_records(self.run_id, "item",
-                                   [{k: v for k, v in it.items() if not k.startswith("_")} for it in phases[name]])
         boot = self.targets["bootstrap"]
 
         def by_id(name: str) -> dict[str, float]:
@@ -249,10 +322,20 @@ class SelfImprove:
                         "phases": {p: self.summary(phases[p]) for p in PHASES},
                         "lessons": {"verified": len(self.store.lessons), "rejected": len(self.store.rejected),
                                     "test_overlap": overlap},
-                        "mode": self.mode},
+                        "mode": self.mode, "ticket": TICKET if self.mode == "live" else None,
+                        "workers": self.workers,
+                        "incomplete": {p: sum(1 for it in phases[p] if it["extra"]["incomplete"]) for p in PHASES}},
         }
         self.ev.write_result(result)
         return {"result": result, "phases": phases}
+
+
+def _accepts(fn: Callable[..., Any], name: str) -> bool:
+    import inspect
+    try:
+        return name in inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
 
 
 def _utc() -> str:
@@ -268,52 +351,107 @@ def _code_sha() -> str:
 # --------------------------------------------------------------------------- backends
 
 def offline_backend(targets: dict[str, Any]) -> Callable[..., dict[str, tuple[list[str], float, list[str]]]]:
-    def propose(phase: str, incidents: list[dict[str, Any]], store: L.LessonStore | None):
+    def propose(phase: str, incidents: list[dict[str, Any]], store: L.LessonStore | None, on_done=None):
         op = LessonGuided(store)
         out = {}
         for inc in incidents:
             t0 = time.perf_counter()
             props = play_offline(inc, op, targets)
             out[inc["incident_id"]] = (props, (time.perf_counter() - t0) * 1000.0, list(op.used))
+            if on_done is not None:
+                on_done(inc, props)
         return out
     return propose
 
 
 def live_backend(*, base_run_id: str, gateway: Any, ddb: Any, evlib: Any, cfg: dict[str, Any],
-                 targets: dict[str, Any], model_id: str, digests: dict[str, str], timeout_s: float = 300.0):
-    """The governed swarm through the checkpoint (LiveSwarm.run_incident); only the ticket changes."""
+                 targets: dict[str, Any], model_id: str, digests: dict[str, str], timeout_s: float = 300.0,
+                 workers: int = 1, checkpoint_dir: Path | None = None, log: Callable[[str], None] = print):
+    """The governed swarm through the checkpoint (LiveSwarm.run_incident); only the ticket changes, and every
+    ticket carries the opaque label (``opaque_ticket``), never the suite's incident id.
+
+    Crash safety: each phase's sub-run declares before its first call and LiveSwarm writes an item record per
+    case as it ends. Each incident's proposals are also checkpointed to ``checkpoint_dir`` as soon as it ends;
+    a re-run with the same run id skips finished incidents and runs the rest under a fresh sub-run
+    (``<run>.<phase>.r<n>``, its own declaration) so no case id is reused."""
     from t3.evals.live_swarm import LiveSwarm
 
-    def propose(phase: str, incidents: list[dict[str, Any]], store: L.LessonStore | None):
+    ck_dir = Path(checkpoint_dir) if checkpoint_dir else None
+
+    def propose(phase: str, incidents: list[dict[str, Any]], store: L.LessonStore | None, on_done=None):
         used: dict[str, list[str]] = {}
+        lock = threading.Lock()
+        ck_path = ck_dir / f"{base_run_id}.{phase}.checkpoint.jsonl" if ck_dir else None
+        done: dict[str, tuple[list[str], float, list[str]]] = {}
+        attempt = 0
+        if ck_path and ck_path.exists():
+            for line in ck_path.read_text().splitlines():
+                if line.strip():
+                    r = json.loads(line)
+                    if r.get("kind") == "attempt":
+                        attempt = max(attempt, int(r["attempt"]) + 1)
+                    else:
+                        done[r["incident_id"]] = (r["proposals"], float(r["wall_ms"]), r["lessons_used"])
+        todo = [(idx, inc) for idx, inc in enumerate(incidents) if inc["incident_id"] not in done]
+        if done:
+            log(f"{phase}: resuming, {len(done)} incidents already done, {len(todo)} to run (attempt {attempt})")
+        if not todo:
+            return done
 
         def ticket(incident: dict[str, Any], run_id: str) -> str:
-            base = task_text(incident, run_id)
+            base = opaque_ticket(incident, run_id)
             if store is None:
                 return base
-            hits = store.retrieve(L.symptoms_of(incident), k=3, min_similarity=LESSON_MIN_SIM)
+            with lock:
+                hits = store.retrieve(L.symptoms_of(incident), k=3, min_similarity=LESSON_MIN_SIM)
             used[incident["incident_id"]] = [h[0]["lesson_id"] for h in hits]
             block = L.lesson_block(hits, LESSON_MIN_SIM)
             return f"{base}\n\n{block}" if block else base
 
-        live = LiveSwarm(run_id=f"{base_run_id}.{phase}", gateway=gateway, ddb=ddb, evlib=evlib, cfg=cfg,
+        sub = f"{base_run_id}.{phase}" + (f".r{attempt}" if attempt else "")
+        live = LiveSwarm(run_id=sub, gateway=gateway, ddb=ddb, evlib=evlib, cfg=cfg,
                          targets=targets, model_id=model_id, timeout_s=timeout_s, ticket=ticket)
         steps = targets["episode"]["operator_steps"]
-        decl = live.declaration(incidents, digests["dev" if phase == "practice" else "test"], steps)
+        decl = live.declaration([inc for _, inc in todo], digests["dev" if phase == "practice" else "test"], steps)
         if phase == "practice":
             decl["subset"] = "split=dev (practice; t3/evals/suite/incidents-dev.jsonl)"
         decl["unit"] = f"{UNIT}.{phase}"
-        evlib.write_declared(decl)  # each phase's cases are their own declared run
-        for idx, inc in enumerate(incidents):
+        conf = decl.setdefault("twin", {}).setdefault("config", {})
+        conf["ticket"] = TICKET
+        conf["workers"] = workers
+        if attempt:
+            conf["resumes"] = f"{base_run_id}.{phase}" + (f".r{attempt - 1}" if attempt > 1 else "")
+        evlib.write_declared(decl)  # each phase's cases are their own declared run, declared before any call
+        if ck_path:
+            ck_path.parent.mkdir(parents=True, exist_ok=True)
+            with ck_path.open("a") as f:
+                f.write(json.dumps({"kind": "attempt", "attempt": attempt, "sub_run": sub}) + "\n")
+
+        def one(arg: tuple[int, dict[str, Any]]) -> None:
+            idx, inc = arg
             live.run_incident(inc, idx, steps)
-        out: dict[str, tuple[list[str], float, list[str]]] = {}
-        for inc in incidents:
-            rows = sorted((r for r in live.rows if r["incident_id"] == inc["incident_id"]), key=lambda r: r["step"])
-            items = [i for i in live.items if i["extra"]["incident_id"] == inc["incident_id"]]
-            out[inc["incident_id"]] = ([r["change_text"] if r["ok"] else "" for r in rows],
-                                       sum(float(i.get("latency_ms") or 0) for i in items),
-                                       used.get(inc["incident_id"], []))
-        return out
+            with getattr(live, "_lock", lock):
+                rows = sorted((r for r in live.rows if r["incident_id"] == inc["incident_id"]),
+                              key=lambda r: r["step"])
+                items = [i for i in live.items if i["extra"]["incident_id"] == inc["incident_id"]]
+            res = ([r["change_text"] if r["ok"] else "" for r in rows],
+                   sum(float(i.get("latency_ms") or 0) for i in items), used.get(inc["incident_id"], []))
+            with lock:
+                done[inc["incident_id"]] = res
+                if ck_path:
+                    with ck_path.open("a") as f:
+                        f.write(json.dumps({"incident_id": inc["incident_id"], "proposals": res[0],
+                                            "wall_ms": res[1], "lessons_used": res[2], "sub_run": sub}) + "\n")
+            if on_done is not None:
+                on_done(inc, res[0])
+
+        if workers <= 1:
+            for arg in todo:
+                one(arg)
+        else:
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                list(pool.map(one, todo))
+        return done
     return propose
 
 
@@ -327,6 +465,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--practice-limit", type=int, help="only the first N dev incidents (a trial)")
     ap.add_argument("--no-dev-labels", action="store_true", help="offline: learn from own attempts only")
     ap.add_argument("--tokens-dir")
+    ap.add_argument("--resume", action="store_true", help="live: continue a crashed run with the same --run-id")
+    ap.add_argument("--workers", type=int, default=1, help="live: incidents in parallel within a phase")
+    ap.add_argument("--timeout", type=float, default=300.0, help="live: seconds to wait for the lead per case")
     a = ap.parse_args(argv)
     targets = load_targets()
     steps = targets["episode"]["operator_steps"]
@@ -336,10 +477,17 @@ def main(argv: list[str] | None = None) -> int:
         dev = dev[: a.practice_limit]
     est = cost_estimate(len(test), len(dev), steps)
     if a.dry_run:
+        per_case_s = 70.0
+        wall = {f"workers={w}": f"{sum(-(-n // w) * steps for n in (len(test), len(dev), len(test), len(test))) * per_case_s / 3600:.1f} h"
+                for w in (1, 3, 6)}
         print(json.dumps({"unit": UNIT, "target": TARGET, "test_masked": len(test), "dev": len(dev),
-                          "live_gateway_cases": est}, indent=1))
+                          "ticket": TICKET, "live_practice": "own attempts only, learned per incident",
+                          "live_gateway_cases": est,
+                          "wall_time_estimate": {"assumes_s_per_case": per_case_s, **wall}}, indent=1))
         return 0
     from t3.evals.evshim import new_run_id
+    if a.resume and not a.run_id:
+        raise SystemExit("--resume needs the --run-id of the run to continue")
     run_id = a.run_id or new_run_id(UNIT)
     if not a.live:
         from t3.evals.evshim import Evidence
@@ -367,9 +515,11 @@ def main(argv: list[str] | None = None) -> int:
                               mirror=evlib.default_store())
         unit = SelfImprove(run_id=run_id, ev=evlib, model_id=model_id, synthetic=False, store=store,
                            targets=targets, offline_labels=False, mode="live",
+                           workers=a.workers, resume=a.resume, checkpoint_dir=common.CALLS_DIR,
                            propose=live_backend(base_run_id=run_id, gateway=gw, ddb=session.client("dynamodb"),
                                                 evlib=evlib, cfg=cfg, targets=targets, model_id=model_id,
-                                                digests={"test": digest, "dev": dev_digest}))
+                                                digests={"test": digest, "dev": dev_digest}, timeout_s=a.timeout,
+                                                workers=a.workers, checkpoint_dir=common.CALLS_DIR))
     out = unit.run(test, digest, dev, dev_digest)
     if a.live:
         store.publish(f"outputs/{run_id}/lessons.jsonl")
