@@ -149,8 +149,11 @@ def _drop(ref: Any, cur: Any) -> float | None:
     return float(ref) - float(cur)
 
 
-def cell_health(kpis: list[dict[str, Any]], reference: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
-    """Per-cell ``{"cell", "health": green|amber|red, "why": [...]}`` (see HEALTH_THRESHOLDS)."""
+def cell_health(kpis: list[dict[str, Any]], reference: list[dict[str, Any]] | None = None,
+                thresholds: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Per-cell ``{"cell", "health": green|amber|red, "why": [...]}`` (see HEALTH_THRESHOLDS, the default
+    for ``thresholds``)."""
+    th = thresholds or HEALTH_THRESHOLDS
     out = []
     ref_by = {r["cell"]: r for r in (reference or [])}
     for row in kpis:
@@ -176,9 +179,9 @@ def cell_health(kpis: list[dict[str, Any]], reference: list[dict[str, Any]] | No
                 if d is None:
                     continue
                 few = key != "sinr_p10_db" and d * float(ref.get("ue_count") or 0) < MIN_UES_FOR_RED
-                if d >= HEALTH_THRESHOLDS["red"][key] and not few:
+                if d >= th["red"][key] and not few:
                     bump("red", f"{key} down {d:.3g}")
-                elif d >= HEALTH_THRESHOLDS["amber"][key]:
+                elif d >= th["amber"][key]:
                     bump("amber", f"{key} down {d:.3g}")
         else:
             for key in ("coverage_share", "sla_share"):
