@@ -54,8 +54,10 @@ def served_models() -> dict[str, Any]:
     return {"predictor": {"model_id": os.environ.get("T3_PREDICTOR_ID", "t2-response-federated-disjoint"),
                           "version": os.environ.get("T3_PREDICTOR_VERSION", "v1-5fb29b2d"),
                           "artifact": "t2/artifacts/t2_response_federated_v1.npz"},
-            "policy": {"model_id": "t1-ppo-cco-sm", "version": "50k-a09e",
-                       "artifact": "t1/rl/artifacts/ppo_sm_50k.zip"},
+            # the tools Lambda's T1_POLICY_PATH; set these three when it serves another policy (remediation-v1)
+            "policy": {"model_id": os.environ.get("T3_POLICY_ID", "t1-ppo-cco-sm"),
+                       "version": os.environ.get("T3_POLICY_VERSION", "50k-a09e"),
+                       "artifact": os.environ.get("T3_POLICY_ARTIFACT", "t1/rl/artifacts/ppo_sm_50k.zip")},
             "agents": os.environ.get("T3_SWARM_MODEL_ID", DEFAULT_MODEL)}
 
 
