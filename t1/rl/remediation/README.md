@@ -125,3 +125,60 @@ python -m t1.rl.remediation.job_train --run-id smoke-x --evidence-dir E --output
 python -m t1.rl.remediation.evaluate --run-id smoke-y --evidence-dir E --output-dir O2 --policy M/remediation_v1.zip \
   --smoke --limit-test 5 --limit-confirm 5 --holdout 5 --declare
 ```
+
+## 4. remediation-v2: better inputs and a closed loop (`v2.py`, `job_train_v2.py`, `targets-v2.json`)
+
+**Why.** v1's gate (`t3.evals.remediation-policy-20261104T085949Z`) missed: it found the faulted cell on 84% of the 1,008 held-out faults but restored every cell on 19% (network service 60% against PPO's 79%), proposed nothing on 12% and changed a healthy network on 26%. Its learning curve (`t1.rl.remediation-learning-curve-20261104T090005Z`) was flat after 50% of the data, so by its declared rule the next generation gets better inputs, not more data.
+
+**Inputs** (`t1/rl/policy.py` observation mode `masked_delta`):
+- v1's masked observation of the current state;
+- `kpi_delta` (30): each KPI's change against the network's own **pre-incident baseline**: per cell ue share, rsrp mean and p10, sinr mean and p10, coverage share and sla share, plus the network's coverage and sla ratios;
+- `cell_share` (8): the current per-cell coverage and sla shares.
+
+The baseline is the state at the step before the last configuration step that preceded the incident: `fault_step - 1` in the harness, right after commissioning. The per-cell shares are the twin's own counters (`ReplayTwin.kpis()["per_cell"]`).
+
+**The config-history rule.** The policy never sees the baseline's configuration. Power and tilt are not differenced, and the baseline's power and tilt are neutralised before normalisation (`policy._kpi_only`). A real tilt drift or amplifier fault does not appear in the configuration record, and a config diff would make the task a trivial revert. `t1/rl/tests/test_remediation_v2.py` checks it: changing the baseline's power or tilt leaves the observation identical.
+
+**Closed loop.** Labels are v1's residual: the way back to the commissioned configuration, clipped to one step's limits. So a faulted state is labelled with the fault's inverse, a partly fixed one with the remainder, a wrong change with its undo, and a healthy or fixed one with zero. Two DAgger rounds roll the current model out (deadzone off) from the faulted and the healthy network over the operator steps and label every state it reaches.
+
+**Development on dev data only.**
+- Candidates are 2,400 fresh dev-split seeds from 3,000,000 (`candidates-v2.jsonl`, `data-v2-meta.json`: no collision with any seed set or range, 0 literal hits, spec-hash overlap 0). Roles: train, val, holdout.
+- The deadzone is chosen on the val incidents, played through `run_incident`. The rule is in `v2.py`'s docstring: the fewest healthy false changes at no cost (0.01) in per-cell recovered or network success.
+- **The held-out gate is never opened while v2 is developed.** `guard.py` installs an audit hook that refuses any `open()` of `t1/rl/remediation/suite/heldout-*`. It's installed first in `job_train_v2.py`, in every worker, and when the candidates were frozen. The freeze's exclusion check proves disjointness from the gate by its seed block instead of reading it.
+
+**Train** (ml.m5.4xlarge, 15 workers; the training needs no replay-exactness):
+```
+python -m t1.rl.remediation.job_train_v2 --print-declaration > /tmp/rem-train-v2-decl.json
+python -m tools.sm.run --run-id t1.rl.remediation-train-v2-<UTC> --declaration /tmp/rem-train-v2-decl.json \
+  --instance-type ml.m5.4xlarge --max-run 5400 --requirement "stable-baselines3==2.9.2" \
+  --requirement "gymnasium==1.4.0" --requirement "pydantic>=2.7,<3" \
+  --entry "-m t1.rl.remediation.job_train_v2 --run-id {run_id} --evidence-dir {evidence_dir} --output-dir {output_dir} --model-dir {model_dir} --workers 15" --no-wait
+```
+Then copy `remediation_v2.{zip,meta.json,provenance.json}` from the job's model.tar.gz into `t1/rl/artifacts/` and commit them (the artifact commit).
+
+**Gate** (`targets-v2.json`: v1's three components and thresholds, v2 against ppo_sm_50k on heldout-v2, the set's second use, recorded). It must run on ml.m5.xlarge, the held-out set's freeze host, with 4 workers. Print the declaration at the artifact commit; it reads the gate, which is the evaluation's job:
+```
+python -m t1.rl.remediation.evaluate --candidate v2 --print-declaration --instance ml.m5.xlarge > /tmp/rem-eval-v2-decl.json
+python -m tools.sm.run --run-id t3.evals.remediation-policy-v2-<UTC> --declaration /tmp/rem-eval-v2-decl.json \
+  --instance-type ml.m5.xlarge --max-run 5400 --requirement "stable-baselines3==2.9.2" \
+  --requirement "gymnasium==1.4.0" --requirement "pydantic>=2.7,<3" \
+  --entry "-m t1.rl.remediation.evaluate --candidate v2 --run-id {run_id} --evidence-dir {evidence_dir} --output-dir {output_dir} --workers 4 --instance ml.m5.xlarge" --no-wait
+```
+Operators are v2, v1, ppo_sm_50k and the oracle. config_revert and rule_baseline are cited from v1's gate run, not re-run. `details.vs_v1` reports v2 against v1 on every set.
+
+**The inference contract for `ran___propose`** (a later change to `t3/tools/app.py`; nothing is deployed by this section):
+1. **Seeding records the baseline step.** `ran___seed_case` takes an optional `baseline_step` (an integer) and stores it on the case row. It is the number of `start_action_log` steps that precede the incident's last configuration step: the step count before the fault. For the incident suite, Live Fix and the swarm runs it is `fault_step - 1 = 1`, i.e. commissioning only.
+2. **Proposing replays the baseline.** When the served policy has `needs_baseline` (meta `obs` = `masked_delta`), `ran___propose`:
+   - replays the case's action log up to `baseline_step` on a fresh twin, as `v2.baseline_from_log` does, with the twin's own verification;
+   - adds the per-cell `coverage_share` and `sla_share` lists from `twin.kpis()["per_cell"]` to both that baseline state and the current state;
+   - calls `policy.propose(state, baseline=baseline)`.
+3. **A case without `baseline_step` is refused** with a ToolError naming the missing field, so the policy never guesses its baseline. Policies without `needs_baseline` (ppo_sm_50k, v1) are unchanged.
+4. **Serving:** as section 3, with `T1_POLICY_PATH=/var/task/t1/rl/artifacts/remediation_v2.zip` and `T3_POLICY_ID=t1-remediation-bc-delta`.
+
+Local smoke (at most 50 incidents, synthetic), using a stand-in held-out file built from v2's own dev holdout-role candidates so the gate stays unread:
+```
+python -m t1.rl.remediation.job_train_v2 --run-id smoke-a --evidence-dir E --output-dir O --model-dir M --limit 48 --smoke --declare --workers 4 \
+  --hyper '{"epochs": 60, "dagger_epochs": 30, "patience": 15, "dagger_patience": 10, "dagger_rounds": 1}'
+python -m t1.rl.remediation.evaluate --candidate v2 --smoke --v2-policy M/remediation_v2.zip --heldout-file STANDIN.jsonl \
+  --limit-heldout 4 --limit-test 3 --limit-confirm 3 --holdout 4 --run-id smoke-b --evidence-dir E2 --output-dir O2 --declare
+```
