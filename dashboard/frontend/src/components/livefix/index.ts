@@ -7,4 +7,5 @@ export { ReliabilityChart, type ReliabilityChartProps } from './ReliabilityChart
 export { LessonsCard, type LessonsCardProps } from './LessonsCard'
 export { FederatedForecastLine, FederatedInset, type FederatedForecastLineProps, type FederatedInsetProps } from './FederatedForecastNote'
 export { AttackResult, type AttackResultProps } from './AttackResult'
+export { SideEffectsTable, type CellSnapshot, type SideEffectRow, type SideEffectsTableProps } from './SideEffectsTable'
 export { LiveFixPreview } from './LiveFixPreview'

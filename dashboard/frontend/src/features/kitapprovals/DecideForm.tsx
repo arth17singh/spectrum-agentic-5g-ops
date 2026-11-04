@@ -7,11 +7,13 @@ const ARM_MS = 1500
 /** Reason + approver PIN + Approve / Reject: the same POST /api/kitapprovals/{id}/decide the Approvals page sends
  *  (same kit update, identity and CloudWatch control line). Used inline on Live Fix and on the paired phone page.
  *  Keys never leave the form (the shell's global hotkeys listen on window). */
-export function DecideForm({ approvalId, changeSha256, onDone, compact }: {
+export function DecideForm({ approvalId, changeSha256, onDone, compact, approveDisabled }: {
   approvalId: string
   changeSha256: string
   onDone: (r: DecideOk) => void
   compact?: boolean
+  /** when set, Approve is off and this says why (Deny stays available): Live Fix's hold on predicted harm */
+  approveDisabled?: string | null
 }) {
   const [reason, setReason] = useState('')
   const [pin, setPin] = useState('')
@@ -22,7 +24,7 @@ export function DecideForm({ approvalId, changeSha256, onDone, compact }: {
   const r = reason.trim()
   const valid = r.length >= 3 && r.length <= 300 && /^\d{6,12}$/.test(pin)
   const go = async (decision: 'approve' | 'reject') => {
-    if (!valid || !armed || busy) return
+    if (!valid || !armed || busy || (decision === 'approve' && approveDisabled)) return
     setBusy(true); setFail(null)
     const res = await kit.decide(approvalId, { decision, reason: r, change_sha256: changeSha256, pin })
     setBusy(false); setPin('')
@@ -42,9 +44,11 @@ export function DecideForm({ approvalId, changeSha256, onDone, compact }: {
         </label>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button variant="primary" disabled={!valid || !armed || busy} onClick={() => go('approve')}>Approve</Button>
+        <Button variant="primary" disabled={!valid || !armed || busy || !!approveDisabled} title={approveDisabled ?? undefined}
+          onClick={() => go('approve')}>Approve</Button>
         <Button disabled={!valid || !armed || busy} onClick={() => go('reject')}>Deny</Button>
       </div>
+      {approveDisabled && <p className="text-micro" style={{ color: 'var(--critical-ink)' }} data-testid="approve-off">{approveDisabled}</p>}
       {fail && <p role="alert" className="text-cap" style={{ color: 'var(--critical-ink)' }}>{fail.message}</p>}
     </div>
   )

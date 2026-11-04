@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Check, Loader2, Minus, X } from 'lucide-react'
+import { AlertTriangle, Check, Loader2, Minus, X } from 'lucide-react'
 import { AwsTime } from '@/ui'
 import { STAGE_LABEL, STAGE_ORDER, type Stage } from './types'
 
@@ -16,6 +16,7 @@ const DOT = {
   pending: { bg: 'var(--surface-3)', Icon: null },
   failed: { bg: 'var(--critical)', Icon: X },
   skipped: { bg: 'var(--surface-3)', Icon: Minus },
+  warn: { bg: 'var(--warn)', Icon: AlertTriangle },
 } as const
 
 export function LoopTimeline({ stages, orientation = 'auto', className }: LoopTimelineProps) {
@@ -49,7 +50,7 @@ export function LoopTimeline({ stages, orientation = 'auto', className }: LoopTi
               {typeof s.elapsedS === 'number' && (
                 <div className="tnum mono text-micro text-ink-2">+{s.elapsedS.toFixed(1)} s</div>
               )}
-              {s.awsTime !== undefined && (s.state === 'done' || s.state === 'failed') && (
+              {s.awsTime !== undefined && (s.state === 'done' || s.state === 'failed' || s.state === 'warn') && (
                 <div className="text-micro"><AwsTime aws={s.awsTime} source={s.awsTimeSource ?? 'none'} compact /></div>
               )}
               {s.detail && <div className="truncate text-micro text-ink-3" title={s.detail}>{s.detail}</div>}

@@ -7,9 +7,9 @@ import {
   type AttackKey, type CellId, type FaultKey, type Lesson,
 } from '@/components/livefix'
 import type { Rec } from '@/core/types'
-import { PageHeader, Panel, Segmented } from '@/ui'
+import { Button, PageHeader, Panel, Segmented } from '@/ui'
 import { ApprovalCard } from './ApprovalCard'
-import { lf, toCells, toStages } from './api'
+import { cellTag, gradeLine, lf, percellParts, toCells, toStages } from './api'
 import manifest from './manifest'
 
 // Live Fix (/api/livefix): one fault, end to end. LIVE = the real kit (Gateway, Cedar, agents, approvals table) on
@@ -41,6 +41,33 @@ function Kpis({ h }: { h: Rec }) {
         })}
       </tbody>
     </table>
+  )
+}
+
+/** After a change whose per-cell check failed (state "review"): ask the agents to correct the degraded cells (the
+ *  correction stops at Cedar's hold and a person's approval again) or finish the run as graded. */
+function ReviewPanel({ run, onError }: { run: Rec; onError: (m: string) => void }) {
+  const [busy, setBusy] = useState<string | null>(null)
+  const pc = run.percell ?? {}
+  const choose = (choice: 'correct' | 'finish') => {
+    setBusy(choice)
+    lf(`/runs/${encodeURIComponent(run.run_id)}/review`, { choice }).catch((e) => onError(String((e as Error).message))).finally(() => setBusy(null))
+  }
+  return (
+    <div role="status" className="mb-4 rounded-[10px] border-2 p-3 text-cap" data-testid="livefix-review"
+      style={{ borderColor: 'color-mix(in oklab, var(--warn) 65%, transparent)' }}>
+      <p className="font-medium text-ink-1">
+        {run.grade?.success ? 'The network KPIs recovered, but per cell it is not done: ' : 'The network KPIs did not recover, and per cell: '}
+        {percellParts(pc).join(' and ')}.
+      </p>
+      <p className="mt-0.5 text-micro text-ink-3">“Ask the agents to correct” sends noc_lead the degraded cells’ symptoms on the same case; whatever it proposes
+        stops at Cedar’s hold and needs a person’s approval again. “Finish” ends the run as graded (not recovered per cell).</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button variant="primary" size="sm" onClick={() => choose('correct')} disabled={!!busy || !run.can_follow_up} data-testid="ask-correct">Ask the agents to correct</Button>
+        <Button size="sm" onClick={() => choose('finish')} disabled={!!busy}>Finish</Button>
+        {!run.can_follow_up && <span className="text-micro text-ink-3">No follow-ups or changes left in this run.</span>}
+      </div>
+    </div>
   )
 }
 
@@ -139,6 +166,7 @@ export default function LiveFixPage() {
       )}
 
       {run && <div className="mb-3 rounded-[10px] border border-line bg-s1 px-3 py-3"><LoopTimeline stages={toStages(run)} /></div>}
+      {run?.state === 'review' && <ReviewPanel run={run} onError={setErr} />}
       {run?.approval && <div className="mb-4"><ApprovalCard run={run} act={act} /></div>}
       {run?.mode === 'recorded' && run.state === 'awaiting_approval' && (
         <button type="button" onClick={cont} className="mb-4 rounded-md border border-line px-3 py-1.5 text-cap text-ink-1">Continue (recorded)</button>
@@ -149,11 +177,21 @@ export default function LiveFixPage() {
           <CellHealthMap cells={toCells(run?.cells, run?.state === 'healthy' ? null : run?.cells_at_proposal)} faultCells={faultCells} />
           {run?.fault?.fault_label && <p className="mt-1 text-micro text-ink-3">For the audience: {run.fault.fault_label} on cell {run.fault.chosen_cell} ({run.fault.fault_about}). The agents get symptoms only, under an opaque label.</p>}
           {run?.headline && <div className="mt-3"><Kpis h={run.headline} /></div>}
-          {run?.grade && (
-            <p className="mt-2 text-cap" data-testid="livefix-grade">
-              {run.grade.success ? 'Recovered: every graded KPI is within tolerance of the healthy twin' : 'Not recovered: some graded KPI is outside tolerance'}
-              {typeof run.grade.recovery === 'number' && <> · recovery {num(run.grade.recovery, 2)}</>}
-            </p>
+          {run?.grade && (() => {
+            const g = gradeLine(run)
+            return (
+              <p className="mt-2 text-cap font-medium" data-testid="livefix-grade" data-cells-ok={g.cellsOk === null ? 'na' : String(g.cellsOk)}
+                style={{ color: g.ok && g.cellsOk !== false ? 'var(--good-ink, var(--ink-1))' : g.cellsOk === false && run.grade.success ? 'var(--warn-ink)' : 'var(--critical-ink)' }}>
+                {g.text}
+              </p>
+            )
+          })()}
+          {run?.percell && !run.percell.recovered && (
+            <ul className="mt-1 space-y-0.5 text-micro text-ink-3">
+              {(run.percell.cells ?? []).filter((c: Rec) => c.health !== 'green').map((c: Rec) => (
+                <li key={c.cell}>cell {c.cell} {c.health}, {cellTag(run.percell, c)}: {(c.reasons ?? []).filter((r: string) => !r.includes('not counted')).slice(0, 3).join('; ')}</li>
+              ))}
+            </ul>
           )}
         </Panel>
 

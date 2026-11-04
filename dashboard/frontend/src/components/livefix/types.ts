@@ -50,7 +50,8 @@ export interface CellState {
 }
 
 export type StageKey = 'green' | 'fault' | 'diagnosing' | 'awaiting_approval' | 'applied' | 'recovered' | 'evidence'
-export type StageState = 'done' | 'active' | 'pending' | 'failed' | 'skipped'
+/** warn: reached, but not cleanly (e.g. the network recovered while a cell is still degraded) */
+export type StageState = 'done' | 'active' | 'pending' | 'failed' | 'skipped' | 'warn'
 
 export interface Stage {
   key: StageKey
