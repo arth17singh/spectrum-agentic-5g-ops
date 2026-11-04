@@ -33,6 +33,7 @@ Times are Seattle time (PST, UTC−8) with UTC in brackets. Each entry keeps a d
 | [G-023](#g-023) | Open · declared design | The signed evidence ledger is kept on the team laptop, not in the repo or S3, so the offline rebuild cannot be run from a clone | The offline rebuild (`make -C dashboard evidence-rebuild`) only; per-run checks do not need it (`check_unit` parts a, b, c and e; part d skips without a ledger) | 3 Nov 06:30 PST (14:30 UTC) |
 | [G-024](#g-024) | Open · confidentiality | One declaration, `t2.fl_federated.disjoint-20261103T051311Z`, is in S3 only, not in the repo, because it names a confidential service; so is the `t3.pause` result, which names the team's gateway | Repo copy of that one declaration; the run itself and its S3 declaration are unchanged | 3 Nov 06:30 PST (14:30 UTC) |
 | [G-025](#g-025) | Open · disclosure | The judged swarm ticket included the incident id, which names the fault template (e.g. `tilt+5`); the agents were told the fault type and size, not the cell | The "symptoms only" claim for `t3.swarm-live-20261103T060140Z` and its scored gain over config_revert | found 3 Nov 22:40 PST (4 Nov 06:40 UTC) |
+| [G-026](#g-026) | Open · disclosure | The swarm's change comes from the PPO policy (`ppo_sm_50k`) through `ran___propose`, not from the agents' diagnosis; the biggest change lands on the faulted cell in 5 of 16 incidents | What the swarm unit's gain over config_revert means: the policy's broad boost under governance, not diagnosis | found 3 Nov 23:00 PST (4 Nov 07:00 UTC) |
 
 ### Watching
 
@@ -419,6 +420,19 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Unit it limits:** the swarm unit's "symptoms only" description, and how far its paired gain over config_revert (lower bound above zero, mean +0.296) reflects diagnosis from symptoms. The run, its recording and its score are unchanged; this was not measured with an opaque id.
 - **Found:** 3 Nov ~22:40 PST, while building the post-event Live Fix loop. Not found by any check before the hand-in.
 - **Fix (not applied to the judged suite):** the frozen suite's `task_text` is left as run, so the record stays reproducible. Live Fix tickets use an opaque label (first 8 hex of the sha256 of the incident id). A re-run of the swarm unit with opaque ids would measure the effect.
+- **Measured afterwards (4 Nov):** the before phase of `t3.evals.self-improve-20261104T065102Z` re-ran the same 18 masked incidents with an opaque ticket (no incident id). Graded with the same twin replay on the laptop (arm64): 16 of 18 recovered (mean recovery 0.824, harmful 2) with the opaque ticket, against 13 of 18 (0.764, harmful 1) for the judged proposals regraded the same way. 15 of 18 incidents had the same outcome. The hint did not help, which fits G-026: the change comes from the policy, which never reads the ticket.
+- **Who we told:** not yet; recorded here.
+
+---
+
+<a id="g-026"></a>
+## G-026 · The swarm's change comes from the RL policy, not from the agents' diagnosis
+
+- **What:** `ran_optimizer` is instructed to copy, character for character, the change returned by `ran___propose`. The tools Lambda (`team13-ran-tools`) computes that change with the PPO policy `ppo_sm_50k` (`T1_POLICY_PATH`). In the judged run `t3.swarm-live-20261103T060140Z`, 21 of 23 non-empty proposals share one shape (cell 2 +7 to +8 dB, cell 1 about +3 dB, cell 0 about −1 dB) whether the fault was on cell 0, 1 or 2. The cell with the biggest change is a faulted cell in 5 of 16 incidents, in the judged run and in the opaque-ticket re-run alike (about chance for 4 cells).
+- **Unit it limits:** what the swarm unit's paired gain over config_revert (mean +0.296) measures. It is a real, measured number, but it measures the policy's broad coverage boost, proposed and applied under governance (Cedar, preflight, a person's approval), graded on network-wide KPIs that a general power increase can meet. It is not evidence that the LLM agents diagnose the faulted cell. The demo's "the agents fix the fault" should read "the governed swarm restores service".
+- **Also affects:** the live self-improvement unit `t3.evals.self-improve-20261104T065102Z`. Lessons reach the lead's ticket but not `ran___propose`, so they cannot change the proposal. The unit was stopped after its before phase (all 18 incidents complete, items in S3); practice was declared with 0 incidents complete; after and control were not run, and no result record was written.
+- **Found:** 3 Nov ~23:00 PST, reading the self-improvement run's first proposals.
+- **Next:** a fault-aware remediation policy trained on twin-verified fixes, measured against `ppo_sm_50k` on the 18 masked test incidents and a fresh confirmation set (diagnosis accuracy and change size as well as recovery), and v2 agent prompts that let a verified lesson become a preflighted candidate change.
 - **Who we told:** not yet; recorded here.
 
 ---
