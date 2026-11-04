@@ -48,9 +48,15 @@ python -m tools.sm.run --run-id t3.evals.remediation-policy-<UTC> --declaration 
 ```
 
 - **Items:** 151, one per incident: 18 test-masked, 15 test-visible, 18 confirmation and 100 dev-holdout.
-- **Item score:** recovery(v1) − recovery(ppo_sm_50k).
-- **Target:** the 95% paired-bootstrap lower bound on the test-masked items must be > 0. `tools/check_unit.py` part e replays it.
-- **Secondary measures,** reported per suite and operator with intervals vs each baseline: diagnosis hit, cells touched, total |d_power_db|, total |d_tilt_deg|, headroom used, power above healthy, and false changes on the healthy network.
+- **Item score:** percell_recovered(v1) − percell_recovered(ppo_sm_50k), from `t3/evals/percell.py` (percell-v1: every cell green against its own healthy state at the grade step). `extra.diff` holds all three component differences.
+- **Target (joint, `targets.json` version 2):** on the 18 test-masked items, each 95% paired-bootstrap lower bound must clear its threshold:
+  1. per-cell recovered, v1 − ppo_sm_50k: > 0;
+  2. network-level recovery, v1 − ppo_sm_50k: > −0.05 (non-inferior);
+  3. diagnosis hit, v1 − ppo_sm_50k: > 0.
+
+  PASS only if all three pass. The unit's value is the smallest margin (lower bound minus threshold), so it is above 0 exactly when all three pass; `tools/check_unit.py` part e replays every component (`JOINT_METRIC`). The other suites report the same three components as replication, outside pass/fail.
+- **Why the target changed before any real evaluation:** network-level recovery is capped at 1.0 and rewards overshoot. In Live Fix run `t3.livefix-20261104T073206Z-9695` the swarm's ppo_sm_50k change scored network recovery 1.00 while cells 0 and 3 stayed degraded. The only data seen when changing it was a synthetic 5-incident smoke from a model trained on 18 incidents. `targets.json` records the change and the previous primary.
+- **Secondary measures,** reported per suite and operator with intervals vs each baseline: per-cell recovered, degraded and collateral cells, diagnosis hit, cells touched, total |d_power_db|, total |d_tilt_deg|, headroom used, power above healthy, and false changes on the healthy network.
 - **Confirmation suite:** it was frozen on Darwin-arm64, so the job rebuilds it from its frozen specs, and records that it did.
 
 ## 3. Serving it (after the evaluation; each step needs the user's go)

@@ -16,9 +16,16 @@ judged swarm and baselines were scored on. Suites (t1/rl/remediation/targets.jso
                                 frozen specs on the job's platform, keep filter not re-applied)
     dev-holdout                 role=holdout candidates (never trained on), first N kept, built in the job
 
-One ``item`` per incident: score = recovery(v1) - recovery(ppo_sm_50k), passed = v1's success, and every
-operator's outcome and secondary measures in extra. The declared target is the 95% paired-bootstrap lower
-bound of that difference on the test-masked items (details.gain, replayable by tools/check_unit.py).
+Every operator is also graded per cell (t3/evals/percell.py percell-v1: every cell green against its own
+healthy state at the grade step, plus degraded and collateral cells and power above healthy).
+
+One ``item`` per incident: score = percell_recovered(v1) - percell_recovered(ppo_sm_50k), passed = v1's
+per-cell recovery, extra.diff = the three joint-target differences (percell_recovered, network_recovery,
+diagnosis_hit), and every operator's outcome and secondary measures in extra. The declared target is joint
+(targets.json version 2): on the test-masked items each component's 95% paired-bootstrap lower bound must
+clear its threshold (percell_recovered > 0, network_recovery > -0.05, diagnosis_hit > 0); the value is the
+smallest margin, replayed component by component by tools/check_unit.py (JOINT_METRIC). details.gain keeps
+the percell_recovered interval.
 """
 
 from __future__ import annotations
@@ -44,8 +51,11 @@ PRIMARY = "test-masked"
 N_HOLDOUT = 100
 SMOKE_MAX = 50
 OPERATORS = ("v1", "ppo_sm_50k", "config_revert", "rule_baseline")
-MEASURES = ("recovery", "success", "diagnosis_hit", "cells_touched", "total_abs_power_db", "total_abs_tilt_deg",
-            "headroom_used", "power_above_healthy_db", "healthy_false_change")
+MEASURES = ("recovery", "success", "percell_recovered", "percell_degraded_cells", "percell_collateral_cells",
+            "diagnosis_hit", "cells_touched", "total_abs_power_db", "total_abs_tilt_deg", "headroom_used",
+            "power_above_healthy_db", "healthy_false_change")
+GRADER = ("t3/evals/graders.py (network) + t3/evals/percell.py percell-v1 (per cell); item score = "
+          "percell_recovered(v1) - percell_recovered(ppo_sm_50k); extra.diff = the joint-target differences")
 
 
 def declared() -> dict[str, Any]:
@@ -246,6 +256,19 @@ def healthy_check(incident: dict[str, Any], op: Any, targets: dict[str, Any]) ->
     return {"healthy_false_change": bool(change), "healthy_change_text": canon(change) if change else ""}
 
 
+def percell_measures(incident: dict[str, Any], change_texts: list[str], targets: dict[str, Any]) -> dict[str, Any]:
+    """percell-v1 for the operator's requested changes (the twin applies the same safety filter in replay)."""
+    from t3.evals.percell import grade_incident
+
+    v = grade_incident(incident, change_texts, targets)
+    return {"percell_recovered": bool(v["recovered"]), "percell_degraded": v["degraded"],
+            "percell_collateral": v["collateral"], "percell_degraded_cells": len(v["degraded"]),
+            "percell_collateral_cells": len(v["collateral"]), "percell_overshoot": v["overshoot"],
+            "percell_cells": [{"cell": c["cell"], "health": c["health"], "worse_than_before": c["worse_than_before"]}
+                              for c in v["cells"]],
+            "percell_version": v["version"]}
+
+
 def play(suite: str, incident: dict[str, Any], ops: dict[str, Any], targets: dict[str, Any]) -> dict[str, Any]:
     from t3.evals.run import run_incident
 
@@ -254,6 +277,7 @@ def play(suite: str, incident: dict[str, Any], ops: dict[str, Any], targets: dic
         it = run_incident(incident, op, targets)
         ex = it["extra"]
         am = applied_measures(incident, ex["change_texts"], targets)
+        am.update(percell_measures(incident, ex["change_texts"], targets))
         replayed = am.pop("replayed_final_kpis")
         replay_ok = replayed is not None and all(abs(replayed[k] - v) <= 1e-9 for k, v in ex["final_kpis"].items())
         res[key] = {"model_id": op.model_id, "recovery": it["score"], "success": it["passed"],
@@ -290,16 +314,19 @@ def item_for(r: dict[str, Any]) -> dict[str, Any]:
     if v1["recovery"] is None or pp["recovery"] is None:
         raise RuntimeError(f"{i['incident_id']}: no material KPI here, so no recovery (refusing to guess)")
     outputs = {k: o["change_texts"] for k, o in ops.items()}
+    diff = {"percell_recovered": value_of(v1, "percell_recovered") - value_of(pp, "percell_recovered"),
+            "network_recovery": float(v1["recovery"]) - float(pp["recovery"]),
+            "diagnosis_hit": value_of(v1, "diagnosis_hit") - value_of(pp, "diagnosis_hit")}
     return {
         "item_id": f"{r['suite']}/{i['incident_id']}",
         "input_sha256": hashlib.sha256(inc.canonical_line(i).encode()).hexdigest(),
         "output_sha256": hashlib.sha256(inc.canonical_line(outputs).encode()).hexdigest(),
-        "score": float(v1["recovery"]) - float(pp["recovery"]),
-        "passed": bool(v1["success"]),
-        "grader": GRADER_ID + "; item score = recovery(v1) - recovery(ppo_sm_50k)",
+        "score": diff["percell_recovered"],
+        "passed": bool(v1["percell_recovered"]),
+        "grader": GRADER_ID + "; " + GRADER,
         "backend": BACKEND,
         "latency_ms": float(v1["latency_ms"]),
-        "extra": {"suite": r["suite"],
+        "extra": {"suite": r["suite"], "diff": diff,
                   "incident": {k: i.get(k) for k in ("incident_id", "seed", "preset", "tier", "template", "fault",
                                                      "fault_cells", "split")},
                   "rebuilt": i.get("rebuilt"),
@@ -342,6 +369,55 @@ def summarize(rows: list[dict[str, Any]], boot: dict[str, Any]) -> tuple[dict[st
     return summary, secondary
 
 
+def joint_declared(tg: dict[str, Any]) -> list[dict[str, Any]]:
+    """The joint target's components exactly as tools/check_unit.py compares them (JOINT_DECLARED)."""
+    return [{"name": c["name"], "score_field": c["score_field"], "subset": c["subset"], "op": c["op"],
+             "threshold": c["threshold"]} for c in tg["primary"]["components"]]
+
+
+def component_values(items: list[dict[str, Any]], comp: dict[str, Any]) -> dict[str, float]:
+    """item_id -> the component's number, for the items in its subset (as check_unit reads them)."""
+    def get(it: dict[str, Any]) -> float:
+        f = comp["score_field"]
+        v: Any = it
+        if f in ("score", "passed"):
+            v = it[f]
+        else:
+            for part in f.split("."):
+                v = v[part]
+        return (1.0 if v else 0.0) if isinstance(v, bool) else float(v)
+
+    sub = comp["subset"]
+
+    def keep(it: dict[str, Any]) -> bool:
+        v: Any = it
+        for part in sub["field"].split("."):
+            v = v[part]
+        return v == sub["equals"]
+
+    return {it["item_id"]: get(it) for it in items if sub is None or keep(it)}
+
+
+def joint_result(items: list[dict[str, Any]], tg: dict[str, Any], boot: dict[str, Any],
+                 baseline_model_id: str | None) -> dict[str, Any]:
+    """Each component's paired-bootstrap interval (full replay spec), its margin, and the joint verdict."""
+    from t3.evals.stats import ci_spec, paired_bootstrap
+
+    comps = []
+    for c, dc in zip(tg["primary"]["components"], joint_declared(tg)):
+        vals = component_values(items, dc)
+        g = paired_bootstrap(vals, {k: 0.0 for k in vals}, boot["resamples"], boot["seed"], boot["ci"])
+        if g is None:
+            raise RuntimeError(f"joint component {c['name']}: no items in its subset")
+        spec = {**ci_spec(boot, None, baseline_model_id, dc["score_field"], dc["subset"]), **g}
+        lo = float(g["ci_low"])
+        comps.append({"name": c["name"], "op": c["op"], "threshold": c["threshold"], "spec": spec, "ci_low": lo,
+                      "margin": lo - float(c["threshold"]), "passed": bool(lo > float(c["threshold"])),
+                      "what": c.get("what")})
+    value = min(cc["margin"] for cc in comps)
+    return {"rule": tg["primary"]["rule"], "components": comps, "value": value, "passed": bool(value > 0)}
+
+
 def declaration(specs: dict[str, dict[str, Any]], *, n_holdout: int, limit: dict[str, int] | None = None,
                 smoke: bool = False, run_id: str | None = None) -> dict[str, Any]:
     from t3.evals import confirm as C
@@ -362,7 +438,7 @@ def declaration(specs: dict[str, dict[str, Any]], *, n_holdout: int, limit: dict
         "n_items": n_masked + n_visible + n_conf + n_holdout, "test_set_sha256": test_sha,
         "subset": f"one item per incident: {n_masked} test-masked + {n_visible} test-visible + {n_conf} confirm + "
                   f"{n_holdout} dev-holdout; the target is on extra.suite={PRIMARY}",
-        "model_id": ops["v1"]["model_id"], "grader": GRADER_ID + "; item score = recovery(v1) - recovery(ppo_sm_50k)",
+        "model_id": ops["v1"]["model_id"], "grader": GRADER_ID + "; " + GRADER,
         "synthetic": bool(smoke),
         "twin": {"kind": "maveric-inprocess", "version": twin_version(), "scenario": "incident-suite",
                  "seed": min(int(i["seed"]) for i in test + conf),
@@ -380,6 +456,8 @@ def declaration(specs: dict[str, dict[str, Any]], *, n_holdout: int, limit: dict
                                                                f"{n_holdout} that incidents.build keeps here"}},
                             "limits": limit or None,
                             "operators": ops, "primary": tg["primary"],
+                            "joint_target": {"components": joint_declared(tg)},
+                            "targets_changed": tg.get("changed"),
                             "secondary_measures": tg["secondary_measures"],
                             "executed": "SageMaker training job started by tools/sm/run.py on ml.m5.xlarge (x86_64, "
                                         "the platform the test split was frozen on); in-process twin (twin/, W2)",
@@ -411,7 +489,6 @@ def main(argv: list[str] | None = None) -> int:
 
     from t3.evals.evshim import Evidence, code_sha
     from t3.evals.graders import load_targets
-    from t3.evals.stats import ci_spec, paired_bootstrap
 
     limit: dict[str, int] = {}
     if a.limit_test is not None:
@@ -451,21 +528,30 @@ def main(argv: list[str] | None = None) -> int:
     for it in items:
         it["synthetic"] = bool(a.smoke)
     ev.append_records(a.run_id, "item", items)
-    sub = {"field": "extra.suite", "equals": PRIMARY}
-    prim = {it["item_id"]: it["score"] for it in items if it["extra"]["suite"] == PRIMARY}
-    g = paired_bootstrap(prim, {k: 0.0 for k in prim}, boot["resamples"], boot["seed"], boot["ci"])
     ppo_mid = rows[0]["operators"]["ppo_sm_50k"]["model_id"]
-    gain = {**ci_spec(boot, None, ppo_mid, "score", sub), **g, "metric": "recovery", "suite": PRIMARY,
-            "note": "items hold recovery(v1) - recovery(ppo_sm_50k); baseline_run_id null"}
+    tg = declared()
+    joint = joint_result(items, tg, boot, ppo_mid)
+    gain = {**joint["components"][0]["spec"], "metric": "percell_recovered", "suite": PRIMARY,
+            "note": "items hold percell_recovered(v1) - percell_recovered(ppo_sm_50k); baseline_run_id null; "
+                    "the target is joint: see details.joint"}
+    replication = {}
+    for s in ("test-visible", "confirm", "dev-holdout"):
+        rtg = json.loads(json.dumps(tg))
+        for c in rtg["primary"]["components"]:
+            c["subset"] = {"field": "extra.suite", "equals": s}
+        replication[s] = joint_result(items, rtg, boot, ppo_mid)
     summary, secondary = summarize(rows, boot)
     tgt = decl["target"]
-    value = float(g["ci_low"])
-    passed = {">": value > tgt["value"], ">=": value >= tgt["value"]}[tgt["op"]]
+    if tgt["metric"] != "joint_ci_low_margin" or tgt["op"] != ">" or float(tgt["value"]) != 0.0:
+        raise RuntimeError(f"the declared target {tgt} is not the joint target this evaluation computes")
+    value = float(joint["value"])
+    passed = bool(joint["passed"])
     result = {
         "run_id": a.run_id, "unit": decl["unit"], "metric": tgt["metric"], "value": value, "target": tgt,
         "passed": bool(passed), "n_items": len(items), "synthetic": bool(a.smoke),
         "checker": {"script": "t1/rl/remediation/evaluate.py", "code_sha": code_sha()},
-        "details": {"gain": gain, "summary": summary, "secondary": secondary, "suites": sinfo,
+        "details": {"gain": gain, "joint": joint, "replication": replication, "summary": summary,
+                    "secondary": secondary, "suites": sinfo,
                     "operators": decl["twin"]["config"]["operators"], "platform": platform_tag(),
                     "wall_s": round(time.time() - t0, 1)},
     }
@@ -476,11 +562,19 @@ def main(argv: list[str] | None = None) -> int:
     (a.output_dir / "remediation-eval-rows.jsonl").write_text(
         "".join(json.dumps(finite({"suite": r["suite"], "incident_id": r["incident"]["incident_id"],
                                    "operators": r["operators"]}), sort_keys=True) + "\n" for r in rows))
-    brief = {s: {op: {k: summary[s][op][k] for k in ("n", "mean_recovery", "success_count", "mean_diagnosis_hit",
-                                                     "mean_cells_touched", "mean_total_abs_power_db",
+    brief = {s: {op: {k: summary[s][op][k] for k in ("n", "mean_percell_recovered", "mean_percell_degraded_cells",
+                                                     "mean_percell_collateral_cells", "mean_recovery",
+                                                     "success_count", "mean_diagnosis_hit", "mean_cells_touched",
+                                                     "mean_total_abs_power_db", "mean_power_above_healthy_db",
                                                      "mean_headroom_used", "mean_healthy_false_change")}
                      for op in OPERATORS} for s in summary}
+    comp = {c["name"]: {"ci_low": c["ci_low"], "threshold": c["threshold"], "passed": c["passed"],
+                        "value": c["spec"]["value"]} for c in joint["components"]}
     print(json.dumps(finite({"run_id": a.run_id, "metric": tgt["metric"], "value": value, "passed": passed,
+                             "components": comp,
+                             "replication": {s: {"passed": j["passed"],
+                                                 **{c["name"]: round(c["ci_low"], 4) for c in j["components"]}}
+                                             for s, j in replication.items()},
                              "gain": {k: gain[k] for k in ("value", "ci_low", "ci_high", "paired_n")},
                              "summary": brief, "suites": sinfo, "wall_s": result["details"]["wall_s"]}), indent=1))
     return 0

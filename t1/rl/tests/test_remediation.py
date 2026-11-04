@@ -189,24 +189,54 @@ def test_evaluate_smoke_items_and_part_e_replay(tiny_artifact, tmp_path):
     for it in items:
         ops = it["extra"]["operators"]
         assert set(ops) == set(E.OPERATORS)
-        assert it["score"] == pytest.approx(ops["v1"]["recovery"] - ops["ppo_sm_50k"]["recovery"])
+        d = it["extra"]["diff"]
+        assert it["score"] == d["percell_recovered"] == (float(ops["v1"]["percell_recovered"])
+                                                          - float(ops["ppo_sm_50k"]["percell_recovered"]))
+        assert it["passed"] is ops["v1"]["percell_recovered"]
+        assert d["network_recovery"] == pytest.approx(ops["v1"]["recovery"] - ops["ppo_sm_50k"]["recovery"])
+        assert d["diagnosis_hit"] == float(ops["v1"]["diagnosis_hit"]) - float(ops["ppo_sm_50k"]["diagnosis_hit"])
         assert all(o["replay_consistent"] for o in ops.values())
+        assert all(o["percell_version"] == "percell-v1" for o in ops.values())
         for m in E.MEASURES:
             assert all(m in o for o in ops.values())
+    decl = json.loads((ev / f"declared/{rid}.json").read_text())
+    assert decl["target"] == {"metric": "joint_ci_low_margin", "op": ">", "value": 0.0, "unit": "margin"}
+    names = [c["name"] for c in decl["twin"]["config"]["joint_target"]["components"]]
+    assert names == ["percell_recovered", "network_recovery_noninferior", "diagnosis_hit"]
+    joint = res["details"]["joint"]
+    assert [c["name"] for c in joint["components"]] == names
+    assert res["value"] == pytest.approx(min(c["ci_low"] - c["threshold"] for c in joint["components"]))
+    assert res["passed"] is (res["value"] > 0) is all(c["passed"] for c in joint["components"])
+    assert set(res["details"]["replication"]) == {"test-visible", "confirm", "dev-holdout"}
     assert res["details"]["gain"]["subset"] == {"field": "extra.suite", "equals": "test-masked"}
     assert res["details"]["gain"]["paired_n"] == 1
-    # the independent checker replays the target from the items (fake S3, no AWS)
-    aws = evfake.FakeAws(now="2026-11-04T08:00:00Z")
-    t = datetime(2026, 11, 4, 7, 0, 0, tzinfo=timezone.utc)
-    for rel in (f"declared/{rid}.json", f"records/{rid}/item.jsonl", f"results/{rid}.json"):
-        t += timedelta(seconds=1)
-        aws.s3.put("fixture-bucket", "evidence/" + rel, (ev / rel).read_bytes(), t.strftime("%Y-%m-%dT%H:%M:%SZ"))
-    ck = check_unit.Checker(rid, check_unit.S3Evidence(aws.client("s3"), "s3://fixture-bucket/evidence/"), aws, None,
-                            poll_s=0.0, now=aws.now())
-    ck.load()
-    ck.decl_time = ck.ev.time(ck.decl_rel)
-    ck.part_e()
-    assert ck.parts["e"].state == check_unit.PASS, "\n".join(ck.parts["e"].lines)
+    # the independent checker replays the joint target, component by component, from the items (fake S3)
+
+    def part_e(result_bytes: bytes):
+        aws = evfake.FakeAws(now="2026-11-04T08:00:00Z")
+        t = datetime(2026, 11, 4, 7, 0, 0, tzinfo=timezone.utc)
+        for rel in (f"declared/{rid}.json", f"records/{rid}/item.jsonl", f"results/{rid}.json"):
+            t += timedelta(seconds=1)
+            body = result_bytes if rel.startswith("results/") else (ev / rel).read_bytes()
+            aws.s3.put("fixture-bucket", "evidence/" + rel, body, t.strftime("%Y-%m-%dT%H:%M:%SZ"))
+        ck = check_unit.Checker(rid, check_unit.S3Evidence(aws.client("s3"), "s3://fixture-bucket/evidence/"), aws,
+                                None, poll_s=0.0, now=aws.now())
+        ck.load()
+        ck.decl_time = ck.ev.time(ck.decl_rel)
+        ck.part_e()
+        return ck.parts["e"]
+
+    good = part_e((ev / f"results/{rid}.json").read_bytes())
+    assert good.state == check_unit.PASS, "\n".join(good.lines)
+    assert sum("ci_low" in line for line in good.lines) >= 3
+    # a component changed after the declaration (a looser threshold) is caught
+    bad = json.loads((ev / f"results/{rid}.json").read_text())
+    bad["details"]["joint"]["components"][1]["threshold"] = -0.5
+    assert part_e(json.dumps(bad).encode()).state == check_unit.FAIL
+    # a recorded interval that does not replay is caught
+    bad = json.loads((ev / f"results/{rid}.json").read_text())
+    bad["details"]["joint"]["components"][2]["spec"]["ci_low"] += 0.01
+    assert part_e(json.dumps(bad).encode()).state == check_unit.FAIL
 
 
 def test_evaluate_refuses_limits_outside_smoke_and_big_smokes():
