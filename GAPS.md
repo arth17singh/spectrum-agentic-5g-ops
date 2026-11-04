@@ -32,6 +32,7 @@ Times are Seattle time (PST, UTC−8) with UTC in brackets. Each entry keeps a d
 | [G-022](#g-022) | Run once · session bridge, part c not checkable | The Viavi Operate rung ran once for the RL model (`t1.rl.viavi_operate-20261103T075351Z-25c0`, measure-only), through the team's signed-in browser session; no machine access to the RSG exists | Viavi rung: one 5-step measurement; no AWS window (check_unit part c cannot check); no retention figure | 3 Nov 07:54 UTC (2 Nov 23:54 PST) |
 | [G-023](#g-023) | Open · declared design | The signed evidence ledger is kept on the team laptop, not in the repo or S3, so the offline rebuild cannot be run from a clone | The offline rebuild (`make -C dashboard evidence-rebuild`) only; per-run checks do not need it (`check_unit` parts a, b, c and e; part d skips without a ledger) | 3 Nov 06:30 PST (14:30 UTC) |
 | [G-024](#g-024) | Open · confidentiality | One declaration, `t2.fl_federated.disjoint-20261103T051311Z`, is in S3 only, not in the repo, because it names a confidential service; so is the `t3.pause` result, which names the team's gateway | Repo copy of that one declaration; the run itself and its S3 declaration are unchanged | 3 Nov 06:30 PST (14:30 UTC) |
+| [G-025](#g-025) | Open · disclosure | The judged swarm ticket included the incident id, which names the fault template (e.g. `tilt+5`); the agents were told the fault type and size, not the cell | The "symptoms only" claim for `t3.swarm-live-20261103T060140Z` and its scored gain over config_revert | found 3 Nov 22:40 PST (4 Nov 06:40 UTC) |
 
 ### Watching
 
@@ -408,6 +409,17 @@ These become entries if still missing at the time shown (2 Nov, PST).
 - **Why:** confidentiality of the service, which we may not name in published files.
 - **Also S3 only:** the result of `t3.pause-20261103T055232Z` (`evidence/results/` in S3). It records the team's AgentCore Gateway identifiers, which the pre-push guard treats as kit secrets; a byte-exact copy cannot be redacted. The other 13 judged results are committed under `evidence/results/`.
 - **Who we told:** not applicable.
+
+---
+
+<a id="g-025"></a>
+## G-025 · The judged swarm ticket named the fault type
+
+- **What:** `t3/evals/swarm.py` `task_text` (since 0859bc7, 2 Nov) writes `incident=<incident_id>` into the ticket the lead agent receives. Incident ids carry the fault template, for example `inc-off-mas-4102-tilt+5`. So in the judged proposal run `t3.swarm-live-20261103T060140Z` the agents were told the fault type and its size, but not the faulted cell (the masked tier still hides which cell was changed).
+- **Unit it limits:** the swarm unit's "symptoms only" description, and how far its paired gain over config_revert (lower bound above zero, mean +0.296) reflects diagnosis from symptoms. The run, its recording and its score are unchanged; this was not measured with an opaque id.
+- **Found:** 3 Nov ~22:40 PST, while building the post-event Live Fix loop. Not found by any check before the hand-in.
+- **Fix (not applied to the judged suite):** the frozen suite's `task_text` is left as run, so the record stays reproducible. Live Fix tickets use an opaque label (first 8 hex of the sha256 of the incident id). A re-run of the swarm unit with opaque ids would measure the effect.
+- **Who we told:** not yet; recorded here.
 
 ---
 
