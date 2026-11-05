@@ -2,7 +2,7 @@
 
 Team code `team13`. Hand-in: 12:00 Seattle time, 3 Nov 2026. Primary track: the evidence chain (cross-cutting). It runs through every entry: Track 3 (agent checkpoint and swarm), Track 1 (NLM), Track 2 (one FL-service session). Track 2 ran one session on the FL service (`t2.fl_federated.disjoint-20261103T051311Z`; judged slot 9: silo C PASS, silo B MISSED). The Bridge was not attempted (G-018). What is blocked or not attempted is in [`GAPS.md`](GAPS.md). The machine-readable summary for judges is [`judging.json`](judging.json); every dataset and model output is listed in [`DATA.md`](DATA.md).
 
-**Since the event (4 Nov 2026).** Team13 were finalists. `main` at `1a23aee` is the state at the hand-in (12:00, 3 Nov); the commits after it are this README and three GAPS disclosures (G-025 to G-027). What we built after the hand-in, a live fault-and-fix loop and a remediation policy that passed its gate, is under [After the hand-in](#after-the-hand-in-4-nov); its code is on branches, not on `main`. Since 4 Nov at 18:34 PST the organisers' service control policy refuses every AWS call from the team's role (explicit deny), so we can no longer run the live test or `check_unit` against S3. Byte-exact copies of 13 of the 14 judged results are in [`evidence/results/`](evidence/results/).
+**Since the event (4 Nov 2026).** Team13 were finalists. `main` at `1a23aee` is the state at the hand-in (12:00, 3 Nov); the commits after it are this README and three GAPS disclosures (G-025 to G-027). What we built after the hand-in, a live fault-and-fix loop and a remediation policy that passed its gate, is under [After the hand-in](#after-the-hand-in-4-nov); its code is on branches, not on `main`. Since 4 Nov at 18:34 PST the organisers' service control policy refuses every service call we have tried from the team's role (explicit deny; sign-in still works), so we can no longer run the live test or `check_unit` against S3. Byte-exact copies of 13 of the 14 judged results are in [`evidence/results/`](evidence/results/).
 
 ## The problem
 
@@ -32,7 +32,7 @@ person approves a change (phone / dashboard)
  Dashboard (SPECTRUM, dashboard/): Twin, Ladder, Swarm trace, Scorecard, Evidence explorer
 ```
 
-Track 1 and Track 2. Every step is a SageMaker job with a run id and goes through the same evidence chain:
+Track 1 and Track 2. Each step is a declared run with a run id and goes through the same evidence chain; most are SageMaker jobs, the FL-service session is not (its declaration is in S3 only, [G-024](GAPS.md#g-024)):
 
 ```
  Track 1, language model:  OTel-LLM-1.7B-IT -> LoRA fine-tune (t1/sft) -> five frozen evaluation units (t1/evals: interface,
@@ -134,7 +134,7 @@ Built after judging, to make the demo's story happen live: inject a fault, let t
 
 v2 against `ppo_sm_50k`, paired over the 1,008 faults (95% intervals): every cell back to healthy +0.437 [0.405, 0.468]; network recovery +0.036 [0.013, 0.059]; diagnosis +0.709 [0.682, 0.737].
 
-**Deployed.** On 4 Nov at about 07:25 PST the tools Lambda `team13-ran-tools` switched `ran___propose` from `ppo_sm_50k` to remediation-v2, and the Gateway smoke test passed. Of the three Live Fix runs after the switch, `t3.livefix-20261104T153437Z-16bb` recovered with one approved change (every cell green, network recovery 0.995, no side effects predicted). `t3.livefix-20261104T153027Z-33d8` and `t3.livefix-20261104T154003Z-1537` ended with no proposal; we could not read why before the account was locked.
+**Deployed.** On 4 Nov at about 07:25 PST the tools Lambda `team13-ran-tools` switched `ran___propose` from `ppo_sm_50k` to remediation-v2, and the Gateway smoke test passed. Of the Live Fix runs after the switch, three reached a result: `t3.livefix-20261104T153437Z-16bb` recovered with one approved change (every cell green, network recovery 0.995, no side effects predicted). `t3.livefix-20261104T153027Z-33d8` and `t3.livefix-20261104T154003Z-1537` ended with no proposal; we could not read why before the account was locked.
 
 **Not proven yet.** The confidence score on the approval card is not calibrated: on 23 recorded proposals, graded offline on the team laptop (no AWS run record), its expected calibration error is 0.167 and its Brier score 0.179, worse than always predicting the base rate (0.113). Self-improvement has no result: lessons reach the lead agent's ticket but not `ran___propose`, so the live unit was stopped after its before phase (G-026).
 
@@ -180,7 +180,7 @@ Details are in [`scripts/hooks/README.md`](scripts/hooks/README.md).
 
 ## Clean-up
 
-Since 4 Nov at 18:34 PST (5 Nov 02:34 UTC) the organisers' service control policy refuses every AWS call from the team's role (explicit deny on S3, DynamoDB, Lambda, SageMaker and EC2). We can no longer read, stop or delete anything in the account. The last state we saw, before the lock:
+Since 4 Nov at 18:34 PST (5 Nov 02:34 UTC) the organisers' service control policy refuses every service call we have tried from the team's role: S3, DynamoDB, Lambda, SageMaker and EC2, each an explicit deny (STS still answers). So we can no longer read, stop or delete what we left in the account. The last state we saw, before the lock:
 
 - **Kept on purpose:** the team data bucket (`evidence/`, `judging/`), CloudWatch logs, the DynamoDB table `team13-approvals`, the AgentCore Gateway and its Cedar policies, and the Lambdas `team13-ran-tools` (serving remediation-v2 since 4 Nov) and `team13-trust-gate`.
 - **SageMaker endpoint `team13-otel-nlm`** (ml.g6.xlarge, about $1.13/h): kept on the team's decision (3 Nov, about 23:00 PST), not deleted.
