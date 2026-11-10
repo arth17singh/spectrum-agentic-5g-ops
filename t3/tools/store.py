@@ -25,6 +25,9 @@ from typing import Any, Protocol
 SAFE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}")
 CASE_FIELDS = ("case_id", "run_id", "scenario", "seed", "config", "action_log", "twin_kind",
                "predictions", "created_at")
+# Stored only when set, so a case without them keeps exactly the doc it had before: baseline_step is the
+# pre-incident step a baseline-aware policy compares with (app.seed_case, remediation-v2).
+OPTIONAL_CASE_FIELDS = ("baseline_step",)
 CASE_PREFIX = "t3-"
 ACTIVE_PK = "t3-active"
 TRUST_PREFIX = "t3-trust#"   # W5's trust rows in the same table (t3/trust/store.py)
@@ -57,7 +60,9 @@ def _safe(name: str) -> str:
 
 
 def _body(case: dict) -> dict:
-    return {k: case.get(k) for k in CASE_FIELDS}
+    body = {k: case.get(k) for k in CASE_FIELDS}
+    body.update({k: case[k] for k in OPTIONAL_CASE_FIELDS if case.get(k) is not None})
+    return body
 
 
 # ---------------------------------------------------------------- local files

@@ -2,12 +2,13 @@
 # Run the image locally under the Lambda runtime interface emulator (RIE, built into the base image)
 # and POST sample events to it. No AWS calls, no DynamoDB (T3_STORE=local:/tmp/t3store).
 #
-#   t3/tools/image/invoke_local.sh [--smoke] [--memory 3g] [--cpus 2] [--keep] [event.json ...]
+#   t3/tools/image/invoke_local.sh [--smoke] [--memory 3g] [--cpus 2] [--keep] [--env K=V ...] [event.json ...]
 #
 #   --smoke   override CMD with smoke.smoke_handler.handler (proves torch/gpytorch/GP/SB3 work)
 #   --memory  docker --memory limit, default 3g (Lambda gives ~1.7 vCPU per 3008 MB)
 #   --cpus    docker --cpus limit, default 2
 #   --keep    leave the container running after the events (stop it with: docker rm -f team13-ran-tools-local)
+#   --env     an extra container environment variable, repeatable (e.g. T1_POLICY_PATH=/var/task/...); never a secret
 #
 # Default events when none given: events/smoke_5.json (with --smoke) else events/tool_observe.json.
 # Host port 9000, bound to 127.0.0.1 only. The Gateway puts the tool name in
@@ -26,6 +27,7 @@ CPUS=2
 SMOKE=0
 KEEP=0
 EVENTS=()
+EXTRA_ENV=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -33,6 +35,7 @@ while [ $# -gt 0 ]; do
     --memory) MEMORY="$2"; shift ;;
     --cpus) CPUS="$2"; shift ;;
     --keep) KEEP=1 ;;
+    --env) EXTRA_ENV+=("-e" "$2"); shift ;;
     *) EVENTS+=("$1") ;;
   esac
   shift
@@ -55,6 +58,7 @@ docker run -d --name "$NAME" --platform linux/arm64 \
   -e T3_STORE=local:/tmp/t3store \
   -e T3_TOOL_NAME_FALLBACK=1 \
   -e AWS_REGION=us-east-2 -e AWS_DEFAULT_REGION=us-east-2 \
+  ${EXTRA_ENV[@]+"${EXTRA_ENV[@]}"} \
   "$IMAGE" ${CMD_ARGS[@]+"${CMD_ARGS[@]}"} >/dev/null
 
 # Wait until the RIE answers (it listens immediately; the function module loads on first invoke).

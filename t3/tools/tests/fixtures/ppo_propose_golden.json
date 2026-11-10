@@ -1,0 +1,287 @@
+{
+ "cases": [
+  {
+   "answers": [
+    {
+     "case_id": "case-golden-00s0",
+     "change": "cell=0;d_power_db=-1.4;d_tilt_deg=-0.3|cell=1;d_power_db=+4.0;d_tilt_deg=-0.2|cell=2;d_power_db=+8.0;d_tilt_deg=-2.0|cell=3;d_power_db=+1.9;d_tilt_deg=+2.2",
+     "item_id": "step-2",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-00s0"
+    },
+    {
+     "case_id": "case-golden-00s1",
+     "change": "cell=0;d_power_db=-1.6;d_tilt_deg=+0.0|cell=1;d_power_db=+3.5;d_tilt_deg=-0.4|cell=2;d_power_db=+8.0;d_tilt_deg=+0.0|cell=3;d_power_db=+1.5;d_tilt_deg=+2.0",
+     "item_id": "step-3",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-00s1"
+    }
+   ],
+   "incident_id": "inc-off-vis-4100-tilt+5",
+   "preset": "official",
+   "scenario": "nominal",
+   "seed": 4100,
+   "seeded_step": 2,
+   "start_log": [
+    [],
+    "cell=0;d_power_db=+0.0;d_tilt_deg=+5.0"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "case_id": "case-golden-01s0",
+     "change": "cell=0;d_power_db=-1.3;d_tilt_deg=-0.3|cell=1;d_power_db=+3.9;d_tilt_deg=-0.1|cell=2;d_power_db=+8.0;d_tilt_deg=-2.0|cell=3;d_power_db=+2.0;d_tilt_deg=+2.1",
+     "item_id": "step-2",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-01s0"
+    },
+    {
+     "case_id": "case-golden-01s1",
+     "change": "cell=0;d_power_db=-1.5;d_tilt_deg=+0.0|cell=1;d_power_db=+3.3;d_tilt_deg=-0.2|cell=2;d_power_db=+8.0;d_tilt_deg=+0.0|cell=3;d_power_db=+1.4;d_tilt_deg=+1.9",
+     "item_id": "step-3",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-01s1"
+    }
+   ],
+   "incident_id": "inc-off-vis-4116-power-3+tilt+3",
+   "preset": "official",
+   "scenario": "nominal",
+   "seed": 4116,
+   "seeded_step": 2,
+   "start_log": [
+    [],
+    "cell=0;d_power_db=-3.0;d_tilt_deg=+3.0"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "case_id": "case-golden-02s0",
+     "change": "cell=0;d_power_db=-1.5;d_tilt_deg=+0.5|cell=1;d_power_db=+3.4;d_tilt_deg=-1.3|cell=2;d_power_db=+6.0;d_tilt_deg=-1.4|cell=3;d_power_db=-0.4;d_tilt_deg=+1.4",
+     "item_id": "step-2",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-02s0"
+    },
+    {
+     "case_id": "case-golden-02s1",
+     "change": "cell=0;d_power_db=-1.6;d_tilt_deg=+0.8|cell=1;d_power_db=+2.6;d_tilt_deg=-0.7|cell=2;d_power_db=+0.0;d_tilt_deg=-0.6|cell=3;d_power_db=-0.6;d_tilt_deg=+1.3",
+     "item_id": "step-3",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-02s1"
+    }
+   ],
+   "incident_id": "inc-vvl-vis-4117-power-3+tilt+3",
+   "preset": "viavi-like",
+   "scenario": "viavi_stationary",
+   "seed": 4117,
+   "seeded_step": 2,
+   "start_log": [
+    [],
+    "cell=0;d_power_db=-3.0;d_tilt_deg=+3.0"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "case_id": "case-golden-03s0",
+     "change": "cell=0;d_power_db=-1.5;d_tilt_deg=-0.4|cell=1;d_power_db=+3.9;d_tilt_deg=-0.2|cell=2;d_power_db=+8.0;d_tilt_deg=-2.7|cell=3;d_power_db=+2.0;d_tilt_deg=+2.1",
+     "item_id": "step-2",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-03s0"
+    },
+    {
+     "case_id": "case-golden-03s1",
+     "change": "cell=0;d_power_db=-1.7;d_tilt_deg=+0.0|cell=1;d_power_db=+3.5;d_tilt_deg=-0.4|cell=2;d_power_db=+8.0;d_tilt_deg=-0.3|cell=3;d_power_db=+1.7;d_tilt_deg=+2.1",
+     "item_id": "step-3",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-03s1"
+    }
+   ],
+   "incident_id": "inc-off-mas-4122-power-6+tilt+5",
+   "preset": "official",
+   "scenario": "nominal",
+   "seed": 4122,
+   "seeded_step": 2,
+   "start_log": [
+    "cell=0;d_power_db=-1.0;d_tilt_deg=+3.0|cell=1;d_power_db=-2.0;d_tilt_deg=+0.0|cell=2;d_power_db=-2.0;d_tilt_deg=+1.0|cell=3;d_power_db=+1.0;d_tilt_deg=+0.0",
+    "cell=0;d_power_db=-6.0;d_tilt_deg=+5.0"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "case_id": "case-golden-04s0",
+     "change": "cell=0;d_power_db=-1.0;d_tilt_deg=-0.1|cell=1;d_power_db=+3.0;d_tilt_deg=+0.2|cell=2;d_power_db=+8.0;d_tilt_deg=-2.0|cell=3;d_power_db=+2.2;d_tilt_deg=+1.7",
+     "item_id": "step-2",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-04s0"
+    },
+    {
+     "case_id": "case-golden-04s1",
+     "change": "cell=0;d_power_db=-1.1;d_tilt_deg=+0.3|cell=1;d_power_db=+2.3;d_tilt_deg=+0.0|cell=2;d_power_db=+8.0;d_tilt_deg=+0.0|cell=3;d_power_db=+1.5;d_tilt_deg=+1.4",
+     "item_id": "step-3",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-04s1"
+    }
+   ],
+   "incident_id": "inc-off-vis-4124-two-cell:power-6|tilt+5",
+   "preset": "official",
+   "scenario": "nominal",
+   "seed": 4124,
+   "seeded_step": 2,
+   "start_log": [
+    [],
+    "cell=0;d_power_db=-6.0;d_tilt_deg=+0.0|cell=1;d_power_db=+0.0;d_tilt_deg=+5.0"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "case_id": "case-golden-05s0",
+     "change": "cell=0;d_power_db=-1.0;d_tilt_deg=+0.0|cell=1;d_power_db=+2.9;d_tilt_deg=+0.1|cell=2;d_power_db=+8.0;d_tilt_deg=+0.0|cell=3;d_power_db=+2.1;d_tilt_deg=+1.7",
+     "item_id": "step-2",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-05s0"
+    },
+    {
+     "case_id": "case-golden-05s1",
+     "change": "cell=0;d_power_db=-1.0;d_tilt_deg=+0.4|cell=1;d_power_db=+2.1;d_tilt_deg=+0.0|cell=2;d_power_db=+8.0;d_tilt_deg=+0.0|cell=3;d_power_db=+1.2;d_tilt_deg=+1.2",
+     "item_id": "step-3",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-05s1"
+    }
+   ],
+   "incident_id": "inc-off-mas-4126-two-cell:power-6|tilt+5",
+   "preset": "official",
+   "scenario": "nominal",
+   "seed": 4126,
+   "seeded_step": 2,
+   "start_log": [
+    "cell=0;d_power_db=+3.0;d_tilt_deg=-1.0|cell=1;d_power_db=-2.0;d_tilt_deg=-1.0|cell=2;d_power_db=+3.0;d_tilt_deg=-2.0|cell=3;d_power_db=-1.0;d_tilt_deg=+2.0",
+    "cell=0;d_power_db=-6.0;d_tilt_deg=+0.0|cell=1;d_power_db=+0.0;d_tilt_deg=+5.0"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "case_id": "case-golden-06s0",
+     "change": "cell=0;d_power_db=-0.9;d_tilt_deg=-0.2|cell=1;d_power_db=+3.1;d_tilt_deg=+0.1|cell=2;d_power_db=+8.0;d_tilt_deg=-2.0|cell=3;d_power_db=+2.5;d_tilt_deg=+1.9",
+     "item_id": "step-2",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-06s0"
+    },
+    {
+     "case_id": "case-golden-06s1",
+     "change": "cell=0;d_power_db=-1.0;d_tilt_deg=+0.3|cell=1;d_power_db=+2.4;d_tilt_deg=+0.0|cell=2;d_power_db=+8.0;d_tilt_deg=+0.0|cell=3;d_power_db=+1.5;d_tilt_deg=+1.3",
+     "item_id": "step-3",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-06s1"
+    }
+   ],
+   "incident_id": "inc-off-vis-4128-tilt+5",
+   "preset": "official",
+   "scenario": "nominal",
+   "seed": 4128,
+   "seeded_step": 2,
+   "start_log": [
+    [],
+    "cell=1;d_power_db=+0.0;d_tilt_deg=+5.0"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "case_id": "case-golden-07s0",
+     "change": "cell=0;d_power_db=-1.0;d_tilt_deg=+0.6|cell=1;d_power_db=+2.9;d_tilt_deg=-1.3|cell=2;d_power_db=+6.0;d_tilt_deg=-1.7|cell=3;d_power_db=+0.0;d_tilt_deg=+1.1",
+     "item_id": "step-2",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-07s0"
+    },
+    {
+     "case_id": "case-golden-07s1",
+     "change": "cell=0;d_power_db=-1.1;d_tilt_deg=+1.0|cell=1;d_power_db=+2.6;d_tilt_deg=-1.5|cell=2;d_power_db=+0.0;d_tilt_deg=-0.3|cell=3;d_power_db=-0.7;d_tilt_deg=+0.8",
+     "item_id": "step-3",
+     "note": "Pass item_id and change verbatim to ran___predict and ran___apply_change.",
+     "policy": {
+      "model_id": "t1-ppo-cco-sm",
+      "version": "50k-a09e"
+     },
+     "run_id": "adhoc-case-golden-07s1"
+    }
+   ],
+   "incident_id": "inc-vvl-vis-4129-tilt+5",
+   "preset": "viavi-like",
+   "scenario": "viavi_stationary",
+   "seed": 4129,
+   "seeded_step": 2,
+   "start_log": [
+    [],
+    "cell=1;d_power_db=+0.0;d_tilt_deg=+5.0"
+   ]
+  }
+ ],
+ "generated_at_commit": "614fc3b373de6bdb45c8f387cece49708403d988",
+ "policy": "t1/rl/artifacts/ppo_sm_50k.zip",
+ "procedure": "Generate ppo_propose_golden.json: what ran___propose answers with ppo_sm_50k on real twin states."
+}

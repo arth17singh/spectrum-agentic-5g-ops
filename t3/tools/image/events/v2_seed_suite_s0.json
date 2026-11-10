@@ -1,0 +1,1 @@
+{"_tool": "ran___seed_case", "case_id": "case-local-v2st-i00s0", "scenario": "nominal", "seed": 4122, "preset": "official", "start_action_log_json": "[\"cell=0;d_power_db=-1.0;d_tilt_deg=+3.0|cell=1;d_power_db=-2.0;d_tilt_deg=+0.0|cell=2;d_power_db=-2.0;d_tilt_deg=+1.0|cell=3;d_power_db=+1.0;d_tilt_deg=+0.0\", \"cell=0;d_power_db=-6.0;d_tilt_deg=+5.0\"]"}
