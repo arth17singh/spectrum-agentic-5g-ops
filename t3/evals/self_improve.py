@@ -366,14 +366,18 @@ def offline_backend(targets: dict[str, Any]) -> Callable[..., dict[str, tuple[li
 
 def live_backend(*, base_run_id: str, gateway: Any, ddb: Any, evlib: Any, cfg: dict[str, Any],
                  targets: dict[str, Any], model_id: str, digests: dict[str, str], timeout_s: float = 300.0,
-                 workers: int = 1, checkpoint_dir: Path | None = None, log: Callable[[str], None] = print):
+                 workers: int = 1, checkpoint_dir: Path | None = None, log: Callable[[str], None] = print,
+                 unit: str = UNIT, patch_declaration: Callable[[dict[str, Any], str], None] | None = None):
     """The governed swarm through the checkpoint (LiveSwarm.run_incident); only the ticket changes, and every
     ticket carries the opaque label (``opaque_ticket``), never the suite's incident id.
 
     Crash safety: each phase's sub-run declares before its first call and LiveSwarm writes an item record per
     case as it ends. Each incident's proposals are also checkpointed to ``checkpoint_dir`` as soon as it ends;
     a re-run with the same run id skips finished incidents and runs the rest under a fresh sub-run
-    (``<run>.<phase>.r<n>``, its own declaration) so no case id is reused."""
+    (``<run>.<phase>.r<n>``, its own declaration) so no case id is reused.
+
+    ``unit`` names each phase's sub-run (``<unit>.<phase>``); ``patch_declaration(decl, phase)`` lets another
+    unit (t3/evals/confirm.py) state its own suite in each sub-run's declaration before it is written."""
     from t3.evals.live_swarm import LiveSwarm
 
     ck_dir = Path(checkpoint_dir) if checkpoint_dir else None
@@ -415,12 +419,14 @@ def live_backend(*, base_run_id: str, gateway: Any, ddb: Any, evlib: Any, cfg: d
         decl = live.declaration([inc for _, inc in todo], digests["dev" if phase == "practice" else "test"], steps)
         if phase == "practice":
             decl["subset"] = "split=dev (practice; t3/evals/suite/incidents-dev.jsonl)"
-        decl["unit"] = f"{UNIT}.{phase}"
+        decl["unit"] = f"{unit}.{phase}"
         conf = decl.setdefault("twin", {}).setdefault("config", {})
         conf["ticket"] = TICKET
         conf["workers"] = workers
         if attempt:
             conf["resumes"] = f"{base_run_id}.{phase}" + (f".r{attempt - 1}" if attempt > 1 else "")
+        if patch_declaration is not None:
+            patch_declaration(decl, phase)
         evlib.write_declared(decl)  # each phase's cases are their own declared run, declared before any call
         if ck_path:
             ck_path.parent.mkdir(parents=True, exist_ok=True)
