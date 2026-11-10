@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { get } from '@/core/api'
 import type { Rec } from '@/core/types'
 import { AwsTime, AwsTimeSummary, Button, PageHeader, Panel, RealChip } from '@/ui'
+import { CELL_POS, hexPath } from './hex'
 import manifest from './manifest'
 
 // Swarm Tower: the live Track 3 swarm run and the Track 2 training silos, from GET /api/swarmtower (the evidence
@@ -15,14 +16,6 @@ import manifest from './manifest'
 //   recovered   from the scoring run: replaying the swarm's proposals, every graded KPI ends within tolerance of
 //               the healthy network at the grade step
 
-const SQ3 = Math.sqrt(3)
-const hexPath = (cx: number, cy: number, R: number) =>
-  [0, 60, 120, 180, 240, 300].map((d, i) => {
-    const a = (d * Math.PI) / 180
-    return `${i ? 'L' : 'M'}${(cx + R * Math.cos(a)).toFixed(1)},${(cy + R * Math.sin(a)).toFixed(1)}`
-  }).join('') + 'Z'
-// 4 cells as a compact flat-topped hex cluster: two on top, two below, offset
-const CELL_POS = [[0, 0], [1.5, SQ3 / 2], [0, SQ3], [1.5, -SQ3 / 2]] as const
 
 const sign = (v: number, d = 1) => `${v > 0 ? '+' : ''}${v.toFixed(d)}`
 const pct = (v: unknown) => (typeof v === 'number' ? `${(v * 100).toFixed(0)}%` : '—')

@@ -54,8 +54,10 @@ def served_models() -> dict[str, Any]:
     return {"predictor": {"model_id": os.environ.get("T3_PREDICTOR_ID", "t2-response-federated-disjoint"),
                           "version": os.environ.get("T3_PREDICTOR_VERSION", "v1-5fb29b2d"),
                           "artifact": "t2/artifacts/t2_response_federated_v1.npz"},
-            "policy": {"model_id": "t1-ppo-cco-sm", "version": "50k-a09e",
-                       "artifact": "t1/rl/artifacts/ppo_sm_50k.zip"},
+            # the tools Lambda's T1_POLICY_PATH; set these three when it serves another policy (remediation-v1)
+            "policy": {"model_id": os.environ.get("T3_POLICY_ID", "t1-ppo-cco-sm"),
+                       "version": os.environ.get("T3_POLICY_VERSION", "50k-a09e"),
+                       "artifact": os.environ.get("T3_POLICY_ARTIFACT", "t1/rl/artifacts/ppo_sm_50k.zip")},
             "agents": os.environ.get("T3_SWARM_MODEL_ID", DEFAULT_MODEL)}
 
 
@@ -98,7 +100,10 @@ def proposal_of(status: dict[str, Any], case_id: str) -> tuple[str, str | None]:
 
 class LiveSwarm:
     def __init__(self, *, run_id, gateway, ddb, evlib, cfg, targets, model_id=DEFAULT_MODEL, timeout_s=300.0,
-                 poll_s=5.0, sleep=time.sleep, clock=time.time, log=print, synthetic=False):
+                 poll_s=5.0, sleep=time.sleep, clock=time.time, log=print, synthetic=False, ticket=None):
+        # ticket(incident, run_id) -> str: the symptoms-only ticket (default swarm.task_text); the
+        # self-improvement unit appends verified lessons to it (t3/evals/self_improve.py)
+        self.ticket = ticket or task_text
         self.run_id, self.gw, self.ddb, self.ev, self.cfg = run_id, gateway, ddb, evlib, cfg
         self.targets, self.model_id, self.timeout_s, self.poll_s = targets, model_id, timeout_s, poll_s
         self.sleep, self.clock, self.log, self.synthetic = sleep, clock, log, synthetic
@@ -141,7 +146,7 @@ class LiveSwarm:
     def run_case(self, incident: dict[str, Any], idx: int, step: int, proposals: list[str]) -> dict[str, Any]:
         case_id = case_id_for(self.run_id, idx, step)
         log = start_log(incident, self.targets, proposals)
-        text = task_text(incident, self.run_id)
+        text = self.ticket(incident, self.run_id)
         row = {"run_id": self.run_id, "model_id": self.model_id, "incident_id": incident["incident_id"], "step": step,
                "case_id": case_id, "start_action_log": log, "task_text": text, "change_text": "",
                "approval_id": None, "refused": False, "state": None, "ok": False, "problem": None,

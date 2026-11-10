@@ -23,7 +23,7 @@ build:              ## production frontend bundle (served by the backend on :878
 	cd frontend && npx vite build
 
 demo: build         ## demo-day mode: a single process serves API + built UI on :8787; phones need the access token
-	cd backend && PYTHONPATH=. uv run uvicorn spectrum.main:app --host 0.0.0.0 --port 8787
+	cd backend && KITAPPROVALS_PHONE=1 PYTHONPATH=. uv run uvicorn spectrum.main:app --host 0.0.0.0 --port 8787
 
 evidence-rebuild:   ## offline: re-verify evidence/ (chain, signatures, file hashes) and reprint per-run results
 	cd backend && uv run python -m spectrum.evidence rebuild $(if $(DIR),--dir $(DIR),)
@@ -37,7 +37,7 @@ evidence-sync:      ## mirror S3 evidence/ into $(EVIDENCE) (read-only; new/chan
 	cd backend && AWS_PROFILE=$(AWS_PROFILE) uv run python ../../tools/evidence_sync.py --dest $(EVIDENCE) --jobs --attest $(if $(CHECK),--check,) $(foreach r,$(RUN),--run $(r)) $(if $(HANDIN),--handin $(HANDIN),)
 
 demo-real: build    ## like demo, but every screen reads the mirrored real evidence ($(EVIDENCE)) on $(HOST):$(PORT) (HOST=/PORT= to override); run evidence-sync first. Starts in ~5 s; the evidence ledger then ingests new files in the background (~1 s per 1,000; a fresh 65k mirror ~1 min, kept in $(EVIDENCE)/ledger.jsonl), so start it once before the demo to warm it
-	cd backend && SPECTRUM_EVIDENCE_DIR=$(EVIDENCE) SPECTRUM_RECORDS_ROOT=$(EVIDENCE) PYTHONPATH=. uv run uvicorn spectrum.main:app --host $(HOST) --port $(PORT)
+	cd backend && KITAPPROVALS_PHONE=$(if $(filter 0.0.0.0,$(HOST)),1,0) SPECTRUM_EVIDENCE_DIR=$(EVIDENCE) SPECTRUM_RECORDS_ROOT=$(EVIDENCE) PYTHONPATH=. uv run uvicorn spectrum.main:app --host $(HOST) --port $(PORT)
 
 gate:               ## merge gate (worktrees only, never the main checkout): tsc, oxlint, registry, build, canonical, pytest, route smoke on :8790
 	../scripts/gate.sh
