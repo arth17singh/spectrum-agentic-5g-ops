@@ -1,8 +1,10 @@
-# Trusted Data and AI Evidence Chain (cross-cutting track, every track), team13
+# Hackathon hand-in reference, team13
+
+The full record of the 3 Nov 2026 hand-in, with what changed after it. The short overview is [README.md](README.md).
 
 Team code `team13`. Hand-in: 12:00 Seattle time, 3 Nov 2026. Primary track: the evidence chain (cross-cutting). It runs through every entry: Track 3 (agent checkpoint and swarm), Track 1 (NLM), Track 2 (one FL-service session). Track 2 ran one session on the FL service (`t2.fl_federated.disjoint-20261103T051311Z`; judged slot 9: silo C PASS, silo B MISSED). The Bridge was not attempted (G-018). What is blocked or not attempted is in [`GAPS.md`](GAPS.md). The machine-readable summary for judges is [`judging.json`](judging.json); every dataset and model output is listed in [`DATA.md`](DATA.md).
 
-**Since the event (4 Nov 2026).** Team13 were finalists. `main` at `1a23aee` is the state at the hand-in (12:00, 3 Nov); the commits after it are this README and three GAPS disclosures (G-025 to G-027). What we built after the hand-in, a live fault-and-fix loop and a remediation policy that passed its gate, is under [After the hand-in](#after-the-hand-in-4-nov); its code is on branches, not on `main`. Since 4 Nov at 18:34 PST the organisers' service control policy refuses every service call we have tried from the team's role (explicit deny; sign-in still works), so we can no longer run the live test or `check_unit` against S3. Byte-exact copies of 13 of the 14 judged results are in [`evidence/results/`](evidence/results/).
+**Since the event (4 Nov 2026).** Team13 were finalists. `1a23aee` (tag `handin-2026-11-03`) is the state at the hand-in (12:00, 3 Nov). After it came three GAPS disclosures (G-025 to G-027), the post-event code and a short new README; this file is the old README, kept as the full hand-in reference. What we built after the hand-in, a live fault-and-fix loop and a remediation policy that passed its gate, is under [After the hand-in](#after-the-hand-in-4-nov); its code was merged into `main` on 9 Nov. Since 4 Nov at 18:34 PST the organisers' service control policy refuses every service call we have tried from the team's role (explicit deny; sign-in still works), so we can no longer run the live test or `check_unit` against S3. Byte-exact copies of 13 of the 14 judged results are in [`evidence/results/`](evidence/results/).
 
 ## The problem
 
@@ -100,14 +102,16 @@ How our records map to the judging deck's four units of the special track. Every
 
 ## After the hand-in (4 Nov)
 
-Built after judging, to make the demo's story happen live: inject a fault, let the agents propose a fix, approve it, and watch every cell recover. The code is on branches in this repository, not merged into `main`. The numbers below come from the team's copies of the result records, pulled before the account was locked; they can no longer be re-checked against S3.
+Built after judging, to make the demo's story happen live: inject a fault, let the agents propose a fix, approve it, and watch every cell recover. The code was merged into `main` on 9 Nov; the table says where it lives. The numbers below come from the team's copies of the result records, pulled before the account was locked; they can no longer be re-checked against S3.
 
-| Branch | What |
+| Path | What |
 |---|---|
-| `feat/live-fix` | the Live Fix screen (`/live-fix`) and its backend, the per-cell rule `t3/evals/percell.py`, the fault and attack buttons, lessons, the confidence score, and G-025 to G-027 |
-| `feat/remediation-policy`, then `feat/remediation-v2` | the remediation policy (`t1/rl/remediation/`), the frozen held-out set `heldout-v2`, the v1 and v2 artifacts and their evaluations |
-| `deploy/remediation-v2` | what the tools Lambda ran after the switch: `ran___propose` with the pre-incident baseline, and the runbook with rollback, `t3/tools/image/DEPLOY-remediation-v2.md` |
-| `feat/livefix-*`, `feat/lesson-prompts` | the parts merged into `feat/live-fix`, plus two that are not: the confirmation incident set (`feat/livefix-confirm`) and v2 agent prompts (`t3/agents/v2`, not deployed) |
+| `dashboard/frontend/src/features/livefix/`, `dashboard/backend/spectrum/slices/livefix/` | the Live Fix screen (`/live-fix`) and its backend; the phone page is `dashboard/frontend/src/features/kitphone/` |
+| `t3/evals/`: `percell.py`, `faults.py`, `attacks.py`, `lessons.py`, `confidence.py`, `calibration.py`, `self_improve.py`, `confirm.py` | per-cell grading, the fault and attack buttons, lessons, the confidence score and its calibration, the self-improvement unit, and the confirmation incident set |
+| `t1/rl/remediation/` | the remediation policy, the frozen held-out set `heldout-v2`, the v1 and v2 artifacts and their evaluations |
+| `t3/tools/image/DEPLOY-remediation-v2.md` | what the tools Lambda ran after the switch (`ran___propose` with the pre-incident baseline) and the runbook with rollback; tag `deployed-2026-11-04` |
+| `t3/agents/v2/` | v2 agent prompts: a verified lesson can become a candidate change (not deployed) |
+| `t1/sft/serve/` | deploy and inference code for the tuned NLM's SageMaker endpoint |
 
 **Live Fix.** Pick a fault in operator words and a cell, inject it on the twin, and the cells go red. The agents diagnose through the AgentCore Gateway as in the judged swarm, Cedar holds the change, and a person approves it on the same screen (PIN) or on a phone (QR code). Before approval, the card shows the side effects predicted on a preflight copy of the twin: a predicted red cell holds the change, a predicted amber cell marks it for a second reviewer (the co-signature itself is not built). After the change, the twin grades every cell against its own healthy state (rule percell-v1, which tells "not restored" apart from "newly degraded by the change"), and "ask the agents to correct" starts another round.
 
