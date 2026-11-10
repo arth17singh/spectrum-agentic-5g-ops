@@ -1,0 +1,14 @@
+{
+ "baseline": {
+  "contract": "t1/rl/remediation/README.md section 3 (v2): ran___propose replays the case's action log up to that step and passes both states with per-cell shares",
+  "step": "fault_step - 1 (the step before the last configuration step preceding the incident)"
+ },
+ "label": "remediation-v2: behaviour cloning (+ residual DAgger) of the twin-verified way back to the commissioned configuration on fresh dev-split incidents; inputs: v1's masked observation plus KPI changes against the pre-incident baseline (no configuration history); deterministic",
+ "model_id": "t1-remediation-bc-delta",
+ "obs": "masked_delta",
+ "postprocess": {
+  "deadzone_power_db": 0.5,
+  "deadzone_tilt_deg": 0.5
+ },
+ "version": "v2-c282d94"
+}

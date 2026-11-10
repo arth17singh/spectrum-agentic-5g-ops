@@ -36,6 +36,8 @@ This script verifies them as five checks:
       in details.gain: method paired-bootstrap-v1, seed, resamples, level, pair_key, score_field,
       baseline_run_id, cluster_field, subset (see CI_FIELDS), matched within 1e-9; a missing field is named
       and the part is CANNOT CHECK. An interval recorded beside a plain target is replayed the same way.
+      A joint target (metric joint_ci_low_margin, "> 0") replays every component interval declared in
+      twin.config.joint_target and recorded in details.joint, and checks the smallest margin (see JOINT_METRIC).
 
 The run's AWS window is read from platform sources only, never from our own records or our own log
 events: SageMaker Describe*Job CreationTime and end time for each job the run names (job records and the
@@ -517,6 +519,16 @@ CI_FIELDS = ("method", "seed", "resamples", "level", "pair_key", "score_field", 
              "subset", "value", "ci_low", "ci_high", "paired_n")
 CI_TOL = 1e-9
 CI_METRIC_RE = re.compile(r"(^|_)ci_(low|high)(_|$)")
+# A joint target: several paired-bootstrap lower bounds must EACH clear their own threshold. Its metric is
+# JOINT_METRIC, target {"op": ">", "value": 0}; the value is the smallest margin (ci_low - threshold) over
+# the components, so the contract's single "passed == value > 0" holds iff every component clears. The
+# components (name, score_field, subset, op ">", threshold) are declared before the run in the declaration's
+# twin.config.joint_target.components; the result records each one's full spec (CI_FIELDS) in
+# details.joint.components[*].spec. Each spec is replayed from this run's items exactly as above, except
+# that score_field may also be a dotted item path (e.g. "extra.diff.network_recovery") and there is no
+# baseline run (the items hold the differences).
+JOINT_METRIC = "joint_ci_low_margin"
+JOINT_DECLARED = ("name", "score_field", "subset", "op", "threshold")
 
 
 def dotted(obj, path: str):
@@ -1378,6 +1390,9 @@ class Checker:
             e.fail(f"declared n_items {d['n_items']}, found {len(items)} item records")
         if res.get("n_items") != len(items):
             e.fail(f"result n_items {res.get('n_items')!r}, found {len(items)} item records")
+        if target.get("metric") == JOINT_METRIC:
+            self.check_joint(res, target, d, items)
+            return
         if CI_METRIC_RE.search(str(target.get("metric"))):
             self.check_ci(res, target, d, items, is_target=True)
             return
@@ -1576,6 +1591,108 @@ class Checker:
                    f"{worst:.1e} <= {CI_TOL:g}; {target['op']} {target['value']} -> target {verdict}; results file agrees")
         else:
             e.note(f"replayed {metric} = {bound:.10g} ({how}) {target['op']} {target['value']} -> {verdict}")
+
+    def check_joint(self, res: dict, target: dict, decl: dict, items: list[dict]) -> None:
+        """Replay a JOINT_METRIC target: every declared component's interval, then the smallest margin."""
+        e = self.parts["e"]
+        if target.get("op") != ">" or target.get("value") != 0:
+            e.fail(f"a {JOINT_METRIC} target must be '> 0' (got {target.get('op')} {target.get('value')!r})")
+            return
+        twin = decl.get("twin") if isinstance(decl.get("twin"), dict) else {}
+        cfg = twin.get("config") if isinstance(twin.get("config"), dict) else {}
+        jt = cfg.get("joint_target") if isinstance(cfg.get("joint_target"), dict) else {}
+        declared = jt.get("components")
+        det = res.get("details") if isinstance(res.get("details"), dict) else {}
+        joint = det.get("joint") if isinstance(det.get("joint"), dict) else {}
+        recorded = joint.get("components")
+        if not isinstance(declared, list) or not declared:
+            e.cannot("the declaration has no twin.config.joint_target.components: the joint target's components "
+                     "cannot be checked against what was declared")
+            return
+        if not isinstance(recorded, list) or len(recorded) != len(declared):
+            e.fail(f"details.joint.components records {len(recorded) if isinstance(recorded, list) else 0} "
+                   f"component(s), the declaration {len(declared)}")
+            return
+        margins: list[float] = []
+        for k, (dc, rc) in enumerate(zip(declared, recorded)):
+            where = f"details.joint.components[{k}]"
+            if not isinstance(dc, dict) or not isinstance(rc, dict) or not isinstance(rc.get("spec"), dict):
+                e.fail(f"{where}: malformed (needs name, op, threshold and spec)")
+                return
+            spec = rc["spec"]
+            mism = [f for f in JOINT_DECLARED
+                    if (spec.get(f) if f in ("score_field", "subset") else rc.get(f)) != dc.get(f)]
+            if mism:
+                e.fail(f"{where} ({rc.get('name')!r}) differs from the declared component in {', '.join(mism)}")
+                return
+            if dc.get("op") != ">" or not _num(dc.get("threshold")):
+                e.fail(f"{where}: a joint component needs op '>' and a numeric threshold")
+                return
+            missing = [f for f in CI_FIELDS if f not in spec]
+            if missing:
+                e.cannot(f"{where}.spec does not record {', '.join(missing)}")
+                return
+            if spec["method"] != CI_METHOD or spec["pair_key"] != "item_id" or spec["baseline_run_id"] is not None:
+                e.fail(f"{where}.spec: joint components replay {CI_METHOD} on item_id with no baseline run")
+                return
+            field, sub = spec["score_field"], spec["subset"]
+            if not isinstance(field, str) or not field:
+                e.fail(f"{where}.spec.score_field must be score, passed or a dotted item path")
+                return
+            try:
+                cand = [it for it in items if sub is None or dotted(it, sub["field"]) == sub["equals"]]
+                by = {it.get("item_id"): it for it in cand}
+                ids = sorted(by)
+
+                def val(it: dict, field: str = field) -> float:
+                    v = it.get(field) if field in ("score", "passed") else dotted(it, field)
+                    if field == "passed" or isinstance(v, bool):
+                        if not isinstance(v, bool):
+                            raise ValueError(f"item {it.get('item_id')!r} has no true/false {field}")
+                        return 1.0 if v else 0.0
+                    if not _num(v):
+                        raise ValueError(f"item {it.get('item_id')!r} has no numeric {field}")
+                    return float(v)
+
+                diffs = [val(by[i]) for i in ids]
+                groups = [dotted(by[i], spec["cluster_field"]) for i in ids] if spec["cluster_field"] else ids
+            except (KeyError, ValueError, TypeError) as ex:
+                e.fail(f"{where} ({rc.get('name')!r}): cannot read the items: {ex}")
+                return
+            if not ids:
+                e.fail(f"{where} ({rc.get('name')!r}): no items in its subset")
+                return
+            try:
+                value, lo, hi, _ = paired_bootstrap_v1(diffs, groups, spec["seed"], spec["resamples"], spec["level"])
+            except ImportError:
+                e.cannot("numpy is needed to replay the bootstrap (numpy's PCG64 stream); install it and re-run")
+                return
+            except (TypeError, ValueError) as ex:
+                e.fail(f"{where}.spec: seed, resamples or level cannot be replayed: {ex}")
+                return
+            for name, got in (("value", value), ("ci_low", lo), ("ci_high", hi)):
+                if not _num(spec[name]) or abs(got - spec[name]) > CI_TOL:
+                    e.fail(f"{where}.spec.{name} {spec[name]!r} does not replay: recomputed {got!r}")
+            if spec["paired_n"] != len(ids):
+                e.fail(f"{where}.spec.paired_n {spec['paired_n']!r}, recomputed {len(ids)} pairs")
+            margin = lo - float(dc["threshold"])
+            ok = lo > float(dc["threshold"])
+            if rc.get("passed") is not ok:
+                e.fail(f"{where} ({dc['name']}) passed={rc.get('passed')!r}, replayed passed={ok}")
+            margins.append(margin)
+            e.note(f"{dc['name']}: ci_low {lo:.6g} > {dc['threshold']} -> {'PASSED' if ok else 'MISSED'} "
+                   f"({len(ids)} pairs, score_field {field}"
+                   + (f", subset {sub['field']}={sub['equals']!r}" if sub else "") + ")")
+        value = min(margins)
+        passed = value > 0
+        rv = res.get("value")
+        if not _num(rv) or abs(rv - value) > CI_TOL:
+            e.fail(f"result value {rv!r}, replayed {JOINT_METRIC} = {value!r}")
+        if res.get("passed") is not passed:
+            e.fail(f"result passed={res.get('passed')!r}, replayed passed={passed}")
+        verdict = "PASSED" if passed else "MISSED"
+        e.note(f"{JOINT_METRIC} = {value:.10g} (smallest margin of {len(margins)} replayed components) > 0 -> "
+               f"target {verdict}" + ("; results file agrees" if e.state == PASS else ""))
 
     # ----------------------------------------------------------------- run
 

@@ -1,0 +1,833 @@
+{
+ "attempts_max": 400,
+ "candidate_log": {
+  "file": "heldout-candidates-log.jsonl",
+  "sha256": "47868f1c0f657ce1c543595e474aa21766b1252881946dd3e74c3c0d8ea9e458"
+ },
+ "candidates_evaluated": 2312,
+ "candidates_kept": 1296,
+ "code_sha": "6b8e0fd804acd18e58d8d548fc19faae65499912",
+ "drops": {
+  "no_action already within tolerance at the grade step": 1016
+ },
+ "file": "heldout-v1.jsonl",
+ "frozen_at": "2026-11-04T08:21:33Z",
+ "in_job_exclusion": {
+  "clean": true,
+  "explicit_collisions": {},
+  "ranges_overlapping": []
+ },
+ "keep_rule": "t1/rl/remediation/heldout.py:v1 = t3/evals/incidents.py build v4 on the masked tier (kept iff no_action fails the tolerance at the grade step and the safety filter clipped nothing); per stratum the first 18 kept candidates in attempt order",
+ "n_incidents": 1008,
+ "n_strata": 56,
+ "n_target": 1008,
+ "note": "the twin is a float32 GP: frozen KPIs replay to 1e-6 only on the platform that froze them; evaluate this set on that platform (the runner's x86_64 CPU image)",
+ "per_stratum": [
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 8
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 20,
+   "last_chosen_attempt": 25,
+   "preset": "official",
+   "stratum": 0,
+   "template": "tilt+5"
+  },
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 45
+   },
+   "evaluated": 64,
+   "filled": true,
+   "kept": 19,
+   "last_chosen_attempt": 56,
+   "preset": "viavi-like",
+   "stratum": 1,
+   "template": "tilt+5"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 2,
+   "template": "tilt+5"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 8
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 20,
+   "last_chosen_attempt": 24,
+   "preset": "viavi-like",
+   "stratum": 3,
+   "template": "tilt+5"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 4,
+   "template": "tilt+5"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 9
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 19,
+   "last_chosen_attempt": 24,
+   "preset": "viavi-like",
+   "stratum": 5,
+   "template": "tilt+5"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 6
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 22,
+   "last_chosen_attempt": 19,
+   "preset": "official",
+   "stratum": 6,
+   "template": "tilt+5"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 57
+   },
+   "evaluated": 76,
+   "filled": true,
+   "kept": 19,
+   "last_chosen_attempt": 66,
+   "preset": "viavi-like",
+   "stratum": 7,
+   "template": "tilt+5"
+  },
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 9
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 19,
+   "last_chosen_attempt": 25,
+   "preset": "official",
+   "stratum": 8,
+   "template": "power-6"
+  },
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 58
+   },
+   "evaluated": 76,
+   "filled": true,
+   "kept": 18,
+   "last_chosen_attempt": 75,
+   "preset": "viavi-like",
+   "stratum": 9,
+   "template": "power-6"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 10,
+   "template": "power-6"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 9
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 19,
+   "last_chosen_attempt": 26,
+   "preset": "viavi-like",
+   "stratum": 11,
+   "template": "power-6"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 12,
+   "template": "power-6"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 5
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 23,
+   "last_chosen_attempt": 20,
+   "preset": "viavi-like",
+   "stratum": 13,
+   "template": "power-6"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 3
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 25,
+   "last_chosen_attempt": 19,
+   "preset": "official",
+   "stratum": 14,
+   "template": "power-6"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 42
+   },
+   "evaluated": 64,
+   "filled": true,
+   "kept": 22,
+   "last_chosen_attempt": 54,
+   "preset": "viavi-like",
+   "stratum": 15,
+   "template": "power-6"
+  },
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 22
+   },
+   "evaluated": 40,
+   "filled": true,
+   "kept": 18,
+   "last_chosen_attempt": 39,
+   "preset": "official",
+   "stratum": 16,
+   "template": "tilt+4"
+  },
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 81
+   },
+   "evaluated": 100,
+   "filled": true,
+   "kept": 19,
+   "last_chosen_attempt": 92,
+   "preset": "viavi-like",
+   "stratum": 17,
+   "template": "tilt+4"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 18,
+   "template": "tilt+4"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 5
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 23,
+   "last_chosen_attempt": 22,
+   "preset": "viavi-like",
+   "stratum": 19,
+   "template": "tilt+4"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 20,
+   "template": "tilt+4"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 10
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 18,
+   "last_chosen_attempt": 27,
+   "preset": "viavi-like",
+   "stratum": 21,
+   "template": "tilt+4"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 8
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 20,
+   "last_chosen_attempt": 25,
+   "preset": "official",
+   "stratum": 22,
+   "template": "tilt+4"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 70
+   },
+   "evaluated": 88,
+   "filled": true,
+   "kept": 18,
+   "last_chosen_attempt": 85,
+   "preset": "viavi-like",
+   "stratum": 23,
+   "template": "tilt+4"
+  },
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 69
+   },
+   "evaluated": 88,
+   "filled": true,
+   "kept": 19,
+   "last_chosen_attempt": 83,
+   "preset": "official",
+   "stratum": 24,
+   "template": "power-4"
+  },
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 106
+   },
+   "evaluated": 124,
+   "filled": true,
+   "kept": 18,
+   "last_chosen_attempt": 120,
+   "preset": "viavi-like",
+   "stratum": 25,
+   "template": "power-4"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 1
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 27,
+   "last_chosen_attempt": 18,
+   "preset": "official",
+   "stratum": 26,
+   "template": "power-4"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 5
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 23,
+   "last_chosen_attempt": 21,
+   "preset": "viavi-like",
+   "stratum": 27,
+   "template": "power-4"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 28,
+   "template": "power-4"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 6
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 22,
+   "last_chosen_attempt": 18,
+   "preset": "viavi-like",
+   "stratum": 29,
+   "template": "power-4"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 16
+   },
+   "evaluated": 40,
+   "filled": true,
+   "kept": 24,
+   "last_chosen_attempt": 28,
+   "preset": "official",
+   "stratum": 30,
+   "template": "power-4"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 56
+   },
+   "evaluated": 76,
+   "filled": true,
+   "kept": 20,
+   "last_chosen_attempt": 66,
+   "preset": "viavi-like",
+   "stratum": 31,
+   "template": "power-4"
+  },
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 5
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 23,
+   "last_chosen_attempt": 22,
+   "preset": "official",
+   "stratum": 32,
+   "template": "power-3+tilt+3"
+  },
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 91
+   },
+   "evaluated": 112,
+   "filled": true,
+   "kept": 21,
+   "last_chosen_attempt": 103,
+   "preset": "viavi-like",
+   "stratum": 33,
+   "template": "power-3+tilt+3"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 34,
+   "template": "power-3+tilt+3"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 9
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 19,
+   "last_chosen_attempt": 25,
+   "preset": "viavi-like",
+   "stratum": 35,
+   "template": "power-3+tilt+3"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 36,
+   "template": "power-3+tilt+3"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 1
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 27,
+   "last_chosen_attempt": 17,
+   "preset": "viavi-like",
+   "stratum": 37,
+   "template": "power-3+tilt+3"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 2
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 26,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 38,
+   "template": "power-3+tilt+3"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 57
+   },
+   "evaluated": 76,
+   "filled": true,
+   "kept": 19,
+   "last_chosen_attempt": 71,
+   "preset": "viavi-like",
+   "stratum": 39,
+   "template": "power-3+tilt+3"
+  },
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 40,
+   "template": "power-6+tilt+5"
+  },
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 20
+   },
+   "evaluated": 40,
+   "filled": true,
+   "kept": 20,
+   "last_chosen_attempt": 36,
+   "preset": "viavi-like",
+   "stratum": 41,
+   "template": "power-6+tilt+5"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 42,
+   "template": "power-6+tilt+5"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 19
+   },
+   "evaluated": 40,
+   "filled": true,
+   "kept": 21,
+   "last_chosen_attempt": 33,
+   "preset": "viavi-like",
+   "stratum": 43,
+   "template": "power-6+tilt+5"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 44,
+   "template": "power-6+tilt+5"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 5
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 23,
+   "last_chosen_attempt": 21,
+   "preset": "viavi-like",
+   "stratum": 45,
+   "template": "power-6+tilt+5"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 46,
+   "template": "power-6+tilt+5"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 46
+   },
+   "evaluated": 64,
+   "filled": true,
+   "kept": 18,
+   "last_chosen_attempt": 58,
+   "preset": "viavi-like",
+   "stratum": 47,
+   "template": "power-6+tilt+5"
+  },
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 48,
+   "template": "two-cell:power-6|tilt+5"
+  },
+  {
+   "base_cell": 0,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 6
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 22,
+   "last_chosen_attempt": 22,
+   "preset": "viavi-like",
+   "stratum": 49,
+   "template": "two-cell:power-6|tilt+5"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 50,
+   "template": "two-cell:power-6|tilt+5"
+  },
+  {
+   "base_cell": 1,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "viavi-like",
+   "stratum": 51,
+   "template": "two-cell:power-6|tilt+5"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {},
+   "evaluated": 28,
+   "filled": true,
+   "kept": 28,
+   "last_chosen_attempt": 17,
+   "preset": "official",
+   "stratum": 52,
+   "template": "two-cell:power-6|tilt+5"
+  },
+  {
+   "base_cell": 2,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 6
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 22,
+   "last_chosen_attempt": 22,
+   "preset": "viavi-like",
+   "stratum": 53,
+   "template": "two-cell:power-6|tilt+5"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 1
+   },
+   "evaluated": 28,
+   "filled": true,
+   "kept": 27,
+   "last_chosen_attempt": 18,
+   "preset": "official",
+   "stratum": 54,
+   "template": "two-cell:power-6|tilt+5"
+  },
+  {
+   "base_cell": 3,
+   "chosen": 18,
+   "drops": {
+    "no_action already within tolerance at the grade step": 34
+   },
+   "evaluated": 52,
+   "filled": true,
+   "kept": 18,
+   "last_chosen_attempt": 50,
+   "preset": "viavi-like",
+   "stratum": 55,
+   "template": "two-cell:power-6|tilt+5"
+  }
+ ],
+ "platform": "Linux-x86_64",
+ "python": "3.12.10",
+ "quota": 18,
+ "reservation": {
+  "exclusion_clean": true,
+  "file": "t1/rl/remediation/heldout-reservation.json",
+  "generator_input_sha256": "590bf7e9cf32762654cb45d8b7e14c8217b0585d1abba4f798d0185cfbfaf8ea",
+  "literal_scan": {
+   "files_scanned": 976,
+   "hits": [],
+   "n_hits": 0,
+   "own_files_skipped": [
+    "t1/rl/remediation/heldout.py",
+    "t1/rl/remediation/heldout-reservation.json",
+    "t1/rl/tests/test_heldout.py",
+    "t1/rl/remediation/suite/heldout-v1.jsonl",
+    "t1/rl/remediation/suite/heldout-v1-meta.json"
+   ]
+  },
+  "spec_hash_overlap": {
+   "candidates": 0,
+   "confirm": 0,
+   "dev": 0,
+   "remediation_train_candidates": 0,
+   "test": 0
+  }
+ },
+ "seed_block": [
+  2000001,
+  2022400
+ ],
+ "seeds_chosen": [
+  2000001,
+  2006746
+ ],
+ "seeds_evaluated": [
+  2000001,
+  2006914
+ ],
+ "sha256": "8e5a56ce0e23878fe3ff6058d4a3a8f7df13f69e98115aae1b764db15b9b6c0e",
+ "short_strata": [],
+ "smoke": false,
+ "split_of_chosen": {
+  "dev": 488,
+  "test": 520
+ },
+ "tier": "masked",
+ "twin_backend": "maveric-inprocess",
+ "twin_version": "ran-rl-1.2.9",
+ "version": "t1-remediation-heldout-v1",
+ "wall_s": 406.2,
+ "waves": [
+  28,
+  12
+ ],
+ "waves_run": 9
+}

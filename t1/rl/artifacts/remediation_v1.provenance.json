@@ -1,0 +1,61 @@
+{
+ "artifact": "remediation_v1.zip",
+ "base_architecture": "t1/rl/artifacts/ppo_sm_50k.zip (spaces and policy kwargs only; weights not copied)",
+ "candidates_sha256": "f43099ced3349b1714bb893382126f61c41a6071071756527894bc50aa979b8e",
+ "code_sha": "21f9696e1635c16534192f777a994cb43b477f67",
+ "data": {
+  "alarm_on_fault": 0,
+  "backend": "maveric-inprocess",
+  "by_reason": {
+   "kept": 1708,
+   "no_action already within tolerance at the grade step": 692
+  },
+  "by_role": {
+   "holdout": {
+    "candidates": 369,
+    "kept": 282,
+    "samples": 2538
+   },
+   "train": {
+    "candidates": 1790,
+    "kept": 1261,
+    "samples": 11349
+   },
+   "val": {
+    "candidates": 241,
+    "kept": 165,
+    "samples": 1485
+   }
+  },
+  "candidates": 2400,
+  "kept": 1708
+ },
+ "dataset_sha256": "a7a60a91bbcd8299dd14ecf3499cf6c43635f50271c261daf9ce516f202f1157",
+ "hyper": {
+  "batch": 256,
+  "dagger_epochs": 150,
+  "dagger_patience": 20,
+  "dagger_rounds": 2,
+  "epochs": 300,
+  "loss": "mse on the actor mean (8 dims), targets data.unit_target",
+  "lr": 0.001,
+  "patience": 30,
+  "seed": 20261104
+ },
+ "meta": {
+  "label": "remediation-v1: behaviour cloning (+DAgger) of the twin-verified way back to the commissioned configuration on fresh dev-split incidents; ppo_sm_50k's SB3 PPO actor architecture; deterministic",
+  "model_id": "t1-remediation-bc",
+  "obs": "masked",
+  "postprocess": {
+   "deadzone_power_db": 1.0,
+   "deadzone_tilt_deg": 1.0
+  },
+  "version": "v1-21f9696"
+ },
+ "n_candidates": 2400,
+ "run_id": "t1.rl.remediation-train-20261104T073837Z",
+ "sha256": "f4ffd70d9b3ddc7f7677e8aefe088f097b9385a0a37621b298510f0d1ee69a24",
+ "smoke": false,
+ "unit": "t1.rl.remediation-train",
+ "version": "v1-21f9696"
+}
