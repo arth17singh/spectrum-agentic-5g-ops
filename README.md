@@ -1,3 +1,19 @@
+> [!NOTE]
+> **About this copy.** SPECTRUM was built by Team Invences (`team13`) at the TIP × AWS **Breaking Barriers Hackathon @ FYUZ 2026** (Amazon Spheres, Seattle, 1–3 Nov 2026). The team was a **finalist among 30+ teams and 100+ participants**. The original repository is [ss7172/AWS_Hackathon](https://github.com/ss7172/AWS_Hackathon). This copy keeps its full history and is shared with the team's permission.
+>
+> **How we worked.** Satyabrat Srikumar and I (Arth Singh) built SPECTRUM as a pair on one laptop. We designed each piece together, then drove Claude Code to implement it. That is why every commit shows Satyabrat's account.
+>
+> **My part**
+> - **Architecture.** I designed the architecture and end-to-end pipeline of the self-improving multi-agent swarm that SPECTRUM is built on. It covers the lead and specialist agents, the governed tool path with human approval, the trust and evidence loop, and the learning loop (RL, federated learning and the network digital twin).
+> - **Operator console and signed audit ledger (built before the event).** The SPECTRUM operator console (FastAPI, React 19 and TypeScript) has an Ed25519-signed, SHA-256 hash-chained, Merkle-anchored evidence ledger. It is the baseline commit `5128f97`, and the team built its event evidence ledger on that code (`dashboard/backend/spectrum/evidence/`).
+> - **Pair-built during the event:**
+>   - agent orchestration (`t3/agents/`)
+>   - the serverless tool layer with exactly-once human approvals (`t3/tools/`)
+>   - the trust gate and evaluation suites (`t3/trust/`, `t3/suite/`, `t3/evals/`)
+>   - the RL, federated-learning and digital-twin work (`t1/rl/`, `silos/`, `t2/`, `twin/`)
+>
+> Every result below comes from simulated networks (digital twins), as the original README states.
+
 # Trusted Data and AI Evidence Chain (cross-cutting track, every track), team13
 
 Team code `team13`. Hand-in: 12:00 Seattle time, 3 Nov 2026. Primary track: the evidence chain (cross-cutting). It runs through every entry: Track 3 (agent checkpoint and swarm), Track 1 (NLM), Track 2 (one FL-service session). Track 2 ran one session on the FL service (`t2.fl_federated.disjoint-20261103T051311Z`; judged slot 9: silo C PASS, silo B MISSED). The Bridge was not attempted (G-018). What is blocked or not attempted is in [`GAPS.md`](GAPS.md). The machine-readable summary for judges is [`judging.json`](judging.json); every dataset and model output is listed in [`DATA.md`](DATA.md).
